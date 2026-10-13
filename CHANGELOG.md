@@ -1,6 +1,8 @@
 # Changelog
 
-## 0.8.2-beta.1 - 2026-10-13
+## 0.8.2-beta.2 - 2026-10-13
+
+- Adicionado gate estático de verificação de assets embutidos no binário de release para ambientes de CI.
 
 - As tabelas Vínculos do CNIS e Competências e remunerações agora abrem edição ao clicar nas células/linhas, com botões nomeados e acesso por teclado.
 - Ajustes de vínculos declaram empregador, início, fim, regime, indicadores e conferência; mantêm a origem e um histórico documental validado no Rust.
