@@ -1,0 +1,23 @@
+{
+  "identifier": "main-local",
+  "description": "Only the local main window can invoke narrow application commands. No filesystem, shell, opener or network plugins.",
+  "local": true,
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "allow-bootstrap",
+    "allow-save-workspace",
+    "allow-pick-import-cnis",
+    "allow-import-cnis-path",
+    "allow-run-tool",
+    "allow-run-finance",
+    "allow-calculate-case",
+    "allow-calculate-rgps",
+    "allow-export-report",
+    "allow-export-document",
+    "allow-backup-export",
+    "allow-restore-snapshot",
+    "allow-preview-report"
+  ]
+}

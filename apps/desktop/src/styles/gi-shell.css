@@ -1,0 +1,290 @@
+/* shell: topbar, workbench de 3 zonas e rails */
+
+.app {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  height: 100vh;
+  height: 100dvh;
+  background: var(--bg);
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  height: var(--topbar-h);
+  padding: 0 var(--sp-4);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface);
+  position: relative;
+  z-index: 6;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex: none;
+}
+.brand__mark {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  border: 1px solid var(--gold-line);
+  border-radius: var(--r-sm);
+  background: var(--gold-soft);
+  color: var(--gold-text);
+  font-family: var(--font-editorial);
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+}
+.brand__name {
+  font-family: var(--font-editorial);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.005em;
+  white-space: nowrap;
+  color: var(--fg);
+}
+
+.patient {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+.avatar {
+  width: 32px;
+  height: 32px;
+  flex: none;
+  border-radius: var(--r-sm);
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--gold-line);
+  background: var(--gold-soft);
+  color: var(--gold-text);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+}
+.patient__id {
+  display: grid;
+  min-width: 0;
+}
+.patient__name {
+  font-size: var(--fs-body);
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.005em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.patient__meta {
+  color: var(--fg-2);
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.topbar__end {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex: none;
+  margin-left: auto;
+}
+.topbar__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+}
+
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
+  color: var(--fg-2);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.status-chip::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--muted);
+  flex: none;
+}
+.status-chip[data-kind="live"] {
+  border-color: var(--accent-line);
+  background: var(--info-soft);
+  color: var(--info);
+}
+.status-chip[data-kind="live"]::before {
+  background: var(--info);
+}
+.status-chip[data-kind="demo"] {
+  border-color: color-mix(in srgb, var(--warning) 45%, transparent);
+  background: var(--warning-soft);
+  color: var(--warning);
+}
+.status-chip[data-kind="demo"]::before {
+  background: var(--warning);
+}
+.status-chip[data-kind="offline"] {
+  border-color: color-mix(in srgb, var(--danger) 45%, transparent);
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+.status-chip[data-kind="offline"]::before {
+  background: var(--danger);
+}
+
+.iconbtn {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex: none;
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  background: var(--surface-2);
+  color: var(--fg-2);
+  cursor: pointer;
+  transition:
+    background var(--fast) var(--ease-out),
+    border-color var(--fast) var(--ease-out),
+    color var(--fast) var(--ease-out);
+}
+.iconbtn:hover {
+  background: var(--surface-hover);
+  border-color: var(--border-strong);
+  color: var(--fg);
+}
+.iconbtn:active {
+  background: var(--surface-2);
+}
+.iconbtn--sm {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--r-sm);
+}
+.iconbtn .ic {
+  width: 18px;
+  height: 18px;
+}
+.iconbtn--sm .ic {
+  width: 16px;
+  height: 16px;
+}
+
+.offline-line {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 8px var(--sp-4);
+  border-bottom: 1px solid var(--border);
+  background: var(--warning-soft);
+  color: var(--fg);
+  font-size: var(--fs-sm);
+}
+.offline-line .ic {
+  width: 16px;
+  height: 16px;
+  color: var(--warning);
+  flex: none;
+}
+
+.workbench {
+  display: grid;
+  grid-template-columns: var(--col-context) minmax(0, 1fr) var(--col-assistant);
+  min-height: 0;
+  background: var(--bg);
+}
+.workbench.is-assistant-closed {
+  grid-template-columns: var(--col-context) minmax(0, 1fr);
+}
+
+.rail {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  background: var(--surface);
+}
+.rail--context {
+  border-right: 1px solid var(--border-subtle);
+}
+.rail--assistant {
+  border-left: 1px solid var(--border-subtle);
+}
+.rail__head {
+  flex: none;
+  padding: var(--sp-2) var(--sp-3);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface);
+}
+.rail__head--row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+}
+.rail__title {
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--muted);
+}
+.rail__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: var(--sp-3);
+}
+
+.seg {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--sp-1);
+  padding: var(--sp-1);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+}
+.seg__item {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  border-radius: var(--r-sm);
+  padding: 6px 4px;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--fg-2);
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background var(--fast) var(--ease-out),
+    color var(--fast) var(--ease-out),
+    box-shadow var(--fast) var(--ease-out);
+}
+.seg__item:hover {
+  color: var(--fg);
+}
+.seg__item.is-active {
+  background: var(--surface);
+  color: var(--fg);
+  box-shadow: var(--shadow-subtle);
+}

@@ -1,0 +1,132 @@
+/* GioMed: painel contextual legível, com controle de largura e termos clínicos. */
+.rail--context {
+  position: relative;
+}
+.rail--context .rail__head {
+  padding: 12px 14px 11px;
+}
+.rail--context .rail__head .seg {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  width: 100%;
+  gap: 4px;
+}
+.rail--context .seg__item {
+  min-width: 0;
+  padding: 8px 3px;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+.rail--context .clinical-reference-trigger {
+  margin-top: 9px;
+}
+.rail--context .rec {
+  gap: 8px;
+}
+.rail--context .rec__head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  align-items: flex-start;
+  gap: 4px 7px;
+}
+.rail--context .rec__title {
+  flex: 0 1 auto;
+  max-width: 100%;
+  min-width: 0;
+  text-align: left;
+  overflow-wrap: break-word;
+  word-break: normal;
+  hyphens: auto;
+  font-weight: 550;
+  line-height: 1.45;
+}
+.rail--context .rec__head .tag {
+  flex: none;
+  align-self: baseline;
+  font-size: 10px;
+}
+.rail--context .rec__meta {
+  display: block;
+  overflow-wrap: break-word;
+}
+.rail--context .res-list {
+  gap: 11px;
+}
+.rail--context .res-sec {
+  gap: 10px;
+}
+.rail--context .med__name,
+.rail--context .med__detail {
+  text-align: left;
+  overflow-wrap: break-word;
+}
+
+/* Separador real: resize por pointer, teclado e duplo clique para restaurar. */
+.rail--context .rail__resize {
+  position: absolute;
+  inset-block: 0;
+  right: -6px;
+  z-index: 7;
+  width: 12px;
+  touch-action: none;
+  cursor: col-resize;
+  display: grid;
+  place-items: center;
+  outline-offset: -4px;
+}
+.rail--context .rail__resize-grip {
+  height: 48px;
+  width: 3px;
+  background: var(--border-strong);
+  border-radius: 999px;
+  opacity: 0.38;
+  transition:
+    opacity var(--fast) var(--ease-out),
+    background var(--fast) var(--ease-out);
+}
+.rail--context .rail__resize:hover .rail__resize-grip,
+.rail--context .rail__resize:focus-visible .rail__resize-grip {
+  opacity: 1;
+  background: var(--accent);
+}
+.rail--context .rail__resize:focus-visible {
+  outline: 2px solid var(--focus);
+  border-radius: 6px;
+}
+
+/* Mais informações em menos espaço, sem esconder a situação de alergias. */
+.patientbar__conditions {
+  font-weight: 600;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.patientbar__alerts > .tag {
+  text-align: left;
+  white-space: nowrap;
+  min-width: 0;
+}
+@media (max-width: 860px) {
+  /* Mesma especificidade de .workbench.is-assistant-closed para vencer no mobile. */
+  .workbench,
+  .workbench.is-assistant-closed {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .rail--context .rail__resize {
+    display: none;
+  }
+  .rail--context .rail__head {
+    padding: 10px 12px;
+  }
+}
+@media (max-width: 560px) {
+  .topbar {
+    gap: var(--sp-2);
+    padding: 0 var(--sp-3);
+  }
+  .topbar .searchbtn {
+    min-width: 0;
+  }
+}

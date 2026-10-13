@@ -1,0 +1,256 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Previus RGPS fail-closed observational calculation input",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "segurado": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sexo": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "dataNascimento": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "deficiencia": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "dataReferencia": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "vinculos": {
+      "type": "array",
+      "maxItems": 2000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "inicio": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "fim": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tipo": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "regime": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "confirmado": {
+            "type": "boolean"
+          },
+          "evidencia": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "indicadores": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "origem": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "prpps": {
+            "type": "boolean"
+          },
+          "ctc_confirmada": {
+            "type": "boolean"
+          },
+          "ctc_evidencia": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "fator": {
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "competencias": {
+      "type": "array",
+      "maxItems": 2400,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "competencia": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "salario": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "moeda": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "confirmada": {
+            "type": "boolean"
+          },
+          "indicadores": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "opcoes": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "corrigirSalarios": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "descarte": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "divisorMinimo": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "referenciaCorrecao": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "teto": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "piso": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "aplicarTetoVigenteDer": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "expectativaSobrevida": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "graca": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "inicio": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "fim": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          }
+        },
+        "recolhimentosAtraso": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "regraAlvo": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "revisao": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "confirmada": {
+          "type": "boolean"
+        },
+        "evidencia": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "politica": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,63 @@
+/* responsivo desktop-first 1366–1920, funcional abaixo */
+
+@media (max-width: 1440px) {
+  :root {
+    --col-context: 284px;
+    --col-assistant: 320px;
+  }
+}
+@media (max-width: 1240px) {
+  :root {
+    --col-context: 268px;
+    --col-assistant: 300px;
+  }
+  .encounter__body {
+    padding: var(--sp-3) var(--sp-4);
+  }
+}
+@media (max-width: 1080px) {
+  .workbench {
+    grid-template-columns: var(--col-context) minmax(0, 1fr);
+  }
+  .rail--assistant {
+    position: fixed;
+    top: var(--topbar-h);
+    right: 0;
+    bottom: 0;
+    z-index: 60;
+    width: min(380px, 92vw);
+    border-left: 1px solid var(--border);
+    box-shadow: var(--shadow-elevated);
+  }
+}
+@media (max-width: 860px) {
+  .workbench {
+    grid-template-columns: minmax(0, 1fr);
+    overflow: auto;
+  }
+  .rail--context {
+    border-right: 0;
+    border-bottom: 1px solid var(--border-subtle);
+    max-height: 42vh;
+  }
+  .encounter {
+    min-height: 60vh;
+  }
+  .brand__name {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .mic.is-recording::after {
+    display: none;
+  }
+}

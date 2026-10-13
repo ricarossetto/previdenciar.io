@@ -1,0 +1,947 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Finance input invocation schema v1",
+  "description": "Stable entry point previus_core::finance::run_finance(tool,input), also routed by previus_core::run_tool. Mathematical operator parameters only; no legal tables or eligibility claims. This schema documents structure; runtime also validates bounds and semantic consistency. All examples synthetic.",
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "tool": {
+          "const": "update_values"
+        },
+        "input": {
+          "type": "object",
+          "properties": {
+            "principal_money": {
+              "$ref": "#/$defs/money"
+            },
+            "monthly_correction_percent": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/decimal"
+              },
+              "maxItems": 1200,
+              "minItems": 0
+            },
+            "interest_percent_per_month": {
+              "$ref": "#/$defs/decimal"
+            },
+            "months": {
+              "$ref": "#/$defs/periods"
+            },
+            "interest_mode": {
+              "$ref": "#/$defs/interest_mode"
+            },
+            "fees_percent": {
+              "$ref": "#/$defs/decimal"
+            },
+            "fees_fixed_amount": {
+              "$ref": "#/$defs/money"
+            },
+            "rounding": {
+              "$ref": "#/$defs/rounding"
+            },
+            "provenance": {
+              "$ref": "#/$defs/provenance"
+            }
+          },
+          "required": [
+            "principal_money",
+            "monthly_correction_percent",
+            "interest_percent_per_month",
+            "months",
+            "interest_mode",
+            "fees_percent",
+            "fees_fixed_amount",
+            "rounding",
+            "provenance"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "tool",
+        "input"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "tool": {
+          "const": "irrf_refund"
+        },
+        "input": {
+          "type": "object",
+          "properties": {
+            "rows": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "month": {
+                    "$ref": "#/$defs/month"
+                  },
+                  "taxable_amount": {
+                    "$ref": "#/$defs/money"
+                  },
+                  "withheld": {
+                    "$ref": "#/$defs/money"
+                  }
+                },
+                "required": [
+                  "month",
+                  "taxable_amount",
+                  "withheld"
+                ],
+                "additionalProperties": false
+              },
+              "maxItems": 10000,
+              "minItems": 1
+            },
+            "tax_brackets": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "lower": {
+                    "$ref": "#/$defs/money"
+                  },
+                  "upper": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/money"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "rate": {
+                    "$ref": "#/$defs/decimal"
+                  },
+                  "deduction": {
+                    "$ref": "#/$defs/money"
+                  }
+                },
+                "required": [
+                  "lower",
+                  "rate",
+                  "deduction"
+                ],
+                "additionalProperties": false
+              },
+              "maxItems": 100,
+              "minItems": 1
+            },
+            "schedule_model": {
+              "enum": [
+                "rate_minus_deduction",
+                "marginal"
+              ]
+            },
+            "rounding": {
+              "$ref": "#/$defs/rounding"
+            },
+            "provenance": {
+              "$ref": "#/$defs/provenance"
+            }
+          },
+          "required": [
+            "rows",
+            "tax_brackets",
+            "schedule_model",
+            "rounding",
+            "provenance"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "tool",
+        "input"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "tool": {
+          "const": "undue_discounts"
+        },
+        "input": {
+          "type": "object",
+          "properties": {
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "amount": {
+                    "$ref": "#/$defs/money"
+                  },
+                  "date": {
+                    "$ref": "#/$defs/date"
+                  },
+                  "correction_factors": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/$defs/decimal"
+                    },
+                    "maxItems": 1200,
+                    "minItems": 0
+                  },
+                  "months": {
+                    "$ref": "#/$defs/periods"
+                  }
+                },
+                "required": [
+                  "amount",
+                  "date",
+                  "correction_factors",
+                  "months"
+                ],
+                "additionalProperties": false
+              },
+              "maxItems": 10000,
+              "minItems": 1
+            },
+            "reference_date": {
+              "$ref": "#/$defs/date"
+            },
+            "double_refund": {
+              "type": "boolean"
+            },
+            "interest_percent_per_month": {
+              "$ref": "#/$defs/decimal"
+            },
+            "interest_mode": {
+              "$ref": "#/$defs/interest_mode"
+            },
+            "rounding": {
+              "$ref": "#/$defs/rounding"
+            },
+            "provenance": {
+              "$ref": "#/$defs/provenance"
+            }
+          },
+          "required": [
+            "items",
+            "reference_date",
+            "double_refund",
+            "interest_percent_per_month",
+            "interest_mode",
+            "rounding",
+            "provenance"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "tool",
+        "input"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "tool": {
+          "const": "financial_formula"
+        },
+        "input": {
+          "type": "object",
+          "properties": {
+            "formula": {
+              "$ref": "#/$defs/formula"
+            },
+            "rounding": {
+              "$ref": "#/$defs/rounding"
+            },
+            "provenance": {
+              "$ref": "#/$defs/provenance"
+            }
+          },
+          "required": [
+            "formula",
+            "rounding",
+            "provenance"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "tool",
+        "input"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "tool": {
+          "const": "currency_conversion"
+        },
+        "input": {
+          "type": "object",
+          "properties": {
+            "amount": {
+              "$ref": "#/$defs/money"
+            },
+            "numerator": {
+              "$ref": "#/$defs/decimal"
+            },
+            "denominator": {
+              "$ref": "#/$defs/decimal"
+            },
+            "source_unit": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "target_unit": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "rounding": {
+              "$ref": "#/$defs/rounding"
+            },
+            "provenance": {
+              "$ref": "#/$defs/provenance"
+            }
+          },
+          "required": [
+            "amount",
+            "numerator",
+            "denominator",
+            "source_unit",
+            "target_unit",
+            "rounding",
+            "provenance"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "tool",
+        "input"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "tool": {
+          "const": "benefit_adjustment"
+        },
+        "input": {
+          "type": "object",
+          "properties": {
+            "start_value": {
+              "$ref": "#/$defs/money"
+            },
+            "period_rates": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "month": {
+                    "$ref": "#/$defs/month"
+                  },
+                  "rate_percent": {
+                    "$ref": "#/$defs/decimal"
+                  }
+                },
+                "required": [
+                  "month",
+                  "rate_percent"
+                ],
+                "additionalProperties": false
+              },
+              "maxItems": 1200,
+              "minItems": 0
+            },
+            "rounding": {
+              "$ref": "#/$defs/rounding"
+            },
+            "provenance": {
+              "$ref": "#/$defs/provenance"
+            }
+          },
+          "required": [
+            "start_value",
+            "period_rates",
+            "rounding",
+            "provenance"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "tool",
+        "input"
+      ],
+      "additionalProperties": false
+    }
+  ],
+  "$defs": {
+    "money": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^-?[0-9]{1,17}(\\.[0-9]{1,2})?$"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "currency": {
+              "const": "BRL"
+            },
+            "amount": {
+              "type": "string",
+              "pattern": "^-?[0-9]{1,17}(\\.[0-9]{1,2})?$"
+            }
+          },
+          "required": [
+            "currency",
+            "amount"
+          ],
+          "additionalProperties": false
+        }
+      ],
+      "description": "Canonical decimal money, two places maximum; checked absolute cap 90000000000000.00. Conversion uses cents of explicitly declared nominal units."
+    },
+    "decimal": {
+      "type": "string",
+      "pattern": "^-?[0-9]{1,7}(\\.[0-9]{1,8})?$",
+      "description": "Exact eight-place signed decimal. Absolute value <= 1000000. No exponent, locale guessing, whitespace, plus sign or non-finite values."
+    },
+    "rounding": {
+      "enum": [
+        "half_away_from_zero",
+        "toward_zero"
+      ]
+    },
+    "provenance": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "description": "Required nonblank source declaration; no control characters; 512 UTF-8 bytes maximum."
+    },
+    "month": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$",
+      "description": "Valid year 0001..9999."
+    },
+    "date": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+      "description": "Valid ISO civil date, years 0001..9999."
+    },
+    "periods": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1200
+    },
+    "interest_mode": {
+      "enum": [
+        "simple",
+        "compound"
+      ]
+    },
+    "payment_timing": {
+      "enum": [
+        "end",
+        "beginning"
+      ]
+    },
+    "formula": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "future_value"
+            },
+            "principal_money": {
+              "$ref": "#/$defs/money"
+            },
+            "rate_percent_per_period": {
+              "$ref": "#/$defs/decimal"
+            },
+            "periods": {
+              "$ref": "#/$defs/periods"
+            }
+          },
+          "required": [
+            "operation",
+            "principal_money",
+            "rate_percent_per_period",
+            "periods"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "simple_interest"
+            },
+            "principal_money": {
+              "$ref": "#/$defs/money"
+            },
+            "rate_percent_per_period": {
+              "$ref": "#/$defs/decimal"
+            },
+            "periods": {
+              "$ref": "#/$defs/periods"
+            }
+          },
+          "required": [
+            "operation",
+            "principal_money",
+            "rate_percent_per_period",
+            "periods"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "compound_interest"
+            },
+            "principal_money": {
+              "$ref": "#/$defs/money"
+            },
+            "rate_percent_per_period": {
+              "$ref": "#/$defs/decimal"
+            },
+            "periods": {
+              "$ref": "#/$defs/periods"
+            }
+          },
+          "required": [
+            "operation",
+            "principal_money",
+            "rate_percent_per_period",
+            "periods"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "loan_schedule"
+            },
+            "principal_money": {
+              "$ref": "#/$defs/money"
+            },
+            "rate_percent_per_period": {
+              "$ref": "#/$defs/decimal"
+            },
+            "periods": {
+              "$ref": "#/$defs/periods"
+            }
+          },
+          "required": [
+            "operation",
+            "principal_money",
+            "rate_percent_per_period",
+            "periods"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "present_value"
+            },
+            "future_money": {
+              "$ref": "#/$defs/money"
+            },
+            "rate_percent_per_period": {
+              "$ref": "#/$defs/decimal"
+            },
+            "periods": {
+              "$ref": "#/$defs/periods"
+            }
+          },
+          "required": [
+            "operation",
+            "future_money",
+            "rate_percent_per_period",
+            "periods"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "discount"
+            },
+            "future_money": {
+              "$ref": "#/$defs/money"
+            },
+            "rate_percent_per_period": {
+              "$ref": "#/$defs/decimal"
+            },
+            "periods": {
+              "$ref": "#/$defs/periods"
+            }
+          },
+          "required": [
+            "operation",
+            "future_money",
+            "rate_percent_per_period",
+            "periods"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "payment"
+            },
+            "principal_money": {
+              "$ref": "#/$defs/money"
+            },
+            "rate_percent_per_period": {
+              "$ref": "#/$defs/decimal"
+            },
+            "periods": {
+              "$ref": "#/$defs/periods"
+            },
+            "payment_timing": {
+              "$ref": "#/$defs/payment_timing"
+            }
+          },
+          "required": [
+            "operation",
+            "principal_money",
+            "rate_percent_per_period",
+            "periods",
+            "payment_timing"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "annuity_present_value"
+            },
+            "payment_money": {
+              "$ref": "#/$defs/money"
+            },
+            "rate_percent_per_period": {
+              "$ref": "#/$defs/decimal"
+            },
+            "periods": {
+              "$ref": "#/$defs/periods"
+            },
+            "payment_timing": {
+              "$ref": "#/$defs/payment_timing"
+            }
+          },
+          "required": [
+            "operation",
+            "payment_money",
+            "rate_percent_per_period",
+            "periods",
+            "payment_timing"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "annuity_future_value"
+            },
+            "payment_money": {
+              "$ref": "#/$defs/money"
+            },
+            "rate_percent_per_period": {
+              "$ref": "#/$defs/decimal"
+            },
+            "periods": {
+              "$ref": "#/$defs/periods"
+            },
+            "payment_timing": {
+              "$ref": "#/$defs/payment_timing"
+            }
+          },
+          "required": [
+            "operation",
+            "payment_money",
+            "rate_percent_per_period",
+            "periods",
+            "payment_timing"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "equivalent_rate"
+            },
+            "rate_percent": {
+              "$ref": "#/$defs/decimal"
+            },
+            "source_periods": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1200
+            },
+            "target_periods": {
+              "$ref": "#/$defs/periods"
+            }
+          },
+          "required": [
+            "operation",
+            "rate_percent",
+            "source_periods",
+            "target_periods"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "const": "rate_from_values"
+            },
+            "present_money": {
+              "$ref": "#/$defs/money"
+            },
+            "future_money": {
+              "$ref": "#/$defs/money"
+            },
+            "periods": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1200
+            }
+          },
+          "required": [
+            "operation",
+            "present_money",
+            "future_money",
+            "periods"
+          ],
+          "additionalProperties": false
+        }
+      ],
+      "description": "11 operations. payment/loan_schedule/rate_from_values require periods>0; money nonnegative; rates>-100%; loan_schedule rate>=0. Exponential/annuity computations use disclosed f64 approximation with finite/overflow checks. Simple interest uses exact integer ratios."
+    }
+  },
+  "x-examples": [
+    {
+      "tool": "update_values",
+      "input": {
+        "principal_money": "1000.00",
+        "monthly_correction_percent": [
+          "1",
+          "2"
+        ],
+        "interest_percent_per_month": "1",
+        "months": 2,
+        "interest_mode": "simple",
+        "fees_percent": "10",
+        "fees_fixed_amount": "5.00",
+        "rounding": "half_away_from_zero",
+        "provenance": "synthetic_operator_parameters_v1"
+      }
+    },
+    {
+      "tool": "irrf_refund",
+      "input": {
+        "rows": [
+          {
+            "month": "2026-01",
+            "taxable_amount": "3000.00",
+            "withheld": "180.00"
+          }
+        ],
+        "tax_brackets": [
+          {
+            "lower": "0",
+            "upper": "1000",
+            "rate": "0",
+            "deduction": "0"
+          },
+          {
+            "lower": "1000",
+            "upper": "2000",
+            "rate": "10",
+            "deduction": "100"
+          },
+          {
+            "lower": "2000",
+            "upper": null,
+            "rate": "20",
+            "deduction": "300"
+          }
+        ],
+        "schedule_model": "rate_minus_deduction",
+        "rounding": "half_away_from_zero",
+        "provenance": "synthetic_tax_schedule_not_official"
+      }
+    },
+    {
+      "tool": "undue_discounts",
+      "input": {
+        "items": [
+          {
+            "amount": "100.00",
+            "date": "2026-01-01",
+            "correction_factors": [
+              "1.1",
+              "1.2"
+            ],
+            "months": 2
+          }
+        ],
+        "reference_date": "2026-03-01",
+        "double_refund": true,
+        "interest_percent_per_month": "1",
+        "interest_mode": "simple",
+        "rounding": "half_away_from_zero",
+        "provenance": "synthetic_manual_hypothesis"
+      }
+    },
+    {
+      "tool": "financial_formula",
+      "input": {
+        "formula": {
+          "operation": "payment",
+          "principal_money": "1000.00",
+          "rate_percent_per_period": "1",
+          "periods": 12,
+          "payment_timing": "end"
+        },
+        "rounding": "half_away_from_zero",
+        "provenance": "synthetic_formula_parameters"
+      }
+    },
+    {
+      "tool": "currency_conversion",
+      "input": {
+        "amount": "100.00",
+        "numerator": "2",
+        "denominator": "3",
+        "source_unit": "nominal_A",
+        "target_unit": "nominal_B",
+        "rounding": "half_away_from_zero",
+        "provenance": "synthetic_nominal_ratio_not_historical"
+      }
+    },
+    {
+      "tool": "benefit_adjustment",
+      "input": {
+        "start_value": "1000.00",
+        "period_rates": [
+          {
+            "month": "2026-01",
+            "rate_percent": "10"
+          },
+          {
+            "month": "2026-03",
+            "rate_percent": "-5"
+          }
+        ],
+        "rounding": "half_away_from_zero",
+        "provenance": "synthetic_period_rates_not_official"
+      }
+    }
+  ],
+  "x-output": {
+    "envelope_required": [
+      "status",
+      "rules_verified",
+      "rule_review_status",
+      "policy_version",
+      "tool",
+      "reference_tables_source",
+      "provenance",
+      "rounding",
+      "rounding_policy",
+      "assumptions",
+      "data",
+      "warnings",
+      "evidence_refs"
+    ],
+    "status": "experimental",
+    "rules_verified": false,
+    "reference_tables_source": "operator_input",
+    "data_fields": {
+      "update_values": [
+        "principal",
+        "principal_corrected",
+        "correction",
+        "juros",
+        "fees_base",
+        "fees_percentage_amount",
+        "fees_fixed_amount",
+        "honorarios",
+        "total",
+        "timeline"
+      ],
+      "irrf_refund": [
+        "rows",
+        "total_withheld",
+        "total_calculated_tax",
+        "total_refund_before_offset",
+        "total_due_before_offset",
+        "refund_minus_due",
+        "balance_kind",
+        "net_refund",
+        "net_additional_due"
+      ],
+      "undue_discounts": [
+        "items",
+        "original_total",
+        "refund_principal",
+        "principal_corrected",
+        "correction",
+        "juros",
+        "total",
+        "double_refund_hypothesis",
+        "statutory_claim"
+      ],
+      "currency_conversion": [
+        "source",
+        "converted",
+        "numerator",
+        "denominator"
+      ],
+      "benefit_adjustment": [
+        "start_value",
+        "end_value",
+        "adjustment_total",
+        "timeline"
+      ],
+      "financial_formula": [
+        "operation",
+        "operation-specific monetary values or eight-decimal rate; loan_schedule includes audit timeline"
+      ]
+    }
+  },
+  "x-runtime-constraints": [
+    "Input at most depth 16, 100000 visited nodes, strings 4096 bytes, array length 10000. Strict deny_unknown_fields throughout.",
+    "update_values monthly_correction_percent count == months; rate > -100%; nonnegative money, fees and interest. Fees base = corrected principal + interest. Each correction and compound-interest period rounds to cents; simple interest rounds once.",
+    "irrf_refund months unique; all money nonnegative; brackets start lower=0, contiguous [lower,upper), end upper=null or omitted, rates monotone in [0,100]. Deductions must not produce negative tax or downward boundary jump. Marginal model requires deduction=0; rate_minus_deduction computes full base * applicable rate - deduction. One user-supplied schedule for all rows; no implicit official tax source.",
+    "undue_discounts factors >0, factor count=months per item, dates <= reference_date; total correction events <=12000. Double-refund manual hypothesis before correction. No statutory claim. No inferred date-to-period conversion.",
+    "benefit_adjustment months strictly increasing, rates>-100%. No missing-month interpolation.",
+    "currency_conversion numerator>=0 denominator>0; explicit unit names. Signed money allowed, round exact rational once; no historical currency or BRL assumption for converted units.",
+    "Exponential and annuity formulas use f64 only after checked decimal/money decoding. Nonfinite/overflow/subflow returns Err. Final money max cents 9000000000000000; no fabricated zero/error swallowing.",
+    "Computed rates use the declared rounding mode at eight decimal places; all financial_formula outputs include data.operation. simple_interest uses exact checked_i128_ratios; other formula operations disclose f64_experimental."
+  ]
+}

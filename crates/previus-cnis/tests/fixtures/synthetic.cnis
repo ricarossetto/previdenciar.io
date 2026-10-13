@@ -1,0 +1,29 @@
+CNIS - Cadastro Nacional de Informações Sociais
+NIT: 111.11111.11-1 CPF: 111.111.111-11 Nome: PESSOA FICTICIA TESTE
+Data de nascimento: 01/02/1980 Nome da mãe: MAE FICTICIA TESTE
+Identificação do Filiado
+Código Emp. Origem do Vínculo
+Tipo Filiado no Vínculo Data Início Data Fim Últ. Remun. Seq. NIT
+1 12.345.678/0001-99 EMPREGADOR SINTETICO Empregado ou Agente Público 01/01/2020 31/03/2020 03/2020 111.11111.11-1
+Competência Remuneração Indicadores Competência Remuneração Indicadores
+Remunerações
+01/2020 1.000,00 02/2020 1.100,25 PREC-MENOR-MIN
+03/2020 1.200,00
+Código Emp. Origem do Vínculo
+2 98.765.432/0001-00 OUTRO EMPREGADOR FICTICIO Empregado ou Agente Público 01/02/2020 03/2020 111.11111.11-1
+Indicadores: IREM-INDPEND, PRPPS
+Competência Remuneração Indicadores
+Remunerações
+02/2020 2.000,00 PREM-EMPR 03/2020 2.100,00
+CNIS - Cadastro Nacional de Informações Sociais
+Competência Remuneração Indicadores
+Remunerações
+04/2020 2.200,00
+NB Origem do Vínculo Espécie Data Início Data Fim Seq. NIT
+3 999999999 41 - APOSENTADORIA POR IDADE INDEFERIDO 111.11111.11-1 Benefício
+Relações Previdenciárias
+Valores Consolidados por Ano Civil
+Ano Jan Fev Mar Abr
+2020 1.000,00 3.100,25 3.300,00 2.200,00
+Legenda de Indicadores
+PRPPS Vínculo de regime próprio

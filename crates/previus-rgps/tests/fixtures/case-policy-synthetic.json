@@ -1,0 +1,14 @@
+{
+  "version": "rgps-core-observational-v1",
+  "review_evidence": "synthetic-document-review-v1",
+  "manual_link_kind": "empregado",
+  "manual_currency": "BRL",
+  "native_options": {
+    "corrigirSalarios": false,
+    "descarte": false,
+    "divisorMinimo": false,
+    "aplicarTetoVigenteDer": false
+  },
+  "exclude_imported_source": false,
+  "source_exclusion_evidence": null
+}

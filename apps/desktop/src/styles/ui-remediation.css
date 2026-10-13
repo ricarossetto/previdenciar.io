@@ -1,0 +1,75 @@
+/* Accessibility repair layer. Preserve the Liquid Glass palette, silhouette and reflections. */
+html { background-color:var(--bg); }
+.previus-app { background:var(--bg); }
+
+/* A stable semantic type scale, including text inside controls. */
+.previus-app .page-head h1 { font-size:32px; }
+.previus-app h2 { font-size:20px !important; }
+.previus-app .assistant-report-center>h2 { font-size:24px !important; }
+.previus-app h3 { font-size:20px !important; }
+.previus-app .field>span { font-size:12px; }
+.previus-app .main-number { font-size:40px; }
+.previus-app :is(.mini-stat strong,.main-number) { font-variant-numeric:tabular-nums; }
+.previus-app .import-summary strong { font-size:24px; }
+.previus-app :is(button,[role="button"]) { font-size:14px; min-height:44px; }
+.previus-app :is(button,[role="button"]) :is(span,small,strong,em,b,p),
+.previus-app .data-table .btn,
+.previus-app :is(.robot-progress,.wizard-bar,.seg) button,
+.previus-app :is(.robot-progress,.wizard-bar,.seg) button span { font-size:14px; }
+
+.previus-app :is(.side-nav,.chrome-actions,.mobile-dock,.robot-progress,.wizard-bar,.seg,.report-template-list,.row-actions) { gap:8px; }
+.previus-app :is(.robot-progress,.wizard-bar) button { padding:8px; }
+.previus-app .robot-progress button span { width:24px; height:24px; flex-shrink:0; }
+.previus-app :is(.robot-progress button.active,.robot-progress button.done) { color:var(--fg); }
+.previus-app .app-side { padding-top:16px; padding-bottom:8px; }
+.previus-app .brand-link { padding-bottom:12px; }
+.previus-app .nav-group { padding-top:8px; padding-bottom:6px; }
+.previus-app .side-foot { padding-top:12px; }
+.previus-app .side-nav { padding-bottom:3px; scroll-padding-block:8px; }
+
+/* Forms and dialog text have predictable paint; blur stays outside their reading surface. */
+.previus-app .toolbar { background:var(--surface); backdrop-filter:none; }
+.previus-app .dialog { position:relative; isolation:isolate; background:var(--surface); backdrop-filter:none; }
+.previus-app :is(.dialog__head,.dialog__body) { background:var(--surface); }
+.previus-app .dialog__head { border-top-left-radius:inherit; border-top-right-radius:inherit; }
+.previus-app .dialog__body { border-bottom-left-radius:inherit; border-bottom-right-radius:inherit; }
+.previus-app .dialog-scrim { isolation:isolate; background:rgba(5,8,15,.65); backdrop-filter:none; }
+.previus-app .dialog-backdrop { position:absolute; inset:0; z-index:-1; backdrop-filter:blur(4px); pointer-events:none; }
+.previus-app .new-calculation-choice>div { flex:1; min-width:0; }
+.previus-app .new-calculation-choice .btn { max-width:100%; align-self:flex-start; }
+
+/* A visible first keyboard target, not clipped or translated off screen. */
+.previus-app .top-chrome { padding-left:108px; }
+.previus-app .skip-link,
+.previus-app .skip-link:focus { display:flex; align-items:center; justify-content:center; gap:6px; position:fixed; top:22px; left:calc(var(--lg-sidebar) + var(--lg-page-padding) + 12px); width:84px; height:44px; min-height:44px; padding:8px; clip-path:none; overflow:visible; transform:none; white-space:normal; border:1px solid var(--border); border-radius:12px; background:var(--surface-2); color:var(--fg); font-size:12px; text-decoration:none; z-index:4; }
+.previus-app .skip-link .ic { transform:rotate(90deg); flex-shrink:0; }
+.previus-app .chrome-shortcut { font-size:12px; color:var(--fg-2); background:var(--surface-2); border:1px solid var(--border); border-radius:5px; padding:3px 5px; }
+.ui-tooltip { position:fixed; z-index:10001; max-width:min(280px,calc(100vw - 16px)); padding:8px 10px; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--fg); font:12px/1.5 var(--font-ui); overflow-wrap:anywhere; pointer-events:none; box-shadow:var(--lg-shadow); }
+.ui-tooltip[hidden] { display:none; }
+
+@media(max-width:1023px) {
+  .previus-app .page-head h1 { font-size:24px; }
+  .previus-app .main-number { font-size:32px; }
+  .previus-app .top-chrome { padding-left:60px; gap:8px; }
+  .previus-app .chrome-mobile-brand { font-size:20px; }
+  .previus-app .skip-link,.previus-app .skip-link:focus { left:24px; width:44px; }
+  .previus-app .skip-link span,.previus-app .chrome-shortcut { display:none; }
+  .previus-app .mobile-dock { gap:8px; padding:8px; background:var(--surface); grid-template-columns:minmax(44px,1fr) minmax(56px,1.1fr) minmax(44px,.8fr) minmax(80px,1.5fr) minmax(56px,1.1fr); }
+  .previus-app .mobile-dock button { padding-inline:2px; }
+  .previus-app .mobile-dock span { min-width:0; max-width:100%; overflow-wrap:anywhere; }
+  .previus-app .app-content { margin-bottom:calc(104px + env(safe-area-inset-bottom)); padding-bottom:24px; }
+}
+@media(max-width:359px) { .previus-app .mobile-dock { grid-template-columns:repeat(5,minmax(44px,1fr)); } }
+@media(prefers-reduced-transparency:reduce) { .previus-app .dialog-backdrop { backdrop-filter:none; } }
+@media(forced-colors:active) { .previus-app .dialog-backdrop { backdrop-filter:none; } }
+
+/* Short feature lists make the two workflows easy to compare. */
+.previus-app .new-calculation-choice>div { display:flex; flex-direction:column; align-self:stretch; }
+.previus-app .method-features { padding-left:18px; margin:12px 0 20px; color:var(--fg-2); font-size:14px; line-height:24px; }
+.previus-app .method-features li { font-size:14px; line-height:24px; }
+.previus-app .method-features li+li { margin-top:8px; }
+.previus-app .new-calculation-choice .btn { margin-top:auto; }
+
+.previus-app .method-features { padding-right:8px; }
+
+.previus-app .method-features li { position:relative; }

@@ -1,0 +1,121 @@
+{
+  "segurado": {
+    "sexo": "feminino",
+    "dataNascimento": "1960-01-01",
+    "deficiencia": "nao"
+  },
+  "dataReferencia": "2025-01-31",
+  "vinculos": [
+    {
+      "inicio": "2024-01-01",
+      "fim": "2024-12-31",
+      "tipo": "empregado",
+      "regime": "RGPS",
+      "confirmado": true,
+      "evidencia": "synthetic-fixture/v1",
+      "indicadores": [],
+      "origem": "manual_documentado",
+      "prpps": false,
+      "ctc_confirmada": false,
+      "fator": 1
+    }
+  ],
+  "competencias": [
+    {
+      "competencia": "2024-01",
+      "salario": "2000.00",
+      "moeda": "BRL",
+      "confirmada": true,
+      "indicadores": []
+    },
+    {
+      "competencia": "2024-02",
+      "salario": "2000.00",
+      "moeda": "BRL",
+      "confirmada": true,
+      "indicadores": []
+    },
+    {
+      "competencia": "2024-03",
+      "salario": "2000.00",
+      "moeda": "BRL",
+      "confirmada": true,
+      "indicadores": []
+    },
+    {
+      "competencia": "2024-04",
+      "salario": "2000.00",
+      "moeda": "BRL",
+      "confirmada": true,
+      "indicadores": []
+    },
+    {
+      "competencia": "2024-05",
+      "salario": "2000.00",
+      "moeda": "BRL",
+      "confirmada": true,
+      "indicadores": []
+    },
+    {
+      "competencia": "2024-06",
+      "salario": "2000.00",
+      "moeda": "BRL",
+      "confirmada": true,
+      "indicadores": []
+    },
+    {
+      "competencia": "2024-07",
+      "salario": "2000.00",
+      "moeda": "BRL",
+      "confirmada": true,
+      "indicadores": []
+    },
+    {
+      "competencia": "2024-08",
+      "salario": "2000.00",
+      "moeda": "BRL",
+      "confirmada": true,
+      "indicadores": []
+    },
+    {
+      "competencia": "2024-09",
+      "salario": "2000.00",
+      "moeda": "BRL",
+      "confirmada": true,
+      "indicadores": []
+    },
+    {
+      "competencia": "2024-10",
+      "salario": "2000.00",
+      "moeda": "BRL",
+      "confirmada": true,
+      "indicadores": []
+    },
+    {
+      "competencia": "2024-11",
+      "salario": "2000.00",
+      "moeda": "BRL",
+      "confirmada": true,
+      "indicadores": []
+    },
+    {
+      "competencia": "2024-12",
+      "salario": "2000.00",
+      "moeda": "BRL",
+      "confirmada": true,
+      "indicadores": []
+    }
+  ],
+  "opcoes": {
+    "corrigirSalarios": true,
+    "descarte": false,
+    "divisorMinimo": false,
+    "aplicarTetoVigenteDer": true,
+    "referenciaCorrecao": "2025-01"
+  },
+  "revisao": {
+    "confirmada": true,
+    "evidencia": "synthetic-fixture/v1",
+    "politica": "rgps-core-observational-v1"
+  }
+}

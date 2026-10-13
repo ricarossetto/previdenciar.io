@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-calculate-case"
+description = "Enables the calculate_case command without any pre-configured scope."
+commands.allow = ["calculate_case"]
+
+[[permission]]
+identifier = "deny-calculate-case"
+description = "Denies the calculate_case command without any pre-configured scope."
+commands.deny = ["calculate_case"]

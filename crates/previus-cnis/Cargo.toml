@@ -1,0 +1,15 @@
+[package]
+name = "previus-cnis"
+version = "0.1.0"
+edition = "2021"
+description = "Local, review-first CNIS PDF importer; no benefit entitlement calculation"
+license = "MIT"
+
+[dependencies]
+pdf-extract = "=0.7.12"
+lopdf = { version = "=0.34.0", default-features = false, features = ["nom_parser"] }
+regex = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+chrono = { version = "0.4", default-features = false, features = ["std"] }
+sha2 = "0.10"

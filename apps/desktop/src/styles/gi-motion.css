@@ -1,0 +1,306 @@
+/* ============================================================================
+   ATRIUM GI / GioMed IA — motion.css  (INCREMENTO)
+   Camada ADITIVA sobre apps/web/src/styles/atrium.css.
+
+   NÃO redefine keyframes nem seletores existentes do app
+   (toastin/toastout, palettein, dialogin, tplin/tplout, panelin, summaryin,
+    theme-swap, pulse, wave-bar, spin já vivem no app). Aqui só entram os
+    movimentos que faltam + as classes utilitárias que o spec pede.
+
+   Importar DEPOIS de atrium.css (sem @layer — o app é unlayered e venceria).
+
+   Contrato:
+     · só os 5 tokens --v2-duration-* e os 3 --v2-ease-*;
+     · só transform / opacity (nenhuma propriedade de layout);
+     · nada bloqueia pointer; tudo interruptível;
+     · prefers-reduced-motion zera e libera o estado final.
+   ========================================================================== */
+
+:root {
+  /* geometria — não são tempo. Passos de composição, expostos como token. */
+  --mo-rise: 8px; /* entrada "assentada"          */
+  --mo-rise-sm: 5px; /* itens de lista / micro        */
+  --mo-dip: 4px; /* saída                          */
+  --mo-stagger: 40ms; /* passo do stagger               */
+  --mo-stagger-max: 12; /* teto de itens animados         */
+  --mo-pulse: 1.2s; /* ciclo do esqueleto de espera   */
+}
+
+/* ── keyframes novos (nome no espírito dos existentes) ───────────────────── */
+
+@keyframes mo-rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--mo-rise));
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes mo-fade-out {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translateY(calc(-1 * var(--mo-dip)));
+  }
+}
+
+@keyframes mo-stagger-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--mo-rise-sm));
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes mo-skeleton {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes mo-press {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(0.98);
+  }
+}
+
+/* ── utilidades (o código do app só acrescenta a classe no componente) ───── */
+
+/* chegada de conteúdo: nota, painel, cabeçalho de página */
+.u-enter {
+  animation: mo-rise-in var(--v2-duration-base) var(--v2-ease-standard) both;
+}
+
+/* saída de conteúdo: painel descartado, rascunho substituído */
+.u-exit {
+  animation: mo-fade-out var(--v2-duration-fast) var(--v2-ease-exit) both;
+}
+
+/* lista viva: contexto clínico, agenda, resultados da busca, mensagens do
+   assistente. 40ms/item, teto de 12 — o 13º em diante não acumula atraso. */
+.u-stagger > * {
+  opacity: 0;
+  animation: mo-stagger-in var(--v2-duration-base) var(--v2-ease-standard) both;
+  animation-delay: calc(var(--mo-i, 0) * var(--mo-stagger));
+}
+.u-stagger > :nth-child(1) {
+  --mo-i: 0;
+}
+.u-stagger > :nth-child(2) {
+  --mo-i: 1;
+}
+.u-stagger > :nth-child(3) {
+  --mo-i: 2;
+}
+.u-stagger > :nth-child(4) {
+  --mo-i: 3;
+}
+.u-stagger > :nth-child(5) {
+  --mo-i: 4;
+}
+.u-stagger > :nth-child(6) {
+  --mo-i: 5;
+}
+.u-stagger > :nth-child(7) {
+  --mo-i: 6;
+}
+.u-stagger > :nth-child(8) {
+  --mo-i: 7;
+}
+.u-stagger > :nth-child(9) {
+  --mo-i: 8;
+}
+.u-stagger > :nth-child(10) {
+  --mo-i: 9;
+}
+.u-stagger > :nth-child(11) {
+  --mo-i: 10;
+}
+.u-stagger > :nth-child(12) {
+  --mo-i: 11;
+}
+.u-stagger > :nth-child(n + 13) {
+  --mo-i: var(--mo-stagger-max);
+}
+
+/* espera: nunca um vazio parado (>300ms mostra esqueleto) */
+.u-skeleton {
+  animation: mo-skeleton var(--mo-pulse) var(--v2-ease-standard) infinite;
+}
+
+/* o controle cede sob o dedo — 150ms. Acrescentar em .btn/.iconbtn/.chip.
+   Dispara no :active (não é animação de montagem). */
+.u-press:active {
+  animation: mo-press var(--v2-duration-fast) var(--v2-ease-standard);
+}
+
+/* ── entrada de página (rota muda: o conteúdo assenta) ───────────────────── */
+/* .page__inner só monta em navegação entre páginas — sem replay em update.  */
+.page__inner {
+  animation: mo-rise-in var(--v2-duration-slow) var(--v2-ease-standard) both;
+}
+
+/* ── menu lateral: o item cede ao dedo e a luz sobe ──────────────────────── */
+/* supersét da transition do app (originais + transform).                     */
+.sidebar__item {
+  transition:
+    background var(--fast) var(--ease-out),
+    color var(--fast) var(--ease-out),
+    transform var(--fast) var(--ease-out);
+}
+@media (hover: hover) {
+  .sidebar__item:hover {
+    transform: translateX(2px);
+  }
+}
+.sidebar__item:active {
+  transform: translateX(2px) scale(0.985);
+}
+.sidebar__item .ic {
+  transition: transform var(--fast) var(--ease-out);
+}
+@media (hover: hover) {
+  .sidebar__item:hover .ic {
+    transform: scale(1.08);
+  }
+}
+.sidebar__item.is-active .ic {
+  transform: scale(1.04);
+}
+.sidebar__toggle {
+  transition: transform var(--base) var(--ease-out);
+}
+@media (hover: hover) {
+  .sidebar__toggle:hover {
+    transform: translateX(-1px);
+  }
+}
+.sidebar__mark--btn svg {
+  transition: transform var(--fast) var(--ease-out);
+}
+@media (hover: hover) {
+  .sidebar__mark--btn:hover svg {
+    transform: scale(1.07);
+  }
+}
+.sidebar__mark--btn:active svg {
+  transform: scale(0.95);
+}
+
+/* ── press global: todo controle cede — supersét do .btn do app ──────────── */
+.btn {
+  transition:
+    background var(--fast) var(--ease-out),
+    border-color var(--fast) var(--ease-out),
+    color var(--fast) var(--ease-out),
+    opacity var(--fast) var(--ease-out),
+    box-shadow var(--fast) var(--ease-out),
+    transform var(--fast) var(--ease-out);
+}
+.btn:active {
+  transform: translateY(1px) scale(0.99);
+}
+.iconbtn {
+  transition:
+    background var(--fast) var(--ease-out),
+    box-shadow var(--fast) var(--ease-out),
+    transform var(--fast) var(--ease-out);
+}
+.iconbtn:active {
+  transform: scale(0.94);
+}
+
+/* assistente: cada mensagem entra na montagem — sem delay por posição
+   (não atrasa mensagem nova em chat longo) nem replay durante streaming.    */
+.msg {
+  animation: mo-rise-in var(--v2-duration-base) var(--v2-ease-standard) both;
+}
+
+/* ── ganchos por estado (componentes reais) ──────────────────────────────── */
+
+/* diálogo destrutivo pesa mais que o comum (dialogin já existe no app:
+   base/ease-out). Aqui só a variante de perigo troca para slow/emphasized. */
+.dialog[data-kind="danger"] {
+  animation: dialogin var(--v2-duration-slow) var(--v2-ease-emphasized);
+}
+
+/* cartão de métrica clicável (Home): movimento de "luz", não de pulo.
+   box-shadow é a única exceção fora de transform/opacity — paint, sem layout.
+   Sombra sempre uma das 4 registradas (--shadow-elevated). */
+.stat.is-clickable {
+  transition:
+    border-color var(--fast) var(--ease-out),
+    transform var(--fast) var(--ease-out),
+    box-shadow var(--fast) var(--ease-out);
+}
+@media (hover: hover) {
+  .stat.is-clickable:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-elevated);
+  }
+}
+
+/* paleta de busca: resultados entram em stagger já no app? não. Aqui a
+   classe é opcional — o componente recebe .u-stagger no container de
+   resultados; o fechamento reusa .u-exit. */
+
+/* ── reduced motion: desliga e libera o estado final ─────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .u-enter,
+  .u-exit,
+  .u-stagger > *,
+  .u-skeleton,
+  .u-press,
+  .u-press:active,
+  .page__inner,
+  .stat.is-clickable,
+  .sidebar__item,
+  .sidebar__item .ic,
+  .sidebar__toggle,
+  .sidebar__mark--btn svg,
+  .btn,
+  .iconbtn,
+  .msg {
+    animation: none !important;
+    transition: none !important;
+  }
+  .u-stagger > *,
+  .u-enter,
+  .page__inner,
+  .msg,
+  .u-skeleton {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  .stat.is-clickable:hover,
+  .sidebar__item:hover,
+  .sidebar__item:hover .ic,
+  .sidebar__item:active,
+  .sidebar__toggle:hover,
+  .sidebar__mark--btn:hover svg,
+  .sidebar__mark--btn:active svg,
+  .btn:active,
+  .iconbtn:active {
+    transform: none !important;
+  }
+  .dialog[data-kind="danger"] {
+    animation: none !important;
+  }
+}

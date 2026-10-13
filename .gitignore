@@ -1,0 +1,48 @@
+# Dependencies and builds
+/target/
+**/target/
+**/node_modules/
+**/dist/
+/dist/
+**/.vite/
+**/gen/
+*.tsbuildinfo
+# Local evidence, test captures and private work
+**/verification/
+**/test-results/
+**/playwright-report/
+/local-only/
+/private/
+/output/
+.env
+.env.*
+!.env.example
+*.private.json
+*.log
+*.dump
+*.exit
+# Never commit source-client files or encrypted workspaces
+*.pdf
+*.pvr
+*.pvr.*
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+*.bak
+*.fic
+*.ndx
+*.mmo
+*.wdd
+*.wdl
+# Release artifacts belong in GitHub Releases, not Git history
+*.exe
+*.dll
+*.zip
+*.7z
+*.tar
+*.tgz
+*.msi
+*.pdb
+.DS_Store
+Thumbs.db

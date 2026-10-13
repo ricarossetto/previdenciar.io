@@ -1,0 +1,104 @@
+{
+  "schema_version": "1.0",
+  "policy": "Observed product behavior, not normative or mathematical proof. Synthetic inputs only.",
+  "tests": [
+    {
+      "id": "TEST-02",
+      "feature": "Insured status / facultative",
+      "kind": "synthetic_calculator",
+      "status": "observed_pass",
+      "input": {
+        "contribution_state": "stopped",
+        "current_benefit": false,
+        "reason": "facultative",
+        "last_contribution": "2026-10-10"
+      },
+      "output": {
+        "grace_months": 6,
+        "last_grace_month": "2027-04",
+        "payment_deadline": "2027-06-15",
+        "loss_date": "2027-06-16"
+      },
+      "evidence": [
+        "UI-027",
+        "UI-028",
+        "UI-029",
+        "UI-030"
+      ],
+      "scope": "Behavioral observation only, no normative validation."
+    },
+    {
+      "id": "TEST-03",
+      "feature": "Insured status / leap date",
+      "kind": "synthetic_calculator",
+      "status": "observed_pass",
+      "input": {
+        "contribution_state": "stopped",
+        "current_benefit": false,
+        "reason": "facultative",
+        "last_contribution": "2024-02-29"
+      },
+      "output": {
+        "grace_months": 6,
+        "last_grace_month": "2024-08",
+        "payment_deadline": "2024-10-15",
+        "loss_date": "2024-10-16"
+      },
+      "evidence": [
+        "UI-032",
+        "UI-033"
+      ],
+      "scope": "Behavioral observation only, not all grace-period branches covered."
+    },
+    {
+      "id": "TEST-04",
+      "feature": "Date interval",
+      "kind": "synthetic_calculator",
+      "status": "observed_pass",
+      "input": {
+        "start": "2026-10-10",
+        "end": "2026-10-10"
+      },
+      "output": {
+        "calendar_days": 1,
+        "display": "1 dia / Total de dias corridos: 1"
+      },
+      "evidence": [
+        "UI-045",
+        "UI-047"
+      ],
+      "scope": "Inclusive counting established only for this same-day example."
+    },
+    {
+      "id": "TEST-05",
+      "feature": "Pension accumulation",
+      "kind": "synthetic_calculator",
+      "status": "observed_pass",
+      "input": {
+        "date": "2026-10-10",
+        "pension": "5000.00",
+        "second_income": "6000.00",
+        "third_income": "0.00",
+        "fourth_income": "0.00"
+      },
+      "output": {
+        "unreduced_income": "6000.00",
+        "reduced_pension": "3269.40",
+        "reduced_pension_percent": "65.39",
+        "displayed_reference_base": "1621.00",
+        "bands": [
+          "1621.00",
+          "972.60",
+          "648.40",
+          "27.40",
+          "0.00"
+        ]
+      },
+      "evidence": [
+        "UI-071",
+        "UI-074"
+      ],
+      "scope": "Result confirmed by UIA; OCR can confuse numeric digits. Displayed base is an app input, not a verified economic indicator."
+    }
+  ]
+}

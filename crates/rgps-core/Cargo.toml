@@ -1,0 +1,12 @@
+[package]
+name = "rgps-core"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Owned RGPS observational engine; standalone adaptation with provenance"
+
+[dependencies]
+rust_decimal = { version = "=1.43.0", features = ["serde"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "=2.0.21"

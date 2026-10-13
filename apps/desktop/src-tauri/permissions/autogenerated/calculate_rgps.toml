@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-calculate-rgps"
+description = "Enables the calculate_rgps command without any pre-configured scope."
+commands.allow = ["calculate_rgps"]
+
+[[permission]]
+identifier = "deny-calculate-rgps"
+description = "Denies the calculate_rgps command without any pre-configured scope."
+commands.deny = ["calculate_rgps"]

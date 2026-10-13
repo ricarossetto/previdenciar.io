@@ -1,0 +1,30 @@
+[package]
+name = "previus-next-desktop"
+version = "0.8.0"
+edition = "2021"
+description = "previdenciar.io — desktop local, privado e orientado à revisão"
+license = "MIT"
+
+# The parent workspace owns membership and lock resolution.
+
+[build-dependencies]
+tauri-build = { version = "=2.7.1", features = [] }
+
+[dependencies]
+base64 = "=0.21.7"
+tauri = { version = "=2.12.2", features = [] }
+rfd = "=0.15.4"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+previus-workspace = { path = "../../../crates/previus-workspace" }
+previus-cnis = { path = "../../../crates/previus-cnis" }
+previus-core = { path = "../../../crates/previus-core" }
+previus-rgps = { path = "../../../crates/previus-rgps" }
+previus-reports = { path = "../../../crates/previus-reports" }
+
+[features]
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]
+
+
+

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-run-finance"
+description = "Enables the run_finance command without any pre-configured scope."
+commands.allow = ["run_finance"]
+
+[[permission]]
+identifier = "deny-run-finance"
+description = "Denies the run_finance command without any pre-configured scope."
+commands.deny = ["run_finance"]

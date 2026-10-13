@@ -1,0 +1,2126 @@
+{
+  "id": 1,
+  "name": "Cenário sintético",
+  "kind": "RGPS",
+  "identity": {
+    "birth_date": "1960-01-01"
+  },
+  "sex": "feminino",
+  "disability": "nao",
+  "dib": "2025-01-31",
+  "manual_links": [
+    {
+      "id": 1,
+      "start_date": "1994-07-01",
+      "end_date": "2019-06-30",
+      "regime": "RGPS",
+      "indicators": "",
+      "confirmed": true
+    }
+  ],
+  "manual_salaries": [
+    {
+      "id": 2,
+      "competence": "1994-07",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 3,
+      "competence": "1994-08",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 4,
+      "competence": "1994-09",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 5,
+      "competence": "1994-10",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 6,
+      "competence": "1994-11",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 7,
+      "competence": "1994-12",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 8,
+      "competence": "1995-01",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 9,
+      "competence": "1995-02",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 10,
+      "competence": "1995-03",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 11,
+      "competence": "1995-04",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 12,
+      "competence": "1995-05",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 13,
+      "competence": "1995-06",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 14,
+      "competence": "1995-07",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 15,
+      "competence": "1995-08",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 16,
+      "competence": "1995-09",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 17,
+      "competence": "1995-10",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 18,
+      "competence": "1995-11",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 19,
+      "competence": "1995-12",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 20,
+      "competence": "1996-01",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 21,
+      "competence": "1996-02",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 22,
+      "competence": "1996-03",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 23,
+      "competence": "1996-04",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 24,
+      "competence": "1996-05",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 25,
+      "competence": "1996-06",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 26,
+      "competence": "1996-07",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 27,
+      "competence": "1996-08",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 28,
+      "competence": "1996-09",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 29,
+      "competence": "1996-10",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 30,
+      "competence": "1996-11",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 31,
+      "competence": "1996-12",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 32,
+      "competence": "1997-01",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 33,
+      "competence": "1997-02",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 34,
+      "competence": "1997-03",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 35,
+      "competence": "1997-04",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 36,
+      "competence": "1997-05",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 37,
+      "competence": "1997-06",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 38,
+      "competence": "1997-07",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 39,
+      "competence": "1997-08",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 40,
+      "competence": "1997-09",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 41,
+      "competence": "1997-10",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 42,
+      "competence": "1997-11",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 43,
+      "competence": "1997-12",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 44,
+      "competence": "1998-01",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 45,
+      "competence": "1998-02",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 46,
+      "competence": "1998-03",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 47,
+      "competence": "1998-04",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 48,
+      "competence": "1998-05",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 49,
+      "competence": "1998-06",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 50,
+      "competence": "1998-07",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 51,
+      "competence": "1998-08",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 52,
+      "competence": "1998-09",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 53,
+      "competence": "1998-10",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 54,
+      "competence": "1998-11",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 55,
+      "competence": "1998-12",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 56,
+      "competence": "1999-01",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 57,
+      "competence": "1999-02",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 58,
+      "competence": "1999-03",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 59,
+      "competence": "1999-04",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 60,
+      "competence": "1999-05",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 61,
+      "competence": "1999-06",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 62,
+      "competence": "1999-07",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 63,
+      "competence": "1999-08",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 64,
+      "competence": "1999-09",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 65,
+      "competence": "1999-10",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 66,
+      "competence": "1999-11",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 67,
+      "competence": "1999-12",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 68,
+      "competence": "2000-01",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 69,
+      "competence": "2000-02",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 70,
+      "competence": "2000-03",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 71,
+      "competence": "2000-04",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 72,
+      "competence": "2000-05",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 73,
+      "competence": "2000-06",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 74,
+      "competence": "2000-07",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 75,
+      "competence": "2000-08",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 76,
+      "competence": "2000-09",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 77,
+      "competence": "2000-10",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 78,
+      "competence": "2000-11",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 79,
+      "competence": "2000-12",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 80,
+      "competence": "2001-01",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 81,
+      "competence": "2001-02",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 82,
+      "competence": "2001-03",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 83,
+      "competence": "2001-04",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 84,
+      "competence": "2001-05",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 85,
+      "competence": "2001-06",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 86,
+      "competence": "2001-07",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 87,
+      "competence": "2001-08",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 88,
+      "competence": "2001-09",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 89,
+      "competence": "2001-10",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 90,
+      "competence": "2001-11",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 91,
+      "competence": "2001-12",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 92,
+      "competence": "2002-01",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 93,
+      "competence": "2002-02",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 94,
+      "competence": "2002-03",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 95,
+      "competence": "2002-04",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 96,
+      "competence": "2002-05",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 97,
+      "competence": "2002-06",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 98,
+      "competence": "2002-07",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 99,
+      "competence": "2002-08",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 100,
+      "competence": "2002-09",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 101,
+      "competence": "2002-10",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 102,
+      "competence": "2002-11",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 103,
+      "competence": "2002-12",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 104,
+      "competence": "2003-01",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 105,
+      "competence": "2003-02",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 106,
+      "competence": "2003-03",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 107,
+      "competence": "2003-04",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 108,
+      "competence": "2003-05",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 109,
+      "competence": "2003-06",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 110,
+      "competence": "2003-07",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 111,
+      "competence": "2003-08",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 112,
+      "competence": "2003-09",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 113,
+      "competence": "2003-10",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 114,
+      "competence": "2003-11",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 115,
+      "competence": "2003-12",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 116,
+      "competence": "2004-01",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 117,
+      "competence": "2004-02",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 118,
+      "competence": "2004-03",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 119,
+      "competence": "2004-04",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 120,
+      "competence": "2004-05",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 121,
+      "competence": "2004-06",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 122,
+      "competence": "2004-07",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 123,
+      "competence": "2004-08",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 124,
+      "competence": "2004-09",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 125,
+      "competence": "2004-10",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 126,
+      "competence": "2004-11",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 127,
+      "competence": "2004-12",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 128,
+      "competence": "2005-01",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 129,
+      "competence": "2005-02",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 130,
+      "competence": "2005-03",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 131,
+      "competence": "2005-04",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 132,
+      "competence": "2005-05",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 133,
+      "competence": "2005-06",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 134,
+      "competence": "2005-07",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 135,
+      "competence": "2005-08",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 136,
+      "competence": "2005-09",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 137,
+      "competence": "2005-10",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 138,
+      "competence": "2005-11",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 139,
+      "competence": "2005-12",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 140,
+      "competence": "2006-01",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 141,
+      "competence": "2006-02",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 142,
+      "competence": "2006-03",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 143,
+      "competence": "2006-04",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 144,
+      "competence": "2006-05",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 145,
+      "competence": "2006-06",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 146,
+      "competence": "2006-07",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 147,
+      "competence": "2006-08",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 148,
+      "competence": "2006-09",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 149,
+      "competence": "2006-10",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 150,
+      "competence": "2006-11",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 151,
+      "competence": "2006-12",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 152,
+      "competence": "2007-01",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 153,
+      "competence": "2007-02",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 154,
+      "competence": "2007-03",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 155,
+      "competence": "2007-04",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 156,
+      "competence": "2007-05",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 157,
+      "competence": "2007-06",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 158,
+      "competence": "2007-07",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 159,
+      "competence": "2007-08",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 160,
+      "competence": "2007-09",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 161,
+      "competence": "2007-10",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 162,
+      "competence": "2007-11",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 163,
+      "competence": "2007-12",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 164,
+      "competence": "2008-01",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 165,
+      "competence": "2008-02",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 166,
+      "competence": "2008-03",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 167,
+      "competence": "2008-04",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 168,
+      "competence": "2008-05",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 169,
+      "competence": "2008-06",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 170,
+      "competence": "2008-07",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 171,
+      "competence": "2008-08",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 172,
+      "competence": "2008-09",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 173,
+      "competence": "2008-10",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 174,
+      "competence": "2008-11",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 175,
+      "competence": "2008-12",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 176,
+      "competence": "2009-01",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 177,
+      "competence": "2009-02",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 178,
+      "competence": "2009-03",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 179,
+      "competence": "2009-04",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 180,
+      "competence": "2009-05",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 181,
+      "competence": "2009-06",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 182,
+      "competence": "2009-07",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 183,
+      "competence": "2009-08",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 184,
+      "competence": "2009-09",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 185,
+      "competence": "2009-10",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 186,
+      "competence": "2009-11",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 187,
+      "competence": "2009-12",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 188,
+      "competence": "2010-01",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 189,
+      "competence": "2010-02",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 190,
+      "competence": "2010-03",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 191,
+      "competence": "2010-04",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 192,
+      "competence": "2010-05",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 193,
+      "competence": "2010-06",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 194,
+      "competence": "2010-07",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 195,
+      "competence": "2010-08",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 196,
+      "competence": "2010-09",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 197,
+      "competence": "2010-10",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 198,
+      "competence": "2010-11",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 199,
+      "competence": "2010-12",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 200,
+      "competence": "2011-01",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 201,
+      "competence": "2011-02",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 202,
+      "competence": "2011-03",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 203,
+      "competence": "2011-04",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 204,
+      "competence": "2011-05",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 205,
+      "competence": "2011-06",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 206,
+      "competence": "2011-07",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 207,
+      "competence": "2011-08",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 208,
+      "competence": "2011-09",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 209,
+      "competence": "2011-10",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 210,
+      "competence": "2011-11",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 211,
+      "competence": "2011-12",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 212,
+      "competence": "2012-01",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 213,
+      "competence": "2012-02",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 214,
+      "competence": "2012-03",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 215,
+      "competence": "2012-04",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 216,
+      "competence": "2012-05",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 217,
+      "competence": "2012-06",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 218,
+      "competence": "2012-07",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 219,
+      "competence": "2012-08",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 220,
+      "competence": "2012-09",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 221,
+      "competence": "2012-10",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 222,
+      "competence": "2012-11",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 223,
+      "competence": "2012-12",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 224,
+      "competence": "2013-01",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 225,
+      "competence": "2013-02",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 226,
+      "competence": "2013-03",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 227,
+      "competence": "2013-04",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 228,
+      "competence": "2013-05",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 229,
+      "competence": "2013-06",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 230,
+      "competence": "2013-07",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 231,
+      "competence": "2013-08",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 232,
+      "competence": "2013-09",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 233,
+      "competence": "2013-10",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 234,
+      "competence": "2013-11",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 235,
+      "competence": "2013-12",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 236,
+      "competence": "2014-01",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 237,
+      "competence": "2014-02",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 238,
+      "competence": "2014-03",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 239,
+      "competence": "2014-04",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 240,
+      "competence": "2014-05",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 241,
+      "competence": "2014-06",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 242,
+      "competence": "2014-07",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 243,
+      "competence": "2014-08",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 244,
+      "competence": "2014-09",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 245,
+      "competence": "2014-10",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 246,
+      "competence": "2014-11",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 247,
+      "competence": "2014-12",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 248,
+      "competence": "2015-01",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 249,
+      "competence": "2015-02",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 250,
+      "competence": "2015-03",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 251,
+      "competence": "2015-04",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 252,
+      "competence": "2015-05",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 253,
+      "competence": "2015-06",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 254,
+      "competence": "2015-07",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 255,
+      "competence": "2015-08",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 256,
+      "competence": "2015-09",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 257,
+      "competence": "2015-10",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 258,
+      "competence": "2015-11",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 259,
+      "competence": "2015-12",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 260,
+      "competence": "2016-01",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 261,
+      "competence": "2016-02",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 262,
+      "competence": "2016-03",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 263,
+      "competence": "2016-04",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 264,
+      "competence": "2016-05",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 265,
+      "competence": "2016-06",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 266,
+      "competence": "2016-07",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 267,
+      "competence": "2016-08",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 268,
+      "competence": "2016-09",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 269,
+      "competence": "2016-10",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 270,
+      "competence": "2016-11",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 271,
+      "competence": "2016-12",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 272,
+      "competence": "2017-01",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 273,
+      "competence": "2017-02",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 274,
+      "competence": "2017-03",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 275,
+      "competence": "2017-04",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 276,
+      "competence": "2017-05",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 277,
+      "competence": "2017-06",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 278,
+      "competence": "2017-07",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 279,
+      "competence": "2017-08",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 280,
+      "competence": "2017-09",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 281,
+      "competence": "2017-10",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 282,
+      "competence": "2017-11",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 283,
+      "competence": "2017-12",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 284,
+      "competence": "2018-01",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 285,
+      "competence": "2018-02",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 286,
+      "competence": "2018-03",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 287,
+      "competence": "2018-04",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 288,
+      "competence": "2018-05",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 289,
+      "competence": "2018-06",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 290,
+      "competence": "2018-07",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 291,
+      "competence": "2018-08",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 292,
+      "competence": "2018-09",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 293,
+      "competence": "2018-10",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 294,
+      "competence": "2018-11",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 295,
+      "competence": "2018-12",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 296,
+      "competence": "2019-01",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 297,
+      "competence": "2019-02",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 298,
+      "competence": "2019-03",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 299,
+      "competence": "2019-04",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 300,
+      "competence": "2019-05",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    },
+    {
+      "id": 301,
+      "competence": "2019-06",
+      "amount": "2000.00",
+      "indicators": "",
+      "confirmed": true
+    }
+  ],
+  "options": {
+    "rule_policy": "{\"version\":\"rgps-core-observational-v1\",\"review_evidence\":\"synthetic-document-review-v1\",\"manual_link_kind\":\"empregado\",\"manual_currency\":\"BRL\",\"native_options\":{\"corrigirSalarios\":false,\"descarte\":false,\"divisorMinimo\":false,\"aplicarTetoVigenteDer\":false},\"exclude_imported_source\":false,\"source_exclusion_evidence\":null}"
+  }
+}

@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CasePolicy stored in Calculation.options.rule_policy",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "review_evidence": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "manual_link_kind": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "manual_currency": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "native_options": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "corrigirSalarios": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "descarte": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "divisorMinimo": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "referenciaCorrecao": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "teto": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "piso": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "aplicarTetoVigenteDer": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "expectativaSobrevida": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "graca": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "inicio": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "fim": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          }
+        },
+        "recolhimentosAtraso": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "regraAlvo": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "exclude_imported_source": {
+      "type": "boolean"
+    },
+    "source_exclusion_evidence": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
+}

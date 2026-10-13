@@ -1,0 +1,51 @@
+name: Windows prerelease
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing version tag to build
+        required: true
+permissions:
+  contents: write
+jobs:
+  windows:
+    runs-on: windows-latest
+    env:
+      RELEASE_TAG: ${{ github.event.inputs.tag || github.ref_name }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+      - run: rustup toolchain install stable --profile minimal
+      - run: rustup default stable
+      - run: npm ci
+        working-directory: apps/desktop
+      - run: npm run build
+        working-directory: apps/desktop
+      - run: npm test
+        working-directory: apps/desktop
+      - run: cargo test --workspace --locked
+      - run: cargo build --release --locked -p previus-next-desktop --bin previus-next-desktop
+      - name: Package checksum and prerelease
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ($env:RELEASE_TAG -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+(?:-[A-Za-z0-9.-]+)?$') { throw 'Invalid release tag' }
+          $version = $env:RELEASE_TAG.Substring(1)
+          $name = "previdenciar.io-$version-windows-x64.exe"
+          New-Item -ItemType Directory -Path release -Force | Out-Null
+          Copy-Item -LiteralPath target/release/previus-next-desktop.exe -Destination "release/$name"
+          $hash = (Get-FileHash -LiteralPath "release/$name" -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  $name" | Set-Content -LiteralPath release/SHA256SUMS.txt -Encoding ascii
+          gh release view $env:RELEASE_TAG *> $null
+          if ($LASTEXITCODE -eq 0) { Write-Output 'Release already exists; assets are not replaced automatically.'; exit 0 }
+          gh release create $env:RELEASE_TAG "release/$name" release/SHA256SUMS.txt --verify-tag --prerelease --title "previdenciar.io $version" --notes-file .github/RELEASE_NOTES.md

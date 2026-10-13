@@ -1,0 +1,282 @@
+/* Amicro presentation layer. Calculation and PDF contracts remain unchanged. */
+:root {
+  --amicro-ease: cubic-bezier(.16, 1, .3, 1);
+  --amicro-fast: 160ms;
+  --amicro-settle: 320ms;
+  --amicro-line: color-mix(in oklch, var(--focus) 18%, var(--border));
+  --amicro-paper: color-mix(in oklch, var(--surface) 96%, var(--focus));
+}
+.previus-app {
+  background: var(--bg);
+}
+.previus-app .app-side {
+  background: var(--surface);
+  backdrop-filter: none;
+}
+.previus-app .brand-emblem {
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--accent-soft), var(--surface));
+  color: var(--focus);
+}
+.previus-app .brand-name { font-size: 24px; }
+.previus-app .brand-sub { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; }
+.previus-app .side-link {
+  position: relative;
+  isolation: isolate;
+  border-color: transparent;
+  transition: color var(--amicro-fast), background var(--amicro-fast);
+}
+.previus-app .side-link.active { background: var(--accent-soft); box-shadow: none; border-color: transparent; }
+.amicro-nav-indicator {
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  border: 1px solid var(--accent-line);
+  background: transparent;
+  pointer-events: none;
+  z-index: -1;
+}
+.amicro-nav-indicator::before {
+  content: '';
+  position: absolute;
+  left: -1px;
+  top: 14px;
+  bottom: 14px;
+  width: 3px;
+  border-radius: 4px;
+  background: var(--focus);
+}
+.previus-app .side-link .ic {
+  transition: transform var(--amicro-settle) var(--amicro-ease);
+}
+.previus-app .side-foot { color: var(--fg-2); }
+.previus-app .top-chrome { background: var(--surface); backdrop-filter: none; border-color: var(--border); }
+.previus-app .page-wrap[data-motion] { animation: none; }
+.previus-app .page-head h1 { letter-spacing: -.04em; }
+.previus-app .page-head p { color: var(--fg-2); }
+.previus-app .card { background: var(--surface); border-color: var(--amicro-line); border-radius: 18px; }
+.previus-app .card__head { border-bottom-color: var(--border-subtle); }
+.previus-app .card__title { letter-spacing: -.02em; }
+.previus-app .card__hint { color: var(--fg-2); }
+.previus-app .toolbar { border-radius: 14px; border-color: var(--amicro-line); }
+.previus-app .table-wrap { border-radius: 16px; border-color: var(--amicro-line); }
+.previus-app .data-table th { background: var(--inset); color: var(--fg-2); }
+.previus-app .input, .previus-app .text-area { border-radius: 10px; }
+.previus-app .input:focus, .previus-app .text-area:focus { border-color: var(--focus); }
+.previus-app .status-tag { border-radius: 7px; }
+.previus-app .quiet-banner { border: 1px solid var(--amicro-line); border-radius: 15px; background: var(--inset); }
+.previus-app .btn {
+  position: relative;
+  isolation: isolate;
+  border-radius: 10px;
+  overflow: hidden;
+  transition: transform var(--amicro-fast) var(--amicro-ease), background var(--amicro-fast), border-color var(--amicro-fast);
+}
+.previus-app .btn .ic { flex-shrink: 0; transition: transform var(--amicro-settle) var(--amicro-ease); }
+.previus-app .btn-primary::before {
+  content: '';
+  display: none;
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(105deg, transparent 30%, rgba(255,255,255,.24) 50%, transparent 70%);
+  transform: translateX(-125%);
+  transition: transform 600ms var(--amicro-ease);
+}
+.previus-app .btn-primary { box-shadow: 0 3px 12px -6px color-mix(in oklch, var(--accent) 45%, transparent); }
+.previus-app .btn:active:not(:disabled) { transform: scale(.975); }
+.previus-app :is(.btn, .side-link, .robot-choice, .wizard-step, .seg button):focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
+}
+.previus-app .new-calculation-choice { border-radius: 16px; border-color: var(--amicro-line); }
+.previus-app .robot-question { border-radius: 18px; }
+.previus-app .wizard-step, .previus-app .robot-progress button, .previus-app .seg button {
+  transition: background var(--amicro-fast), border-color var(--amicro-fast), color var(--amicro-fast);
+}
+.previus-app .robot-choice { transition: border-color var(--amicro-fast), background var(--amicro-fast); }
+.previus-app .toast { border-radius: 14px; border-color: var(--amicro-line); }
+.previus-app .dialog { animation: none; border-radius: 20px; border-color: var(--amicro-line); }
+.previus-app .report-paper-workspace { background: var(--inset); }
+.previus-app .report-template { transition: border-color var(--amicro-fast), background var(--amicro-fast); }
+.amicro-overview {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  overflow: hidden;
+  min-height: 236px;
+  padding: 32px 38px;
+  border: 1px solid var(--amicro-line);
+  border-radius: 20px;
+  background: var(--amicro-paper);
+}
+.amicro-orbit::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: radial-gradient(var(--amicro-line) .65px, transparent .65px);
+  background-size: 18px 18px;
+  mask-image: radial-gradient(black, transparent 70%);
+}
+.amicro-overview-copy { position: relative; z-index: 1; background: var(--amicro-paper); }
+.amicro-kicker { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; letter-spacing: .16em; color: var(--fg-2); }
+.amicro-kicker > span { width: 6px; height: 6px; border-radius: 50%; background: var(--focus); }
+.previus-app .amicro-overview h2 {
+  font: 500 32px/1.13 var(--font-editorial);
+  font-size: 32px !important;
+  letter-spacing: -.055em;
+  margin: 18px 0 14px;
+  color: var(--fg);
+}
+.amicro-overview h2 em { color: var(--focus); font-weight: 500; }
+.amicro-overview-copy > p { margin: 0; font-size: 14px; line-height: 1.8; color: var(--fg-2); }
+.amicro-overview-meta { display: flex; align-items: center; gap: 8px; margin-top: 20px; font-size: 12px; color: var(--fg-2); }
+.amicro-orbit { position: relative; flex: 0 0 276px; height: 240px; margin-right: 24px; }
+.amicro-orbit-ring { position: absolute; border: 1px solid color-mix(in oklch, var(--focus) 22%, transparent); border-radius: 50%; }
+.amicro-orbit-ring--outer { inset: 0 18px; }
+.amicro-orbit-ring--inner { inset: 34px 52px; border-style: dashed; transform: rotate(-25deg); }
+.amicro-orbit-core {
+  position: absolute;
+  inset: 70px 87px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--accent-line);
+  border-radius: 28px;
+  color: var(--focus);
+  background: linear-gradient(135deg, var(--accent-soft), var(--surface));
+  box-shadow: 0 18px 50px -30px var(--focus);
+  transform: rotate(-10deg);
+}
+.amicro-orbit-node {
+  position: absolute;
+  width: 54px;
+  height: 54px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--amicro-line);
+  border-radius: 17px;
+  background: var(--surface);
+  color: var(--fg-2);
+  box-shadow: var(--lg-shadow);
+}
+.amicro-orbit-node--one { left: 23px; top: 30px; transform: rotate(-12deg); }
+.amicro-orbit-node--two { right: 3px; top: 90px; color: var(--focus); transform: rotate(10deg); }
+.amicro-orbit-node--three { left: 58px; bottom: 4px; color: var(--gold); transform: rotate(8deg); }
+.amicro-orbit-dot { position: absolute; width: 9px; height: 9px; background: var(--gold); border-radius: 50%; right: 77px; top: 6px; }
+.amicro-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid var(--amicro-line); border-radius: 16px; background: var(--surface); }
+.amicro-metric { min-width: 0; display: flex; flex-direction: column; padding: 20px 24px; position: relative; }
+.amicro-metric + .amicro-metric::before { content: ''; position: absolute; top: 22px; bottom: 22px; left: 0; width: 1px; background: var(--border); }
+.amicro-metric-label { display: flex; gap: 8px; align-items: center; font-size: 12px; color: var(--fg-2); }
+.amicro-metric-label .ic { color: var(--focus); flex-shrink: 0; }
+.amicro-metric strong { font: 500 32px/1.3 var(--font-editorial); font-variant-numeric: tabular-nums; color: var(--fg); margin-top: 10px; }
+.amicro-metric-note { color: var(--fg-2); font-size: 12px; margin-top: 3px; }
+.amicro-section-caption { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.previus-app .amicro-section-caption h2 { margin: 0; font: 500 20px var(--font-editorial); font-size: 20px !important; letter-spacing: -.02em; }
+.amicro-section-caption > span { font-size: 12px; color: var(--fg-2); letter-spacing: .13em; }
+.amicro-action-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; perspective: 1200px; }
+.amicro-action-card { min-width: 0; display: flex; flex-direction: column; padding: 22px; border: 1px solid var(--amicro-line); border-radius: 16px; background: var(--surface); }
+.amicro-action-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 22px; }
+.amicro-action-icon { display: grid; place-items: center; width: 44px; height: 44px; background: var(--accent-soft); color: var(--focus); border: 1px solid var(--accent-line); border-radius: 12px; }
+.amicro-action-number { font: italic 24px var(--font-editorial); color: var(--fg-2); }
+.previus-app .amicro-action-card h3 { font: 500 20px var(--font-editorial); font-size: 20px !important; margin: 0 0 10px; letter-spacing: -.025em; }
+.amicro-action-card > p { font-size: 14px; color: var(--fg-2); line-height: 1.8; margin: 0 0 22px; }
+.previus-app .amicro-action-card .btn { margin-top: auto; align-self: flex-start; background: var(--inset); }
+.amicro-loader { display: inline-flex; align-items: center; gap: 5px; }
+.amicro-loader i { width: 5px; height: 5px; border-radius: 50%; background: var(--focus); animation: amicro-loader 900ms ease-in-out infinite alternate; }
+.amicro-loader i:nth-child(2) { animation-delay: 150ms; }
+.amicro-loader i:nth-child(3) { animation-delay: 300ms; }
+@keyframes amicro-loader { from { opacity: .4; transform: translateY(0); } to { opacity: 1; transform: translateY(-4px); } }
+@media (hover: hover) and (pointer: fine) {
+  :root[data-amicro-motion="on"] .previus-app .btn:not(:disabled):hover { transform: translateY(-2px); border-color: var(--accent-line); }
+  :root[data-amicro-motion="on"] .previus-app .btn-primary:not(:disabled):hover::before { display: block; animation: amicro-sheen 600ms var(--amicro-ease) both; }
+  :root[data-amicro-motion="on"] .previus-app .btn:not(:disabled):hover .ic { transform: translateX(2px); }
+  :root[data-amicro-motion="on"] .previus-app .side-link:hover .ic { transform: translateY(-1px) scale(1.08); }
+  .previus-app .robot-choice:hover, .previus-app .report-template:hover { border-color: var(--focus); }
+}
+@media (max-width: 1200px) {
+  .amicro-overview { padding: 28px; }
+  .amicro-orbit { flex-basis: 240px; margin-right: 0; }
+  .amicro-metric { padding: 18px; }
+  .amicro-metric-label { font-size: 12px; }
+  .amicro-action-card { padding: 18px; }
+}
+@media (max-width: 767px) {
+  .amicro-overview { padding: 26px; min-height: 228px; }
+  .amicro-orbit { position: absolute; right: -100px; opacity: .18; width: 276px; z-index: -1; }
+  .amicro-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .amicro-metric:nth-child(3)::before { display: none; }
+  .amicro-metric:nth-child(n+3) { border-top: 1px solid var(--border); }
+  .amicro-action-grid { grid-template-columns: minmax(0, 1fr); }
+  .amicro-section-caption > span { display: none; }
+  .amicro-action-top { margin-bottom: 14px; }
+  .amicro-action-card > p { max-width: 52ch; }
+  .amicro-desktop-break { display: none; }
+}
+@media (max-width: 600px) {
+  .previus-app .top-chrome { padding-left: 52px; }
+  .previus-app .chrome-mobile-brand { font-size: 20px; }
+  .previus-app .chrome-actions { gap: 8px; }
+  .previus-app .chrome-actions .btn { min-width: 40px; padding: 8px; }
+  .previus-app .chrome-actions .btn[aria-label="Buscar no escritório"] > span { display: none; }
+  .previus-app .skip-link, .previus-app .skip-link:focus { left: 22px; width: 40px; }
+  .amicro-overview { padding: 24px; border-radius: 16px; }
+  .amicro-overview-meta { font-size: 12px; }
+  .amicro-kicker { font-size: 12px; }
+  .amicro-metric { padding: 16px; }
+  .amicro-metric-label { font-size: 12px; gap: 6px; }
+  .amicro-metric strong { font-size: 32px; }
+}
+/* Reduced motion is both an OS setting and a persistent local user choice. */
+:root[data-amicro-motion="off"] :is(.previus-app, .loading-screen) *,
+:root[data-amicro-motion="off"] .previus-app *::before,
+:root[data-amicro-motion="off"] .previus-app *::after {
+  animation: none !important;
+  transition: none !important;
+  scroll-behavior: auto !important;
+}
+:root[data-amicro-motion="off"] .previus-app :is(.btn, .btn .ic, .side-link .ic, .amicro-action-card, .page-wrap, .dialog) {
+  transform: none !important;
+}
+:root[data-amicro-motion="off"] .amicro-loader i { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) {
+  .amicro-loader i { animation: none !important; transform: none; }
+  .amicro-action-card, .amicro-overview, .amicro-metric { transform: none !important; }
+}
+@media (prefers-contrast: more) {
+  .amicro-overview, .amicro-metrics, .amicro-action-card { border-color: var(--fg); }
+  .amicro-overview { background: var(--surface); }
+  .amicro-orbit { display: none; }
+}
+@media (forced-colors: active) {
+  .amicro-overview, .amicro-metrics, .amicro-action-card, .amicro-nav-indicator { border-color: CanvasText; }
+  .amicro-orbit { display: none; }
+}
+
+:root[data-amicro-motion="on"] .previus-app .toast { animation: amicro-toast-in 240ms var(--amicro-ease) both; }
+@keyframes amicro-toast-in { from { opacity: .6; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@media (hover: hover) and (pointer: fine) {
+  :root[data-amicro-motion="on"] .previus-app .btn[aria-label="Alternar tema"]:hover .ic { transform: rotate(35deg); }
+}
+
+.previus-app :is(.mobile-dock button,.mobile-menu-list button) { position: relative; isolation: isolate; }
+.previus-app :is(.mobile-dock button,.mobile-menu-list button)[aria-current="page"] { background: var(--accent-soft); border-color: transparent; }
+.previus-app .mobile-dock .amicro-nav-indicator::before { top: auto; left: 30%; right: 30%; bottom: 0; width: auto; height: 2px; }
+
+.previus-app .side-link.active { border-color: var(--accent-line); }
+
+@media (max-width: 600px) {
+  .previus-app .form-actions { flex-wrap: wrap; }
+  .previus-app .form-actions .btn { flex: 1 1 150px; }
+}
+
+@keyframes amicro-sheen { from { transform: translateX(-125%); } to { transform: translateX(125%); } }
+
+/* Text-only branding until the approved OpenDesign assets arrive. */
+.previus-app .brand-name { font-family:var(--font-ui); font-size:18px; font-weight:600; letter-spacing:-.04em; }
+.previus-app .brand-sub { font-size:12px; letter-spacing:0; text-transform:none; }
+@media(max-width:600px) { .previus-app .chrome-mobile-brand { font-family:var(--font-ui); font-size:14px; font-weight:600; letter-spacing:-.055em; } }

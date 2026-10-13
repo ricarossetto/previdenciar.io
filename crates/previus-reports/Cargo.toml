@@ -1,0 +1,17 @@
+[package]
+name = "previus-reports"
+version = "0.1.0"
+edition = "2021"
+description = "Native, explicit-outcome, multipage PDF review reports for Previus Rust"
+license = "MIT"
+
+[dependencies]
+genpdf = "=0.2.0"
+serde_json = "1"
+rusttype = "0.8"
+lopdf = "0.38"
+previus-workspace = { path = "../previus-workspace" }
+previus-cnis = { path = "../previus-cnis" }
+
+[dev-dependencies]
+previus-rgps = { path = "../previus-rgps" }
