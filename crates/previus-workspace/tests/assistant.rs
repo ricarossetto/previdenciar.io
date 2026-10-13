@@ -153,7 +153,7 @@ mod native_dpapi {
         let sequence = SEQUENCE.fetch_add(1, Ordering::Relaxed);
         let parent = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/runtime")
             .join(format!("assistant-synthetic-{}-{n:x}-{sequence}", std::process::id()));
-        fs::create_dir(&parent).unwrap(); parent.join("workspace.pvr")
+        fs::create_dir_all(&parent).unwrap(); parent.join("workspace.pvr")
     }
     fn legacy_envelope(mut json: Value) -> Vec<u8> {
         json["calculations"][0].as_object_mut().unwrap().remove("assistant");
