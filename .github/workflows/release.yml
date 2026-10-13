@@ -39,6 +39,9 @@ jobs:
       - run: node scripts/review-public-source.mjs
       - run: cargo test --workspace --locked
       - run: cargo build --release --locked -p previus-next-desktop --bin previus-next-desktop
+      - name: Verify embedded frontend in isolated native WebView
+        shell: pwsh
+        run: ./scripts/smoke-native.ps1
       - name: Package checksum and prerelease
         shell: pwsh
         env:

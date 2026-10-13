@@ -26,3 +26,7 @@ Apenas site/ é enviado ao Pages pelo workflow. O deploy fornece apresentação,
 - Licença e notices de componentes/fontes estão presentes.
 - Testes sintéticos, documentação de limites e issue do editor de contribuições estão disponíveis.
 - Assets da marca definitiva só entram após aprovação e checagem de licença.
+
+## Gate nativo obrigatório
+
+Nunca execute o build nativo ao mesmo tempo em que Vite recria dist. Conclua npm run build, depois cargo build --release e scripts/smoke-native.ps1. O smoke abre um perfil separado e verifica os assets JS/CSS finais e a tela inicial real no WebView2; não certifica todos os fluxos nativos. O workflow recusa empacotamento se esse gate falhar.
