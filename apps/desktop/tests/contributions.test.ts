@@ -16,7 +16,7 @@ function confirm(c:Calculation):Calculation {
 describe('contribution review',()=>{
   it('keeps exact cents at and above JS integer precision',()=>{
     expect(canonicalAmount('1.234,56')).toBe('1234.56');
-    expect(canonicalAmount('12.50')).toBe('12.50');
+    expect(canonicalAmount('12.50')).toBe('12.50');expect(canonicalAmount('12.5')).toBe('12.50');
     expect(amountLabel('90071992547409.93')).toBe('90.071.992.547.409,93');
     expect(fromCents(cents('92233720368547758.07'))).toBe('92233720368547758.07');
     for(const invalid of ['-1,00','1,001','1e3','NaN','92233720368547758.08'])expect(()=>canonicalAmount(invalid)).toThrow();
@@ -58,6 +58,11 @@ describe('contribution review',()=>{
     }
     const applied=applyContributionReview(c);const changed=changeContributions(applied,applied.contribution_review!.records.map((r,i)=>i?r:{...r,amount:'101.00',evidence:'Retificação'}),'edit','Retificação');
     expect(changed.contribution_review!.applied).toBe(false);expect(changed.result).toBeNull();expect(changed.manual_salaries[0].amount).toBe('100.10');
+  });
+  it('can undo an operation whose documentary reason reaches the maximum length',()=>{
+    let c=beginContributionReview(imported());const reason='x'.repeat(1000);
+    c=changeContributions(c,c.contribution_review!.records.map((r,i)=>i?r:{...r,amount:'100.11',evidence:reason}),'edit',reason);
+    const undo=undoContributionChange(c);expect(undo.contribution_review!.records.find(r=>r.key==='source:1')!.amount).toBe('100.10');
   });
   it('requires documentary evidence and caps audit growth without dropping operations',()=>{
     const c=beginContributionReview(imported());const rows=c.contribution_review!.records.map(r=>({...r,excluded:true,evidence:''}));

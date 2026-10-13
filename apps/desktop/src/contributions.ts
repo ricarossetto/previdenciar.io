@@ -2,7 +2,8 @@ import type { Calculation, ContributionRecord, ContributionReview, ManualSalary 
 import { parseMoney } from './model';
 const maxCents = 9223372036854775807n;
 export function canonicalAmount(value: string): string {
-  const normalized = /^(0|[1-9]\d*)\.\d{2}$/.test(value) ? value : parseMoney(value);
+  const decimal = /^(0|[1-9]\d*)\.(\d{1,2})$/.exec(value);
+  const normalized = decimal ? decimal[1] + '.' + decimal[2].padEnd(2, '0') : parseMoney(value);
   if (!normalized || !/^(0|[1-9]\d*)\.\d{2}$/.test(normalized)) throw Error('Informe valor não negativo com até duas casas decimais.');
   if (cents(normalized) > maxCents) throw Error('Valor excede a precisão monetária suportada.');
   return normalized;
@@ -122,5 +123,5 @@ export function undoContributionChange(caseData: Calculation): Calculation {
   if (!last) throw Error('Nenhuma operação disponível para desfazer.');
   const changedKeys = new Set([...last.before, ...last.after].map(record => record.key));
   const restored = [...review.records.filter(record => !changedKeys.has(record.key)), ...last.before].sort((a,b) => a.competence.localeCompare(b.competence) || a.key.localeCompare(b.key));
-  return changeContributions(caseData, restored, 'undo', 'Desfazer operação ' + last.sequence + ': ' + last.reason);
+  return changeContributions(caseData, restored, 'undo', 'Desfazer operação ' + last.sequence + ': justificativa original preservada no histórico.');
 }

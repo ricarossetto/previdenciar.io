@@ -4,7 +4,7 @@ const endpoint=process.argv[2];
 if(!/^http:\/\/127\.0\.0\.1:\d+$/.test(endpoint??''))throw Error('Explicit loopback endpoint required');
 const expected=fs.readdirSync('apps/desktop/dist/assets').filter(name=>/\.(js|css)$/.test(name));
 if(!expected.some(name=>name.endsWith('.js'))||!expected.some(name=>name.endsWith('.css')))throw Error('Frontend build is incomplete');
-let last='Native page not ready';
+let last='Native page not ready',passed=false;
 for(let attempt=0;attempt<30;attempt++){
   let socket;
   try{
@@ -18,7 +18,7 @@ for(let attempt=0;attempt<30;attempt++){
     if(expected.some(name=>!urls.includes('http://tauri.localhost/assets/'+name))||!headings.includes('Início'))throw Error('Final JS/CSS or real home page not loaded');
     const result={status:'passed',readOnly:true,isolatedProfile:true,expectedAssets:expected,headings,fullNativeWorkflowsCertified:false};
     const output=process.argv[3];if(output){fs.mkdirSync(path.dirname(output),{recursive:true});fs.writeFileSync(output,JSON.stringify(result,null,2));}
-    console.log(JSON.stringify(result));socket.close();process.exit(0);
+    console.log(JSON.stringify(result));await new Promise(resolve=>{socket.addEventListener('close',resolve,{once:true});socket.close()});passed=true;break;
   }catch(error){last=error.message;if(socket)socket.close();await new Promise(resolve=>setTimeout(resolve,1000));}
 }
-throw Error('Native release rejected: '+last);
+if(!passed)throw Error('Native release rejected: '+last);
