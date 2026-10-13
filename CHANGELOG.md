@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.8.1-beta.1 - 2026-10-13
+## 0.8.1-beta.2 - 2026-10-13
 
 - Livro de contribuições com edição da hipótese, origem preservada, moeda/vínculo, filtros, seleção, ações em lote, consolidação documentada, histórico e múltiplos desfazeres.
 - Aplicação explícita aos salários com validação equivalente no Rust: origem, histórico e projeção divergentes são recusados.
@@ -8,7 +8,7 @@
 - PDFs reais incorporam ajustes e histórico, ocultando justificativas/motivos livres no modo privado.
 - Correção do diálogo aninhado que ficava inerte com o painel; foco, Escape e pilha modal cobertos por regressão.
 - Valores/somas em centavos exatos, sem preparação monetária por ponto flutuante.
-- Contraste do diálogo Novo cálculo verificável sem ignorar regras; testes axe-core adicionados.
+- Contraste do diálogo Novo cálculo e do pico do brilho dos botões verificável sem ignorar regras; testes axe-core e luminância adicionados. A beta.1 foi substituída após apontamento do CI no botão animado.
 - Release passa a exigir testes de navegador, revisão pública e coerência entre tag e versões, e publica BUILDINFO.json.
 
 A identidade definitiva, assinatura de código e cobertura normativa universal não são entregues nem presumidas nesta correção. Após salvar o novo livro, use esta versão ou posterior para abrir a base.

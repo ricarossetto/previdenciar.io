@@ -80,7 +80,7 @@
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  background: linear-gradient(105deg, transparent 30%, rgba(255,255,255,.24) 50%, transparent 70%);
+  background: linear-gradient(105deg, transparent 30%, rgba(255,255,255,.06) 50%, transparent 70%);
   transform: translateX(-125%);
   transition: transform 600ms var(--amicro-ease);
 }

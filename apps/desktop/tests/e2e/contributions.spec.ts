@@ -46,6 +46,14 @@ test('new calculation choices have measurable contrast without ignored rules',as
   await start(page);await page.getByRole('button',{name:'Cálculos',exact:true}).click();await page.getByRole('button',{name:'Novo cálculo',exact:true}).click();
   for(const light of [false,true]){
     if(light){await page.keyboard.press('Escape');await page.getByRole('button',{name:'Alternar tema',exact:true}).click();await page.getByRole('button',{name:'Novo cálculo',exact:true}).click();}
+    const primary=page.getByRole('button',{name:'Usar o assistente de cálculos',exact:true});
+    const worstContrast=await primary.evaluate(el=>{
+      const style=getComputedStyle(el),ctx=document.createElement('canvas').getContext('2d')!;
+      const rgb=(color:string)=>{ctx.clearRect(0,0,1,1);ctx.fillStyle=color;ctx.fillRect(0,0,1,1);return [...ctx.getImageData(0,0,1,1).data].slice(0,3)};
+      const foreground=rgb(style.color),base=rgb(style.backgroundColor),highlight=base.map(value=>value*.94+255*.06);
+      const luminance=(channels:number[])=>channels.map(value=>{const c=value/255;return c<=.04045?c/12.92:((c+.055)/1.055)**2.4}).reduce((sum,c,index)=>sum+c*[.2126,.7152,.0722][index],0);
+      const a=luminance(foreground),b=luminance(highlight);return (Math.max(a,b)+.05)/(Math.min(a,b)+.05);
+    });expect(worstContrast).toBeGreaterThanOrEqual(4.5);
     const scan=await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze();expect(scan.violations.map(v=>({id:v.id,nodes:v.nodes.map(n=>n.target)}))).toEqual([]);
     const text=page.getByText('Origem dos documentos e limites preservados.',{exact:true});expect(await text.evaluate(el=>getComputedStyle(el).backgroundColor)).not.toBe('rgba(0, 0, 0, 0)');
   }
