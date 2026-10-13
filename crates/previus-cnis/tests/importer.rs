@@ -180,7 +180,43 @@ fn whitespace_and_nbsp_do_not_change_decimal_semantics() {
 }
 
 /// Explicitly opt-in; source filename and sensitive values never printed or saved.
-// Personal-document integration tests are retained privately, never published.
+// Personal-document integration is excluded from the public test suite.
+/// All files generated here contain only synthetic ASCII text.
+fn synthetic_pdf_path(label: &str) -> std::path::PathBuf {
+    static COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("target/test-fixtures");
+    std::fs::create_dir_all(&dir).unwrap();
+    dir.join(format!("synthetic-{label}-{}-{}.pdf", std::process::id(), COUNTER.fetch_add(1,std::sync::atomic::Ordering::Relaxed)))
+}
+fn build_synthetic_pdf(rotation: i64) -> std::path::PathBuf {
+    use lopdf::{dictionary, Object, Stream, content::{Content,Operation}};
+    let mut doc = lopdf::Document::with_version("1.5");
+    let pages_id = doc.new_object_id();
+    let font_id = doc.add_object(dictionary! {"Type"=>"Font","Subtype"=>"Type1","BaseFont"=>"Helvetica"});
+    let resources = doc.add_object(dictionary! {"Font"=>dictionary! {"F1"=>font_id}});
+    let mut operations = vec![Operation::new("BT",vec![]),Operation::new("Tf",vec!["F1".into(),10.into()])];
+    // Deliberately emit data before heading in stream order. Geometry must sort it.
+    for (line,text) in [(2,"01/2020 100,25 02/2020 200,00"),(0,"CNIS"),(1,"Competencia Remuneracao Indicadores")] {
+        let matrix: Vec<Object> = match rotation {
+            90 => vec![0.into(),1.into(),(-1).into(),0.into(),(50+line*20).into(),30.into()],
+            180 => vec![(-1).into(),0.into(),0.into(),(-1).into(),550.into(),(50+line*20).into()],
+            270 => vec![0.into(),(-1).into(),1.into(),0.into(),(550-line*20).into(),770.into()],
+            _ => vec![1.into(),0.into(),0.into(),1.into(),30.into(),(750-line*20).into()],
+        };
+        operations.push(Operation::new("Tm",matrix));
+        operations.push(Operation::new("Tj",vec![Object::string_literal(text)]));
+    }
+    operations.push(Operation::new("ET",vec![]));
+    let content = doc.add_object(Stream::new(dictionary! {},Content {operations}.encode().unwrap()));
+    let page_id = doc.add_object(dictionary! {"Type"=>"Page","Parent"=>pages_id,"Contents"=>content,"Resources"=>resources});
+    // Rotation is inherited; the Page dictionary intentionally omits /Rotate.
+    doc.objects.insert(pages_id,dictionary! {"Type"=>"Pages","Kids"=>vec![Object::Reference(page_id)],"Count"=>1,"MediaBox"=>vec![0.into(),0.into(),600.into(),800.into()],"Rotate"=>rotation}.into());
+    let catalog = doc.add_object(dictionary! {"Type"=>"Catalog","Pages"=>pages_id});
+    doc.trailer.set("Root",catalog);
+    let path = synthetic_pdf_path(&format!("rotation-{rotation}"));
+    doc.save(&path).unwrap();
+    path
+}
 #[test]
 fn pure_rust_pdf_extraction_handles_inherited_page_rotations_and_stream_reordering() {
     for rotation in [0,90,180,270] {

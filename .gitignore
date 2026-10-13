@@ -46,3 +46,6 @@
 *.pdb
 .DS_Store
 Thumbs.db
+
+# Local packaging scratch
+/release/

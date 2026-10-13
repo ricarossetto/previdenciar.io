@@ -1,14 +1,7 @@
-# Adaptacoes Amicro
+# Adapted Amicro motion primitives
 
-Fontes oficiais: tools/amicro/upstream/registry/ui/entrance/fade-up.tsx, registry/ui/hover/tilt-card.tsx e registry/lib/presets.ts. Licenca MIT preservada nesta pasta.
+FadeUp, TiltCard and spring presets were adapted from the Amicro project (Subhan-code/Amicro--Micro-transitions-, upstream commit dc2a183f3a5e6e0ea1b0d75530ac084e3a4e0bd2). The MIT notice is preserved in LICENSE beside this file.
 
-- Usa motion/react de motion@12.42.2; upstream alterna motion/react e framer-motion. Nao instalamos dois motores de animacao.
-- FadeUp: spring, distancias menores e opcao de movimento reduzido.
-- TiltCard: inclinacao limitada a 2 graus, apenas com mouse; nenhum efeito sobre tabelas, formularios ou dados financeiros.
-- NavIndicator: spring compartilhado entre paginas, sem camada decorativa quando o movimento e reduzido. aria-current permanece no botao real.
-- PageTransition: chave somente por rota, sem animar novamente durante digitacao ou alteracao de dados.
-- Modal: conserva a pilha inert, captura de Tab, Escape e restauracao de foco existentes.
-- DashboardOverview: contagens derivadas de registros locais ativos; nenhum grafico ou resultado financeiro sintetico.
-- Botao Reduzir animacoes: preferencia local opcional, sem alterar schema de negocio e sem sobrepor a preferencia de acessibilidade do sistema.
+This public tree includes only the adapted primitives used by the app, not the upstream website, backend, analytics or payment components. The runtime imports motion/react from the pinned motion dependency.
 
-Acervo completo em tools/amicro/upstream. Componentes e exemplos nao utilizados ficam fora do bundle do aplicativo. Sem importacao do backend, analytics, pagamentos ou servicos de IA do site.
+Tilting is limited to two degrees and mouse input. Reduced-motion preferences are respected. Tables, financial values and PDF rendering do not use decorative 3D effects. Route transitions do not replay on every form edit.
