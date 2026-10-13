@@ -50,7 +50,7 @@ export function Modal({title,subtitle,children,onClose,wide=false}:{title:string
     };
   },[]);
   return createPortal(<div className="dialog-scrim" onMouseDown={e=>{if(e.target===e.currentTarget)onClose()}}><div className="dialog-backdrop" aria-hidden="true"/>
-    <motion.div initial={enabled&&document.documentElement.dataset.input==='pointer'?{y:12,scale:0.985}:false} animate={{opacity:1,y:0,scale:1}} transition={enabled?springs.snappy:{duration:0}} ref={ref} tabIndex={-1} data-od-id={'dialog-'+slug(title)} className={'dialog '+(wide?'dialog--wide':'')} role="dialog" aria-modal="true" aria-labelledby={id+'-title'} aria-describedby={subtitle?id+'-description':undefined} onKeyDown={e=>{
+    <motion.div initial={enabled&&document.documentElement.dataset.input==='pointer'?{y:12,scale:0.985}:false} animate={{y:0,scale:1}} transition={enabled?springs.snappy:{duration:0}} ref={ref} tabIndex={-1} data-od-id={'dialog-'+slug(title)} className={'dialog '+(wide?'dialog--wide':'')} role="dialog" aria-modal="true" aria-labelledby={id+'-title'} aria-describedby={subtitle?id+'-description':undefined} onKeyDown={e=>{
       if(e.key==='Escape'){e.preventDefault();e.stopPropagation();onClose()}
       if(e.key==='Tab'){
         const elements=Array.from(ref.current?.querySelectorAll<HTMLElement>('a[href],button:not([disabled]),input:not([disabled]),textarea:not([disabled]),select:not([disabled]),summary,[tabindex]:not([tabindex="-1"])')??[]).filter(el=>!el.closest('[hidden]'));

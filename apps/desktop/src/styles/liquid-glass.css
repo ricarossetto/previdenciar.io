@@ -318,7 +318,7 @@ input, textarea { caret-color: var(--accent); }
 .previus-app .report-preview-fallback a { color: var(--fg); text-decoration: underline; text-underline-offset: 3px; }
 .previus-app .dialog-scrim { z-index: var(--v2-z-overlay); padding: 24px; background: oklch(8% 0.02623 263.658 / .55); backdrop-filter: blur(4px); }
 .previus-app .dialog { display: flex; flex-direction: column; min-width: 0; max-height: calc(100dvh - 48px); border: 1px solid var(--lg-border-glass); border-radius: 24px; background: var(--lg-glass); backdrop-filter: blur(18px); box-shadow: var(--lg-depth); transform-origin: center; transition: transform var(--v2-duration-slow) var(--v2-ease-standard), opacity var(--v2-duration-base) var(--v2-ease-standard); }
-@starting-style { .previus-app .dialog { opacity: 0; transform: translateY(8px) scale(.98); } }
+/* Dialog geometry is owned by Motion; never start readable text transparent. */
 .previus-app .dialog__head { flex: 0 0 auto; padding: 24px; gap: 16px; align-items: flex-start; }
 .previus-app .dialog__head h2 { font-family: var(--font-editorial); font-size: clamp(24px, 2.2vw, 24px); line-height: 1.3; text-wrap: balance; }
 .previus-app .dialog__head p { color: var(--muted); font-size: 12px; line-height: 1.7; }

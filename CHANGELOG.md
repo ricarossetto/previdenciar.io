@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.8.1-beta.4 - 2026-10-13
+## 0.8.1-beta.5 - 2026-10-13
 
 - Livro de contribuições com edição da hipótese, origem preservada, moeda/vínculo, filtros, seleção, ações em lote, consolidação documentada, histórico e múltiplos desfazeres.
 - Aplicação explícita aos salários com validação equivalente no Rust: origem, histórico e projeção divergentes são recusados.
@@ -29,3 +29,5 @@ Primeira árvore de código pública de previdenciar.io, com identidade textual 
 Consulte docs/LIMITATIONS.md. Esta versão não é certificada juridicamente nem equivalente a outro produto.
 
 A beta.4 reforça o contraste do status neutro e remove fade de texto em diálogos; as transições geométricas são mantidas.
+
+A beta.5 remove a causa do fade residual: @starting-style herdado aplicava opacity:0 além da animação Motion. O diálogo agora mantém opacidade 1 desde a montagem, com um único responsável pelo movimento geométrico. O teste mede a opacidade imediatamente, sem esperar a animação acabar ou ignorar contraste.

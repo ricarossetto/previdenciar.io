@@ -46,6 +46,7 @@ test('new calculation choices have measurable contrast without ignored rules',as
   await start(page);await page.getByRole('button',{name:'Cálculos',exact:true}).click();await page.getByRole('button',{name:'Novo cálculo',exact:true}).click();
   for(const light of [false,true]){
     if(light){await page.keyboard.press('Escape');await page.getByRole('button',{name:'Alternar tema',exact:true}).click();await page.getByRole('button',{name:'Novo cálculo',exact:true}).click();}
+    expect(await page.getByRole('dialog').evaluate(el=>getComputedStyle(el).opacity)).toBe('1');
     const primary=page.getByRole('button',{name:'Usar o assistente de cálculos',exact:true});
     const worstContrast=await primary.evaluate(el=>{
       const style=getComputedStyle(el),ctx=document.createElement('canvas').getContext('2d')!;

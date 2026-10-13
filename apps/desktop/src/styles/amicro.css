@@ -288,3 +288,5 @@
 
 /* Neutral is a semantic status, not low-contrast secondary text. */
 .previus-app .status-tag.neutral{color:var(--fg);background:var(--surface-2)}
+
+.previus-app .dialog{opacity:1;transition:none}
