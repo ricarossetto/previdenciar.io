@@ -37,9 +37,9 @@ for(const width of [1440,390])test('contribution editor is keyboard accessible a
   if(width<1024){await page.setViewportSize({width:1440,height:1000});await start(page);await page.setViewportSize({width,height:1000});}else await start(page);
   await page.getByRole('button',{name:'Abrir livro de contribuições'}).click();
   expect(await page.locator('body').evaluate(el=>el.scrollWidth<=innerWidth)).toBe(true);
-  const scan=await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze();expect(scan.violations.map(v=>({id:v.id,nodes:v.nodes.map(n=>n.target)}))).toEqual([]);
+  const scan=await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze();expect(scan.violations.map(v=>({id:v.id,nodes:v.nodes.map(n=>({target:n.target,failure:n.failureSummary}))}))).toEqual([]);
   await page.getByRole('button',{name:'Editar contribuição source:1'}).click();await expect(page.getByRole('dialog')).toBeVisible();
-  const modalScan=await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze();expect(modalScan.violations.map(v=>({id:v.id,nodes:v.nodes.map(n=>n.target)}))).toEqual([]);
+  const modalScan=await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze();expect(modalScan.violations.map(v=>({id:v.id,nodes:v.nodes.map(n=>({target:n.target,failure:n.failureSummary}))}))).toEqual([]);
   await page.keyboard.press('Escape');await expect(page.getByRole('dialog')).toHaveCount(0);
 });
 test('new calculation choices have measurable contrast without ignored rules',async({page})=>{
@@ -54,7 +54,7 @@ test('new calculation choices have measurable contrast without ignored rules',as
       const luminance=(channels:number[])=>channels.map(value=>{const c=value/255;return c<=.04045?c/12.92:((c+.055)/1.055)**2.4}).reduce((sum,c,index)=>sum+c*[.2126,.7152,.0722][index],0);
       const a=luminance(foreground),b=luminance(highlight);return (Math.max(a,b)+.05)/(Math.min(a,b)+.05);
     });expect(worstContrast).toBeGreaterThanOrEqual(4.5);
-    const scan=await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze();expect(scan.violations.map(v=>({id:v.id,nodes:v.nodes.map(n=>n.target)}))).toEqual([]);
+    const scan=await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze();expect(scan.violations.map(v=>({id:v.id,nodes:v.nodes.map(n=>({target:n.target,failure:n.failureSummary}))}))).toEqual([]);
     const text=page.getByText('Origem dos documentos e limites preservados.',{exact:true});expect(await text.evaluate(el=>getComputedStyle(el).backgroundColor)).not.toBe('rgba(0, 0, 0, 0)');
   }
 });

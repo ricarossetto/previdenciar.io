@@ -285,3 +285,6 @@
 @media(max-width:900px){.contribution-filters{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:600px){.contribution-filters{grid-template-columns:minmax(0,1fr)}.contribution-actions .btn{flex:1 1 180px}.contribution-table{max-height:420px}}
 
 .contribution-table:focus-visible{outline:2px solid var(--focus);outline-offset:3px}
+
+/* Neutral is a semantic status, not low-contrast secondary text. */
+.previus-app .status-tag.neutral{color:var(--fg);background:var(--surface-2)}
