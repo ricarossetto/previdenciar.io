@@ -1,0 +1,13 @@
+use previus_workspace::{Calculation,ManualLink};
+use previus_workspace::link_review::{LinkSnapshot,LinkChange,LinkSourceReview};
+fn scenario()->Calculation{
+    let mut c:Calculation=serde_json::from_str(include_str!("fixtures/calculation-synthetic.json")).unwrap();
+    let mut imported=previus_cnis::import_text("CNIS\nCompetência Remuneração Indicadores\n01/2020 100,00").unwrap();
+    imported.links.push(previus_cnis::EmploymentLink{sequence:1,raw_employer:Some("EMPREGADOR FICTICIO".into()),affiliation:None,start_date:Some("1994-07-01".into()),end_date:Some("2019-06-30".into()),reported_last_salary_month:None,inferred_last_salary_end:None,prpps:true,indicators:vec!["PRPPS".into()],validation_status:previus_cnis::ValidationStatus::UnresolvedPrpps,excluded_from_validated_domain:true,source:previus_cnis::SourceRef{page:1,line:1,index:1,byte_offset:0}});
+    let before=LinkSnapshot{employer:"EMPREGADOR FICTICIO".into(),start_date:"1994-07-01".into(),end_date:"2019-06-30".into(),regime:"RPPS".into(),indicators:"PRPPS".into(),confirmed:false,excluded:false};
+    let after=LinkSnapshot{regime:"RGPS".into(),indicators:String::new(),confirmed:true,..before.clone()};
+    c.manual_links=vec![ManualLink{id:2,employer:after.employer.clone(),start_date:after.start_date.clone(),end_date:after.end_date.clone(),regime:after.regime.clone(),indicators:after.indicators.clone(),confirmed:true,source_review:Some(LinkSourceReview{sequence:1,source_sha256:imported.metadata.source_sha256.clone(),excluded:false,history:vec![LinkChange{at:"2026-10-13T10:00:00Z".into(),reason:"Declaração fictícia, não CTC".into(),before,after}]})}];c.cnis=Some(imported);
+    let mut policy:serde_json::Value=serde_json::from_str(&c.options.rule_policy).unwrap();policy["exclude_imported_source"]=true.into();policy["source_exclusion_evidence"]="Hipótese fictícia documentada".into();c.options.rule_policy=policy.to_string();c
+}
+#[test]fn editing_rpps_to_rgps_cannot_bypass_documentary_ctc_guard(){let c=scenario();let outcome=previus_rgps::calculate_case(&c).unwrap();assert_eq!(outcome["status"],"blocked");assert!(outcome["blockers"].as_array().unwrap().iter().any(|b|b["code"]=="source_ctc_proof_required"));assert!(outcome["data"].is_null());}
+#[test]fn excluding_reviewed_link_does_not_delete_source_or_make_it_rgps(){let mut c=scenario();let link=&mut c.manual_links[0];let review=link.source_review.as_mut().unwrap();review.excluded=true;review.history[0].after.excluded=true;let outcome=previus_rgps::calculate_case(&c).unwrap();assert!(!outcome["blockers"].as_array().unwrap().iter().any(|b|b["code"]=="source_ctc_proof_required"));assert!(c.cnis.as_ref().unwrap().links[0].prpps);assert_eq!(c.cnis.as_ref().unwrap().links.len(),1);}

@@ -163,8 +163,13 @@ fn periods(case:&Calculation,personal:bool,native:Option<&Value>)->Result<Sectio
         let rows=cnis.benefits.iter().map(|b|vec![b.sequence.to_string(),b.species.map(|v|v.to_string()).unwrap_or("Não informada".into()),match b.status{BenefitStatus::Denied=>"Indeferido",BenefitStatus::Unknown=>"Situação desconhecida"}.into(),"Não prova recebimento atual".into(),source(&b.source)]).collect();
         if !cnis.benefits.is_empty(){s.tables.push(table("Eventos de benefício — não são vínculos de emprego",&["Nº","Espécie","Situação na fonte","Alcance","Fonte"],&[1,1,3,4,2],rows));}
     }
-    let mut rows=vec![];for(i,l)in case.manual_links.iter().enumerate(){rows.push(vec![(i+1).to_string(),if personal{optional_field(Some(&l.employer))?}else{format!("Período manual {:02}",i+1)},date(Some(&l.start_date)),date(Some(&l.end_date)),enum_text(Some(&l.regime),&["RGPS","RPPS","PRPPS","rgps","rpps"]),bool_text(l.confirmed),indicators(&if l.indicators.is_empty(){vec![]}else{vec![l.indicators.clone()]},personal)?]);}
+    let mut rows=vec![];for(i,l)in case.manual_links.iter().enumerate(){rows.push(vec![(i+1).to_string(),if personal{optional_field(Some(&l.employer))?}else{format!("Período manual {:02}",i+1)},date(Some(&l.start_date)),date(Some(&l.end_date)),enum_text(Some(&l.regime),&["RGPS","RPPS","PRPPS","rgps","rpps"]),if l.source_review.as_ref().is_some_and(|r|r.excluded){"Excluído da hipótese".into()}else{bool_text(l.confirmed)},indicators(&if l.indicators.is_empty(){vec![]}else{vec![l.indicators.clone()]},personal)?]);}
     s.tables.push(table("Declarações manuais — mantidas separadas da fonte",&["Nº","Vínculo","Início","Fim","Regime","Confirmado?","Indicadores"],&[1,4,2,2,2,2,3],rows));
+    let mut audit=vec![];
+    for link in &case.manual_links {if let Some(review)=&link.source_review{
+        for (index,change) in review.history.iter().enumerate(){audit.push(vec![review.sequence.to_string(),(index+1).to_string(),change.at.clone(),if review.excluded{"Excluído da hipótese".into()}else{"Ajuste declarado".into()},if personal{field(&change.reason)?}else{"Justificativa ocultada".into()}]);}
+    }}
+    if !audit.is_empty(){s.tables.push(table("Revisão de vínculos - origem preservada",&["Origem #","Operação","Data registrada","Estado","Motivo"],&[1,1,3,3,5],audit));}
     if let Some(t)=native.and_then(|v|v.get("tempo")){if !t.is_null(){
         let mut rows=vec![];for(key,label)in[("total_dias","Dias do motor"),("total_dias_efetivos","Dias efetivos do motor"),("carencia_meses","Carência do módulo de tempo")]{rows.push(vec![label.into(),numeric(t.get(key),false)?]);}
         for(key,label)in[("ate_ec20","Marco EC20 — dias"),("ate_ec103","Marco EC103 — dias"),("apos_ec103","Após EC103 — dias")]{rows.push(vec![label.into(),numeric(t.get("marcos").and_then(|v|v.get(key)),false)?]);}
@@ -314,6 +319,7 @@ fn contribution_ledger(case:&Calculation, personal:bool)->Result<Section,String>
 }
 
 pub(crate) fn build(case:&Calculation,workspace:&Workspace,options:ReportOptions,outcome:Option<&Value>)->Result<Report,String>{
+    previus_workspace::link_review::validate_source_links(case)?;
     if let Some(v)=outcome{json_budget(v)?;}
     if options.include_personal { field(&case.name)?; }
     let ledger_count=case.contribution_review.as_ref().map_or(0,|review|review.records.len()+review.history.len());

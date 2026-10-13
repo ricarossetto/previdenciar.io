@@ -3,6 +3,7 @@
 #![deny(unsafe_code)]
 mod model;
 pub mod contributions;
+pub mod link_review;
 mod report;
 mod storage;
 // Only this small FFI boundary is allowed to contain audited unsafe operations.

@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.8.2-beta.1 - 2026-10-13
+
+- As tabelas Vínculos do CNIS e Competências e remunerações agora abrem edição ao clicar nas células/linhas, com botões nomeados e acesso por teclado.
+- Ajustes de vínculos declaram empregador, início, fim, regime, indicadores e conferência; mantêm a origem e um histórico documental validado no Rust.
+- Fim candidato não é preenchido automaticamente; PRPPS continua exigindo CTC específica, mesmo se o campo de regime for editado para RGPS.
+- Valores de competências históricas podem ser revisados sem conversão monetária presumida. O seletor do mês lista os lançamentos separados e abre o ajuste individual.
+- A tabela de origem continua visível após iniciar o livro e mostra os ajustes separados. Alterações invalidam o resultado e a revisão anterior.
+- PDFs reais de períodos/detalhado incluem a revisão dos vínculos, ocultando motivos livres no modo privado.
+
+A interface é própria, não uma reprodução certificada do painel proprietário. Após salvar os campos novos, use esta versão ou posterior e preserve backups.
+
+
 ## 0.8.1-beta.5 - 2026-10-13
 
 - Livro de contribuições com edição da hipótese, origem preservada, moeda/vínculo, filtros, seleção, ações em lote, consolidação documentada, histórico e múltiplos desfazeres.

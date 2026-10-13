@@ -290,3 +290,9 @@
 .previus-app .status-tag.neutral{color:var(--fg);background:var(--surface-2)}
 
 .previus-app .dialog{opacity:1;transition:none}
+
+/* The source tables are edit entry points, not a read-only dead end. */
+.previus-app .source-cell{min-height:44px;padding:8px;border:1px solid transparent;background:transparent;text-align:left;justify-content:flex-start;max-width:100%;color:var(--fg);text-decoration:underline;text-decoration-color:var(--accent-line);text-underline-offset:4px;overflow-wrap:anywhere}
+.previus-app .source-cell:hover{border-color:var(--accent-line);background:var(--accent-soft)}
+.source-edit-row{cursor:pointer}.source-edit-row:hover td{background:var(--inset)}.source-edit-table{overflow:auto;max-height:520px}.source-edit-table:focus-visible{outline:2px solid var(--focus);outline-offset:3px}.source-edit-table table{min-width:900px}.source-period-card{display:flex;justify-content:space-between;align-items:center;gap:16px;border-top:1px solid var(--border);padding:16px 0}.source-period-card h3{margin:0 0 8px}.source-period-card p{margin-bottom:6px}.source-original-band{padding:16px;border:1px solid var(--border);border-radius:12px;background:var(--inset);margin-bottom:20px}.source-original-band p{margin:8px 0}
+@media(max-width:600px){.source-period-card{flex-direction:column;align-items:stretch}.source-edit-table{max-height:430px}}

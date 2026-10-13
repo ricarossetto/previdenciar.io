@@ -4,7 +4,10 @@ export interface Cnis {metadata:{page_count:number;source_sha256:string|null;ext
 export interface SalaryEntry{competence:string;amount_centavos:number;indicators:string[];link_sequence:number|null;source:{page:number;line:number;index:number};excluded_from_validated_domain:boolean}
 export interface CnisLink{sequence:number;raw_employer:string|null;start_date:string|null;end_date:string|null;prpps:boolean;indicators:string[];reported_last_salary_month:string|null;inferred_last_salary_end:{date_candidate:string;requires_confirmation:boolean}|null;source:{page:number}}
 export interface Client{id:number;name:string;cpf:string;email:string;phone:string;birth_date:string;sex:string|null;notes:string;archived:boolean}
-export interface ManualLink{id:number;employer:string;start_date:string;end_date:string;regime:string;indicators:string;confirmed:boolean}
+export interface LinkSnapshot{employer:string;start_date:string;end_date:string;regime:string;indicators:string;confirmed:boolean;excluded:boolean}
+export interface LinkChange{at:string;reason:string;before:LinkSnapshot;after:LinkSnapshot}
+export interface LinkSourceReview{sequence:number;source_sha256:string|null;excluded:boolean;history:LinkChange[]}
+export interface ManualLink{source_review?:LinkSourceReview|null;id:number;employer:string;start_date:string;end_date:string;regime:string;indicators:string;confirmed:boolean}
 export interface ManualSalary{id:number;competence:string;amount:string;indicators:string;confirmed:boolean}
 export interface CalcOptions{correction_index:string;interest_rate:string;interest_kind:string;fees_percent:string;fees_fixed:string;prescription_date:string;reference_base:string;include_thirteenth:boolean;rule_policy:string}
 export interface AssistantInterview{mode:string;current_benefit_received:boolean|null;import_requested:boolean|null;process_kind:string|null;goal:string|null;review_confirmed:boolean;completed_steps:string[]}
@@ -50,9 +53,19 @@ export const REFERENCE_LABELS=['IGP-DI (FGV)','INPC (IBGE)','IPCA-E (IBGE)','IPC
 
 export function normalizeCaseForEngine(c:Calculation):Calculation{const x=structuredClone(c);x.dib=isoDate(x.dib)??x.dib;if(x.identity.birth_date)x.identity.birth_date=isoDate(x.identity.birth_date)??x.identity.birth_date;if(x.disability==='Sem deficiência declarada')x.disability='none';x.manual_links=x.manual_links.map(l=>({...l,start_date:isoDate(l.start_date)??l.start_date,end_date:isoDate(l.end_date)??l.end_date}));x.manual_salaries=x.manual_salaries.map(s=>{const canonical=/^\d+(\.\d{1,2})?$/.test(s.amount)?s.amount:(parseMoney(s.amount)??s.amount);return {...s,amount:canonical}});return x}
 
-export function prepareCaseForSave(w:Workspace,c:Calculation):Calculation{let next=allocate(w);const saved=structuredClone(c);if(!saved.id)saved.id=next++;saved.manual_links=saved.manual_links.map(l=>({...l,id:l.id||next++}));saved.manual_salaries=saved.manual_salaries.map(s=>({...s,id:s.id||next++}));return saved}
+export function prepareCaseForSave(w:Workspace,c:Calculation):Calculation{let next=allocate(w);const saved=structuredClone(c);if(!saved.id)saved.id=next++;saved.manual_links=saved.manual_links.map(l=>({employer:l.employer,start_date:l.start_date,end_date:l.end_date,regime:l.regime,indicators:l.indicators,confirmed:l.confirmed,source_review:l.source_review??null,id:l.id||next++}));saved.manual_salaries=saved.manual_salaries.map(s=>({...s,id:s.id||next++}));return saved}
 
-export function prepareImportedLinksForReview(c:Calculation):ManualLink[]{const current=c.manual_links.map(x=>({...x}));for(const l of c.cnis?.links??[]){const start=l.start_date?brDate(l.start_date):'',end=l.end_date?brDate(l.end_date):'',name=l.raw_employer??'';if(!current.some(x=>x.employer===name&&x.start_date===start&&x.end_date===end))current.push({id:0,employer:name,start_date:start,end_date:end,regime:l.prpps?'RPPS':'A confirmar',indicators:l.indicators.join(', '),confirmed:false})}return current}
+export function prepareImportedLinksForReview(c:Calculation):ManualLink[]{
+  const current:ManualLink[]=c.manual_links.map(x=>({...x,source_review:x.source_review??null}));
+  for(const l of c.cnis?.links??[]){
+    if(current.some(x=>x.source_review?.sequence===l.sequence))continue;
+    const indicators=[...l.indicators];if(l.prpps&&!indicators.includes('PRPPS'))indicators.push('PRPPS');
+    const prepared:ManualLink={id:0,employer:l.raw_employer??'',start_date:l.start_date??'',end_date:l.end_date??'',regime:l.prpps?'RPPS':'A confirmar',indicators:indicators.join(', '),confirmed:false,source_review:{sequence:l.sequence,source_sha256:c.cnis?.metadata.source_sha256??null,excluded:false,history:[]}};
+    const legacy=current.findIndex(x=>!x.source_review&&!x.confirmed&&x.employer===prepared.employer&&(isoDate(x.start_date)||x.start_date)===prepared.start_date&&(isoDate(x.end_date)||x.end_date)===prepared.end_date&&x.regime===prepared.regime&&x.indicators===prepared.indicators);
+    if(legacy>=0)current[legacy]={...prepared,id:current[legacy].id};else current.push(prepared);
+  }
+  return current;
+}
 export function prepareImportedWagesForReview(c:Calculation):ManualSalary[]{const current=c.manual_salaries.map(x=>({...x}));for(const[k,m]of Object.entries(c.cnis?.salary_months??{})){if(k<'1994-07'||current.some(x=>x.competence===k))continue;if(!Number.isSafeInteger(m.amount_sum_centavos))throw new Error('Valor nominal fora da precisão segura da interface. Nenhuma preparação parcial foi aceita.');const indicators=[...new Set((c.cnis?.salary_entries??[]).filter(x=>x.competence===k).flatMap(x=>x.indicators))];if(m.count>1)indicators.push('concomitancia_a_revisar');if(m.contains_unresolved_prpps&&!indicators.includes('PRPPS'))indicators.push('PRPPS');current.push({id:0,competence:k,amount:(BigInt(m.amount_sum_centavos)/100n).toString()+','+(BigInt(m.amount_sum_centavos)%100n).toString().padStart(2,'0'),indicators:indicators.join(', '),confirmed:false})}return current}
 
 export const blankInterview=():AssistantInterview=>({mode:'assisted',current_benefit_received:null,import_requested:null,process_kind:null,goal:null,review_confirmed:false,completed_steps:[]});

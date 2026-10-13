@@ -39,3 +39,11 @@ Os PDFs detalhado, de salários e de memória incluem origem/ajustes e históric
 ## Exemplo de PDFs reais com dados fictícios
 
 Execute cargo run -p previus-reports --example contributions_report -- target/contribution-example. O exemplo cria dois PDFs novos, sem sobrescrever arquivos; não calcula benefício e nunca lê documentos pessoais. Para repetir, indique outro diretório vazio.
+
+## Edição diretamente nas tabelas de origem (0.8.2)
+
+Em Vínculos do CNIS, clique no empregador, no início, no fim, na revisão ou em Editar vínculo. O diálogo abre os campos da hipótese e mantém os valores originais visíveis. Declare uma justificativa para cada ajuste; data candidata continua não confirmada. O histórico source_review é validado na persistência e no cálculo. PRPPS original exige CTC específica: editar a opção RGPS não remove esse bloqueio.
+
+Em Competências e remunerações, clique no mês, na soma ou na situação. O diálogo lista todos os lançamentos daquele mês para escolher qual editar; não atribui a soma a um único salário. Meses históricos podem ser revisados, sem convertê-los automaticamente para BRL ou estender o PBC suportado. A tabela original permanece visível depois de abrir o livro, mostrando os ajustes separados. A edição afeta os registros revisados; aplicar ao cálculo continua explícito.
+
+Metadados da origem (página, sequência e original) permanecem imutáveis de propósito. Apenas os campos declarados da hipótese são editáveis. Após salvar source_review, versões antigas que desconhecem o campo podem recusar a base. Não apague a base para contornar isso; use a versão atual e preserve o backup.

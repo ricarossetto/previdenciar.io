@@ -8,6 +8,14 @@ use serde_json::Value;
 /// options.rule_policy carries typed JSON, not automatic parsing of free notes.
 pub fn calculate_case(case: &Calculation) -> Result<Value,String> {
     let mut blockers = Vec::new();
+    previus_workspace::link_review::validate_source_links(case)?;
+    for link in &case.manual_links {
+        if let Some(review)=&link.source_review {
+            if !review.excluded && case.cnis.as_ref().is_some_and(|c|c.links.iter().any(|l|l.sequence==review.sequence && l.prpps)) {
+                issue(&mut blockers,"source_ctc_proof_required","manual_links.source_review","A origem PRPPS exige CTC documental específica; editar o regime não comprova averbação RGPS.");
+            }
+        }
+    }
     if let Some(review) = &case.contribution_review {
         review.validate(case)?;
         if !review.applied {
@@ -67,7 +75,7 @@ pub fn calculate_case(case: &Calculation) -> Result<Value,String> {
     let request = CalculationInput {
         segurado:InsuredInput {sexo:case.sex.clone(),data_nascimento:case.identity.birth_date.clone(),deficiencia:case.disability.clone()},
         data_referencia:Some(case.dib.clone()),
-        vinculos:case.manual_links.iter().map(|l|LinkInput {
+        vinculos:case.manual_links.iter().filter(|l|!l.source_review.as_ref().is_some_and(|r|r.excluded)).map(|l|LinkInput {
             inicio:Some(l.start_date.clone()),fim:Some(l.end_date.clone()),tipo:policy.manual_link_kind.clone(),
             regime:Some(l.regime.clone()),confirmado:l.confirmed,evidencia:policy.review_evidence.clone(),
             indicadores:if l.indicators.trim().is_empty(){vec![]}else{vec!["manual_indicator_unresolved".into()]},

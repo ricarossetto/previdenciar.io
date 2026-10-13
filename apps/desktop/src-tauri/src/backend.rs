@@ -198,6 +198,7 @@ pub fn validate_workspace(workspace: &Workspace) -> Result<(), String> {
 }
 
 pub fn validate_calculation(calculation: &Calculation) -> Result<(), String> {
+    previus_workspace::link_review::validate_source_links(calculation)?;
     if let Some(review) = &calculation.contribution_review { review.validate(calculation)?; }
     if let Some(assistant) = &calculation.assistant { assistant.validate()?; }
     if calculation.manual_links.len() > 100_000 || calculation.manual_salaries.len() > 100_000 {

@@ -100,6 +100,7 @@ impl AssistantInterview {
 #[derive(Clone, Default, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct ManualLink {
+    pub source_review: Option<crate::link_review::LinkSourceReview>,
     pub id: u64,
     pub employer: String,
     pub start_date: String,
@@ -234,6 +235,7 @@ impl Workspace {
             if !clients.contains(&id) { warnings.push("Referência a cliente inexistente.".into()); }
         }
         for case in &self.calculations {
+            if let Err(message) = crate::link_review::validate_source_links(case) {warnings.push(message);}
             if let Some(review) = &case.contribution_review {
                 if let Err(message) = review.validate(case) { warnings.push(message); }
             }
