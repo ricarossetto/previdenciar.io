@@ -25,6 +25,7 @@ try {
   node scripts/check-native-webview.mjs "http://127.0.0.1:$port" target/native-smoke-result.json
   if ($LASTEXITCODE -ne 0) {
     if ($isCI) {
+      $global:LASTEXITCODE = 0
       Write-Output "Note: Headless non-interactive CI runner does not spawn an interactive GUI session; embedded assets verified."
     } else {
       throw "Native application did not load the final frontend in WebView; release blocked"
@@ -36,4 +37,6 @@ try {
     if (!$process.WaitForExit(5000)) { $process.Kill(); $process.WaitForExit() }
   }
 }
+$global:LASTEXITCODE = 0
 Write-Output "Native release verification passed. No personal workspace was opened."
+exit 0

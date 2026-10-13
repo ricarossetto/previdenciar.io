@@ -1,6 +1,8 @@
 # Changelog
 
-## 0.8.2-beta.2 - 2026-10-13
+## 0.8.2-beta.3 - 2026-10-13
+
+- Ajustado tratamento de exit code do smoke nativo para runners headless em CI.
 
 - Adicionado gate estático de verificação de assets embutidos no binário de release para ambientes de CI.
 
