@@ -280,3 +280,8 @@
 .previus-app .brand-name { font-family:var(--font-ui); font-size:18px; font-weight:600; letter-spacing:-.04em; }
 .previus-app .brand-sub { font-size:12px; letter-spacing:0; text-transform:none; }
 @media(max-width:600px) { .previus-app .chrome-mobile-brand { font-family:var(--font-ui); font-size:14px; font-weight:600; letter-spacing:-.055em; } }
+
+.contribution-filters{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin-top:20px}.contribution-summary{font-size:14px;line-height:1.6}.contribution-actions,.contribution-pagination{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin:20px 0}.contribution-pagination label{display:flex;align-items:center;gap:8px}.contribution-pagination .input{width:auto}.contribution-table{max-height:520px;overflow:auto;scrollbar-gutter:stable}.contribution-table table{min-width:1100px}.contribution-excluded td{color:var(--fg-2);background:var(--inset)}.contribution-bulk{padding-top:20px;border-top:1px solid var(--border)}.contribution-history{padding:12px 0;border-bottom:1px solid var(--border)}.contribution-table input[type=checkbox]{width:18px;height:18px}.contribution-panel .details{margin-top:20px}.previus-app .method-features li{background:var(--surface);list-style-position:inside}.previus-app .new-calculation-choice .btn{align-self:stretch}
+@media(max-width:900px){.contribution-filters{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:600px){.contribution-filters{grid-template-columns:minmax(0,1fr)}.contribution-actions .btn{flex:1 1 180px}.contribution-table{max-height:420px}}
+
+.contribution-table:focus-visible{outline:2px solid var(--focus);outline-offset:3px}

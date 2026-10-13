@@ -2,6 +2,7 @@
 //! No autosave, network, PDF copying, credential lookup or personal-data logging.
 #![deny(unsafe_code)]
 mod model;
+pub mod contributions;
 mod report;
 mod storage;
 // Only this small FFI boundary is allowed to contain audited unsafe operations.

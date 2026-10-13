@@ -12,7 +12,7 @@
 
 ## Contribuições
 
-O editor manual permite alterar competência, valor nominal, indicadores e confirmação. O CNIS permanece fonte de origem, não uma planilha livremente sobrescrita. O editor completo de lançamentos importados e operações em lote está no roadmap; não publique esse fluxo como concluído.
+Em Salários, clique Abrir livro de contribuições. Cada origem permanece separada dos ajustes. Leia docs/CONTRIBUTIONS.md para editar, documentar, selecionar, consolidar, desfazer e aplicar a revisão. Indicadores/moeda/concomitâncias não são resolvidos automaticamente. O cálculo usa a projeção aplicada, não simplesmente o total mostrado na tabela.
 
 ## Base existente
 

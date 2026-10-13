@@ -32,6 +32,11 @@ jobs:
         working-directory: apps/desktop
       - run: npm test
         working-directory: apps/desktop
+      - run: npx playwright install chromium
+        working-directory: apps/desktop
+      - run: npm run test:e2e
+        working-directory: apps/desktop
+      - run: node scripts/review-public-source.mjs
       - run: cargo test --workspace --locked
       - run: cargo build --release --locked -p previus-next-desktop --bin previus-next-desktop
       - name: Package checksum and prerelease
@@ -41,11 +46,16 @@ jobs:
         run: |
           if ($env:RELEASE_TAG -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+(?:-[A-Za-z0-9.-]+)?$') { throw 'Invalid release tag' }
           $version = $env:RELEASE_TAG.Substring(1)
+          $coreVersion = $version.Split('-')[0]
+          $package = Get-Content apps/desktop/package.json -Raw | ConvertFrom-Json
+          $config = Get-Content apps/desktop/src-tauri/tauri.conf.json -Raw | ConvertFrom-Json
+          if ($package.version -ne $coreVersion -or $config.version -ne $coreVersion) { throw 'Release tag and application versions disagree' }
           $name = "previdenciar.io-$version-windows-x64.exe"
           New-Item -ItemType Directory -Path release -Force | Out-Null
           Copy-Item -LiteralPath target/release/previus-next-desktop.exe -Destination "release/$name"
           $hash = (Get-FileHash -LiteralPath "release/$name" -Algorithm SHA256).Hash.ToLowerInvariant()
           "$hash  $name" | Set-Content -LiteralPath release/SHA256SUMS.txt -Encoding ascii
+          @{ commit=(git rev-parse HEAD); tag=$env:RELEASE_TAG; version=$coreVersion; product='previdenciar.io'; platform='windows-x64'; sha256=$hash; bytes=(Get-Item "release/$name").Length; signed=$false } | ConvertTo-Json | Set-Content -LiteralPath release/BUILDINFO.json -Encoding utf8
           gh release view $env:RELEASE_TAG *> $null
           if ($LASTEXITCODE -eq 0) { Write-Output 'Release already exists; assets are not replaced automatically.'; exit 0 }
-          gh release create $env:RELEASE_TAG "release/$name" release/SHA256SUMS.txt --verify-tag --prerelease --title "previdenciar.io $version" --notes-file .github/RELEASE_NOTES.md
+          gh release create $env:RELEASE_TAG "release/$name" release/SHA256SUMS.txt release/BUILDINFO.json --verify-tag --prerelease --title "previdenciar.io $version" --notes-file .github/RELEASE_NOTES.md

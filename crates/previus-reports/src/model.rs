@@ -289,14 +289,39 @@ fn transitions(native:Option<&Value>,personal:bool)->Result<Section,String>{
     }
     s.paragraphs.push("*Critério atingido = flag elegivel do motor, não concessão nem conclusão jurídica. Vencedor do comparador pode diferir do coeficiente/resumo do motor; ambos são preservados sem forçar igualdade.".into());Ok(s)
 }
+fn contribution_ledger(case:&Calculation, personal:bool)->Result<Section,String>{
+    let mut s=section("Livro de revisão de contribuições",false);
+    let Some(review)=&case.contribution_review else{return Ok(s)};
+    review.validate(case)?;
+    s.paragraphs.push(if review.applied{"Projeção aplicada aos salários manuais. Não confirma regime, direito ou exclusão da fonte."}else{"Revisão não aplicada. Ajustes ainda não compõem os salários do motor."}.into());
+    s.paragraphs.push("A fonte CNIS permanece separada e intacta. Somas são nominais; não há conversão automática de moeda ou validação jurídica. Histórico local não é assinatura digital.".into());
+    let mut rows=vec![];
+    for record in &review.records{
+        let original=if record.source_indices.is_empty(){"Manual".into()}else{
+            let mut total=0i64;
+            for index in &record.source_indices{
+                let entry=case.cnis.as_ref().and_then(|c|c.salary_entries.iter().find(|e|e.source.index==*index)).ok_or("Origem de contribuição ausente no relatório.")?;
+                total=total.checked_add(entry.amount_centavos).ok_or("Soma original excede limite monetário.")?;
+            }
+            manual_amount(&format!("{}.{:02}",total/100,total%100))?
+        };
+        rows.push(vec![month(&record.competence)?,if record.source_indices.is_empty(){"Manual".into()}else{record.source_indices.iter().map(|i|i.to_string()).collect::<Vec<_>>().join(", ")},original,manual_amount(&record.amount)?,record.currency.clone(),if record.excluded{"Excluído da hipótese".into()}else if record.confirmed{"Conferência declarada".into()}else{"Pendente".into()},if personal{field(&record.evidence)?}else{"Justificativa ocultada".into()}]);
+    }
+    s.tables.push(table("Origem e ajustes documentados",&["Competência","Origem #","Original","Ajustado","Moeda","Situação","Justificativa"],&[12,8,12,12,10,20,26],rows));
+    let history=review.history.iter().map(|entry|Ok(vec![entry.sequence.to_string(),entry.action.clone(),entry.at.clone(),if personal{field(&entry.reason)?}else{"Motivo ocultado".into()}])).collect::<Result<Vec<_>,String>>()?;
+    if !history.is_empty(){s.tables.push(table("Operações de revisão",&["Operação","Ação","Data registrada","Motivo"],&[10,15,30,45],history));}
+    Ok(s)
+}
+
 pub(crate) fn build(case:&Calculation,workspace:&Workspace,options:ReportOptions,outcome:Option<&Value>)->Result<Report,String>{
     if let Some(v)=outcome{json_budget(v)?;}
     if options.include_personal { field(&case.name)?; }
-    let input_count=case.manual_links.len().checked_add(case.manual_salaries.len()).and_then(|v|v.checked_add(case.cnis.as_ref().map_or(0,|c|c.links.len()+c.salary_entries.len()+c.findings.len()+c.warnings.len()))).ok_or("Quantidade de registros excede limite.")?;
+    let ledger_count=case.contribution_review.as_ref().map_or(0,|review|review.records.len()+review.history.len());
+    let input_count=ledger_count.checked_add(case.manual_links.len()).ok_or("Quantidade de registros excede limite.")?.checked_add(case.manual_salaries.len()).and_then(|v|v.checked_add(case.cnis.as_ref().map_or(0,|c|c.links.len()+c.salary_entries.len()+c.findings.len()+c.warnings.len()))).ok_or("Quantidade de registros excede limite.")?;
     if input_count>MAX_ROWS{return Err("Entrada excede 10.000 registros; nenhum registro foi omitido para caber no relatório.".into());}
     let native=outcome.filter(|v|v.get("status").and_then(Value::as_str)==Some("experimental")).and_then(|v|v.pointer("/data/native_result")).filter(|v|v.is_object());
     let mut report=Report{title:options.kind.title().into(),status:if native.is_some(){"RESULTADO EXPERIMENTAL / REGRAS NÃO CERTIFICADAS"}else{"RELATÓRIO DE CONFERÊNCIA / DADOS PENDENTES"}.into(),
-        office:if options.include_personal{let office=workspace.settings.office_name.trim();if office.is_empty(){"PREVIUS RUST • RELATÓRIOS".into()}else{field(office)?}}else{"Escritório previdenciário".into()},
+        office:if options.include_personal{let office=workspace.settings.office_name.trim();if office.is_empty(){"previdenciar.io • RELATÓRIOS".into()}else{field(office)?}}else{"Escritório previdenciário".into()},
         footer:if options.include_personal{let f=workspace.settings.report_footer.trim();if f.is_empty(){"Uso confidencial. Revisão documental e normativa necessária.".into()}else{field(f)?}}else{"Identificação oculta. Conferir dados, documentos e parâmetros.".into()},personal:options.include_personal,identification: [
             format!("Nome do segurado: {}", if options.include_personal { format!("{}    Cálculo: {}", optional_field(case.identity.full_name.as_deref())?, field(&case.name)?) } else { "Identificação oculta".into() }),
             format!("CPF: {}    Nascimento: {}", if options.include_personal { optional_field(case.identity.cpf.as_deref())? } else { "Oculto".into() }, date(case.identity.birth_date.as_deref())),
@@ -307,6 +332,7 @@ pub(crate) fn build(case:&Calculation,workspace:&Workspace,options:ReportOptions
     if options.kind == ReportKind::Detailed { report.sections.push(interview(case,options.include_personal)?); }
     if selected(options,&[ReportKind::Periods]){report.sections.push(periods(case,options.include_personal,native)?);}
     if selected(options,&[ReportKind::Salaries]) || (options.kind == ReportKind::Memory && native.and_then(|n| n.get("correcao")).is_none_or(Value::is_null)) { report.sections.extend(salaries(case,options.include_personal)?.into_iter().filter(|s| options.kind != ReportKind::Memory || s.tables.iter().any(|t| !t.rows.is_empty()))); }
+    if case.contribution_review.is_some() && selected(options,&[ReportKind::Salaries,ReportKind::Memory]){report.sections.push(contribution_ledger(case,options.include_personal)?);}
     if selected(options,&[ReportKind::Memory,ReportKind::Summary]){let mut sections=engine(native,options.include_personal)?;if options.kind==ReportKind::Summary{sections.truncate(1);}report.sections.extend(sections);}
     if selected(options,&[ReportKind::Transitions]){report.sections.push(transitions(native,options.include_personal)?);}
     // Summary has a compact warning cover; all other kinds include relevant pending records.

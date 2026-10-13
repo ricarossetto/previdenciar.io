@@ -26,3 +26,7 @@ A marca pública mudou, mas os nomes internos de crates, o identificador Tauri e
 ## Interface e testes
 
 Animações são uma camada de apresentação, com movimento reduzido e foco de teclado. Testes de navegador usam fixtures IPC sintéticas. Testes Rust e smoke nativo têm escopos separados; sucesso de um não certifica automaticamente o outro.
+
+## Livro de contribuições
+
+Calculation.contribution_review é um overlay opcional. O contrato usa valores canônicos em centavos, referências à origem e diffs auditáveis. O frontend aplica explicitamente a projeção em manual_salaries; o Rust verifica origem, histórico e igualdade da projeção antes do cálculo e da persistência. Nenhum lançamento CNIS é sobrescrito. O renderer nativo mantém o livro e respeita a ocultação de motivos/justificativas livres.

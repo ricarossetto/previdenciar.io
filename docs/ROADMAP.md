@@ -1,19 +1,19 @@
 # Roadmap
 
-## Próxima prioridade: editor de contribuições
+## Entregue em 0.8.1
 
-Investigar de forma observacional a experiência de referência, sem copiar código proprietário nem acessar/alterar bases privadas.
+Livro de contribuições com origem/ajustes separados, competência, valor, moeda, vínculo declarado, filtros, inclusão, exclusão documental, ações em lote, consolidação nominal, histórico, múltiplos desfazeres e projeção explícita. Validação Rust, persistência e PDFs reais são cobertos por testes sintéticos.
 
-Projetar um livro de contribuições com: competência, valor original e ajustado, origem/vínculo, moeda, indicadores, revisão e justificativa; inclusão manual; retificação rastreável; exclusão documentada da hipótese sem apagar a fonte; concomitâncias; seleção e ações em lote; filtros por período/vínculo/pendência; soma e contagem por competência; desfazer e testes de invalidação do resultado.
+A implementação é própria. Não é apresentada como reprodução idêntica do painel de outro software; a observação nativa Windows anterior tinha limitações de acessibilidade.
 
-Esta é uma especificação a investigar, não uma lista de funções já comprovadas na aplicação de referência. A observação nativa Windows teve limitações de acessibilidade; não inferir controles ocultos a partir do binário ou de um screenshot não inspecionado.
+## Próximas melhorias
+
+Ampliar smoke nativo e revisão profissional de cenários, aprofundar categorização documental/CTC, testar desempenho em bases maiores dentro dos limites e melhorar ergonomia sem remover guardas. Assinatura de código depende de certificado e autorização próprios.
 
 ## Identidade
 
-Receber logo e sistema visual do OpenDesign, conferir licença das fontes/assets e integrar apenas a apresentação, mantendo contratos e legibilidade dos dados.
+A logo definitiva continua aguardando os arquivos aprovados do OpenDesign. Não substituir pelo primeiro conceito sem aprovação.
 
-## Distribuição e qualidade
+## Cobertura de regras
 
-Assinatura de código, melhorias de acessibilidade, smoke nativo expandido, documentação de regras/versionamento de índices e manutenção de fixtures exclusivamente sintéticas.
-
-Não há datas prometidas nem garantia de cobertura completa de legislação.
+Não há datas prometidas ou cobertura universal de legislação/índices. Fórmulas não suportadas não serão inventadas para eliminar uma pendência.

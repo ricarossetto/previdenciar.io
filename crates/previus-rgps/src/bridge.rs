@@ -8,6 +8,12 @@ use serde_json::Value;
 /// options.rule_policy carries typed JSON, not automatic parsing of free notes.
 pub fn calculate_case(case: &Calculation) -> Result<Value,String> {
     let mut blockers = Vec::new();
+    if let Some(review) = &case.contribution_review {
+        review.validate(case)?;
+        if !review.applied {
+            issue(&mut blockers,"contribution_review_unapplied","contribution_review","O livro foi alterado; aplique a revisão aos salários antes de calcular.");
+        }
+    }
     if case.kind.trim().to_lowercase() != "rgps" {
         issue(&mut blockers,"case_kind_unsupported","kind","Este adaptador atende exclusivamente cálculos RGPS.");
     }

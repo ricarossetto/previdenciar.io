@@ -10,7 +10,7 @@
 - Cadastro local de clientes, cálculos, agenda e modelos de texto.
 - Entrevista progressiva para organizar uma hipótese RGPS, salvar e retomar.
 - Importação local de CNIS em PDF com texto extraível e conferência de origem, vínculos, competências e indicadores.
-- Editor manual de períodos e salários, preparação do PBC para revisão e invalidação do resultado ao alterar dados.
+- Editor de períodos e livro de contribuições rastreável, com invalidação do resultado e da revisão ao alterar dados.
 - Motor RGPS experimental, com adaptador restritivo, avisos e memória nos cenários suportados.
 - Ferramentas de datas, atualização de valores e fórmulas financeiras com parâmetros explícitos.
 - Relatórios PDF reais: detalhado, resumo, períodos, salários, memória, transições e indicadores.
@@ -19,7 +19,7 @@
 
 ## O que ainda não está pronto
 
-**O editor completo de contribuições é prioridade da próxima etapa.** O editor manual já permite alterar competência, valor, indicadores e confirmação. Isso não equivale a um painel completo para editar/reconciliar cada contribuição importada do CNIS: não há ainda um fluxo completo de ajustes em lote, exclusão documentada, operações de concomitância e rastreamento de todas as alterações por lançamento.
+**O livro de contribuições já está implementado:** edição de competência e valor, moeda/vínculo declarados, filtros, ações em lote, consolidação nominal por competência, exclusão documentada sem apagar o CNIS, histórico, desfazer e aplicação explícita aos salários do cálculo. A validação Rust rejeita origem/histórico inconsistentes e projeção divergente. Isso não é validação de regime, CTC ou direito a benefício. Consulte [o guia do editor](docs/CONTRIBUTIONS.md).
 
 O programa não faz atualização automática de toda regra/índice oficial, não calcula todos os regimes ou benefícios, não é um sistema de tramitação judicial e não tem um backend web público. Consulte [limitações](docs/LIMITATIONS.md) e [roadmap](docs/ROADMAP.md).
 
@@ -31,7 +31,7 @@ O programa não faz atualização automática de toda regra/índice oficial, nã
 4. Requer Windows 10/11 x64 com Microsoft Edge WebView2. Nunca desative proteções do Windows para ignorar alertas; prefira compilar a partir do código se não confiar no binário.
 5. Use primeiro dados fictícios e leia os avisos. Não compartilhe CNIS, PDFs ou arquivos da base em issues.
 
-A primeira versão pública usa **identidade textual provisória**. Logo e identidade final serão produzidas no OpenDesign e integradas posteriormente.
+A versão pública usa **identidade textual provisória**. Logo e identidade final serão produzidas no OpenDesign e integradas posteriormente.
 
 ## Privacidade
 
@@ -70,6 +70,7 @@ Esses testes usam IPC sintético em memória e não certificam o transporte nati
 - [Arquitetura e contratos](docs/ARCHITECTURE.md)
 - [Privacidade](docs/PRIVACY.md)
 - [Limitações](docs/LIMITATIONS.md)
+- [Editor de contribuições](docs/CONTRIBUTIONS.md)
 - [Roadmap](docs/ROADMAP.md)
 - [Build, release e deploy](docs/RELEASING.md)
 - [Origem do código](docs/PROVENANCE.md) e [atribuições](NOTICE.md)

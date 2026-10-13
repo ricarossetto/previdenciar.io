@@ -49,7 +49,7 @@ export function Modal({title,subtitle,children,onClose,wide=false}:{title:string
       else {const top=modalStack.at(-1)!;if(previous?.isConnected&&top.contains(previous))previous.focus({preventScroll:true});else top.querySelector<HTMLElement>('button:not([disabled]),input:not([disabled])')?.focus()}
     };
   },[]);
-  return <div className="dialog-scrim" onMouseDown={e=>{if(e.target===e.currentTarget)onClose()}}><div className="dialog-backdrop" aria-hidden="true"/>
+  return createPortal(<div className="dialog-scrim" onMouseDown={e=>{if(e.target===e.currentTarget)onClose()}}><div className="dialog-backdrop" aria-hidden="true"/>
     <motion.div initial={enabled&&document.documentElement.dataset.input==='pointer'?{opacity:0.8,y:12,scale:0.985}:false} animate={{opacity:1,y:0,scale:1}} transition={enabled?springs.snappy:{duration:0}} ref={ref} tabIndex={-1} data-od-id={'dialog-'+slug(title)} className={'dialog '+(wide?'dialog--wide':'')} role="dialog" aria-modal="true" aria-labelledby={id+'-title'} aria-describedby={subtitle?id+'-description':undefined} onKeyDown={e=>{
       if(e.key==='Escape'){e.preventDefault();e.stopPropagation();onClose()}
       if(e.key==='Tab'){
@@ -63,5 +63,5 @@ export function Modal({title,subtitle,children,onClose,wide=false}:{title:string
       <header className="dialog__head"><div><h2 id={id+'-title'}>{title}</h2>{subtitle&&<p id={id+'-description'}>{subtitle}</p>}</div><Button aria-label="Fechar janela" onClick={onClose}><Icon name="close"/></Button></header>
       <div className="dialog__body">{children}</div>
     </motion.div>
-  </div>
+  </div>, document.querySelector('.previus-app') ?? document.body)
 }

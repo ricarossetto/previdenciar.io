@@ -23,6 +23,8 @@ pub struct Client {
 #[derive(Clone, Default, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Calculation {
+    /// Additive optional review; legacy workspaces deserialize as None.
+    pub contribution_review: Option<crate::contributions::ContributionReview>,
     pub id: u64,
     pub name: String,
     pub client_id: Option<u64>,
@@ -232,6 +234,9 @@ impl Workspace {
             if !clients.contains(&id) { warnings.push("Referência a cliente inexistente.".into()); }
         }
         for case in &self.calculations {
+            if let Some(review) = &case.contribution_review {
+                if let Err(message) = review.validate(case) { warnings.push(message); }
+            }
             if let Some(assistant) = &case.assistant {
                 if let Err(message) = assistant.validate() { warnings.push(message); }
             }
