@@ -1,5 +1,5 @@
 import type { Calculation, ContributionRecord, ContributionReview, ManualSalary } from './model';
-import { parseMoney } from './model';
+import { parseMoney,invalidateRmiAssumptions } from './model';
 const maxCents = 9223372036854775807n;
 export function canonicalAmount(value: string): string {
   const decimal = /^(0|[1-9]\d*)\.(\d{1,2})$/.exec(value);
@@ -22,7 +22,7 @@ export function amountLabel(value: string): string {
   return whole.replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ',' + fraction;
 }
 export function invalidateContributions(caseData: Calculation, review: ContributionReview): Calculation {
-  return { ...caseData, contribution_review: review, result: null, status: 'Revisão pendente',
+  return { ...invalidateRmiAssumptions(caseData), contribution_review: review, result: null, status: 'Revisão pendente',
     assistant: caseData.assistant ? { ...caseData.assistant, review_confirmed: false,
       completed_steps: caseData.assistant.completed_steps.filter(step => !['review', 'result'].includes(step)) } : null };
 }

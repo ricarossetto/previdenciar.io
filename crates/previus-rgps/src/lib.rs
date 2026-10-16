@@ -2,6 +2,7 @@
 //! Native results are observational research output, NOT verified benefit entitlement.
 #![forbid(unsafe_code)]
 mod bridge;
+pub mod pcd;
 pub mod contracts;
 pub use bridge::calculate_case;
 use contracts::*;

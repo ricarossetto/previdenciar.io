@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 #![forbid(unsafe_code)]
 mod backend;
+mod economic;
 mod files;
 use backend::{BackendState, BootResult};
 use previus_cnis::ImportResult;
@@ -53,6 +54,11 @@ async fn run_tool(tool: String, input: Value) -> Result<Value, String> {
 async fn run_finance(tool: String, input: Value) -> Result<Value, String> {
     tauri::async_runtime::spawn_blocking(move || previus_core::finance::run_finance(&tool, input)).await
         .map_err(|_| "Ferramenta financeira interrompida; nenhum resultado produzido.".to_owned())?
+}
+
+#[tauri::command]
+async fn fetch_economic_snapshot(through:String)->Result<previus_rgps::pcd::Snapshot,String>{
+ tauri::async_runtime::spawn_blocking(move||economic::load(&through)).await.map_err(|_|"Consulta pública interrompida; snapshot anterior preservado.".to_owned())?
 }
 
 #[tauri::command]
@@ -128,7 +134,7 @@ fn main() {
     let result = tauri::Builder::default()
         .manage(BackendState::default())
         .invoke_handler(tauri::generate_handler![bootstrap, save_workspace, pick_import_cnis, import_cnis_path,
-            run_tool, run_finance, calculate_case, calculate_rgps, preview_report, export_report, export_document, backup_export, restore_snapshot])
+            run_tool, run_finance, fetch_economic_snapshot, calculate_case, calculate_rgps, preview_report, export_report, export_document, backup_export, restore_snapshot])
         .setup(|app| {
             let config = app.config().app.windows.first().ok_or("Configuração da janela principal ausente.")?;
             WebviewWindowBuilder::from_config(app, config)?
@@ -196,7 +202,7 @@ mod tests {
             let permission = permission.as_str().unwrap();
             assert!(permission.starts_with("allow-")); assert!(!permission.contains(':'));
         }
-        assert_eq!(capability["permissions"].as_array().unwrap().len(), 13);
+        assert_eq!(capability["permissions"].as_array().unwrap().len(), 14);
     }
     #[test]
     fn direct_rgps_json_rejects_invalid_schema_without_false_result() {

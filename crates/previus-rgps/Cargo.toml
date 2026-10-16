@@ -6,6 +6,8 @@ license = "MIT"
 description = "Fail-closed private adapter for the owned observational RGPS engine"
 
 [dependencies]
+previus-cnis = { path = "../previus-cnis" }
+chrono = { version = "0.4", default-features = false, features = ["std"] }
 rgps-core = { path = "../rgps-core" }
 previus-workspace = { path = "../previus-workspace" }
 serde = { version = "1", features = ["derive"] }

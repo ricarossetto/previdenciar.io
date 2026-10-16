@@ -1,5 +1,5 @@
 import type {Calculation,CnisLink,ManualLink,LinkSnapshot} from './model';
-import {isoDate,prepareImportedLinksForReview} from './model';
+import {isoDate,prepareImportedLinksForReview,invalidateRmiAssumptions} from './model';
 export function linkSnapshot(link:ManualLink):LinkSnapshot{return{employer:link.employer,start_date:isoDate(link.start_date)||link.start_date,end_date:isoDate(link.end_date)||link.end_date,regime:link.regime,indicators:link.indicators,confirmed:link.confirmed,excluded:link.source_review?.excluded??false}}
 export function sourceLinkDraft(c:Calculation,source:CnisLink):ManualLink{
   return prepareImportedLinksForReview(c).find(l=>l.source_review?.sequence===source.sequence)!;
@@ -24,5 +24,5 @@ export function saveLinkAdjustment(c:Calculation,next:ManualLink,index:number|nu
     value={...value,source_review:{...next.source_review,history:[...history,{at:new Date().toISOString(),reason:reason.trim(),before,after}]}};
   }
   if(index===null)rows.push(value);else rows=rows.map((row,i)=>i===index?value:row);
-  return {...c,manual_links:rows,result:null,status:'Revisão pendente',assistant:c.assistant?{...c.assistant,review_confirmed:false,completed_steps:c.assistant.completed_steps.filter(s=>!['review','result'].includes(s))}:null};
+  return {...invalidateRmiAssumptions(c),manual_links:rows,result:null,status:'Revisão pendente',assistant:c.assistant?{...c.assistant,review_confirmed:false,completed_steps:c.assistant.completed_steps.filter(s=>!['review','result'].includes(s))}:null};
 }

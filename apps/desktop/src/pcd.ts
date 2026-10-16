@@ -1,0 +1,11 @@
+export interface EconomicRate{month:string;inpc:string;igpdi:string|null;ipcr:string|null;inpc_inss:string|null}
+export interface EconomicLimit{month:string;minimum:string;ceiling:string;minimum_source:string;ceiling_source:string}
+export interface EconomicSnapshot{source_url:string;retrieved_at:string;response_sha256:string;through:string;rates:EconomicRate[];limits:EconomicLimit[]}
+export interface Lc142Policy{
+ version:string;calculation_date:string;correction_month:string;assumptions_confirmed:boolean;review_evidence:string;
+ disability_all_periods:boolean;disability_evidence:string;rgps_confirmed:boolean;project_open_links:boolean;ongoing_evidence:string;
+ fill_missing_minimum:boolean;missing_salary_evidence:string;project_at_known_ceiling:boolean;projection_evidence:string;
+ historical_negative_policy:string;apply_inss_overrides:boolean;snapshot:EconomicSnapshot|null;
+}
+export function blankLc142():Lc142Policy{return{version:'lc142-constant-grade-v1',calculation_date:'',correction_month:'',assumptions_confirmed:false,review_evidence:'',disability_all_periods:false,disability_evidence:'',rgps_confirmed:false,project_open_links:false,ongoing_evidence:'',fill_missing_minimum:false,missing_salary_evidence:'',project_at_known_ceiling:false,projection_evidence:'',historical_negative_policy:'floor_before_1999_12',apply_inss_overrides:true,snapshot:null}}
+export function lc142Issues(p:Lc142Policy):string[]{const missing:string[]=[];if(!p.calculation_date)missing.push('data-base');if(!p.snapshot||p.snapshot.through!==p.correction_month)missing.push('snapshot público do mês escolhido');if(!p.review_evidence.trim())missing.push('conferência da origem');if(!p.disability_all_periods||!p.disability_evidence.trim())missing.push('grau constante e período da deficiência');if(!p.rgps_confirmed)missing.push('regime RGPS');if(!p.assumptions_confirmed)missing.push('confirmação das premissas');if(p.project_open_links&&!p.ongoing_evidence.trim())missing.push('continuidade dos vínculos abertos');if(p.fill_missing_minimum&&!p.missing_salary_evidence.trim())missing.push('motivo de preenchimento dos meses sem salário');if(p.project_at_known_ceiling&&!p.projection_evidence.trim())missing.push('motivo da projeção pelo teto conhecido');return missing}

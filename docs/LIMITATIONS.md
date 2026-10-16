@@ -19,3 +19,7 @@ Esta distribuição é uma pré-release experimental. Não use a existência de 
 O diálogo Novo cálculo recebeu superfícies de leitura mensuráveis, e os novos testes axe-core verificam os temas claro/escuro sem ignorar regras. O editor e o diálogo de ajustes também recebem verificações de WCAG em desktop/mobile. Isso é evidência automatizada limitada aos estados testados, não certificação completa de acessibilidade ou aprovação visual humana.
 
 Testes de navegador usam IPC sintético. Mesmo com testes verdes, o diálogo nativo de salvar PDF, revisão visual humana e validação jurídica não estão automaticamente certificados.
+
+## PcD de grau constante
+
+Existe um caminho experimental de simulação com premissas explícitas, descrito em [Cenários LC 142](LC142_SCENARIOS.md). Não cobre graus mistos, conversões, fator previdenciário ou certificação de carência/deficiência. Coincidência matemática com um relatório não comprova continuidade contributiva, laudo, regime, atualização normativa ou direito a benefício. A divisão inteira dos 80% e a convenção 30/360 são escolhas declaradas do perfil comparativo, não uma recomendação automática para todos os casos.

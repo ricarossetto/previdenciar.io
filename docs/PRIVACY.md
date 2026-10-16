@@ -17,3 +17,7 @@ Não envie CNIS, PDFs, identificação, CPF/NIT, bases, backups, screenshots de 
 ## GitHub Pages
 
 O site é estático e possui links para documentação e releases. Não há campo de upload, cálculo remoto, formulário de clientes, analytics de terceiros ou backend previdenciário hospedado.
+
+## Índices públicos por solicitação explícita
+
+A tela de cenário PcD permite consultar índices e limites públicos na Fábrica de Cálculos/TRF3. A requisição contém somente o intervalo de competências, sem CNIS, identidade, salários ou dados de saúde. Esse comando não lê variáveis de credenciais nem exige chave. O snapshot pode integrar a base local protegida quando o usuário salva explicitamente o cálculo. Falha na rede não substitui a tabela anterior nem cria valores ausentes.

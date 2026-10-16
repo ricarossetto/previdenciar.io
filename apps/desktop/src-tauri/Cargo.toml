@@ -1,6 +1,6 @@
 [package]
 name = "previus-next-desktop"
-version = "0.8.2"
+version = "0.8.3"
 edition = "2021"
 description = "previdenciar.io — desktop local, privado e orientado à revisão"
 license = "MIT"
@@ -21,6 +21,9 @@ previus-cnis = { path = "../../../crates/previus-cnis" }
 previus-core = { path = "../../../crates/previus-core" }
 previus-rgps = { path = "../../../crates/previus-rgps" }
 previus-reports = { path = "../../../crates/previus-reports" }
+reqwest = { version = "0.13.5", default-features = false, features = ["blocking", "json", "native-tls"] }
+sha2 = "0.10"
+chrono = "0.4"
 
 [features]
 default = ["custom-protocol"]

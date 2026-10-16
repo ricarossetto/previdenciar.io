@@ -76,6 +76,7 @@ pub struct GracePeriod { pub inicio: Option<String>, pub fim: Option<String> }
 #[derive(Clone, Default, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct CasePolicy {
+    pub lc142: Option<crate::pcd::Lc142Policy>,
     pub version: Option<String>,
     pub review_evidence: Option<String>,
     pub manual_link_kind: Option<String>,

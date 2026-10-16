@@ -1,0 +1,16 @@
+import {act,fireEvent,render,screen} from '@testing-library/react';
+import {beforeEach,expect,it,vi} from 'vitest';
+import {PcdSetup} from '../src/components/PcdSetup';
+import {blankCase,invalidateRmiAssumptions} from '../src/model';
+import {blankLc142,lc142Issues} from '../src/pcd';
+import type {EconomicSnapshot} from '../src/pcd';
+const invoke=vi.hoisted(()=>vi.fn());
+vi.mock('@tauri-apps/api/core',()=>({invoke}));
+const snapshot:EconomicSnapshot={source_url:'https://fabrica-de-calculos.app.trf3.jus.br/indices/api/v1/tabela',retrieved_at:'2026-10-15T00:00:00Z',response_sha256:'a'.repeat(64),through:'2020-04',rates:[],limits:[]};
+function draft(){const c=blankCase();return {...c,name:'Cenario totalmente ficticio',disability:'Moderada',options:{...c.options,rule_policy:JSON.stringify({lc142:{...blankLc142(),calculation_date:'2020-04-01',correction_month:'2020-04'}})}}}
+beforeEach(()=>{invoke.mockReset();});
+it('starts with explicit gaps and no assumed medical or regime confirmation',()=>{const p=blankLc142();expect(lc142Issues(p)).toContain('data-base');expect(p.disability_all_periods).toBe(false);expect(p.rgps_confirmed).toBe(false);expect(p.fill_missing_minimum).toBe(false);expect(p.project_at_known_ceiling).toBe(false)});
+it('sends only a public month to the native snapshot command',async()=>{invoke.mockResolvedValue(snapshot);const onChange=vi.fn();render(<PcdSetup draft={draft()} onChange={onChange}/>);await act(async()=>fireEvent.click(screen.getByRole('button',{name:'Consultar índices e limites públicos'})));expect(invoke).toHaveBeenCalledWith('fetch_economic_snapshot',{through:'2020-04'});expect(JSON.parse(onChange.mock.calls[0][0]).lc142.snapshot).toEqual(snapshot)});
+it('rejects an async response after any draft change, including fields outside the policy',async()=>{let resolve!:(v:EconomicSnapshot)=>void;invoke.mockImplementation(()=>new Promise(r=>{resolve=r}));const original=draft(),onChange=vi.fn();const {rerender}=render(<PcdSetup draft={original} onChange={onChange}/>);fireEvent.click(screen.getByRole('button',{name:'Consultar índices e limites públicos'}));rerender(<PcdSetup draft={{...original,name:'Novo nome ficticio'}} onChange={onChange}/>);await act(async()=>resolve(snapshot));expect(onChange).not.toHaveBeenCalled();expect(screen.getByText(/A hipótese mudou durante a consulta/)).toBeInTheDocument()});
+it('keeps the previous snapshot after a provider failure',async()=>{invoke.mockRejectedValue(new Error('Indisponivel'));const onChange=vi.fn();render(<PcdSetup draft={draft()} onChange={onChange}/>);await act(async()=>fireEvent.click(screen.getByRole('button',{name:'Consultar índices e limites públicos'})));expect(onChange).not.toHaveBeenCalled();expect(screen.getByText('Indisponivel')).toBeInTheDocument()});
+it('source edits revoke consent while keeping the declared policy and its provenance',()=>{const c=draft();const policy=JSON.parse(c.options.rule_policy);policy.lc142.assumptions_confirmed=true;policy.lc142.snapshot=snapshot;c.options.rule_policy=JSON.stringify(policy);const next=invalidateRmiAssumptions(c);expect(JSON.parse(next.options.rule_policy).lc142.assumptions_confirmed).toBe(false);expect(JSON.parse(next.options.rule_policy).lc142.snapshot).toEqual(snapshot);expect(JSON.parse(c.options.rule_policy).lc142.assumptions_confirmed).toBe(true)});

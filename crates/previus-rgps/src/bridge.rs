@@ -7,7 +7,14 @@ use serde_json::Value;
 /// calculated. Import flags are NEVER promoted to validation by this bridge.
 /// options.rule_policy carries typed JSON, not automatic parsing of free notes.
 pub fn calculate_case(case: &Calculation) -> Result<Value,String> {
+    if case.options.rule_policy.trim().starts_with('{') {
+        let policy:CasePolicy=serde_json::from_str(&case.options.rule_policy).map_err(|_|"Política de cálculo inválida.")?;
+        if let Some(pcd)=policy.lc142 { return crate::pcd::calculate(case,&pcd); }
+    }
     let mut blockers = Vec::new();
+    if case.disability.as_deref().is_some_and(|value|matches!(value.trim().to_lowercase().as_str(),"grave"|"moderada"|"leve")) {
+        issue(&mut blockers,"pcd_lc142_not_implemented","disability","A aposentadoria PcD pela LC 142/2013 ainda não está implementada neste motor local. Não substituir por coeficiente da EC 103 para gerar um número.");
+    }
     previus_workspace::link_review::validate_source_links(case)?;
     for link in &case.manual_links {
         if let Some(review)=&link.source_review {

@@ -12,6 +12,7 @@
 - Importação local de CNIS em PDF com texto extraível e conferência de origem, vínculos, competências e indicadores.
 - Editor de períodos e livro de contribuições rastreável, com invalidação do resultado e da revisão ao alterar dados.
 - Motor RGPS experimental, com adaptador restritivo, avisos e memória nos cenários suportados.
+- Simulação PcD de grau constante com premissas explícitas, índices públicos e relatórios de origem/projeção separados; consulte [o método e seus limites](docs/LC142_SCENARIOS.md).
 - Ferramentas de datas, atualização de valores e fórmulas financeiras com parâmetros explícitos.
 - Relatórios PDF reais: detalhado, resumo, períodos, salários, memória, transições e indicadores.
 - Persistência local cifrada no Windows, gravação explícita e proteção contra sobrescrita após erro/corrupção.
@@ -35,7 +36,7 @@ A versão pública usa **identidade textual provisória**. Logo e identidade fin
 
 ## Privacidade
 
-Os fluxos implementados não enviam documentos a servidores. Importação, cálculos e relatórios ocorrem localmente; a exportação é explícita. A base protegida do Windows é mantida no caminho legado de compatibilidade, sem migração silenciosa. Exportar com identificação oculta **não é garantia de anonimização**, pois datas e valores podem permitir correlação.
+Os fluxos implementados não enviam documentos a servidores. A consulta opcional de índices e limites públicos envia somente competências à Fábrica de Cálculos/TRF3, sem CNIS, identidade, salários, dados de saúde ou chave de API. Importação, cálculos e relatórios ocorrem localmente; a exportação é explícita. A base protegida do Windows é mantida no caminho legado de compatibilidade, sem migração silenciosa. Exportar com identificação oculta **não é garantia de anonimização**, pois datas e valores podem permitir correlação.
 
 A página GitHub Pages é apenas apresentação/documentação/download: não recebe CNIS nem executa o motor Rust. Leia [privacidade](docs/PRIVACY.md).
 

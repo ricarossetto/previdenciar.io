@@ -1,7 +1,7 @@
 import {useState,useEffect,useRef} from 'react';
 import type {ReactNode} from 'react';
 import type {Calculation,ManualLink,CnisLink} from '../model';
-import {brDate,prepareImportedLinksForReview} from '../model';
+import {brDate,prepareImportedLinksForReview,invalidateRmiAssumptions} from '../model';
 import {sourceLinkDraft,saveLinkAdjustment} from '../links';
 import {Badge,Button,Field,Modal,Notice,Panel,Select} from './ui';
 export function SourceLinksEditor({draft,setDraft,onNotify}:{draft:Calculation;setDraft:(c:Calculation)=>void;onNotify:(s:string,error?:boolean)=>void}){
@@ -9,7 +9,7 @@ export function SourceLinksEditor({draft,setDraft,onNotify}:{draft:Calculation;s
   const [filter,setFilter]=useState('');
   const focusField=useRef<string|null>(null);
   useEffect(()=>{if(!editor||!focusField.current)return;const name=focusField.current;focusField.current=null;const dialog=document.querySelector('[data-od-id="dialog-editar-vinculo-'+editor.original?.sequence+'"]');const target=[...(dialog?.querySelectorAll<HTMLElement>('input,select')??[])].find(el=>el.getAttribute('aria-label')===name);target?.focus()},[editor]);
-  const invalidate=(manual_links:ManualLink[])=>setDraft({...draft,manual_links,result:null,status:'Revisão pendente',assistant:draft.assistant?{...draft.assistant,review_confirmed:false,completed_steps:draft.assistant.completed_steps.filter(s=>!['review','result'].includes(s))}:null});
+  const invalidate=(manual_links:ManualLink[])=>setDraft({...invalidateRmiAssumptions(draft),manual_links,result:null,status:'Revisão pendente',assistant:draft.assistant?{...draft.assistant,review_confirmed:false,completed_steps:draft.assistant.completed_steps.filter(s=>!['review','result'].includes(s))}:null});
   const editSource=(source:CnisLink)=>{const index=draft.manual_links.findIndex(l=>l.source_review?.sequence===source.sequence);setReason('');setEditor({value:{...sourceLinkDraft(draft,source),confirmed:false},index:index<0?null:index,original:source});};
   const editManual=(value:ManualLink,index:number|null)=>{if(value.source_review){const original=draft.cnis?.links.find(l=>l.sequence===value.source_review!.sequence);if(original){editSource(original);return}}setReason('');setEditor({value:{...value,confirmed:false},index,original:null});};
   const set=(change:Partial<ManualLink>)=>setEditor(current=>current?{...current,value:{...current.value,...change}}:null);

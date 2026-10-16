@@ -1,0 +1,2 @@
+use previus_workspace::Calculation;
+#[test]fn pcd_unavailable_is_not_hidden_behind_import_or_review_blockers(){for degree in ["Grave","Moderada","Leve"]{let c=Calculation{kind:"RGPS".into(),disability:Some(degree.into()),..Default::default()};let result=previus_rgps::calculate_case(&c).unwrap();assert_eq!(result["status"],"blocked");assert!(result["data"].is_null());assert!(result["blockers"].as_array().unwrap().iter().any(|b|b["code"]=="pcd_lc142_not_implemented"));}}

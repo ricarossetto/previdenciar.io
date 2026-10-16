@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-fetch-economic-snapshot"
+description = "Enables the fetch_economic_snapshot command without any pre-configured scope."
+commands.allow = ["fetch_economic_snapshot"]
+
+[[permission]]
+identifier = "deny-fetch-economic-snapshot"
+description = "Denies the fetch_economic_snapshot command without any pre-configured scope."
+commands.deny = ["fetch_economic_snapshot"]

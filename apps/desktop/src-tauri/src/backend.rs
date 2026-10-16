@@ -198,6 +198,11 @@ pub fn validate_workspace(workspace: &Workspace) -> Result<(), String> {
 }
 
 pub fn validate_calculation(calculation: &Calculation) -> Result<(), String> {
+    if calculation.options.rule_policy.len()>2*1024*1024{return Err("Política/snapshot excede o limite de 2 MiB.".into());}
+    if calculation.options.rule_policy.trim().starts_with('{'){
+        let policy:previus_rgps::contracts::CasePolicy=serde_json::from_str(&calculation.options.rule_policy).map_err(|_|"Política de cálculo inválida; não foi salva nem calculada.")?;
+        if let Some(pcd)=policy.lc142{if let Some(snapshot)=pcd.snapshot{snapshot.validate()?;}}
+    }
     previus_workspace::link_review::validate_source_links(calculation)?;
     if let Some(review) = &calculation.contribution_review { review.validate(calculation)?; }
     if let Some(assistant) = &calculation.assistant { assistant.validate()?; }

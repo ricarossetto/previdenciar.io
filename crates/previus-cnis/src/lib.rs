@@ -223,12 +223,13 @@ pub fn import_text(text: &str) -> Result<ImportResult, ImportError> {
 }
 
 struct Patterns {
-    salary: Regex, date: Regex, month: Regex, sequence: Regex, indicator: Regex,
+    salary: Regex, contribution_salary: Regex, date: Regex, month: Regex, sequence: Regex, indicator: Regex,
     cpf: Regex, nit: Regex, name: Regex, birth: Regex, mother: Regex,
     company_code: Regex, nit_anywhere: Regex, affiliation: Regex, species: Regex, currency: Regex,
 }
 static RX: LazyLock<Patterns> = LazyLock::new(|| Patterns {
     salary: Regex::new(r"\b(0[1-9]|1[0-2])/(\d{4})\s+(?:R\$\s*)?(-?(?:\d{1,3}(?:\.\d{3})+|\d+),\d{2})\b").unwrap(),
+    contribution_salary: Regex::new(r"\b(0[1-9]|1[0-2])/(\d{4})\s+\d{2}/\d{2}/\d{4}\s+(-?(?:\d{1,3}(?:\.\d{3})+|\d+),\d{2})\s+(-?(?:\d{1,3}(?:\.\d{3})+|\d+),\d{2})\b").unwrap(),
     date: Regex::new(r"\b\d{2}/\d{2}/\d{4}\b").unwrap(),
     month: Regex::new(r"\b(0[1-9]|1[0-2])/(\d{4})\b").unwrap(),
     sequence: Regex::new(r"^\s*(\d{1,3})\s+(.+)").unwrap(),
@@ -388,6 +389,7 @@ fn parse_pages(pages: &[String]) -> Result<ImportResult, ImportError> {
         let mut relation_expected = false;
         let mut table = false;
         let mut amount_kind = AmountKind::Remuneration;
+        let mut explicit_salary_column = false;
         let mut line_index = 0;
         while line_index < lines.len() {
             let line = lines[line_index];
@@ -420,19 +422,49 @@ fn parse_pages(pages: &[String]) -> Result<ImportResult, ImportError> {
             }
             if is_table_heading(line) {
                 table = true; relation_expected = false; table_count += 1;
+                explicit_salary_column = lower.contains("salario") && lower.contains("contribuicao");
                 amount_kind = if lower.contains("contribuicao") && !lower.contains("remuneracao") {
                     AmountKind::ContributionColumnUnresolved
                 } else { AmountKind::Remuneration };
             }
             if is_boundary(line) { table = false; relation_expected = false; }
+            // Bounded cooperative layout: explicit month, contractor/establishment CNPJs,
+            // reported Normal service form and remuneration. No arbitrary text/amount guessing.
+            static COOPERATIVE: LazyLock<Regex> = LazyLock::new(||Regex::new(r"(?i)\b(0[1-9]|1[0-2])/(\d{4})\s+\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2}\s+\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2}\s+Normal\s+(?:R\$\s*)?(-?(?:\d{1,3}(?:\.\d{3})+|\d+),\d{2})\b").unwrap());
+            let cooperative_rows:Vec<_>=if table{COOPERATIVE.captures_iter(line).collect()}else{vec![]};
+            for (i,cap) in cooperative_rows.iter().enumerate(){
+                let span=cap.get(0).unwrap();let end=cooperative_rows.get(i+1).map(|next|next.get(0).unwrap().start()).unwrap_or(line.len());
+                let amount_centavos=money(&cap[3])?;if amount_centavos<0{negative_entries+=1;}
+                result.salary_entries.push(SalaryEntry{competence:format!("{}-{}",&cap[2],&cap[1]),amount_centavos,indicators:codes(&line[span.end()..end]),source:source(page_index,line_index,result.salary_entries.len()+1,offset+span.start()),link_sequence:current_sequence,amount_kind:AmountKind::Remuneration,validation_status:ValidationStatus::Unvalidated,excluded_from_validated_domain:false});
+            }
+            // Only an explicitly labelled salary column can feed remuneration.
+            // The paid contribution is never divided by an assumed contribution rate.
+            let payment_rows: Vec<_> = if table && explicit_salary_column {
+                RX.contribution_salary.captures_iter(line).collect()
+            } else { vec![] };
+            let payment_spans: Vec<_> = payment_rows.iter().map(|cap| cap.get(0).unwrap().range()).collect();
+            for (i, cap) in payment_rows.iter().enumerate() {
+                let span = cap.get(0).unwrap();
+                let end = payment_rows.get(i+1).map(|next| next.get(0).unwrap().start()).unwrap_or(line.len());
+                let amount_centavos = money(&cap[4])?;
+                if amount_centavos < 0 { negative_entries += 1; }
+                result.salary_entries.push(SalaryEntry {
+                    competence: format!("{}-{}", &cap[2], &cap[1]), amount_centavos,
+                    indicators: codes(&line[span.end()..end]),
+                    source: source(page_index, line_index, result.salary_entries.len()+1, offset+span.start()),
+                    link_sequence: current_sequence, amount_kind: AmountKind::Remuneration,
+                    validation_status: ValidationStatus::Unvalidated, excluded_from_validated_domain: false,
+                });
+            }
             let matches: Vec<_> = RX.salary.captures_iter(line).collect();
             if !table { ignored_money_pairs += matches.len(); }
             else {
-                if matches.is_empty() && RX.month.is_match(line) && RX.currency.is_match(line) {
+                if matches.is_empty() && payment_rows.is_empty() && cooperative_rows.is_empty() && RX.month.is_match(line) && RX.currency.is_match(line) {
                     nonadjacent_rows += 1;
                 }
                 for (i, cap) in matches.iter().enumerate() {
                     let span = cap.get(0).unwrap();
+                    if payment_spans.iter().any(|range| range.start <= span.start() && span.start() < range.end) { continue; }
                     if span.start() > 0 && line.as_bytes()[span.start() - 1] == b'/' { continue; }
                     let tail_end = matches.get(i + 1).map(|next| next.get(0).unwrap().start()).unwrap_or(line.len());
                     let tail = &line[span.end()..tail_end];

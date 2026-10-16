@@ -18,6 +18,7 @@
     "allow-export-document",
     "allow-backup-export",
     "allow-restore-snapshot",
-    "allow-preview-report"
+    "allow-preview-report",
+    "allow-fetch-economic-snapshot"
   ]
 }

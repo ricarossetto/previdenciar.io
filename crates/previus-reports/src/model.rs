@@ -204,6 +204,7 @@ fn pending_label(code:&str)->Option<&'static str>{
         "source_review_required"|"review_not_confirmed"=>Some("Revisão documental por registro ainda exigida."),
         "prpps_unvalidated"=>Some("Vínculos PRPPS/RPPS não validados como RGPS; CTC não presumida."),
         "source_end_missing"|"missing_or_invalid_date"=>Some("Data ausente/inválida exige confirmação documental."),
+        "pcd_lc142_not_implemented"=>Some("Cálculo PcD LC 142/2013 ainda não implementado; sem RMI presumida."),
         "source_indicators_unresolved"=>Some("Indicadores/avisos de origem não resolvidos."),
         "inpc_out_of_coverage"=>Some("Índice solicitado fora da cobertura; sem extrapolação."),
         "source_exclusion_not_documented"=>Some("Exclusão de fonte não documentada."),
@@ -318,6 +319,36 @@ fn contribution_ledger(case:&Calculation, personal:bool)->Result<Section,String>
     Ok(s)
 }
 
+fn pcd_report(case:&Calculation,w:&Workspace,o:ReportOptions,n:&Value)->Result<Report,String>{
+ let grade=enum_text(case.disability.as_deref(),&["Grave","Moderada","Leve","grave","moderada","leve"]);
+ let pcd=&n["pcd"];let mut sections=vec![];
+ let ledger=||->Result<Section,String>{
+  let mut s=section("Salários de contribuição - cálculo da média",false);
+  let items=n["correcao"]["parcelas"].as_array().ok_or("Resultado PcD sem parcelas de correção.")?;
+  if items.len()>2400{return Err("Relatório PcD excede o limite de parcelas.".into());}
+  let rows=items.iter().enumerate().map(|(i,r)|Ok(vec![(i+1).to_string(),month(r["competencia"].as_str().ok_or("Parcela sem competência.")?)?,numeric(r.get("salario"),true)?,numeric(r.get("teto"),true)?,numeric(r.get("considerado"),true)?,numeric(r.get("indice"),false)?,numeric(r.get("corrigido"),true)?,if r["descartada"]==true{"D"}else{""}.into(),match r["origem"].as_str(){Some("imported")=>"CNIS",Some("reviewed_overlay")=>"Ajuste",Some("declared_missing_minimum")=>"Mínimo*",Some("declared_projection")=>"Projeção*",_=>"Pendente"}.into()])).collect::<Result<Vec<_>,String>>()?;
+  s.tables.push(table("PBC completo, em ordem cronológica",&["Nº","Data","Salário nominal","Teto da época","Salário considerado","Índice","Salário corrigido","Uso","Origem"],&[5,10,14,13,14,13,14,3,10],rows));
+  s.paragraphs.push("D = descartado da média. * Preenchimento/projeção por premissa declarada, não remuneração extraída. O perfil comparativo usa a parte inteira de 80% da quantidade de parcelas. Fatores exibidos com 6 casas truncadas; salários calculados com o fator integral, antes do arredondamento em centavos. Não houve conversão monetária ou pagamento presumido.".into());Ok(s)
+ };
+ let totals=||->Result<Section,String>{let mut s=section("Cálculo da renda mensal inicial - LC 142/2013",false);let c=&n["correcao"];let r=&n["resumo"];s.tables.push(table("Memória da média e do coeficiente",&["Apuração","Resultado"],&[7,4],vec![vec!["Parcelas do PBC".into(),numeric(c.get("pbc"),false)?],vec!["Salários utilizados (80% maiores)".into(),numeric(c.get("consideradas"),false)?],vec!["Salários descartados".into(),numeric(c.get("descartadas"),false)?],vec!["Soma dos salários utilizados".into(),numeric(c.get("soma_considerada"),true)?],vec!["Média dos salários corrigidos".into(),numeric(c.get("media"),true)?],vec!["Coeficiente do cenário (%)".into(),numeric(r.get("coeficiente"),false)?],vec!["Renda mensal inicial - simulação".into(),numeric(r.get("rmi"),true)?]]));
+ s.paragraphs.push(if r["rmi"].is_null(){"Requisito de tempo/carência não atingido no cenário; não há RMI de benefício produzida."}else{"Valor simulado com premissas declaradas. Não é concessão, laudo ou validação de direito."}.into());Ok(s)};
+ let time=||->Result<Section,String>{let mut s=section("Relatório do tempo de contribuição - LC 142",false);let t=&n["tempo"];let fmt=|v:&Value|format!("{} anos, {} meses e {} dias",v["years"].as_i64().unwrap_or(0),v["months"].as_i64().unwrap_or(0),v["days"].as_i64().unwrap_or(0));s.tables.push(table("Apuração do cenário",&["Medida","Apurado"],&[6,5],vec![vec!["Data-base dos dados conhecidos".into(),date(pcd["calculation_date"].as_str())],vec!["Tempo até a data-base".into(),fmt(&t["sem_projecao"])],vec!["DIB da hipótese".into(),date(Some(&case.dib))],vec!["Tempo total na DIB, incluindo projeção".into(),fmt(&t["total"])],vec!["Tempo exigido no cenário (anos)".into(),numeric(pcd.get("anos_exigidos"),false)?],vec!["Carência no cenário, incluindo projeção (meses)".into(),numeric(n["resumo"].get("carencia_meses"),false)?],vec!["Requisito atingido nesta simulação?".into(),bool_text(pcd["tempo_atingido_no_cenario"]==true)]]));
+ let rows=t["vinculos"].as_array().into_iter().flatten().map(|v|vec![date(v["inicio"].as_str()),date(v["fim"].as_str()),v["dias_30_360"].to_string(),"Intervalo unido; inclui continuidade/projeção declarada quando houver".into()]).collect();s.tables.push(table("Períodos considerados, sem duplicar concomitâncias",&["Início","Fim declarado","Dias 30/360","Alcance"],&[2,2,2,6],rows));s.paragraphs.push("Convenção declarada: meses de 30 dias, dias inclusivos e união das sobreposições. A data projetada não substitui o fim ausente no documento de origem.".into());Ok(s)};
+ let assumptions=||->Result<Section,String>{let mut s=section("Premissas, fontes e limites",false);s.tables.push(table("Separação entre fonte e hipótese",&["Item","Declaração"],&[5,7],vec![vec!["Grau de deficiência constante".into(),grade.clone()],vec!["Competências preenchidas pelo mínimo".into(),numeric(pcd.get("filled_minimum_count"),false)?],vec!["Competências projetadas".into(),numeric(pcd.get("projection_count"),false)?],vec!["Referência de correção conhecida".into(),month(n["correcao"]["referencia"].as_str().ok_or("Referência ausente.")?)?],vec!["Fonte pública".into(),"Fábrica de Cálculos/TRF3 - índices e limites. Valores obtidos por GET, sem enviar CNIS.".into()],vec!["Hash do snapshot".into(),optional_field(pcd["snapshot_sha256"].as_str())?],vec!["Conferência da origem".into(),if o.include_personal{optional_field(pcd["review_evidence"].as_str())?}else{"Referência livre ocultada".into()}],vec!["Deficiência e período".into(),if o.include_personal{optional_field(pcd["disability_evidence"].as_str())?}else{"Referência livre ocultada".into()}]]));s.paragraphs.push("Premissas não são fatos extraídos: meses sem salário, continuidade e renda futura dependem da declaração do operador. Os limites futuros são congelados na data-base e não apresentados como valores oficiais futuros. Esta versão não converte graus mistos, atividade especial ou CTC automaticamente e não aplica fator previdenciário.".into());Ok(s)};
+ match o.kind{
+  ReportKind::Memory=>{sections.push(ledger()?);sections.push(totals()?);sections.push(assumptions()?);},
+  ReportKind::Salaries=>{sections.push(ledger()?);sections.push(totals()?);sections.push(assumptions()?);},
+  ReportKind::Periods=>{sections.push(time()?);sections.push(assumptions()?);},
+  ReportKind::Summary=>{sections.push(totals()?);sections.push(time()?);sections.push(assumptions()?);},
+  ReportKind::Detailed=>{sections.push(totals()?);sections.push(time()?);sections.push(ledger()?);sections.push(assumptions()?);},
+  ReportKind::Transitions=>{let mut s=section("Comparação de cenários",false);s.paragraphs.push("Este documento calcula somente o grau constante declarado pela LC 142. Não foi executada comparação automática com todas as regras da EC 103, direito adquirido, fator ou aposentadoria por idade. Nenhum vencedor foi presumido.".into());sections.push(s);sections.push(time()?);sections.push(assumptions()?);},
+  ReportKind::Indicators=>{sections.push(assumptions()?);sections.push(pending(case,o.include_personal,None)?);},
+ }
+ let office=if o.include_personal&&!w.settings.office_name.trim().is_empty(){field(&w.settings.office_name)?}else{"previdenciar.io - cálculo previdenciário".into()};
+ if office.chars().count()>120{return Err("Cabeçalho excede o espaço reservado; nenhum texto foi cortado.".into());}
+ Ok(Report{title:format!("{} - LC 142/2013 ({grade})",o.kind.title()),status:"SIMULAÇÃO - PREMISSAS DECLARADAS - NÃO É CONCESSÃO".into(),office,footer:"Origem preservada. Projeções não são pagamentos. Revisão profissional necessária.".into(),personal:o.include_personal,identification:[format!("Nome do segurado: {}",if o.include_personal{optional_field(case.identity.full_name.as_deref())?}else{"Identificação oculta".into()}),format!("CPF: {}    Nascimento: {}",if o.include_personal{optional_field(case.identity.cpf.as_deref())?}else{"Oculto".into()},date(case.identity.birth_date.as_deref())),format!("DIB: {}    Data-base: {}    Grau: {}",date(Some(&case.dib)),date(pcd["calculation_date"].as_str()),grade)],sections})
+}
+
 pub(crate) fn build(case:&Calculation,workspace:&Workspace,options:ReportOptions,outcome:Option<&Value>)->Result<Report,String>{
     previus_workspace::link_review::validate_source_links(case)?;
     if let Some(v)=outcome{json_budget(v)?;}
@@ -333,6 +364,7 @@ pub(crate) fn build(case:&Calculation,workspace:&Workspace,options:ReportOptions
             format!("CPF: {}    Nascimento: {}", if options.include_personal { optional_field(case.identity.cpf.as_deref())? } else { "Oculto".into() }, date(case.identity.birth_date.as_deref())),
             format!("DIB: {}    Sexo: {}    Hipótese sujeita a revisão", date(Some(&case.dib)), enum_text(case.sex.as_deref(), &["masculino", "feminino", "Masculino", "Feminino"]))
         ],sections:vec![]};
+    if let Some(n)=native.filter(|n|n.get("engine_id").and_then(Value::as_str)==Some("lc142-constant-grade-v1")){return pcd_report(case,workspace,options,n);}
     if report.office.chars().count()>120 || report.footer.chars().count()>180{return Err("Cabeçalho/rodapé excede o espaço reservado; nenhum texto foi cortado.".into());}
     report.sections.push(summary(case,options,native)?);
     if options.kind == ReportKind::Detailed { report.sections.push(interview(case,options.include_personal)?); }

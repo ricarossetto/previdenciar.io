@@ -250,3 +250,24 @@ fn historical_currency_warning_is_explicit_not_an_implicit_brl_claim() {
     assert!(warning.message.contains("Do not interpret as current BRL"));
     assert_eq!(r.salary_entries[0].amount_centavos,100000);
 }
+
+#[test]
+fn payment_table_uses_explicit_salary_column_not_paid_contribution() {
+    let r=import_text("CNIS\nCompetência Data Pgto Contribuição Salário Contribuição\n06/2020 15/07/2020 50,00 1.000,00 07/2020 15/08/2020 55,00 1.100,00").unwrap();
+    assert_eq!(r.salary_entries.len(),2);
+    assert_eq!(r.salary_entries[0].competence,"2020-06");
+    assert_eq!(r.salary_entries[0].amount_centavos,100000);
+    assert_eq!(r.salary_entries[1].amount_centavos,110000);
+    assert!(r.salary_entries.iter().all(|e|e.amount_kind==previus_cnis::AmountKind::Remuneration));
+}
+#[test]
+fn payment_amount_alone_never_manufactures_a_salary() {
+    let r=import_text("CNIS\nCompetência Data Pgto Contribuição\n06/2020 15/07/2020 50,00").unwrap();
+    assert!(!r.salary_entries.iter().any(|e|e.amount_kind==previus_cnis::AmountKind::Remuneration));
+}
+
+#[test]
+fn bounded_cooperative_table_preserves_remuneration_and_ignores_company_numbers(){
+    let r=import_text("CNIS\nRemunerações\nCompetência Contrat. Estabelecimento Tomador Forma Prestação Serviço Remuneração Indicadores\n05/2020 00.000.000/0000-00 11.111.111/1111-11 Normal 1.900,00").unwrap();
+    assert_eq!(r.salary_entries.len(),1);assert_eq!(r.salary_entries[0].competence,"2020-05");assert_eq!(r.salary_entries[0].amount_centavos,190000);
+}

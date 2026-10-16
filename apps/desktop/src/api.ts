@@ -2,6 +2,7 @@ import { invoke } from '@tauri-apps/api/core';
 import {normalizeCaseForEngine} from './model';
 import type { Boot, Workspace, Cnis, Calculation, Json } from './model';
 export const api={
+ fetchEconomicSnapshot:(through:string)=>invoke<import('./pcd').EconomicSnapshot>('fetch_economic_snapshot',{through}),
  boot:()=>invoke<Boot>('bootstrap'),
  save:(workspace:Workspace)=>invoke<Workspace>('save_workspace',{workspace}),
  pickCnis:()=>invoke<Cnis|null>('pick_import_cnis'),
