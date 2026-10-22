@@ -76,6 +76,23 @@ fn indicators_stay_attached_to_each_column_entry() {
     assert!(r.salary_entries[4].indicators.is_empty());
 }
 #[test]
+fn table_continuing_on_the_next_page_keeps_the_salary_column() {
+    let text = "CNIS\nRelações Previdenciárias\nSeq. NIT Código Emp. Origem do Vínculo Tipo Filiado no Vínculo Data Início Data Fim\n1 111.11111.11-1 EMPREGADOR FICTICIO Contribuinte Individual 01/06/2008 30/11/2009\nContribuições\nCompetência Data Pgto. Contribuição Salário Contribuição Indicadores\n06/2008 28/07/2008 200,00 1.000,00\nO INSS poderá rever os dados\u{000c}CNIS\nRelações Previdenciárias\n03/2009 15/04/2009 200,00 1.000,00\n";
+    let r = import_text(text).unwrap();
+    let salaries: Vec<_> = r.salary_entries.iter().map(|e| (e.competence.clone(), e.amount_centavos)).collect();
+    assert_eq!(salaries, vec![("2008-06".to_string(), 100000), ("2009-03".to_string(), 100000)]);
+    assert!(r.salary_entries.iter().all(|e| e.amount_kind == previus_cnis::AmountKind::Remuneration));
+}
+#[test]
+fn the_cnis_footer_note_is_not_a_table_heading() {
+    let note = "O segurado somente terá reconhecida como tempo de contribuição ao RGPS a competência cujo valor consolidado seja igual ou superior ao salário mínimo";
+    let text = format!("CNIS\nRemunerações\nCompetência Remuneração Indicadores\n01/2020 100,00\n{note}\n");
+    let r = import_text(&text).unwrap();
+    assert_eq!(r.salary_entries.len(), 1);
+    assert_eq!(r.salary_entries[0].amount_centavos, 10000);
+    assert!(r.salary_entries.iter().all(|e| e.amount_kind == previus_cnis::AmountKind::Remuneration));
+}
+#[test]
 fn annual_consolidated_values_and_header_money_are_not_salary() {
     let text = "CNIS\n07/2020 999,00\nCompetência Remuneração\n01/2020 100,00\nValores Consolidados por Ano Civil\n2020 100,00 200,00\n02/2020 200,00\n";
     let r = import_text(text).unwrap();

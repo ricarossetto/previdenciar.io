@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.9.1 - 2026-10-22
+
+Correções de leitura de origem e o cenário PcD executável sem rede.
+
+- **Importação de CNIS corrigida em três defeitos**, todos achados num caso real de 23 páginas: a tabela de contribuições (competência, data de pagamento, contribuição e salário) continuava na página seguinte sem repetir o cabeçalho e as linhas seguintes eram descartadas; a nota de rodapé do CNIS era confundida com um cabeçalho de tabela e marcava salários válidos como "contribuição não resolvida"; e o contexto de tabela não atravessava a quebra de página. Com as correções, a leitura do caso real passou de 485 para 610 lançamentos e os salários por competência passaram a coincidir **um a um** com o relatório de referência.
+- **Série oficial do IGP-DI/FGV embutida** (SGS/BCB, série 190) e INPC atualizado até 2026-09, gerados por `scripts/gerar-dados-economicos.mjs` a partir da fonte pública, com a fonte declarada no próprio arquivo.
+- **Snapshot econômico local**: o cenário PcD passou a poder ser calculado sem a Fábrica de Cálculos do TRF3, usando as séries e tetos oficiais embutidos, com a proveniência declarada (URL local e SHA-256 das tabelas). A consulta pública continua disponível e tem precedência.
+- **Comparação de índices com a referência**: de 2009 em diante os fatores de correção do motor coincidem com os do relatório de referência; nos meses anteriores a diferença residual (até 1,3%) vem da política declarada de variações negativas históricas.
+- Competência sem lançamento na origem deixa de bloquear o cálculo: ela fica **fora do PBC** (não é tempo de contribuição) e a omissão é declarada na lista de avisos. Nunca vira zero.
+
 ## 0.9.0 - 2026-10-22
 
 Primeira versão estável da linha 0.9. O motor continua experimental: resultados, carência e enquadramento exigem revisão profissional.

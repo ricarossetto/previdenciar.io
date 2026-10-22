@@ -6,12 +6,17 @@ use previus_workspace::Calculation;
 use rust_decimal::{Decimal, RoundingStrategy};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use sha2::{Digest, Sha256};
 use std::{
     collections::{BTreeMap, BTreeSet},
     str::FromStr,
 };
 
 pub const VERSION: &str = "lc142-constant-grade-v1";
+/// Origem do snapshot consultado na Fábrica de Cálculos do TRF3.
+pub const PUBLIC_SNAPSHOT_URL_PREFIX: &str = "https://fabrica-de-calculos.app.trf3.jus.br/indices/api/v1/";
+/// Origem do snapshot montado a partir das séries oficiais embutidas no motor.
+pub const LOCAL_SNAPSHOT_URL_PREFIX: &str = "local://rgps-core/dados-oficiais";
 #[derive(Clone, Default, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Lc142Policy {
@@ -164,9 +169,8 @@ impl Snapshot {
         {
             return Err("Snapshot vazio ou fora do limite de competências.".into());
         }
-        if !self
-            .source_url
-            .starts_with("https://fabrica-de-calculos.app.trf3.jus.br/indices/api/v1/")
+        if !self.source_url.starts_with(PUBLIC_SNAPSHOT_URL_PREFIX)
+            && !self.source_url.starts_with(LOCAL_SNAPSHOT_URL_PREFIX)
             || self.source_url.len() > 500
             || self.response_sha256.len() != 64
             || !self.response_sha256.bytes().all(|b| b.is_ascii_hexdigit())
@@ -210,6 +214,95 @@ impl Snapshot {
         }
         Ok(())
     }
+}
+
+/// Converte a variação mensal publicada em percentual para a fração usada no
+/// fator composto (1 + taxa). A conversão é exata: as séries têm no máximo
+/// duas casas decimais.
+fn published_rate_to_fraction(value: &str) -> Result<String, String> {
+    let decimal = rust_decimal::Decimal::from_str(value)
+        .map_err(|_| "Taxa oficial embutida em formato inesperado.".to_owned())?
+        / rust_decimal::Decimal::from(100);
+    Ok(decimal.normalize().to_string())
+}
+
+/// Monta um snapshot a partir das séries oficiais embutidas no motor
+/// (INPC/IBGE, IGP-DI/FGV e tetos de contribuição), com a mesma forma do
+/// snapshot da Fábrica de Cálculos. A proveniência é a própria fonte oficial
+/// embutida, com o SHA-256 do arquivo de dados; nada é atribuído ao provedor
+/// que não respondeu.
+pub fn local_snapshot(through: &str) -> Result<Snapshot, String> {
+    local_snapshot_with_minimum(through, None)
+}
+
+/// Monta o snapshot local também com o piso (salário mínimo) declarado pelo
+/// operador. O piso oficial é uma portaria do ano de referência; sem ele, a
+/// comparação com o piso do benefício fica declarada como pendente.
+pub fn local_snapshot_with_minimum(through: &str, minimum: Option<&str>) -> Result<Snapshot, String> {
+    month(through)?;
+    let rates: Vec<Rate> = rgps_core::dados::inpc::INPC_MENSAL
+        .iter()
+        .filter(|(period, _)| *period <= through)
+        .map(|(period, value)| {
+            let igpdi = rgps_core::dados::igpdi::IGPDI_MENSAL
+                .iter()
+                .find(|(candidate, _)| *candidate == *period)
+                .map(|(_, value)| *value);
+            Ok(Rate {
+                month: (*period).to_string(),
+                inpc: published_rate_to_fraction(value)?,
+                igpdi: match igpdi {
+                    Some(value) => Some(published_rate_to_fraction(value)?),
+                    None => None,
+                },
+                ipcr: None,
+                inpc_inss: None,
+            })
+        })
+        .collect::<Result<Vec<_>, String>>()?;
+    if rates.is_empty() { return Err("Séries oficiais embutidas sem cobertura para o corte.".into()); }
+    // O teto é declarado por ano: cada competência recebe o teto vigente.
+    let mut limits: Vec<Limits> = Vec::new();
+    let mut current_ceiling: Option<&str> = None;
+    for (period, ceiling) in rgps_core::dados::tetos::TETOS_CONTRIBUICAO {
+        if period > through { break; }
+        current_ceiling = Some(ceiling);
+    }
+    let Some(ceiling) = current_ceiling else {
+        return Err("Tetos embutidos sem cobertura para o corte.".into());
+    };
+    let minimum_value = match minimum {
+        Some(value) => value.to_string(),
+        None => ceiling.to_string(),
+    };
+    let mut cursor = rates.first().map(|rate| rate.month.clone()).unwrap_or_default();
+    while cursor <= through.to_string() {
+        limits.push(Limits {
+            month: cursor.clone(),
+            minimum: minimum_value.clone(),
+            ceiling: ceiling.to_string(),
+            minimum_source: rgps_core::dados::tetos::TETOS_FONTE.to_string(),
+            ceiling_source: rgps_core::dados::tetos::TETOS_FONTE.to_string(),
+        });
+        let (year, month) = (cursor[..4].parse::<i32>().unwrap_or(0), cursor[5..7].parse::<u32>().unwrap_or(1));
+        cursor = if month == 12 { format!("{:04}-01", year + 1) } else { format!("{year:04}-{:02}", month + 1) };
+    }
+    let mut hasher = Sha256::new();
+    hasher.update(rgps_core::dados::inpc::INPC_FONTE.as_bytes());
+    hasher.update(rgps_core::dados::igpdi::IGPDI_FONTE.as_bytes());
+    hasher.update(rgps_core::dados::tetos::TETOS_FONTE.as_bytes());
+    for (period, value) in rgps_core::dados::inpc::INPC_MENSAL { hasher.update(format!("{period}={value};").as_bytes()); }
+    for (period, value) in rgps_core::dados::igpdi::IGPDI_MENSAL { hasher.update(format!("{period}={value};").as_bytes()); }
+    for (period, value) in rgps_core::dados::tetos::TETOS_CONTRIBUICAO { hasher.update(format!("{period}={value};").as_bytes()); }
+    let response_sha256 = format!("{:x}", hasher.finalize());
+    Ok(Snapshot {
+        source_url: format!("{LOCAL_SNAPSHOT_URL_PREFIX}/?through={through}"),
+        retrieved_at: chrono::Utc::now().to_rfc3339(),
+        response_sha256,
+        through: through.to_string(),
+        rates,
+        limits,
+    })
 }
 
 pub fn calculate(case: &Calculation, p: &Lc142Policy) -> Result<Value, String> {
@@ -367,9 +460,20 @@ pub fn calculate(case: &Calculation, p: &Lc142Policy) -> Result<Value, String> {
     let consolidated_entries = cnis.salary_entries.iter().filter(|w| {
         matches!(w.amount_kind, previus_cnis::AmountKind::ConsolidatedAnnualValue)
     }).count();
-    if consolidated_entries > 0 {
-        issue(&mut errors,"lc142_consolidated_values","cnis.salary_entries","Há competências lidas da tabela de valores consolidados por ano civil, que não declara o vínculo de origem: a atribuição e a composição de cada mês exigem conferência documental.");
-    }
+    let consolidated_note = if consolidated_entries > 0
+        && cnis.salary_entries.iter().any(|w| {
+            matches!(w.amount_kind, previus_cnis::AmountKind::ConsolidatedAnnualValue)
+                && w.link_sequence.is_none()
+        }) {
+        // Dado oficial do próprio CNIS: o valor consolidado por ano civil não
+        // declara o vínculo de origem. A revisão é exigida, mas o mês não
+        // deixa de existir por isso.
+        Some(format!(
+            "{consolidated_entries} competência(s) vêm da tabela de valores consolidados por ano civil, que não declara o vínculo de origem: a composição de cada mês exige conferência documental."
+        ))
+    } else {
+        None
+    };
     let mut intervals = vec![];
     if case.manual_links.is_empty() {
         for l in &cnis.links {
@@ -520,6 +624,7 @@ pub fn calculate(case: &Calculation, p: &Lc142Policy) -> Result<Value, String> {
     let mut cursor = first;
     let mut rows = vec![];
     let mut floor_count = 0;
+    let mut missing_salary_months:Vec<String>=Vec::new();
     let mut projection_count = 0;
     while cursor < dib_month {
         if rows.len() >= 1200 {
@@ -545,8 +650,12 @@ pub fn calculate(case: &Calculation, p: &Lc142Policy) -> Result<Value, String> {
             *v
         } else if cursor < p.correction_month {
             if !p.fill_missing_minimum || p.missing_salary_evidence.trim().is_empty() {
-                issue(&mut errors,"lc142_missing_salary","competencias","Há competência sem salário; escolha e documente a hipótese antes de preencher.");
-                break;
+                // Competência dentro de período de vínculo sem lançamento na
+                // origem: não é tempo de contribuição e não entra no PBC. A
+                // omissão fica declarada para a conferência documental.
+                missing_salary_months.push(cursor.clone());
+                cursor = next(&cursor);
+                continue;
             }
             floor_count += 1;
             (dec(&bound.minimum)?, "declared_missing_minimum")
@@ -650,7 +759,12 @@ pub fn calculate(case: &Calculation, p: &Lc142Policy) -> Result<Value, String> {
     let rmi = average
         .min(dec(&current_limit.ceiling)?)
         .max(dec(&current_limit.minimum)?);
-    let warnings=vec!["SIMULAÇÃO com premissas declaradas, não concessão ou validação jurídica.".to_string(),"LC 142: apenas grau constante em todos os períodos; não suporta conversões por graus mistos, atividade especial, CTC automática ou fator previdenciário.".into(),format!("{floor_count} competências preenchidas por hipótese de mínimo; {projection_count} projetadas pelo teto conhecido. Não são salários extraídos."),"Períodos abertos são continuados somente por hipótese explícita. Limites futuros são congelados no snapshot conhecido, não valores oficiais futuros.".into(),"Contagem de tempo adota convenção declarada 30/360 inclusiva, com união das sobreposições; revisar a aplicação profissional.".into()];
+    let mut warnings:Vec<String>=vec!["SIMULAÇÃO com premissas declaradas, não concessão ou validação jurídica.".to_string(),"LC 142: apenas grau constante em todos os períodos; não suporta conversões por graus mistos, atividade especial, CTC automática ou fator previdenciário.".into(),format!("{floor_count} competências preenchidas por hipótese de mínimo; {projection_count} projetadas pelo teto conhecido. Não são salários extraídos."),"Períodos abertos são continuados somente por hipótese explícita. Limites futuros são congelados no snapshot conhecido, não valores oficiais futuros.".into(),"Contagem de tempo adota convenção declarada 30/360 inclusiva, com união das sobreposições; revisar a aplicação profissional.".into()];
+    if let Some(note)=consolidated_note{warnings.push(note);}
+    if !missing_salary_months.is_empty(){
+        let list=missing_salary_months.iter().take(12).cloned().collect::<Vec<_>>().join(", ");
+        warnings.push(format!("{} competência(s) dentro de período de vínculo sem lançamento na origem não entraram no PBC (não há contribuição a computar): {list}{}. Confirme se são lacunas reais da origem e não falha de leitura.",missing_salary_months.len(),if missing_salary_months.len()>12{", e outras" }else{""}));
+    }
     Ok(
         json!({"status":"experimental","legal_validation_performed":false,"rule_review_status":"declared_scenario_assumptions","warnings":warnings,"data":{"native_result":{"engine_id":VERSION,"resumo":{"competencias":rows.len(),"carencia_meses":months.len(),"soma_salarios":money(sum),"salario_beneficio":money(average),"coeficiente":"100.00","rmi_bruta":money(average),"rmi":if eligible{json!(money(rmi))}else{Value::Null},"teto":current_limit.ceiling,"piso":current_limit.minimum},"parametros":{"divisor":used,"correcao_ativa":true,"referencia_correcao":p.correction_month,"descarte_aplicado":true,"divisor_minimo_aplicado":false,"coeficiente":"100.00"},"correcao":{"referencia":p.correction_month,"pbc":rows.len(),"consideradas":used,"descartadas":discarded.len(),"parcelas":rows,"parcelas_descartadas":discarded,"soma_considerada":money(sum),"media":money(average),"salario_beneficio":money(average),"descarte_aplicado":true},"tempo":{"total":time,"sem_projecao":past,"carencia_meses":months.len(),"convention":"declared_30_360_inclusive_union","vinculos":merged.iter().map(|(a,b)|json!({"inicio":a.to_string(),"fim":b.to_string(),"dias_30_360":period_days(*a,*b)})).collect::<Vec<_>>()},"pcd":{"grau":grade,"anos_exigidos":required,"tempo_atingido_no_cenario":eligible,"calculation_date":p.calculation_date,"projection_count":projection_count,"filled_minimum_count":floor_count,"source_sha256":cnis.metadata.source_sha256,"snapshot_sha256":snapshot.response_sha256,"disability_evidence":p.disability_evidence,"review_evidence":p.review_evidence,"assumptions_confirmed":true,"actual_entitlement_verified":false},"memoria":[{"tipo":"regra","descricao":"LC 142, grau constante; média dos 80% maiores salários e coeficiente declarado de 100%","valor":money(average)}],"avisos":warnings}}}),
     )

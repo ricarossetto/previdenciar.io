@@ -7,12 +7,13 @@ description = "Fail-closed private adapter for the owned observational RGPS engi
 
 [dependencies]
 previus-cnis = { path = "../previus-cnis" }
-chrono = { version = "0.4", default-features = false, features = ["std"] }
+chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
 rgps-core = { path = "../rgps-core" }
 previus-workspace = { path = "../previus-workspace" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 rust_decimal = { version = "=1.43.0", features = ["serde"] }
+sha2 = "0.10"
 
 [dev-dependencies]
 previus-cnis = { path = "../previus-cnis" }

@@ -38,6 +38,7 @@ pub fn capabilities() -> Value {
         "known_model_risks": model_risks(),
         "tables": {
             "inpc": {"first": tables["inpc"]["first"], "last": tables["inpc"]["last"], "count": tables["inpc"]["count"], "source_declaration": tables["inpc"]["source_declaration"]},
+            "igpdi": {"first": tables["igpdi"]["first"], "last": tables["igpdi"]["last"], "count": tables["igpdi"]["count"], "source_declaration": tables["igpdi"]["source_declaration"]},
             "ceilings": {"first": tables["ceilings"]["first"], "last_change": tables["ceilings"]["last"], "count": tables["ceilings"]["count"], "source_declaration": tables["ceilings"]["source_declaration"]},
             "official_values_independently_verified": false
         }

@@ -21,11 +21,15 @@ fn source_and_inputs_are_never_modified() {
     assert_eq!(before, serde_json::to_value(&c).unwrap());
 }
 #[test]
-fn missing_salary_is_not_zero_and_requires_explicit_assumption() {
+fn missing_salary_is_not_zero_and_is_declared() {
     let (mut c, mut p) = scenario();
     c.cnis.as_mut().unwrap().salary_months.remove("2020-02");
     let out = previus_rgps::pcd::calculate(&c, &p).unwrap();
-    assert_eq!(out["status"], "blocked");
+    // Sem lançamento na origem, a competência não é tempo de contribuição:
+    // ela fica fora do PBC e a omissão é declarada. Nunca vira zero.
+    assert_eq!(out["status"], "experimental");
+    assert_eq!(out["data"]["native_result"]["correcao"]["pbc"], 2);
+    assert!(out["warnings"].as_array().unwrap().iter().any(|w| w.as_str().unwrap_or("").contains("2020-02")));
     p.fill_missing_minimum = true;
     p.missing_salary_evidence = "Hipótese fictícia".into();
     let out = previus_rgps::pcd::calculate(&c, &p).unwrap();

@@ -334,6 +334,10 @@ fn is_relation_heading(text: &str) -> bool {
 }
 fn is_table_heading(text: &str) -> bool {
     let lower = folded(text);
+    // Um cabeçalho de tabela é curto. A nota de rodapé do CNIS ("O segurado
+    // somente terá reconhecida como tempo de contribuição ... competência ...")
+    // cita "competência" e "contribuição" e não pode virar cabeçalho.
+    if lower.trim().len() > 200 { return false; }
     lower.trim() == "remuneracoes" || lower.trim() == "contribuicoes"
         || lower.contains("competencia") && (lower.contains("remuneracao") || lower.contains("contribuicao"))
 }
@@ -341,7 +345,15 @@ fn is_boundary(text: &str) -> bool {
     let lower = folded(text);
     lower.contains("consolidado por ano civil") || lower.contains("consolidados por ano civil")
         || lower.contains("legenda de indicadores") || lower.starts_with("o inss podera")
-        || lower.starts_with("o segurado somente tera") 
+        || lower.starts_with("o segurado somente tera")
+}
+/// Seção que realmente encerra a tabela de remunerações. O rodapé da página
+/// ("O INSS poderá rever...") não encerra: a tabela do CNIS continua na
+/// página seguinte sem repetir o cabeçalho.
+fn closes_salary_section(text: &str) -> bool {
+    let lower = folded(text);
+    lower.contains("consolidado por ano civil") || lower.contains("consolidados por ano civil")
+        || lower.contains("legenda de indicadores")
 }
 fn parse_relation(block: &str, src: SourceRef, affiliation_hint: Option<&str>) -> Option<Result<EmploymentLink, BenefitRecord>> {
     let text = clean(block);
@@ -403,6 +415,12 @@ fn parse_pages(pages: &[String]) -> Result<ImportResult, ImportError> {
     let mut consolidated = false;
     let mut consolidated_header: Option<Vec<(usize, u32)>> = None;
     let mut consolidated_candidates: Vec<SalaryEntry> = Vec::new();
+    // O contexto da tabela atravessa a quebra de página: no CNIS a tabela de
+    // contribuições continua na página seguinte sem repetir o cabeçalho, e
+    // perder esse contexto descartaria as linhas seguintes.
+    let mut table = false;
+    let mut amount_kind = AmountKind::Remuneration;
+    let mut explicit_salary_column = false;
     for (page_index, raw_page) in pages.iter().enumerate() {
         let page = normalize(raw_page);
         seen_cnis |= folded(&page).contains("cnis");
@@ -422,9 +440,6 @@ fn parse_pages(pages: &[String]) -> Result<ImportResult, ImportError> {
         let lines: Vec<&str> = page.lines().collect();
         let mut offset = 0;
         let mut relation_expected = false;
-        let mut table = false;
-        let mut amount_kind = AmountKind::Remuneration;
-        let mut explicit_salary_column = false;
         let mut line_index = 0;
         while line_index < lines.len() {
             let line = lines[line_index];
@@ -462,7 +477,11 @@ fn parse_pages(pages: &[String]) -> Result<ImportResult, ImportError> {
                     AmountKind::ContributionColumnUnresolved
                 } else { AmountKind::Remuneration };
             }
-            if is_boundary(line) { table = false; relation_expected = false; }
+            // O rodapé do CNIS ("O INSS poderá rever...") fecha a página, não a
+            // tabela: a continuação na página seguinte segue com o mesmo
+            // cabeçalho implícito. Só uma nova seção encerra a tabela.
+            if is_boundary(line) { relation_expected = false; }
+            if closes_salary_section(line) { table = false; explicit_salary_column = false; }
             // Valores consolidados por ano civil: a posição do valor no texto
             // diz a que mês ele pertence. A tabela não declara vínculo,
             // empregador nem origem do pagamento: nada é atribuído por
