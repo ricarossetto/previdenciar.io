@@ -3250,7 +3250,7 @@ dependencies = [
 
 [[package]]
 name = "previus-next-desktop"
-version = "0.8.3"
+version = "0.9.0"
 dependencies = [
  "base64 0.21.7",
  "chrono",
@@ -3275,6 +3275,7 @@ dependencies = [
  "genpdf",
  "lopdf 0.38.0",
  "previus-cnis",
+ "previus-core",
  "previus-rgps",
  "previus-workspace",
  "rusttype",

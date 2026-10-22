@@ -5,7 +5,7 @@ use previus_reports::{render_pdf, ReportKind, ReportOptions};
 use previus_workspace::{Calculation, Workspace};
 
 
-fn options(kind: ReportKind) -> ReportOptions { ReportOptions { kind, include_personal: false } }
+fn options(kind: ReportKind) -> ReportOptions { ReportOptions::new(kind, false) }
 fn operations(doc: &Document, id: lopdf::ObjectId) -> Vec<Operation> {
     Content::decode(&doc.get_page_content(id).unwrap()).unwrap().operations
 }
@@ -26,7 +26,7 @@ fn compact_reference_style() {
     assert!(text.contains("IDENTIFICAÇÃO OCULTA"));
     for id in doc.get_pages().values() {
         let ops = operations(&doc, *id);
-        assert!(ops.iter().any(|op| op.operator == "Td" && numbers(op).len() == 2 && close(numbers(op)[1], 726.66)), "measured title baseline");
+        assert!(ops.iter().any(|op| op.operator == "Td" && numbers(op).len() == 2 && close(numbers(op)[1], 785.0)), "compact title baseline");
         let sizes: Vec<f32> = ops.iter().filter(|op| op.operator == "Tf").map(|op| op.operands[1].as_float().unwrap()).collect();
         assert!(sizes.contains(&12.0));
         assert!(sizes.iter().all(|v| *v <= 12.0), "no oversized redesign cover");
@@ -57,7 +57,7 @@ fn reference_bands_are_filled_behind_text_and_inside_body() {
         let ops = operations(&doc, *id);
         let first_text = ops.iter().position(|op| op.operator == "BT").unwrap();
         for (index, op) in ops.iter().enumerate() {
-            if color(op, [51,67,93]) || color(op, [230,230,230]) {
+            if color(op, [51,67,93]) || color(op, [246,247,249]) {
                 if color(op, [51,67,93]) { blue_bands += 1; } else { gray_bands += 1; }
                 assert!(index < first_text, "bands must not cover glyphs");
                 let rect = &ops[index+1];
@@ -66,8 +66,8 @@ fn reference_bands_are_filled_behind_text_and_inside_body() {
                 let r = numbers(rect);
                 assert!(close(r[0].max(42.52), r[0]), "left margin");
                 assert!(r[0]+r[2] <= 569.1, "right margin");
-                assert!(r[1] >= (297.0-276.5)*72.0/25.4-0.1, "footer reserve");
-                assert!(r[1]+r[3] <= (297.0-44.5)*72.0/25.4+0.1, "header reserve");
+                assert!(r[1] >= (297.0-278.0)*72.0/25.4-0.1, "footer reserve");
+                assert!(r[1]+r[3] <= (297.0-24.5)*72.0/25.4+0.1, "header reserve");
             }
         }
     }

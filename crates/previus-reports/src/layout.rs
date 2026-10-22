@@ -7,15 +7,15 @@ const BOLD: &[u8] = include_bytes!("../fonts/Inter-Bold.ttf");
 const MAX_BYTES: usize = 64 * 1024 * 1024;
 // Measured A4 references: x=42.52..569.02 pt; title baseline y=726.66 pt.
 const CONTENT_WIDTH_MM: f64 = 185.7375;
-const TITLE_BASELINE_PT: f64 = 726.66;
-const BODY_TOP_MM: f64 = 63.5;
-const BODY_BOTTOM_MM: f64 = 276.5;
-const FOOTER_TOP_MM: f64 = 278.82;
+const TITLE_BASELINE_PT: f64 = 785.0;
+const BODY_TOP_MM: f64 = 41.0;
+const BODY_BOTTOM_MM: f64 = 278.0;
+const FOOTER_TOP_MM: f64 = 282.0;
 const RULE_WIDTH_PT: f32 = 0.283;
 const TABLE_BLUE: (u8, u8, u8) = (51, 67, 93);
-const ROW_GRAY: (u8, u8, u8) = (230, 230, 230);
-fn navy() -> Color { Color::Rgb(57, 57, 57) }
-fn gray() -> Color { Color::Rgb(80, 80, 80) }
+const ROW_GRAY: (u8, u8, u8) = (246, 247, 249);
+fn navy() -> Color { Color::Rgb(23, 44, 65) }
+fn gray() -> Color { Color::Rgb(40, 48, 58) }
 fn body_style() -> Style { Style::new().with_font_size(9).with_color(gray()) }
 fn text(s: &str) -> elements::Paragraph { elements::Paragraph::new(wrap_tokens(s, 22)) }
 /// genpdf does not automatically split an unbroken token. Insert whitespace only
@@ -55,6 +55,7 @@ fn preflight(report: &Report, regular: &[u8], bold_bytes: &[u8]) -> Result<(), S
     let bold = rusttype::Font::from_bytes(bold_bytes.to_vec()).map_err(|_| "Fonte inválida.".to_string())?;
     let mut all = vec![report.title.as_str(), report.office.as_str(), report.footer.as_str(), report.status.as_str()];
     all.extend(report.identification.iter().map(String::as_str));
+    if let Some(value) = &report.highlight { all.push(value); }
     for section in &report.sections {
         all.push(&section.title);
         for p in &section.paragraphs { all.push(p); }
@@ -80,33 +81,25 @@ impl PageDecorator for Decorator {
         self.page += 1;
         if self.page > 1500 { return Err(Error::new("Limite de páginas PDF excedido", ErrorKind::InvalidData)); }
         area.add_margins(Margins::trbl(0, 210.0 - 15.0 - CONTENT_WIDTH_MM, 0, 15));
-        // Originals have a raster office masthead at y=742.68..813.54 pt.
-        // Reserve its band without copying private artwork or inventing a logo.
         let mut office_area = area.clone();
-        office_area.add_offset(Position::new(0, 10));
-        office_area.set_height(Mm::from(18));
+        office_area.add_offset(Position::new(0, 7));
+        office_area.set_height(Mm::from(9));
         let office_result = text(&self.office).aligned(Alignment::Center)
-            .styled(Style::new().bold().with_font_size(12).with_color(navy()))
+            .styled(Style::new().bold().with_font_size(10).with_color(navy()))
             .render(context, office_area, style)?;
         if office_result.has_more { return Err(Error::new("Cabeçalho excede espaço reservado", ErrorKind::InvalidData)); }
-        let mut identity_area = area.clone();
-        identity_area.add_offset(Position::new(0, 29));
-        identity_area.set_height(Mm::from(5));
-        text(&format!("Documento para revisão | {}", if self.private { "IDENTIFICAÇÃO OCULTA" } else { "USO CONFIDENCIAL" }))
-            .aligned(Alignment::Center).styled(Style::new().with_font_size(8).with_color(gray()))
-            .render(context, identity_area, style)?;
         let title_style = Style::new().bold().with_font_size(12).with_color(navy());
         let title_top = Mm::from((841.89 - TITLE_BASELINE_PT) * 25.4 / 72.0)
             - title_style.font(&context.font_cache).glyph_height(12);
         let mut title_area = area.clone();
         title_area.add_offset(Position::new(0, title_top));
-        title_area.set_height(Mm::from(8));
+        title_area.set_height(Mm::from(7));
         let title_result = text(&self.title).aligned(Alignment::Center).styled(title_style)
             .render(context, title_area, style)?;
         if title_result.has_more { return Err(Error::new("Título excede espaço reservado", ErrorKind::InvalidData)); }
         let mut band = area.clone();
-        band.add_offset(Position::new(0, 45.0));
-        band.set_height(Mm::from(15.0));
+        band.add_offset(Position::new(0, 25));
+        band.set_height(Mm::from(13));
         let size = band.size();
         band.draw_line(vec![Position::new(0,0), Position::new(size.width,0),
             Position::new(size.width,size.height), Position::new(0,size.height), Position::new(0,0)],
@@ -115,14 +108,14 @@ impl PageDecorator for Decorator {
         for line in &self.identification {
             identifiers.push(text(line).styled(Style::new().with_font_size(8).with_color(gray())));
         }
-        let identity_result = identifiers.padded(Margins::trbl(1.2,1.5,1.2,1.5)).render(context, band, style)?;
+        let identity_result = identifiers.padded(Margins::trbl(1.0,1.5,1.0,1.5)).render(context, band, style)?;
         if identity_result.has_more { return Err(Error::new("Identificação excede a faixa do relatório", ErrorKind::InvalidData)); }
         let mut footer_area = area.clone();
         footer_area.add_offset(Position::new(0, FOOTER_TOP_MM));
-        footer_area.set_height(Mm::from(14));
+        footer_area.set_height(Mm::from(12));
         let mut footer = elements::LinearLayout::vertical();
         footer.push(text(&self.footer).styled(Style::new().with_font_size(7).with_color(gray())));
-        footer.push(text(&format!("Página {} | Cálculo experimental - revisão necessária", self.page))
+        footer.push(text(&format!("Página {} | {} | Revisão necessária", self.page, if self.private {"IDENTIFICAÇÃO OCULTA"} else {"USO CONFIDENCIAL"}))
             .aligned(Alignment::Center).styled(Style::new().with_font_size(7).with_color(gray())));
         let footer_result = footer.render(context, footer_area, style)?;
         if footer_result.has_more { return Err(Error::new("Rodapé excede espaço reservado", ErrorKind::InvalidData)); }
@@ -134,32 +127,52 @@ impl PageDecorator for Decorator {
 /// Repeats an actual table header at each continuation render. genpdf 0.2.0
 /// has no built-in table header callback, so this wrapper owns that contract.
 struct RepeatingTable { headers: Vec<String>, weights: Vec<usize>, table: elements::TableLayout, done: bool }
-struct WidthWrappedCell { value: String, header: bool, paragraph: Option<elements::Paragraph> }
+struct WidthWrappedCell { value: String, header: bool, produced: bool }
+/// Wraps a cell value so that EVERY word genpdf measures (the word plus the
+/// separating space it keeps) fits the column. genpdf silently drops a word
+/// that is wider than the line, which would erase a date or a code from the
+/// document without any error.
+fn wrap_cell_text(value: &str, width: Mm, measure: impl Fn(&str) -> Mm) -> Result<String, String> {
+    if width <= Mm::from(0) { return Err("Coluna sem largura útil".into()); }
+    let mut wrapped = String::new();
+    for word in value.split_whitespace() {
+        let mut chunk = String::new();
+        for c in word.chars() {
+            let mut next = chunk.clone(); next.push(c);
+            let mut probe = next.clone(); probe.push(' ');
+            if measure(&probe) > width {
+                if chunk.is_empty() { return Err("Caractere excede largura da coluna".into()); }
+                wrapped.push_str(&chunk); wrapped.push(' '); chunk.clear();
+            }
+            chunk.push(c);
+        }
+        wrapped.push_str(&chunk); wrapped.push(' ');
+    }
+    Ok(wrapped.trim_end().to_string())
+}
 impl Element for WidthWrappedCell {
     fn render(&mut self, context: &Context, area: render::Area<'_>, style: Style) -> Result<RenderResult, Error> {
-        if self.paragraph.is_none() {
-            let width = area.size().width;
-            if width <= Mm::from(0) { return Err(Error::new("Coluna sem largura útil", ErrorKind::InvalidData)); }
-            let mut wrapped = String::new();
-            for word in self.value.split_whitespace() {
-                let mut chunk = String::new();
-                for c in word.chars() {
-                    let mut next = chunk.clone(); next.push(c);
-                    if style.str_width(&context.font_cache, &next) > width {
-                        if chunk.is_empty() { return Err(Error::new("Caractere excede largura da coluna", ErrorKind::InvalidData)); }
-                        wrapped.push_str(&chunk); wrapped.push(' '); chunk.clear();
-                    }
-                    chunk.push(c);
-                }
-                wrapped.push_str(&chunk); wrapped.push(' ');
-            }
-            let numeric = self.value.chars().any(|c| c.is_ascii_digit())
-                && self.value.chars().all(|c| c.is_ascii_digit() || ".,%+- /".contains(c));
-            let alignment = if self.header || (numeric && self.value.contains('/')) { Alignment::Center }
-                else if numeric { Alignment::Right } else { Alignment::Left };
-            self.paragraph = Some(elements::Paragraph::new(wrapped).aligned(alignment));
+        // The paragraph is rebuilt on every render: genpdf consumes the words of
+        // a paragraph, so a cached one would come back empty when a row that
+        // was cut by the page break is drawn again.
+        // The separating space is part of the word genpdf measures, so it has to
+        // be part of our measurement too.
+        let wrapped = wrap_cell_text(&self.value, area.size().width, |text| style.str_width(&context.font_cache, text))
+            .map_err(|message| Error::new(message, ErrorKind::InvalidData))?;
+        let numeric = self.value.chars().any(|c| c.is_ascii_digit())
+            && self.value.chars().all(|c| c.is_ascii_digit() || ".,%+- /".contains(c));
+        let alignment = if self.header || (numeric && self.value.contains('/')) { Alignment::Center }
+            else if numeric { Alignment::Right } else { Alignment::Left };
+        let mut paragraph = elements::Paragraph::new(wrapped).aligned(alignment);
+        let rendered = paragraph.render(context, area, style)?;
+        if rendered.size.height > Mm::from(0) { self.produced = true; }
+        else if !self.produced && !rendered.has_more && !self.value.trim().is_empty() {
+            // genpdf silently drops a word that is wider than the line. With the
+            // wrap above that cannot happen, and if it ever does the document is
+            // refused instead of publishing an empty cell.
+            return Err(Error::new(format!("Célula sem espaço: [{}]",self.value), ErrorKind::InvalidData));
         }
-        self.paragraph.as_mut().unwrap().render(context, area, style)
+        Ok(rendered)
     }
 }
 struct ReferenceCells { header: bool, frame: elements::FrameCellDecorator }
@@ -189,7 +202,7 @@ fn row(table: &mut elements::TableLayout, values: &[String], header: bool) -> Re
     let mut row = table.row();
     for value in values {
         let vertical = if header { 1.25 } else { 0.55 };
-        row.push_element(WidthWrappedCell { value: value.clone(), header, paragraph: None }.styled(style)
+        row.push_element(WidthWrappedCell { value: value.clone(), header, produced: false }.styled(style)
             .padded(Margins::trbl(vertical, 1, vertical, 1)));
     }
     row.push().map_err(|_| "Estrutura de tabela PDF inválida.".to_string())
@@ -218,6 +231,33 @@ impl Element for RepeatingTable {
         Ok(result)
     }
 }
+/// Keep a caption with its column headings and at least one ordinary row.
+/// The table itself retains its streaming continuation and repeated headings.
+struct CaptionedTable { content: elements::LinearLayout, started: bool }
+impl CaptionedTable {
+    fn new(table: &Table) -> Result<Self, String> {
+        let mut content = elements::LinearLayout::vertical();
+        if !table.caption.is_empty() {
+            content.push(text(&table.caption).styled(Style::new().bold().with_font_size(9).with_color(navy())));
+            content.push(elements::Break::new(0.15));
+        }
+        if table.rows.is_empty() {
+            content.push(text("Nenhum registro disponível nesta seção.").styled(body_style()));
+        } else {
+            content.push(RepeatingTable::new(table)?);
+        }
+        Ok(Self { content, started: false })
+    }
+}
+impl Element for CaptionedTable {
+    fn render(&mut self, context: &Context, area: render::Area<'_>, style: Style) -> Result<RenderResult, Error> {
+        if !self.started && area.size().height < Mm::from(27) {
+            return Ok(RenderResult { has_more: true, ..Default::default() });
+        }
+        self.started = true;
+        self.content.render(context, area, style)
+    }
+}
 #[derive(Default)]
 struct BoundedWriter(Vec<u8>);
 impl Write for BoundedWriter {
@@ -239,7 +279,14 @@ pub(crate) fn render(report: Report) -> Result<Vec<u8>, String> {
     doc.set_minimal_conformance();
     doc.set_page_decorator(Decorator { page: 0, title: report.title.clone(), office: report.office,
         footer: report.footer, private: !report.personal, identification: report.identification });
-    doc.push(text(&report.status).styled(Style::new().bold().with_font_size(9).with_color(navy())));
+    doc.push(text(&report.status).styled(Style::new().with_font_size(8).with_color(gray())));
+    if let Some(value) = &report.highlight {
+        doc.push(elements::Break::new(0.5));
+        doc.push(text("Renda mensal inicial estimada").styled(Style::new().with_font_size(10).with_color(gray())));
+        doc.push(text(value).styled(Style::new().bold().with_font_size(22).with_color(navy())));
+        doc.push(text("Valor do cenário declarado. Confira a memória e as pendências abaixo.").styled(body_style()));
+        doc.push(elements::Break::new(0.7));
+    }
     for section in &report.sections {
         if section.new_page { doc.push(elements::PageBreak::new()); }
         doc.push(elements::Break::new(0.5));
@@ -248,14 +295,12 @@ pub(crate) fn render(report: Report) -> Result<Vec<u8>, String> {
         doc.push(elements::Break::new(0.3));
         for paragraph in &section.paragraphs { doc.push(text(paragraph).styled(body_style())); doc.push(elements::Break::new(0.35)); }
         for table in &section.tables {
-            if !table.caption.is_empty() { doc.push(text(&table.caption).styled(Style::new().bold().with_font_size(9).with_color(navy()))); }
-            if table.rows.is_empty() { doc.push(text("Nenhum registro disponível nesta seção.").styled(body_style())); }
-            else { doc.push(RepeatingTable::new(table)?); }
+            doc.push(CaptionedTable::new(table)?);
             doc.push(elements::Break::new(0.6));
         }
     }
     let mut writer = BoundedWriter::default();
-    doc.render(&mut writer).map_err(|_| "Falha ao diagramar o PDF (limites de página, fonte ou tamanho); nenhum relatório válido foi produzido.".to_string())?;
+    doc.render(&mut writer).map_err(|e| format!("Falha ao diagramar o PDF (limites de página, fonte ou tamanho); nenhum relatório válido foi produzido. [{}]",e))?;
     if !writer.0.starts_with(b"%PDF-") || writer.0.len() < 500 { return Err("Saída PDF inválida ou vazia.".into()); }
     normalize_unicode_maps(&writer.0)
 }
@@ -264,6 +309,23 @@ pub(crate) fn render(report: Report) -> Result<Vec<u8>, String> {
     #[test] fn invalid_font_is_error() { assert!(font_family(b"not a font", BOLD).is_err()); assert!(font_family(REGULAR, &[]).is_err()); }
     #[test] fn writer_is_bounded() { let mut w=BoundedWriter(vec![0;MAX_BYTES]); assert!(w.write(&[1]).is_err()); }
     #[test] fn tokens_have_break_opportunities() { assert!(wrap_tokens(&"a".repeat(90),14).split_whitespace().all(|w|w.len()<=14)); }
+    #[test] fn narrow_cell_words_never_exceed_the_column_width() {
+        let width=Mm::from(19);
+        // Two units per character: a ten character date does not fit and has to
+        // be split, an eight character one does.
+        let measure=|text:&str|Mm::from(text.chars().count() as f64*2.0);
+        for value in ["15/10/2021","2021-01-15","15102021","abcdefghijklmnop","Mais de 120 contribuições"] {
+            let wrapped=wrap_cell_text(value,width,measure).unwrap();
+            assert!(!wrapped.is_empty(),"nothing wrapped for {value}");
+            for word in wrapped.split(' ') {
+                let piece=format!("{word} ");
+                assert!(measure(&piece)<=width,"word wider than the column: {piece}");
+            }
+        }
+        assert!(wrap_cell_text("15/10/2021",width,measure).unwrap().contains(' '),"a date that does not fit must be split");
+        assert!(wrap_cell_text("15102021",width,measure).unwrap().contains(' ').eq(&false),"a short code must not be split");
+        assert!(wrap_cell_text("x",Mm::from(0),measure).is_err());
+    }
 }
 
 /// printpdf 0.3.4 writes non-BMP cmap scalars as five/six hex digits instead of
@@ -318,7 +380,7 @@ fn reference_paint(doc: &mut lopdf::Document) -> Result<(), String> {
             if (op.operator == "RG" || op.operator == "rg") && op.operands.len() == 3 {
                 // printpdf rounds RGB commands to two decimals; recover our
                 // known reference palette before lopdf writes the final stream.
-                for &(r,g,b) in &[TABLE_BLUE, ROW_GRAY, (224,224,224), (80,80,80), (57,57,57), (192,192,192)] {
+                for &(r,g,b) in &[TABLE_BLUE, ROW_GRAY, (224,224,224), (40,48,58), (23,44,65), (192,192,192)] {
                     let rgb = [r,g,b];
                     if op.operands.iter().zip(rgb).all(|(a,b)| a.as_float().is_ok_and(|v|
                         (v - (f32::from(b)/255.0*100.0).round()/100.0).abs() < 0.0001)) {
@@ -338,7 +400,9 @@ fn reference_paint(doc: &mut lopdf::Document) -> Result<(), String> {
                 }).collect();
                 if let Some(p) = points.filter(|p| p[0] == p[4] && p[0].1 == p[1].1 && p[1].0 == p[2].0 && p[2].1 == p[3].1 && p[3].0 == p[0].0) {
                     background.push(Operation::new("q", vec![]));
-                    let rgb = if (stroke[0] - 0.2).abs() < 0.001 { TABLE_BLUE } else if (stroke[0] - 0.88).abs() < 0.001 { (224,224,224) } else { ROW_GRAY };
+                    let rgb = [TABLE_BLUE, ROW_GRAY, (224,224,224)].into_iter().find(|&(r,g,b)|
+                        stroke.iter().zip([r,g,b]).all(|(a,b)| (*a - (f32::from(b)/255.0*100.0).round()/100.0).abs() < 0.0001))
+                        .ok_or("Cor de faixa PDF não reconhecida.")?;
                     background.push(Operation::new("rg", [rgb.0,rgb.1,rgb.2].into_iter()
                         .map(|v| Object::Real(f32::from(v)/255.0)).collect()));
                     background.push(Operation::new("re", vec![p[0].0.into(),p[2].1.into(),(p[1].0-p[0].0).into(),(p[0].1-p[2].1).into()]));

@@ -27,10 +27,7 @@ fn every_pcd_report_is_a_real_pdf_with_declared_assumptions_and_hidden_evidence(
         let bytes = render_pdf(
             &case,
             &Workspace::default(),
-            ReportOptions {
-                kind,
-                include_personal: false,
-            },
+            ReportOptions::new(kind, false,),
             Some(&outcome),
         )
         .unwrap();
@@ -74,10 +71,7 @@ fn pcd_report_hides_a_stored_rmi_when_assumptions_are_not_confirmed() {
     let bytes = render_pdf(
         &case,
         &Workspace::default(),
-        ReportOptions {
-            kind: ReportKind::Summary,
-            include_personal: false,
-        },
+        ReportOptions::new(ReportKind::Summary, false,),
         Some(&outcome),
     )
     .unwrap();
@@ -95,10 +89,7 @@ fn personal_pcd_headers_obey_the_same_layout_budget_as_other_reports() {
     assert!(render_pdf(
         &case,
         &workspace,
-        ReportOptions {
-            kind: ReportKind::Summary,
-            include_personal: true
-        },
+        ReportOptions::new(ReportKind::Summary, true),
         Some(&outcome)
     )
     .is_err());

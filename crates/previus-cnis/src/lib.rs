@@ -9,7 +9,7 @@ use chrono::{Datelike, NaiveDate};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::{collections::BTreeMap, fmt, fs, path::Path, sync::LazyLock};
+use std::{collections::{BTreeMap, BTreeSet}, fmt, fs, path::Path, sync::LazyLock};
 const MAX_PDF_BYTES: u64 = 64 * 1024 * 1024;
 const MAX_PAGES: usize = 500;
 const MAX_TEXT_BYTES: usize = 32 * 1024 * 1024;
@@ -37,7 +37,7 @@ pub struct SourceRef {
 pub enum ValidationStatus { Unvalidated, UnresolvedPrpps }
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
-pub enum AmountKind { Remuneration, ContributionColumnUnresolved }
+pub enum AmountKind { Remuneration, ContributionColumnUnresolved, ConsolidatedAnnualValue }
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct SalaryEntry {
     pub competence: String,
@@ -253,6 +253,38 @@ fn folded(text: &str) -> String {
         .replace('í', "i").replace(['ó','ô','õ'], "o").replace('ú', "u").replace('ç', "c")
 }
 fn clean(s: &str) -> String { s.split_whitespace().collect::<Vec<_>>().join(" ") }
+/// Cabeçalho da tabela de valores consolidados por ano civil: a posição de
+/// cada mês na linha. A posição é o que permite dizer a que mês pertence cada
+/// valor, mesmo quando a linha não traz os doze meses.
+fn consolidated_month_header(line: &str) -> Option<Vec<(usize, u32)>> {
+    const MONTHS: [&str; 12] = ["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];
+    let folded = folded(line);
+    let mut header = Vec::new();
+    let mut cursor = 0usize;
+    for (index, name) in MONTHS.iter().enumerate() {
+        let found = folded[cursor..].find(name)?;
+        let start = cursor + found;
+        let end = start + name.len();
+        header.push((end, index as u32 + 1));
+        cursor = end;
+    }
+    Some(header)
+}
+/// Linha da tabela de valores consolidados: ano e valores com a posição de
+/// cada valor na linha. Rótulo e valor são alinhados à direita na coluna, o
+/// que faz a comparação de borda direita ser a leitura fiel da coluna.
+fn parse_consolidated_row(line: &str, header: &[(usize, u32)]) -> Option<(i32, Vec<(usize, u32, String)>)> {
+    let digits = line.len() - line.trim_start().len();
+    let head = &line[digits..];
+    let year_end = head.find(|c: char| !c.is_ascii_digit())?;
+    let year: i32 = head[..year_end].trim().parse().ok()?;
+    if !(1900..=2100).contains(&year) { return None; }
+    let values = RX.currency.find_iter(line).filter_map(|m| {
+        let month = header.iter().rev().find(|(end, _)| *end <= m.end()).map(|(_, month)| *month)?;
+        Some((m.start(), month, m.as_str().to_owned()))
+    }).collect();
+    Some((year, values))
+}
 fn digits(s: &str) -> String { s.chars().filter(char::is_ascii_digit).collect() }
 fn iso_date(s: &str) -> Option<String> {
     NaiveDate::parse_from_str(s, "%d/%m/%Y").ok().map(|d| d.format("%Y-%m-%d").to_string())
@@ -368,6 +400,9 @@ fn parse_pages(pages: &[String]) -> Result<ImportResult, ImportError> {
     let mut ambiguous_relations = 0;
     let mut nonadjacent_rows = 0;
     let mut split_indicator_rows = 0;
+    let mut consolidated = false;
+    let mut consolidated_header: Option<Vec<(usize, u32)>> = None;
+    let mut consolidated_candidates: Vec<SalaryEntry> = Vec::new();
     for (page_index, raw_page) in pages.iter().enumerate() {
         let page = normalize(raw_page);
         seen_cnis |= folded(&page).contains("cnis");
@@ -428,9 +463,36 @@ fn parse_pages(pages: &[String]) -> Result<ImportResult, ImportError> {
                 } else { AmountKind::Remuneration };
             }
             if is_boundary(line) { table = false; relation_expected = false; }
-            // Bounded cooperative layout: explicit month, contractor/establishment CNPJs,
-            // reported Normal service form and remuneration. No arbitrary text/amount guessing.
-            static COOPERATIVE: LazyLock<Regex> = LazyLock::new(||Regex::new(r"(?i)\b(0[1-9]|1[0-2])/(\d{4})\s+\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2}\s+\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2}\s+Normal\s+(?:R\$\s*)?(-?(?:\d{1,3}(?:\.\d{3})+|\d+),\d{2})\b").unwrap());
+            // Valores consolidados por ano civil: a posição do valor no texto
+            // diz a que mês ele pertence. A tabela não declara vínculo,
+            // empregador nem origem do pagamento: nada é atribuído por
+            // inferência silenciosa aqui.
+            if lower.contains("valores consolidados por ano civil") {
+                consolidated = true; consolidated_header = None;
+            }
+            if consolidated {
+                if consolidated_header.is_none() {
+                    if let Some(header) = consolidated_month_header(line) { consolidated_header = Some(header); }
+                } else if let Some(header) = consolidated_header.clone() {
+                    if let Some((year, values)) = parse_consolidated_row(line, &header) {
+                        for (index, month, text) in values {
+                            let amount_centavos = money(&text)?;
+                            consolidated_candidates.push(SalaryEntry{
+                                competence: format!("{year}-{month:02}"), amount_centavos, indicators: vec![],
+                                source: source(page_index, line_index, consolidated_candidates.len()+1, offset+index),
+                                link_sequence: None, amount_kind: AmountKind::ConsolidatedAnnualValue,
+                                validation_status: ValidationStatus::Unvalidated, excluded_from_validated_domain: false,
+                            });
+                        }
+                    }
+                }
+            }
+            // Bounded cooperative layout: explicit month, one to three
+            // contractor/establishment CNPJ tokens, an optional known service
+            // form ("Normal", "Cooperado", "Não Cooperado", "Terceirização")
+            // and the remuneration. Any other word between the month and the
+            // amount is refused: no arbitrary text/amount guessing.
+            static COOPERATIVE: LazyLock<Regex> = LazyLock::new(||Regex::new(r"(?i)\b(0[1-9]|1[0-2])/(\d{4})\s+(?:\d{2}\.\d{3}\.\d{3}(?:/\d{4}-\d{2})?\s+){1,3}(?:(?:normal|cooperado|n[^\W\d_]{0,4}o(?:\s+cooperado)?|terceiriza[^\W\d_]{0,4}o)\s+){0,2}(?:R\$\s*)?(-?(?:\d{1,3}(?:\.\d{3})+|\d+),\d{2})\b").unwrap());
             let cooperative_rows:Vec<_>=if table{COOPERATIVE.captures_iter(line).collect()}else{vec![]};
             for (i,cap) in cooperative_rows.iter().enumerate(){
                 let span=cap.get(0).unwrap();let end=cooperative_rows.get(i+1).map(|next|next.get(0).unwrap().start()).unwrap_or(line.len());
@@ -497,6 +559,28 @@ fn parse_pages(pages: &[String]) -> Result<ImportResult, ImportError> {
         }
     }
     if !seen_cnis || table_count == 0 { return Err(ImportError::NotCnis); }
+    // Valores consolidados por ano civil entram só para competências que a
+    // leitura por vínculo não trouxe, e ficam sem vínculo quando mais de um
+    // período os cobre: a origem não declara a origem do pagamento.
+    let mut consolidated_skipped = 0u32;
+    let mut consolidated_attributed = 0u32;
+    let mut consolidated_ambiguous = 0u32;
+    let mut covered: BTreeSet<String> = result.salary_entries.iter().map(|e| e.competence.clone()).collect();
+    for mut candidate in consolidated_candidates {
+        if covered.contains(&candidate.competence) { consolidated_skipped += 1; continue; }
+        let month_start = format!("{}-01", candidate.competence);
+        let month_end = format!("{}-28", candidate.competence);
+        let covering: Vec<u32> = result.links.iter().filter(|link| {
+            link.start_date.as_deref().is_some_and(|start| start <= month_end.as_str())
+                && link.end_date.as_deref().is_some_and(|end| end >= month_start.as_str())
+        }).map(|link| link.sequence).collect();
+        match covering.as_slice() {
+            [only] => { candidate.link_sequence = Some(*only); consolidated_attributed += 1; }
+            _ => { consolidated_ambiguous += 1; }
+        }
+        covered.insert(candidate.competence.clone());
+        result.salary_entries.push(candidate);
+    }
     for entry in &mut result.salary_entries {
         if let Some(link) = result.links.iter().find(|l| Some(l.sequence) == entry.link_sequence) {
             if link.prpps { entry.validation_status = ValidationStatus::UnresolvedPrpps; entry.excluded_from_validated_domain = true; }
@@ -553,6 +637,12 @@ fn parse_pages(pages: &[String]) -> Result<ImportResult, ImportError> {
         "Some table rows have employer columns between month and amount; they are not imported by the adjacent month/currency parser and require review.", nonadjacent_rows, None)); }
     if split_indicator_rows > 0 { result.findings.push(finding("wrapped_indicator_rejoined", Severity::Info,
         "Recognizable hyphen-wrapped indicator tokens were rejoined without borrowing values from the next row.", split_indicator_rows, None)); }
+    if consolidated_attributed > 0 { result.findings.push(finding("consolidated_annual_value_attributed", Severity::Info,
+        "Competências lidas da tabela de valores consolidados por ano civil foram atribuídas ao único vínculo que cobre o mês; a tabela não declara a origem do pagamento.", consolidated_attributed as usize, None)); }
+    if consolidated_ambiguous > 0 { result.warnings.push(finding("consolidated_annual_value_unassigned", Severity::Warning,
+        "Competências da tabela de valores consolidados por ano civil sem vínculo único na origem: a atribuição exige conferência documental.", consolidated_ambiguous as usize, None)); }
+    if consolidated_skipped > 0 { result.findings.push(finding("consolidated_annual_value_already_covered", Severity::Info,
+        "Valores consolidados por ano civil não somados onde a competência já havia sido lida pelo vínculo, para não duplicar o mês.", consolidated_skipped as usize, None)); }
     if result.salary_entries.is_empty() { result.warnings.push(finding("no_salary_entries", Severity::Warning,
         "No month/currency remuneration rows found; OCR or a different layout may be needed.", 1, None)); }
     Ok(result)

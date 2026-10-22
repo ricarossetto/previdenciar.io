@@ -12,6 +12,7 @@ rusttype = "0.8"
 lopdf = "0.38"
 previus-workspace = { path = "../previus-workspace" }
 previus-cnis = { path = "../previus-cnis" }
+previus-core = { path = "../previus-core" }
 
 [dev-dependencies]
 previus-rgps = { path = "../previus-rgps" }

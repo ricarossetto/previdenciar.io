@@ -10,18 +10,19 @@ fn run() -> Result<(), String> {
     }
     match args[0].as_str() {
         "conference" | "positive-reviewed" => {
-            if args.len() != 3 {
-                return Err("Argumentos: <conference|positive-reviewed> <kind> <novo-arquivo.pdf>".into());
+            if args.len() != 3 && args.len() != 4 {
+                return Err("Argumentos: <conference|positive-reviewed> <kind> <novo-arquivo.pdf> [título do relatório]".into());
             }
             let kind = ReportKind::parse(&args[1])?;
-            let (case, workspace, outcome) = if args[0] == "positive-reviewed" {
+            let (mut case, workspace, outcome) = if args[0] == "positive-reviewed" {
                 let (c, w, o) = common::calculated_case();
                 (c, w, Some(o))
             } else {
                 let (c, w) = common::synthetic_case();
                 (c, w, None)
             };
-            render_and_save(&case, &workspace, ReportOptions { kind, include_personal: false }, outcome.as_ref(), &args[2], &args[0], &args[1], "synthetic_only")
+            if let Some(title) = args.get(3) { case.options.report_title = title.clone(); }
+            render_and_save(&case, &workspace, ReportOptions::new(kind, false), outcome.as_ref(), &args[2], &args[0], &args[1], "synthetic_only")
         }
         "detailed_real" => {
             if args.len() != 3 {
@@ -41,7 +42,7 @@ fn run() -> Result<(), String> {
             case.notes = String::new(); // Private notes suppressed
             let workspace = Workspace::default();
             // PRIVATE report options hardcoded to false for real document; never embed personal source file path.
-            let options = ReportOptions { kind: ReportKind::Detailed, include_personal: false };
+            let options = ReportOptions::new(ReportKind::Detailed, false);
             render_and_save(&case, &workspace, options, None, &args[2], "detailed_real", "detailed", "authorized_real_source_private_report")
         }
         _ => Err("Modo desconhecido. Use conference, positive-reviewed ou detailed_real.".into()),

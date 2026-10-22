@@ -88,15 +88,27 @@ fn enforce_rgps_envelope(mut value: Value) -> Result<Value, String> {
 }
 
 #[tauri::command]
-async fn preview_report(calculation: Calculation, workspace: Workspace, format: String, include_personal: bool) -> Result<String, String> {
-    tauri::async_runtime::spawn_blocking(move || files::preview_pdf(&calculation, &workspace, &format, include_personal)).await
+async fn preview_report(calculation: Calculation, workspace: Workspace, format: String, include_personal: bool,
+    presentation: Option<files::PresentationRequest>) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || files::preview_pdf_with(&calculation, &workspace, &format, include_personal,
+        presentation.unwrap_or_default())).await
         .map_err(|_| "Prévia interrompida; nenhum arquivo foi gravado.".to_owned())?
 }
 
 #[tauri::command]
-async fn export_report(calculation: Calculation, workspace: Workspace, format: String, include_personal: bool) -> Result<Option<String>, String> {
-    tauri::async_runtime::spawn_blocking(move || files::dialog_export(calculation, workspace, format, include_personal)).await
+async fn export_report(calculation: Calculation, workspace: Workspace, format: String, include_personal: bool,
+    presentation: Option<files::PresentationRequest>) -> Result<Option<String>, String> {
+    tauri::async_runtime::spawn_blocking(move || files::dialog_export_with(calculation, workspace, format, include_personal,
+        presentation.unwrap_or_default())).await
         .map_err(|_| "Exportação interrompida; confira o destino selecionado.".to_owned())?
+}
+
+#[tauri::command]
+async fn export_reports_batch(calculation: Calculation, workspace: Workspace, formats: Vec<String>, include_personal: bool,
+    presentation: Option<files::PresentationRequest>) -> Result<Option<files::BatchExport>, String> {
+    tauri::async_runtime::spawn_blocking(move || files::dialog_export_batch(calculation, workspace, formats, include_personal,
+        presentation.unwrap_or_default())).await
+        .map_err(|_| "Exportação em lote interrompida; confira a pasta selecionada.".to_owned())?
 }
 
 #[tauri::command]
@@ -134,7 +146,7 @@ fn main() {
     let result = tauri::Builder::default()
         .manage(BackendState::default())
         .invoke_handler(tauri::generate_handler![bootstrap, save_workspace, pick_import_cnis, import_cnis_path,
-            run_tool, run_finance, fetch_economic_snapshot, calculate_case, calculate_rgps, preview_report, export_report, export_document, backup_export, restore_snapshot])
+            run_tool, run_finance, fetch_economic_snapshot, calculate_case, calculate_rgps, preview_report, export_report, export_reports_batch, export_document, backup_export, restore_snapshot])
         .setup(|app| {
             let config = app.config().app.windows.first().ok_or("Configuração da janela principal ausente.")?;
             WebviewWindowBuilder::from_config(app, config)?
@@ -202,7 +214,9 @@ mod tests {
             let permission = permission.as_str().unwrap();
             assert!(permission.starts_with("allow-")); assert!(!permission.contains(':'));
         }
-        assert_eq!(capability["permissions"].as_array().unwrap().len(), 14);
+        let permissions = capability["permissions"].as_array().unwrap();
+        assert!(permissions.iter().any(|value| value == "allow-export-reports-batch"));
+        assert_eq!(permissions.len(), 15);
     }
     #[test]
     fn direct_rgps_json_rejects_invalid_schema_without_false_result() {

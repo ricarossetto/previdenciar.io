@@ -5,7 +5,7 @@ use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
 const MAX_ROWS: usize = 10_000;
 const MAX_FIELD: usize = 1_000;
-#[derive(Debug)] pub(crate) struct Report { pub title: String, pub status: String, pub office: String, pub footer: String, pub personal: bool, pub identification: [String; 3], pub sections: Vec<Section> }
+#[derive(Debug)] pub(crate) struct Report { pub title: String, pub status: String, pub office: String, pub footer: String, pub personal: bool, pub identification: [String; 3], pub sections: Vec<Section>, pub highlight: Option<String> }
 #[derive(Debug)] pub(crate) struct Section { pub title: String, pub paragraphs: Vec<String>, pub tables: Vec<Table>, pub new_page: bool }
 #[derive(Debug)] pub(crate) struct Table { pub caption: String, pub headers: Vec<String>, pub weights: Vec<usize>, pub rows: Vec<Vec<String>> }
 fn section(title: &str, new_page: bool) -> Section { Section { title: title.into(), paragraphs: vec![], tables: vec![], new_page } }
@@ -85,14 +85,262 @@ fn json_budget(value: &Value) -> Result<(),String> {
     } Ok(())
 }
 fn selected(options: ReportOptions, kinds: &[ReportKind]) -> bool { options.kind==ReportKind::Detailed || kinds.contains(&options.kind) }
+fn declared_disability(value: Option<&str>) -> String {
+    match value.map(|s|s.trim().to_lowercase()).as_deref() {
+        Some("nao"|"não"|"none"|"sem_deficiencia"|"não possui deficiência"|"nao possui deficiencia"|"nenhuma")=>"Sem deficiência declarada".into(),
+        Some("leve")=>"Leve".into(),Some("moderada")=>"Moderada".into(),Some("grave")=>"Grave".into(),
+        None=>"Não informado".into(),_=>"Valor fora do contrato / pendente".into(),
+    }
+}
+fn policy_value(case:&Calculation)->Option<Value>{
+    let raw=case.options.rule_policy.trim();
+    if raw.is_empty() || !raw.starts_with('{') {return None;}
+    serde_json::from_str(raw).ok()
+}
+fn policy_known(policy:Option<&Value>,key:&str,allowed:&[&str])->String{
+    policy.and_then(|p|p.get(key)).and_then(Value::as_str)
+        .filter(|value|allowed.contains(value)).unwrap_or("Não declarada / fora do contrato").into()
+}
+fn policy_optional(policy:Option<&Value>,key:&str)->Option<String>{
+    policy.and_then(|p|p.get(key)).and_then(Value::as_str).map(str::trim).filter(|value|!value.is_empty()).map(str::to_owned)
+}
+fn considered_rows(case:&Calculation,personal:bool,native:bool)->Result<Vec<Vec<String>>,String>{
+    let policy=policy_value(case);let p=policy.as_ref();
+    let excluded=p.and_then(|v|v.get("exclude_imported_source")).and_then(Value::as_bool).unwrap_or(false);
+    let exclusion_evidence=policy_optional(p,"source_exclusion_evidence");
+    let review_evidence=policy_optional(p,"review_evidence");
+    let native_options=p.and_then(|v|v.get("native_options"));
+    let selected=case.manual_links.iter().filter(|link|!link.source_review.as_ref().is_some_and(|review|review.excluded)).count();
+    let confirmed=case.manual_links.iter().filter(|link|!link.source_review.as_ref().is_some_and(|review|review.excluded)&&link.confirmed).count();
+    let excluded_links=case.manual_links.iter().filter(|link|link.source_review.as_ref().is_some_and(|review|review.excluded)).count();
+    let months:BTreeSet<_>=case.manual_salaries.iter().map(|salary|salary.competence.as_str()).collect();
+    let mut rows=vec![];
+    if let Some(cnis)=&case.cnis{
+        rows.push(vec!["Fonte CNIS".into(),if excluded{"Excluída do motor; documento preservado".into()}else{"Anexada; o motor não a usa até exclusão/revisão documentada".into()}]);
+        rows.push(vec!["Justificativa da exclusão da fonte".into(),match(&excluded,&exclusion_evidence){
+            (true,Some(value)) if personal=>field(value)?,(true,Some(_))=>"Registrada".into(),(true,None)=>"Ausente".into(),_=>"Não aplicável".into()}]);
+        rows.push(vec!["Vínculos na fonte".into(),format!("{}; {} PRPPS",cnis.links.len(),cnis.links.iter().filter(|link|link.prpps).count())]);
+        rows.push(vec!["Lançamentos na fonte".into(),cnis.salary_entries.len().to_string()]);
+    }else{rows.push(vec!["Fonte CNIS".into(),"Não anexada".into()]);}
+    rows.push(vec!["Vínculos manuais usados".into(),format!("{selected} selecionado(s); {confirmed} confirmado(s); {excluded_links} excluído(s)")]);
+    rows.push(vec!["Remunerações manuais usadas".into(),format!("{}; {} confirmada(s)",case.manual_salaries.len(),case.manual_salaries.iter().filter(|salary|salary.confirmed).count())]);
+    rows.push(vec!["Competências distintas".into(),months.len().to_string()]);
+    rows.push(vec!["Livro de contribuições".into(),match &case.contribution_review{
+        Some(review)=>format!("{} lançamento(s); {} excluído(s); {}",review.records.len(),review.records.iter().filter(|record|record.excluded).count(),if review.applied{"aplicado"}else{"não aplicado"}),
+        None=>"Não usado".into()}]);
+    rows.push(vec!["Política".into(),policy_known(p,"version",&["rgps-core-observational-v1"])]);
+    rows.push(vec!["Referência de revisão".into(),match review_evidence{
+        Some(value) if personal=>field(&value)?,Some(_)=>"Registrada".into(),None=>"Ausente".into()}]);
+    rows.push(vec!["Categoria dos períodos".into(),policy_known(p,"manual_link_kind",&["empregado","empregado_domestico","contribuinte_individual","avulso","facultativo"])]);
+    rows.push(vec!["Moeda dos salários".into(),policy_known(p,"manual_currency",&["BRL"])]);
+    for(key,label)in[("corrigirSalarios","Correção dos salários"),("descarte","Descarte"),("divisorMinimo","Divisor mínimo"),("aplicarTetoVigenteDer","Teto vigente derivado")]{
+        rows.push(vec![label.into(),opt_bool(native_options.and_then(|v|v.get(key)).and_then(Value::as_bool)).into()]);
+    }
+    if let Some(reference)=native_options.and_then(|v|v.get("referenciaCorrecao")).and_then(Value::as_str).map(str::trim).filter(|value|!value.is_empty()){
+        rows.push(vec!["Referência de correção".into(),if personal{field(reference)?}else{"Declarada".into()}]);
+    }
+    if let Some(value)=native_options.and_then(|v|v.get("expectativaSobrevida")).and_then(Value::as_str).filter(|v|!v.trim().is_empty()){
+        rows.push(vec!["Expectativa de sobrevida".into(),if personal{field(value)?}else{"Declarada; caminho de fator bloqueado".into()}]);
+    }
+    for(key,label)in[("teto","Teto manual"),("piso","Piso manual")]{
+        if let Some(value)=native_options.and_then(|v|v.get(key)).filter(|v|!v.is_null()){
+            rows.push(vec![label.into(),numeric(Some(value),true)?]);
+        }
+    }
+    rows.push(vec!["Índice de correção".into(),if case.options.correction_index.trim().is_empty(){"Não informado".into()}else if personal{field(&case.options.correction_index)?}else{"Declarado".into()}]);
+    rows.push(vec!["Resultado".into(),if native{"Experimental fornecido pelo motor; não é concessão".into()}else{"Nenhum resultado financeiro produzido".into()}]);
+    rows.push(vec!["Validação jurídica".into(),"Não executada".into()]);
+    Ok(rows)
+}
+fn conclusion(case:&Calculation,options:ReportOptions,native:Option<&Value>,outcome:Option<&Value>)->Result<Section,String>{
+    let personal=options.include_personal;
+    let mut s=section("Conclusão e o que pode mudá-la",false);
+    if let Some(n)=native{
+        let rmi=numeric(n.pointer("/resumo/rmi"),true)?;
+        if rmi=="Não produzido"{s.paragraphs.push("O motor foi executado, mas não produziu uma RMI para esta hipótese. Nenhum valor substituto foi inventado.".into());}
+        else{s.paragraphs.push(format!("Hipótese calculada pelo motor experimental. Renda mensal inicial estimada: R$ {rmi}. Este valor não é concessão, não certifica direito e depende da revisão documental."));}
+    }else{s.paragraphs.push("RELATÓRIO DE CONFERÊNCIA: nenhum resultado financeiro foi produzido. Não existe RMI zero, concessão ou regra vencedora neste documento.".into());}
+    let mut rows=vec![];
+    if let Some(o)=outcome{
+        for(key,label)in[("blockers","Bloqueio"),("missing","Dado pendente"),("warnings","Aviso"),("known_model_risks","Risco conhecido")]{
+            if let Some(items)=o.get(key).and_then(Value::as_array){
+                let mut hidden=0usize;
+                for(index,item)in items.iter().take(8).enumerate(){
+                    let code=item.get("code").and_then(Value::as_str).or_else(||item.as_str());
+                    let text=if key=="known_model_risks"{code.and_then(risk_label).map(str::to_owned)}
+                        else if personal{item.get("message").and_then(Value::as_str).or_else(||item.as_str()).map(field).transpose()?.filter(|value|!value.is_empty())}
+                        else{code.and_then(pending_label).or_else(||code.and_then(risk_label)).map(str::to_owned)};
+                    match text{Some(value)=>rows.push(vec![format!("{label} {}",index+1),value]),None=>hidden+=1}
+                }
+                let omitted=items.len().saturating_sub(8);
+                if omitted>0||hidden>0{rows.push(vec![format!("{label}: {} no total",items.len()),format!("{} ocorrência(s) não catalogada(s) ou texto livre oculto; consulte a aplicação autorizada.",omitted+hidden)]);}
+            }
+        }
+    }
+    if rows.is_empty(){rows.push(vec!["Condição".into(),"A conclusão depende de revisão documental e profissional; nenhum risco adicional foi retornado pelo motor.".into()]);}
+    s.tables.push(table("O que pode mudar esta conclusão",&["Categoria","Descrição"],&[3,7],rows));
+    s.tables.push(table("Dados efetivamente considerados",&["Item","Situação"],&[4,6],considered_rows(case,personal,native.is_some())?));
+    s.paragraphs.push("A fonte importada não é reescrita. O motor recebe linhas manuais revisadas; a exclusão da fonte não corrige o documento nem comprova que a exclusão esteja certa.".into());
+    Ok(s)
+}
+fn quality(case:&Calculation,personal:bool)->Result<Section,String>{
+    let mut s=section("Qualidade de segurado - conferência por vínculo",false);
+    let Some(cnis)=&case.cnis else{s.paragraphs.push("Sem CNIS anexado: não há vínculos de fonte para conferir nesta seção.".into());return Ok(s);};
+    s.paragraphs.push("Esta seção não calcula período de graça, prorrogações, carência ou enquadramento. Ela reúne, por vínculo, a filiação informada, o primeiro e o último lançamento e as contribuições desconsideradas. Ausência de lançamento não prova ausência de filiação.".into());
+    let mut rows=vec![];
+    for link in &cnis.links{
+        let entries=cnis.salary_entries.iter().filter(|entry|entry.link_sequence==Some(link.sequence)).collect::<Vec<_>>();
+        let first=entries.iter().map(|entry|entry.competence.as_str()).min();
+        let last=entries.iter().map(|entry|entry.competence.as_str()).max();
+        let excluded=entries.iter().filter(|entry|entry.excluded_from_validated_domain).count();
+        let mut pending=vec![];
+        if link.prpps{pending.push("PRPPS");}
+        if !link.indicators.is_empty(){pending.push("ind.");}
+        if link.end_date.is_none(){pending.push("fim");}
+        if entries.is_empty(){pending.push("sem lanç.");}
+        let period=match(first,last){
+            (Some(a),Some(b)) if a==b=>month(a)?,
+            (Some(a),Some(b))=>format!("{} a {}",month(a)?,month(b)?),
+            _=>"Sem lançamento".into()};
+        let end=match link.end_date.as_deref(){None=>"Ausente".into(),Some(value) if iso_valid(value)=>date(Some(value)),Some(_)=>"Inválida".into()};
+        rows.push(vec![
+            format!("{:02}",link.sequence),
+            if link.affiliation.is_some(){"Informada".into()}else{"Não informada".into()},
+            period,entries.len().to_string(),excluded.to_string(),end,
+            if pending.is_empty(){"Conferência pendente".into()}else{pending.join(", ")},
+        ]);
+    }
+    s.tables.push(table("Dados por vínculo - sem cálculo de graça",&["Vínculo","Filiação","1º / último lançamento","Lanç.","Desc.","Fim original","Pendências"],&[1,2,3,1,1,2,3],rows));
+    if personal {
+        let mut affiliations=vec![];
+        for link in &cnis.links {
+            if let Some(value)=link.affiliation.as_deref().filter(|value|!value.trim().is_empty()) {
+                affiliations.push(vec![format!("Vínculo {:02}",link.sequence),field(value)?]);
+            }
+        }
+        if !affiliations.is_empty(){s.tables.push(table("Filiação informada na fonte",&["Vínculo","Filiação"],&[2,8],affiliations));}
+    }
+    s.paragraphs.push("Contribuições desconsideradas são as marcadas pela fonte como fora do domínio validado. Elas não são convertidas em carência nem excluídas silenciosamente. PRPPS = regime próprio/CTC; ind. = indicadores; fim = data final ausente; sem lanç. = vínculo sem remuneração associada. A filiação detalhada aparece na tabela seguinte quando a identificação é autorizada.".into());
+    Ok(s)
+}
+fn is_planning(case:&Calculation)->bool{
+    case.assistant.as_ref().and_then(|a|a.process_kind.as_deref())==Some("Planejamento futuro")||case.scenario.to_lowercase().contains("planejamento")
+}
+fn planning(case:&Calculation,personal:bool)->Result<Section,String>{
+    let mut s=section("Planejamento - premissas declaradas e lacunas",false);
+    s.paragraphs.push("Este documento não projeta renda futura. As premissas abaixo foram declaradas ou estão ausentes; nenhum valor de retorno, imposto ou contribuição foi inventado.".into());
+    let policy=policy_value(case);let p=policy.as_ref();
+    let native_options=p.and_then(|v|v.get("native_options"));
+    let mut rows=vec![];
+    for(label,status)in[("Contribuição futura","Não implementada"),("Frequência de contribuição","Não implementada"),("Alíquota","Não implementada"),("Expectativa de recebimento","Não implementada"),("IRRF","Não implementado"),("Retorno do investimento","Não implementado"),("Crescimento anual da RMI","Não implementado")]{rows.push(vec![label.into(),status.into()]);}
+    rows.push(vec!["Expectativa de sobrevida".into(),match native_options.and_then(|v|v.get("expectativaSobrevida")).and_then(Value::as_str).filter(|v|!v.trim().is_empty()){
+        Some(value) if personal=>field(value)?,Some(_)=>"Declarada; caminho de fator bloqueado".into(),None=>"Não informada".into()}]);
+    rows.push(vec!["Referência de correção".into(),match native_options.and_then(|v|v.get("referenciaCorrecao")).and_then(Value::as_str).filter(|v|!v.trim().is_empty()){
+        Some(value) if personal=>field(value)?,Some(_)=>"Declarada".into(),None=>"Não informada".into()}]);
+    rows.push(vec!["Índice de correção".into(),if case.options.correction_index.trim().is_empty(){"Não informado".into()}else if personal{field(&case.options.correction_index)?}else{"Declarado".into()}]);
+    s.tables.push(table("Premissas e lacunas do planejamento",&["Premissa","Situação"],&[4,6],rows));
+    s.paragraphs.push("A ausência de um módulo de planejamento é uma limitação declarada, não um resultado zero.".into());
+    Ok(s)
+}
+/// Apuração da qualidade de segurado por vínculo, com cálculo próprio.
+/// A fonte não é alterada: as contribuições vêm do CNIS lido e as exclusões
+/// vêm do livro de revisão declarado pelo operador.
+fn quality_calculation(case:&Calculation,personal:bool)->Result<Section,String>{
+    let mut s=section("Cálculo da qualidade de segurado por vínculo",false);
+    s.paragraphs.push("Apuração própria sobre as contribuições declaradas na origem, com as exclusões do livro de revisão. Regras aplicadas: período de graça de 12 meses (art. 15, II, da Lei nº 8.213/1991), prorrogado para até 24 meses quando houve mais de 120 contribuições sem interrupção (art. 15, § 1º, da mesma lei), carência de 180 contribuições mensais (art. 25, II) ou faixa da tabela do art. 142 para quem estava inscrito até 24/07/1991.".into());
+    s.paragraphs.push("Limites: a carência é medida em contribuições (arts. 24 e 27, I) e o tempo intercalado em gozo de benefício não conta para carência (art. 19-C, § 1º, do Decreto nº 3.048/1999), embora conte como tempo de serviço (art. 55, II, da Lei nº 8.213/1991). A competência que aparece em mais de um vínculo é contada uma única vez, no vínculo anterior. A comparação com a carência exigida é informativa: não há direito apurado.".into());
+    let Some(cnis)=&case.cnis else{s.paragraphs.push("Sem CNIS anexado: não há vínculos de origem para apurar.".into());return Ok(s);};
+    let mut periods=Vec::new();
+    for link in &cnis.links{
+        let start=link.start_date.as_deref().and_then(|value|value.parse::<previus_core::CivilDate>().ok());
+        let end=link.end_date.as_deref().and_then(|value|value.parse::<previus_core::CivilDate>().ok());
+        let mut contribution_months=Vec::new();
+        for entry in cnis.salary_entries.iter().filter(|entry|entry.link_sequence==Some(link.sequence)){
+            contribution_months.push(entry.competence.parse::<previus_core::YearMonth>().map_err(|_|"Competência de origem inválida; a apuração de qualidade foi recusada.".to_owned())?);
+        }
+        let mut disregarded=Vec::new();
+        if let Some(review)=&case.contribution_review{
+            for record in review.records.iter().filter(|record|record.link_sequence==Some(link.sequence)&&record.excluded){
+                disregarded.push(record.competence.parse::<previus_core::YearMonth>().map_err(|_|"Competência de revisão inválida; a apuração de qualidade foi recusada.".to_owned())?);
+            }
+        }
+        let benefit_period=link.affiliation.as_deref().map(|value|value.to_lowercase().contains("benefício")).unwrap_or(false);
+        periods.push(previus_core::QualityPeriod{
+            label:format!("Vínculo {:02}",link.sequence),
+            start,end,
+            affiliation:link.affiliation.clone(),
+            employer:link.raw_employer.clone(),
+            contribution_months,disregarded_months:disregarded,
+            had_benefit_episode:false,
+            benefit_period,
+        });
+    }
+    let filed_before_july_1991=cnis.links.iter().filter_map(|link|link.start_date.as_deref())
+        .any(|value|value<="1991-07-24");
+    let summary=previus_core::insured_quality(&previus_core::QualityInput{periods,required_carencia_months:180,implementation_year:None,filed_before_july_1991})
+        .map_err(|error|error.to_string())?;
+    let mut rows=vec![];
+    for period in &summary.periods{
+        rows.push(vec![period.label.clone(),
+            period.affiliation.clone().filter(|value|!value.trim().is_empty()).unwrap_or_else(||"Não informada".into()),
+            date(period.start.as_ref().map(|value|value.to_string()).as_deref()),
+            match period.end{Some(value)=>date(Some(&value.to_string())),None=>"Ausente".into()},
+            period.counted_months.to_string(),
+            period.overlap_months.to_string(),
+            period.benefit_months.to_string(),
+            period.disregarded_months.to_string(),
+            if personal{optional_field(period.employer.as_deref())?}else{period.label.clone()}]);
+    }
+    s.tables.push(table("Vínculos e contribuições apuradas",&["Vínculo","Filiação","Início","Fim","Cont.","Sob.","Ben.","Desc.","Origem do vínculo"],&[2,3,2,2,1,1,1,1,4],rows));
+    let mut rows=vec![];
+    for period in &summary.periods{
+        let payments=match(period.first_payment,period.last_payment){
+            (Some(first),Some(last)) if first==last=>first.to_string(),
+            (Some(first),Some(last))=>format!("{first} a {last}"),
+            _=>"Sem lançamento apurado".into()};
+        let grace_base=match period.grace_base_until{Some(value)=>date(Some(&value.to_string())),None=>"Não apurável".into()};
+        let grace_vigente=match period.grace_until{Some(value)=>date(Some(&value.to_string())),None=>"Não apurável".into()};
+        let desconsideradas=if period.disregarded_detail.is_empty(){"Nenhuma".to_string()}
+            else{
+                let mut por_motivo:Vec<(String,usize)>=Vec::new();
+                for(_,reason) in &period.disregarded_detail{
+                    let label=reason.label().to_string();
+                    match por_motivo.iter_mut().find(|(name,_)|*name==label){Some((_,count))=>*count+=1,None=>por_motivo.push((label,1))}
+                }
+                let resumo=por_motivo.iter().map(|(name,count)|format!("{count} por {name}")).collect::<Vec<_>>().join("; ");
+                let meses:Vec<String>=period.disregarded_detail.iter().take(6).map(|(month,reason)|format!("{month} ({})",reason.label())).collect();
+                let resto=period.disregarded_detail.len().saturating_sub(meses.len());
+                format!("{resumo}. {}{}",meses.join("; "),if resto>0{format!("; e mais {resto}")}else{String::new()})
+            };
+        let mut notes=period.notes.clone();
+        if !period.disregarded_detail.is_empty(){notes.push(format!("Contribuições não contadas: {desconsideradas}."));}
+        rows.push(vec![period.label.clone(),payments,grace_base,grace_vigente,
+            if period.grace_prorogued{"Prorrogada: mais de 120 contribuições".to_string()}else{"Não aplicável".to_string()},
+            if notes.is_empty(){"Sem observação".to_string()}else{field(&notes.join(" "))?}]);
+    }
+    s.tables.push(table("Período de graça por vínculo",&["Vínculo","1º / último pagamento","Graça base","Graça vigente","Prorrogação","Observações"],&[2,3,2,2,3,6],rows));
+    let rows=vec![vec!["Meses de contribuição contados".into(),summary.total_counted_months.to_string()],
+        vec!["Período coberto pela série de competências (meses, 30/360)".into(),summary.total_contribution_months_30_360.to_string()],
+        vec!["Meses não contados por competência em outro vínculo".into(),summary.total_overlap_months.to_string()],
+        vec!["Meses não contados por período de gozo de benefício".into(),summary.total_benefit_months.to_string()],
+        vec!["Meses desconsiderados pelo operador".into(),summary.total_disregarded_months.to_string()],
+        vec!["Carência exigida".into(),summary.required_carencia_months.to_string()],
+        vec!["Fundamento da carência exigida".into(),field(&summary.required_carencia_basis)?],
+        vec!["Comparação informativa".into(),if summary.carencia_observed{"Meses contados alcançam a carência exigida; a carência legal e o direito a benefício exigem conferência normativa".into()}else{"Meses contados abaixo da carência exigida; não há direito apurado".into()}]];
+    s.tables.push(table("Totais apurados",&["Medida","Resultado"],&[5,7],rows));
+    let mut notes=summary.notes.clone();
+    notes.push("Cálculo próprio, não reprodução de fórmula alheia. Não certifica enquadramento, carência legal, direito a benefício ou elegibilidade.".into());
+    s.paragraphs.push(notes.join(" "));
+    Ok(s)
+}
 fn summary(case:&Calculation, options:ReportOptions, native:Option<&Value>) -> Result<Section,String> {
     let mut s=section("Síntese, situação e alcance",false);
-    s.paragraphs.push("Reconstrução documental nativa em Rust. Não é reprodução idêntica do relatório proprietário do Previus; nenhum código WLanguage ou fórmula desconhecida foi presumido.".into());
+    s.paragraphs.push("Esta seção registra os dados considerados, a origem das informações e os parâmetros declarados. Confira o resultado junto da memória de cálculo e das pendências documentais.".into());
     s.paragraphs.push("Legenda: FONTE = dados importados, sem revisão automática; DECLARADO = informado pelo operador; PENDENTE = exige conferência; EXPERIMENTAL = cálculo computacional, sem certificação jurídica.".into());
     s.paragraphs.push(if options.include_personal {"Relatório confidencial com identificação autorizada; revisar antes de compartilhar."}else{"Identificação direta e textos livres ocultos. Datas, valores e vínculos técnicos ainda permitem correlação: este documento não é garantia de anonimização nem de ausência de vazamento."}.into());
     let mut rows=vec![vec!["DIB / referência declarada".into(),date(Some(&case.dib))],vec!["Natureza da referência".into(),"Hipótese do cenário; não data concedida pelo INSS".into()],
         vec!["Sexo declarado".into(),enum_text(case.sex.as_deref(),&["masculino","feminino","Masculino","Feminino"])],
-        vec!["Deficiência declarada".into(),enum_text(case.disability.as_deref(),&["none","Não possui deficiência","Não","nenhuma","leve","moderada","grave"])],
+        vec!["Deficiência declarada".into(),declared_disability(case.disability.as_deref())],
         vec!["Nascimento informado".into(),date(case.identity.birth_date.as_deref())]];
     if let Some(cnis)=&case.cnis {
         let months:BTreeSet<_>=cnis.salary_entries.iter().map(|v|v.competence.as_str()).collect();
@@ -188,7 +436,7 @@ fn salaries(case:&Calculation,personal:bool)->Result<Vec<Section>,String>{
         let mut rows=vec![];
         for(i,e)in cnis.salary_entries.iter().enumerate(){month(&e.competence)?;let g=groups.entry(&e.competence).or_default();g.0=g.0.checked_add(i128::from(e.amount_centavos)).ok_or("Overflow de soma nominal.")?;g.1+=1;g.2|=e.excluded_from_validated_domain;g.3.insert(e.source.page);g.4.extend(e.indicators.iter().cloned());
             rows.push(vec![(i+1).to_string(),month(&e.competence)?,e.link_sequence.map(|s|s.to_string()).unwrap_or("Não atribuído".into()),cents(i128::from(e.amount_centavos)),
-                match e.amount_kind{AmountKind::Remuneration=>"Remuneração",AmountKind::ContributionColumnUnresolved=>"Coluna não resolvida"}.into(),indicators(&e.indicators,personal)?,source(&e.source)]);
+                match e.amount_kind{AmountKind::Remuneration=>"Remuneração",AmountKind::ContributionColumnUnresolved=>"Coluna não resolvida",AmountKind::ConsolidatedAnnualValue=>"Valor consolidado por ano civil"}.into(),indicators(&e.indicators,personal)?,source(&e.source)]);
         }
         let mut grouped=vec![];for(m,(sum,count,excluded,pages,flags))in groups{grouped.push(vec![month(m)?,count.to_string(),cents(sum),if count>1{"Múltiplos lançamentos"}else{"Um lançamento"}.into(),if excluded{"Fora do domínio validado"}else{"Fonte não revisada"}.into(),indicators(&flags.into_iter().collect::<Vec<_>>(),personal)?,pages.iter().map(u32::to_string).collect::<Vec<_>>().join(", ")]);}
         s.tables.push(table("Todas as competências distintas",&["Competência","Linhas","Soma nominal (u.f.)","Conferência","Domínio","Indicadores","Páginas"],&[2,1,3,3,3,3,1],grouped));
@@ -215,6 +463,21 @@ fn pending_label(code:&str)->Option<&'static str>{
         _=>None,
     }
 }
+fn risk_label(code:&str)->Option<&'static str>{
+    match code {
+        "unvalidated_native_fator_uses_sex_specific_rate_and_floor_one"=>Some("Fator previdenciário nativo não validado; pode não representar a regra aplicável."),
+        "transitions_use_salary_month_count_not_full_confirmed_periods"=>Some("Transições usam contagem de competências, não todos os períodos confirmados."),
+        "reform_month_not_split_at_2019_11_13"=>Some("O mês da reforma não é dividido em 13/11/2019."),
+        "points_truncate_age_and_time_to_whole_years"=>Some("Regra de pontos trunca idade e tempo para anos inteiros."),
+        "grace_and_late_payments_model_not_validated_and_adapter_blocks_them"=>Some("Período de graça e recolhimentos em atraso não são validados pelo adaptador."),
+        "pre_reform_rmi_not_recalculated"=>Some("RMI de legislação anterior não é recalculada por este caminho."),
+        "discard_and_divisor_are_operator_options_not_date_selected_law"=>Some("Descarte e divisor mínimo são opções do operador, não regra selecionada pela data."),
+        "native_corrected_pbc_does_not_apply_minimum_divisor_option"=>Some("PBC corrigido não aplica a opção de divisor mínimo."),
+        "time_markers_may_double_count_overlapping_links"=>Some("Marcos de tempo podem contar períodos sobrepostos."),
+        "tables_are_owned_source_snapshot_not_freshly_verified_official_values"=>Some("Tabelas são snapshot da fonte observada, não valores oficiais reverificados."),
+        _=>None,
+    }
+}
 fn pending(case:&Calculation,personal:bool,outcome:Option<&Value>)->Result<Section,String>{
     let mut s=section("Indicadores, pendências e ressalvas",true);
     s.paragraphs.push("A importação e a visita às telas não equivalem à revisão previdenciária. Finais ausentes, PRPPS, concomitâncias, valores mínimos/tetos e precisão monetária devem permanecer pendentes até conferência documentada.".into());
@@ -229,9 +492,26 @@ fn pending(case:&Calculation,personal:bool,outcome:Option<&Value>)->Result<Secti
     }
     if let Some(o)=outcome{
         let mut rows=vec![];
-        for(key,label)in[("blockers","Bloqueio"),("missing","Dado pendente"),("warnings","Aviso"),("known_model_risks","Risco conhecido")]{if let Some(vs)=o.get(key).and_then(Value::as_array){for(i,v)in vs.iter().enumerate(){let code=v.get("code").and_then(Value::as_str).or_else(||v.as_str());let message=if personal{v.get("message").and_then(Value::as_str).or_else(||v.as_str()).map(field).transpose()?.unwrap_or_else(||"Estrutura de aviso não reconhecida; conteúdo não publicado.".into())}else{code.and_then(pending_label).unwrap_or("Mensagem técnica livre oculta; consultar pendências na aplicação autorizada.").into()};rows.push(vec![format!("{label} {}",i+1),message]);}}}
+        for (key,label) in [("blockers","Bloqueio"),("missing","Dado pendente"),("warnings","Aviso"),("known_model_risks","Risco conhecido")] {
+            if let Some(vs)=o.get(key).and_then(Value::as_array) {
+                let mut hidden=0;
+                for (i,v) in vs.iter().enumerate() {
+                    let code=v.get("code").and_then(Value::as_str).or_else(||v.as_str());
+                    if !personal && code.and_then(pending_label).is_none() { hidden+=1; continue; }
+                    let message=if personal {v.get("message").and_then(Value::as_str).or_else(||v.as_str()).map(field).transpose()?.unwrap_or_else(||"Estrutura de aviso não reconhecida; conteúdo não publicado.".into())}
+                        else {code.and_then(pending_label).unwrap().into()};
+                    rows.push(vec![format!("{label} {}",i+1),message]);
+                }
+                if hidden>0 { rows.push(vec![format!("{label}: {hidden} ocorrência(s)"),"Textos livres ocultos neste modo. Consulte cada pendência na aplicação autorizada.".into()]); }
+            }
+        }
         s.tables.push(table("Guardas, avisos e riscos do resultado explicitamente fornecido",&["Categoria","Ressalva"],&[3,7],rows));
-        if let Some(ns)=o.pointer("/data/native_result/avisos").and_then(Value::as_array){let rows=ns.iter().enumerate().map(|(i,v)|Ok(vec![format!("Aviso nativo {}",i+1),if personal{optional_field(v.as_str())?}else{"Texto livre do motor oculto. Resultado continua experimental e sem certificação jurídica.".into()}])).collect::<Result<Vec<_>,String>>()?;s.tables.push(table("Avisos da execução nativa",&["Registro","Ressalva"],&[3,7],rows));}
+        if let Some(ns)=o.pointer("/data/native_result/avisos").and_then(Value::as_array) {
+            let rows=if personal { ns.iter().enumerate().map(|(i,v)|Ok(vec![format!("Aviso nativo {}",i+1),optional_field(v.as_str())?])).collect::<Result<Vec<_>,String>>()? }
+                else if ns.is_empty() {vec![]}
+                else {vec![vec![format!("Avisos do motor: {}",ns.len()),"Textos livres ocultos neste modo. Resultado experimental; confira todos os avisos na aplicação.".into()]]};
+            s.tables.push(table("Avisos da execução nativa",&["Registro","Ressalva"],&[3,7],rows));
+        }
     }
     s.paragraphs.push("Limitações do motor: transições utilizam simplificações de competências e marcos; correção depende da cobertura do snapshot; fator previdenciário e combinações não suportadas devem continuar bloqueados. Estes avisos não constituem fundamentação jurídica.".into());
     Ok(s)
@@ -343,12 +623,23 @@ fn pcd_report(case:&Calculation,w:&Workspace,o:ReportOptions,n:&Value)->Result<R
   ReportKind::Detailed=>{sections.push(totals()?);sections.push(time()?);sections.push(ledger()?);sections.push(assumptions()?);},
   ReportKind::Transitions=>{let mut s=section("Comparação de cenários",false);s.paragraphs.push("Este documento calcula somente o grau constante declarado pela LC 142. Não foi executada comparação automática com todas as regras da EC 103, direito adquirido, fator ou aposentadoria por idade. Nenhum vencedor foi presumido.".into());sections.push(s);sections.push(time()?);sections.push(assumptions()?);},
   ReportKind::Indicators=>{sections.push(assumptions()?);sections.push(pending(case,o.include_personal,None)?);},
+  ReportKind::Quality=>{sections.push(assumptions()?);sections.push(pending(case,o.include_personal,None)?);},
  }
  let office=if o.include_personal&&!w.settings.office_name.trim().is_empty(){field(&w.settings.office_name)?}else{"previdenciar.io - cálculo previdenciário".into()};
  if office.chars().count()>120{return Err("Cabeçalho excede o espaço reservado; nenhum texto foi cortado.".into());}
- Ok(Report{title:format!("{} - LC 142/2013 ({grade})",o.kind.title()),status:"SIMULAÇÃO - PREMISSAS DECLARADAS - NÃO É CONCESSÃO".into(),office,footer:"Origem preservada. Projeções não são pagamentos. Revisão profissional necessária.".into(),personal:o.include_personal,identification:[format!("Nome do segurado: {}",if o.include_personal{optional_field(case.identity.full_name.as_deref())?}else{"Identificação oculta".into()}),format!("CPF: {}    Nascimento: {}",if o.include_personal{optional_field(case.identity.cpf.as_deref())?}else{"Oculto".into()},date(case.identity.birth_date.as_deref())),format!("DIB: {}    Data-base: {}    Grau: {}",date(Some(&case.dib)),date(pcd["calculation_date"].as_str()),grade)],sections})
+ Ok(Report{title:format!("{} - LC 142/2013 ({grade})",document_title(case,o)?),status:"SIMULAÇÃO - PREMISSAS DECLARADAS - NÃO É CONCESSÃO".into(),office,footer:"Origem preservada. Projeções não são pagamentos. Revisão profissional necessária.".into(),personal:o.include_personal,identification:[format!("Nome do segurado: {}",if o.include_personal{optional_field(case.identity.full_name.as_deref())?}else{"Identificação oculta".into()}),format!("CPF: {}    Nascimento: {}",if o.include_personal{optional_field(case.identity.cpf.as_deref())?}else{"Oculto".into()},date(case.identity.birth_date.as_deref())),format!("DIB: {}    Data-base: {}    Grau: {}",date(Some(&case.dib)),date(pcd["calculation_date"].as_str()),grade)],highlight:if matches!(o.kind,ReportKind::Detailed|ReportKind::Summary|ReportKind::Memory){
+    n.pointer("/resumo/rmi").filter(|v|!v.is_null()).map(|v|numeric(Some(v),true).map(|amount|format!("R$ {amount}"))).transpose()?
+ }else{None},sections})
 }
 
+/// Title chosen by the operator for the document. Empty keeps the report
+/// type's own title. The name is never used to infer data or entitlement.
+fn document_title(case:&Calculation,options:ReportOptions)->Result<String,String>{
+    let custom=case.options.report_title.trim();
+    if custom.is_empty(){return Ok(options.kind.title().into());}
+    if custom.chars().count()>120{return Err("Título do relatório excede 120 caracteres; nenhum texto foi cortado.".into());}
+    Ok(field(custom)?)
+}
 pub(crate) fn build(case:&Calculation,workspace:&Workspace,options:ReportOptions,outcome:Option<&Value>)->Result<Report,String>{
     previus_workspace::link_review::validate_source_links(case)?;
     if let Some(v)=outcome{json_budget(v)?;}
@@ -357,16 +648,27 @@ pub(crate) fn build(case:&Calculation,workspace:&Workspace,options:ReportOptions
     let input_count=ledger_count.checked_add(case.manual_links.len()).ok_or("Quantidade de registros excede limite.")?.checked_add(case.manual_salaries.len()).and_then(|v|v.checked_add(case.cnis.as_ref().map_or(0,|c|c.links.len()+c.salary_entries.len()+c.findings.len()+c.warnings.len()))).ok_or("Quantidade de registros excede limite.")?;
     if input_count>MAX_ROWS{return Err("Entrada excede 10.000 registros; nenhum registro foi omitido para caber no relatório.".into());}
     let native=outcome.filter(|v|v.get("status").and_then(Value::as_str)==Some("experimental")).and_then(|v|v.pointer("/data/native_result")).filter(|v|v.is_object());
-    let mut report=Report{title:options.kind.title().into(),status:if native.is_some(){"RESULTADO EXPERIMENTAL / REGRAS NÃO CERTIFICADAS"}else{"RELATÓRIO DE CONFERÊNCIA / DADOS PENDENTES"}.into(),
+    let mut report=Report{title:document_title(case,options)?,status:if native.is_some(){"RESULTADO EXPERIMENTAL / REGRAS NÃO CERTIFICADAS"}else{"RELATÓRIO DE CONFERÊNCIA / DADOS PENDENTES"}.into(),
         office:if options.include_personal{let office=workspace.settings.office_name.trim();if office.is_empty(){"previdenciar.io • RELATÓRIOS".into()}else{field(office)?}}else{"Escritório previdenciário".into()},
         footer:if options.include_personal{let f=workspace.settings.report_footer.trim();if f.is_empty(){"Uso confidencial. Revisão documental e normativa necessária.".into()}else{field(f)?}}else{"Identificação oculta. Conferir dados, documentos e parâmetros.".into()},personal:options.include_personal,identification: [
             format!("Nome do segurado: {}", if options.include_personal { format!("{}    Cálculo: {}", optional_field(case.identity.full_name.as_deref())?, field(&case.name)?) } else { "Identificação oculta".into() }),
             format!("CPF: {}    Nascimento: {}", if options.include_personal { optional_field(case.identity.cpf.as_deref())? } else { "Oculto".into() }, date(case.identity.birth_date.as_deref())),
             format!("DIB: {}    Sexo: {}    Hipótese sujeita a revisão", date(Some(&case.dib)), enum_text(case.sex.as_deref(), &["masculino", "feminino", "Masculino", "Feminino"]))
-        ],sections:vec![]};
+        ],highlight: if matches!(options.kind, ReportKind::Detailed | ReportKind::Summary | ReportKind::Memory) {
+            native.and_then(|n| n.pointer("/resumo/rmi")).filter(|v| !v.is_null()).map(|v| numeric(Some(v),true).map(|amount| format!("R$ {amount}"))).transpose()?
+        } else { None },sections:vec![]};
     if let Some(n)=native.filter(|n|n.get("engine_id").and_then(Value::as_str)==Some("lc142-constant-grade-v1")){return pcd_report(case,workspace,options,n);}
     if report.office.chars().count()>120 || report.footer.chars().count()>180{return Err("Cabeçalho/rodapé excede o espaço reservado; nenhum texto foi cortado.".into());}
+    if options.kind == ReportKind::Quality {
+        report.sections.push(conclusion(case,options,native,outcome)?);
+        report.sections.push(quality_calculation(case,options.include_personal)?);
+        report.sections.push(pending(case,options.include_personal,outcome)?);
+        return finish(report);
+    }
     report.sections.push(summary(case,options,native)?);
+    if matches!(options.kind,ReportKind::Detailed|ReportKind::Summary|ReportKind::Memory|ReportKind::Indicators){
+        report.sections.push(conclusion(case,options,native,outcome)?);
+    }
     if options.kind == ReportKind::Detailed { report.sections.push(interview(case,options.include_personal)?); }
     if selected(options,&[ReportKind::Periods]){report.sections.push(periods(case,options.include_personal,native)?);}
     if selected(options,&[ReportKind::Salaries]) || (options.kind == ReportKind::Memory && native.and_then(|n| n.get("correcao")).is_none_or(Value::is_null)) { report.sections.extend(salaries(case,options.include_personal)?.into_iter().filter(|s| options.kind != ReportKind::Memory || s.tables.iter().any(|t| !t.rows.is_empty()))); }
@@ -376,35 +678,86 @@ pub(crate) fn build(case:&Calculation,workspace:&Workspace,options:ReportOptions
     // Summary has a compact warning cover; all other kinds include relevant pending records.
     if options.kind==ReportKind::Summary {let mut s=section("Ressalvas e conclusão",false);s.paragraphs.push("A fonte não foi automaticamente validada. Conferir PRPPS, datas finais, concomitância, indicadores e moedas históricas antes de usar um resultado para benefício.".into());if let Some(o)=outcome{let count=["blockers","missing","warnings","known_model_risks"].iter().map(|k|o.get(k).and_then(Value::as_array).map_or(0,Vec::len)).sum::<usize>();s.paragraphs.push(format!("Resultado fornecido registra {count} pendência(s)/aviso(s)/risco(s). O relatório detalhado mantém as categorias e origens."));}report.sections.push(s);}
     else{report.sections.push(pending(case,options.include_personal,outcome)?);}
+    if matches!(options.kind,ReportKind::Detailed|ReportKind::Indicators){
+        if options.presentation.include_quality && case.cnis.is_some(){report.sections.push(quality(case,options.include_personal)?);}
+        if options.presentation.include_planning && is_planning(case){report.sections.push(planning(case,options.include_personal)?);}
+    }
     // Domain reports lead with their own content. Import inventory belongs to the appendix.
     let mut inventory = report.sections.remove(0);
-    inventory.title = "Anexo técnico - dados, origem e alcance".into();
-    inventory.new_page = true;
+    let keep_appendix = options.kind == ReportKind::Detailed && options.presentation.include_appendix;
+    if keep_appendix {
+        inventory.title = "Anexo técnico - dados, origem e alcance".into();
+        inventory.new_page = true;
+        report.sections.push(inventory);
+    } else if options.kind == ReportKind::Detailed {
+        // Without the technical annex the synthesis stays in the body of the report.
+        inventory.title = "Síntese, situação e alcance".into();
+        inventory.new_page = false;
+        report.sections.push(inventory);
+    }
     report.sections.sort_by_key(|s| {
+        if options.kind == ReportKind::Indicators {
+            return match s.title.as_str() {
+                "Conclusão e o que pode mudá-la" => 0,
+                "Qualidade de segurado - conferência por vínculo" => 1,
+                "Planejamento - premissas declaradas e lacunas" => 2,
+                "Indicadores, pendências e ressalvas" => 3,
+                "Anexo técnico - dados, origem e alcance" => 9,
+                _ => 4,
+            };
+        }
         if options.kind == ReportKind::Transitions {
-            return if s.title == "Análise das regras de transição" { 0 } else { 1 };
+            return match s.title.as_str() {
+                "Conclusão e o que pode mudá-la" => 0,
+                "Análise das regras de transição" => 1,
+                _ => 2,
+            };
         }
         if options.kind == ReportKind::Memory {
             return match s.title.as_str() {
-                "Salários de contribuição - memória de atualização" if s.tables.iter().any(|t| !t.rows.is_empty()) => 0,
-                "Cálculo da renda mensal inicial" => 1,
-                "Memória de cálculo" => 2,
-                _ if s.title.to_lowercase().contains("remunerações") || s.title.to_lowercase().contains("salários de contribuição") => 0,
-                _ => 3,
+                "Conclusão e o que pode mudá-la" => 0,
+                "Salários de contribuição - memória de atualização" if s.tables.iter().any(|t| !t.rows.is_empty()) => 1,
+                "Cálculo da renda mensal inicial" => 2,
+                "Memória de cálculo" => 3,
+                _ if s.title.to_lowercase().contains("remunerações") || s.title.to_lowercase().contains("salários de contribuição") => 1,
+                _ => 4,
             };
         }
         match s.title.as_str() {
-            "Cálculo da renda mensal inicial" => 0,
-            "Períodos de contribuição" => 1,
-            "Salários de contribuição - memória de atualização" => 2,
+            "Conclusão e o que pode mudá-la" => 0,
+            "Cálculo da renda mensal inicial" => 1,
+            "Períodos de contribuição" => 2,
+            "Salários de contribuição - memória de atualização" => 3,
             "Análise das regras de transição" => 4,
-            "Memória de cálculo" => 5,
-            "Entrevista do assistente e declarações" => 6,
-            _ => 3,
+            "Qualidade de segurado - conferência por vínculo" => 5,
+            "Planejamento - premissas declaradas e lacunas" => 6,
+            "Memória de cálculo" => 7,
+            "Síntese, situação e alcance" => 8,
+            "Entrevista do assistente e declarações" => 9,
+            "Anexo técnico - dados, origem e alcance" => 10,
+            _ => 10,
         }
     });
-    if options.kind == ReportKind::Detailed { report.sections.push(inventory); }
-    for s in &mut report.sections { s.tables.retain(|t| !t.rows.is_empty()); }
+    for s in &mut report.sections {
+        s.tables.retain(|t| !t.rows.is_empty());
+        // A missing series is a short notice, never a nearly empty dedicated page.
+        if s.title != "Anexo técnico - dados, origem e alcance" { s.new_page = false; }
+    }
+    report.sections.retain(|s| !s.paragraphs.is_empty() || !s.tables.is_empty());
+    if let Some(first) = report.sections.first_mut() { first.new_page = false; }
+    for line in &report.identification { field(line)?; }
+    let mut total_rows=0usize;
+    for s in &report.sections{for t in &s.tables{if t.headers.len()!=t.weights.len()||t.weights.contains(&0){return Err("Definição de tabela PDF inválida.".into());}for r in &t.rows{if r.len()!=t.headers.len(){return Err("Linha de tabela PDF inválida.".into());}total_rows+=1;for v in r{field(v)?;}}}for p in &s.paragraphs{field(p)?;}}
+    if total_rows>MAX_ROWS{return Err("Documento excede 10.000 linhas de tabela; nenhum registro foi omitido.".into());}
+    Ok(report)
+}
+/// Shared final checks for every report kind.
+fn finish(report:Report)->Result<Report,String>{
+    let mut report=report;
+    for s in &mut report.sections {
+        s.tables.retain(|t| !t.rows.is_empty());
+        if s.title != "Anexo técnico - dados, origem e alcance" { s.new_page = false; }
+    }
     report.sections.retain(|s| !s.paragraphs.is_empty() || !s.tables.is_empty());
     if let Some(first) = report.sections.first_mut() { first.new_page = false; }
     for line in &report.identification { field(line)?; }
@@ -414,6 +767,26 @@ pub(crate) fn build(case:&Calculation,workspace:&Workspace,options:ReportOptions
     Ok(report)
 }
 #[cfg(test)]mod tests{use super::*;
+    #[test]fn disability_aliases_do_not_become_false_pending_values(){
+        for value in ["nao","não","none","sem_deficiencia","Não possui deficiência","nao possui deficiencia","Não","nenhuma"] {assert_eq!(declared_disability(Some(value)),"Sem deficiência declarada");}
+        assert_eq!(declared_disability(None),"Não informado");
+        assert_eq!(declared_disability(Some("Leve")),"Leve");
+        assert_eq!(declared_disability(Some("PRIVATE TEXT")),"Valor fora do contrato / pendente");
+    }
+    #[test]fn private_pending_groups_only_hidden_text_and_preserves_counts(){
+        let outcome=serde_json::json!({"warnings":["PRIVATE_A","PRIVATE_B",{"code":"source_end_missing","message":"PRIVATE_C"}],"data":{"native_result":{"avisos":["PRIVATE_D","PRIVATE_E"]}}});
+        let private=pending(&Calculation::default(),false,Some(&outcome)).unwrap();
+        let rows=&private.tables[0].rows;
+        assert_eq!(rows.len(),2);
+        assert!(rows.iter().any(|r|r[0]=="Aviso: 2 ocorrência(s)"));
+        assert!(rows.iter().any(|r|r[1].contains("Data ausente/inválida")));
+        assert_eq!(private.tables[1].rows[0][0],"Avisos do motor: 2");
+        assert!(!format!("{private:?}").contains("PRIVATE_"));
+        let personal=pending(&Calculation::default(),true,Some(&outcome)).unwrap();
+        assert_eq!(personal.tables[0].rows.len(),3);
+        assert_eq!(personal.tables[1].rows.len(),2);
+        assert_eq!(personal.tables[0].rows[0][1],"PRIVATE_A");
+    }
     #[test]fn exact_currency_not_float(){assert_eq!(cents(326940),"3.269,40");assert_eq!(cents(-1),"-0,01");assert_eq!(decimal("2048.18",true).unwrap(),"2.048,18");assert!(decimal("1.123",true).is_err());}
     #[test]fn null_bool_is_distinct(){assert_ne!(opt_bool(None),opt_bool(Some(false)));assert_eq!(opt_bool(None),"Não respondido");}
     #[test]fn date_is_checked(){assert!(iso_valid("2024-02-29"));assert!(!iso_valid("2023-02-29"));assert!(!iso_valid("1900-02-29"));assert!(!iso_valid("敏-01-01"));}

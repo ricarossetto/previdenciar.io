@@ -21,7 +21,7 @@ fn label(status: &ValidationStatus) -> &'static str {
     match status { ValidationStatus::Unvalidated => "Não validado", ValidationStatus::UnresolvedPrpps => "PRPPS não resolvido" }
 }
 fn amount_kind(kind: &AmountKind) -> &'static str {
-    match kind { AmountKind::Remuneration => "remuneration", AmountKind::ContributionColumnUnresolved => "contribution_column_unresolved" }
+    match kind { AmountKind::Remuneration => "remuneration", AmountKind::ContributionColumnUnresolved => "contribution_column_unresolved", AmountKind::ConsolidatedAnnualValue => "consolidated_annual_value" }
 }
 fn nominal(value: i64) -> String {
     let unsigned = value.unsigned_abs();

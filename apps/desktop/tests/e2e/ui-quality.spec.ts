@@ -29,6 +29,11 @@ test('calculation choices expose real named buttons and welcome fits before the 
  await expect(guided).toHaveText('Usar o assistente de cálculos');await expect(manual).toHaveText('Não usar o assistente');
  await guided.click();const name=page.getByLabel('Nome do cálculo',{exact:true});await expect(name).toBeVisible();const box=await name.boundingBox();expect(box!.y+box!.height).toBeLessThan(844);
  await expect(page.getByRole('group',{name:'Etapas do assistente'})).toHaveCount(0);
- await name.fill('Entrevista fictícia de acessibilidade');await page.getByRole('button',{name:'Prosseguir',exact:true}).click();await expect(page.getByRole('group',{name:'Etapas do assistente'})).toBeVisible();
+ await name.fill('Entrevista fictícia de acessibilidade');await page.getByRole('button',{name:'Prosseguir',exact:true}).click();
+ await expect(page.getByRole('progressbar',{name:'Progresso da entrevista'})).toBeVisible();
+ await expect(page.getByRole('group',{name:'Etapas do assistente'})).toHaveCount(0);
+ await page.getByText('Ver etapas e revisar respostas',{exact:true}).click();
+ await expect(page.getByRole('group',{name:'Etapas do assistente'})).toBeVisible();
+ await page.getByText('Ver etapas e revisar respostas',{exact:true}).click();
  await expect(page.getByRole('heading',{name:'O segurado recebe algum benefício previdenciário atualmente?',exact:true})).toBeVisible();
 });

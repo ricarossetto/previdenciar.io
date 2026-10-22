@@ -265,6 +265,11 @@ pub fn validate_assistant_for_calculation(calculation: &Calculation) -> Result<(
     if assistant.goal.as_deref() != Some("Calcular um novo benefício") {
         return Err("Este motor suporta somente calcular um novo benefício; cálculo exclusivo de tempo e restabelecimento ainda não são suportados. Nenhuma RMI foi calculada.".into());
     }
+    if let Some(finality) = assistant.process_kind.as_deref() {
+        if !matches!(finality, "Simulação do benefício" | "Processo administrativo") {
+            return Err("A finalidade informada não tem motor próprio neste adaptador; nenhuma RMI foi calculada. Registre a conferência e use uma simulação para executar o motor.".into());
+        }
+    }
     Ok(())
 }
 
@@ -526,6 +531,19 @@ mod tests {
         assert_eq!(result["status"], "experimental"); assert_eq!(result["legal_validation_performed"], false);
         assert_eq!(result["data"]["native_result"]["resumo"]["rmi"], "1600.00");
         assert!(!result["warnings"].as_array().unwrap().is_empty());
+    }
+    #[test]
+    fn execution_gate_refuses_finalities_without_their_own_engine() {
+        let mut case = assistant_case();
+        case.notes = "SYNTHETIC PRIVATE MARKER".into();
+        for finality in ["Revisão e valor da causa", "Planejamento futuro", "Execução judicial", "Contribuições em atraso"] {
+            case.assistant.as_mut().unwrap().process_kind = Some(finality.into());
+            let error = validate_assistant_for_calculation(&case).unwrap_err();
+            assert!(error.contains("finalidade"));
+            assert!(!error.contains("SYNTHETIC PRIVATE MARKER"));
+        }
+        case.assistant.as_mut().unwrap().process_kind = Some("Processo administrativo".into());
+        validate_assistant_for_calculation(&case).unwrap();
     }
 
 }

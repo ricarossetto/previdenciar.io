@@ -9,12 +9,14 @@
 
 - Cadastro local de clientes, cálculos, agenda e modelos de texto.
 - Entrevista progressiva para organizar uma hipótese RGPS, salvar e retomar.
-- Importação local de CNIS em PDF com texto extraível e conferência de origem, vínculos, competências e indicadores.
+- Importação local de CNIS em PDF com texto extraível e conferência de origem, vínculos, competências e indicadores, incluindo as tabelas de vínculos, remunerações, marcação de cooperativa e valores consolidados por ano civil.
 - Editor de períodos e livro de contribuições rastreável, com invalidação do resultado e da revisão ao alterar dados.
 - Motor RGPS experimental, com adaptador restritivo, avisos e memória nos cenários suportados.
 - Simulação PcD de grau constante com premissas explícitas, índices públicos e relatórios de origem/projeção separados; consulte [o método e seus limites](docs/LC142_SCENARIOS.md).
 - Ferramentas de datas, atualização de valores e fórmulas financeiras com parâmetros explícitos.
-- Relatórios PDF reais: detalhado, resumo, períodos, salários, memória, transições e indicadores.
+- Relatórios PDF reais: detalhado, resumo, períodos, salários, memória, transições, indicadores e cálculo da qualidade de segurado.
+- Apuração da qualidade de segurado por vínculo (período de graça, prorrogação e contribuições desconsideradas) com a regra legal declarada e a fonte citada no relatório; a carência aparece como comparação informativa, não como cálculo fechado.
+- Central de relatórios com título editável pelo operador, opções de apresentação (anexo técnico, conferência de qualidade, premissas de planejamento) e exportação em lote dos tipos selecionados para uma pasta, sem sobrescrever arquivos existentes.
 - Persistência local cifrada no Windows, gravação explícita e proteção contra sobrescrita após erro/corrupção.
 - Interface React/Tauri, temas claro/escuro, navegação móvel e animações com opção de movimento reduzido.
 
@@ -26,7 +28,7 @@ O programa não faz atualização automática de toda regra/índice oficial, nã
 
 ## Baixar e executar
 
-1. Abra [Releases](https://github.com/ricarossetto/previdenciar.io/releases) e escolha a pré-release mais recente.
+1. Abra [Releases](https://github.com/ricarossetto/previdenciar.io/releases) e escolha a versão 0.9.0.
 2. Baixe o executável Windows e o arquivo SHA256SUMS.txt.
 3. Confira o SHA-256 antes de executar. A distribuição inicial não possui assinatura digital de código.
 4. Requer Windows 10/11 x64 com Microsoft Edge WebView2. Nunca desative proteções do Windows para ignorar alertas; prefira compilar a partir do código se não confiar no binário.

@@ -14,7 +14,7 @@ fn main(){
     let mut case=Calculation{cnis:Some(cnis),contribution_review:Some(review),name:"DEMONSTRAÇÃO SINTÉTICA - NÃO É CÁLCULO DE BENEFÍCIO".into(),..Default::default()};
     case.identity.full_name=Some("PESSOA FICTÍCIA - DADOS DE DEMONSTRAÇÃO".into());
     for (personal,name) in [(false,"Livro-Contribuicoes-Privado.pdf"),(true,"Livro-Contribuicoes-Demonstrativo.pdf")]{
-        let bytes=render_pdf(&case,&Workspace::default(),ReportOptions{kind:ReportKind::Salaries,include_personal:personal},None).expect("Real Rust PDF renderer");
+        let bytes=render_pdf(&case,&Workspace::default(),ReportOptions::new(ReportKind::Salaries, personal),None).expect("Real Rust PDF renderer");
         assert!(bytes.starts_with(b"%PDF-"));let doc=lopdf::Document::load_mem(&bytes).expect("Readable PDF");
         let mut file=std::fs::OpenOptions::new().write(true).create_new(true).open(output.join(name)).expect("Create a new file; never overwrite");file.write_all(&bytes).expect("Write example PDF");
         println!("{}",serde_json::json!({"file":name,"pages":doc.get_pages().len(),"bytes":bytes.len(),"synthetic":true,"benefit_calculated":false,"personal_mode":personal}));

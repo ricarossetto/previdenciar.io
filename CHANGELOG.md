@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.9.0 - 2026-10-22
+
+Primeira versão estável da linha 0.9. O motor continua experimental: resultados, carência e enquadramento exigem revisão profissional.
+
+- Apuração da qualidade de segurado por vínculo com cálculo próprio e fonte primária citada no documento: período de graça de 12 meses (art. 15, II, da Lei nº 8.213/1991), prorrogação para até 24 meses com mais de 120 contribuições sem interrupção (art. 15, § 1º), carência de 180 contribuições (art. 25, II) ou faixa da tabela do art. 142, tempo em gozo de benefício fora da carência (art. 19-C, § 1º, do Decreto nº 3.048/1999) e competência contada uma única vez quando aparece em mais de um vínculo.
+- Novo 8º relatório PDF "Cálculo da Qualidade de Segurado", na central, no assistente e no lote.
+- Importação de CNIS corrigida: linhas de cooperativa com marcador "Não Cooperado" e a tabela de valores consolidados por ano civil, lida pela posição do valor na página. Em um CNIS real de 23 páginas, a leitura passou de 300 para 357 competências.
+- Renderer: correção de perda silenciosa de texto em colunas estreitas, com a linha reconstruída a cada render. Vale para todos os tipos de relatório.
+- Título do relatório editável e persistido, e opções de apresentação (anexo técnico, conferência de qualidade, premissas de planejamento).
+- Assistente em sete etapas com hub de conferência, mapa de cobertura e revisão rastreável dos dados importados.
+- Verificação: 454 testes Rust, 97 testes de interface, 36 testes de navegador, revisão de fonte pública sem achados, e verificação nativa em perfil isolado com os 8 PDFs.
+- A regra de carência "4/5" (144 contribuições) foi refutada em dez fontes primárias e não é aplicada; a base legal da verdade é art. 22 da EC 103/2019 → art. 8º da LC 142/2013 → art. 29, II, da Lei nº 8.213/1991 (média dos 80% maiores salários).
+- A REA (Ghidra) não encontra no executável original os rótulos do relatório de qualidade: as fórmulas de referência não são recuperáveis e nada foi inferido no lugar delas.
+
 ## 0.8.2-beta.3 - 2026-10-13
 
 - Ajustado tratamento de exit code do smoke nativo para runners headless em CI.

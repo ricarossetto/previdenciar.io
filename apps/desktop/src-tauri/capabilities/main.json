@@ -15,6 +15,7 @@
     "allow-calculate-case",
     "allow-calculate-rgps",
     "allow-export-report",
+    "allow-export-reports-batch",
     "allow-export-document",
     "allow-backup-export",
     "allow-restore-snapshot",

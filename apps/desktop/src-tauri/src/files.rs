@@ -114,6 +114,7 @@ impl ReportFormat {
             "pdf_memory" => Ok(Self::Pdf(previus_reports::ReportKind::Memory)),
             "pdf_transitions" => Ok(Self::Pdf(previus_reports::ReportKind::Transitions)),
             "pdf_indicators" => Ok(Self::Pdf(previus_reports::ReportKind::Indicators)),
+            "pdf_quality" => Ok(Self::Pdf(previus_reports::ReportKind::Quality)),
             _ => Err("Formato não suportado. Use um relatório PDF conhecido, HTML, CSV ou JSON.".into()),
         }
     }
@@ -175,26 +176,58 @@ fn private_case(calculation: &Calculation) -> Calculation {
     case
 }
 
-pub fn render_report(calculation: &Calculation, workspace: &Workspace, format: ReportFormat, include_personal: bool) -> Result<Vec<u8>, String> {
+/// The only source of a financial PDF. It recalculates the reviewed input and
+/// never accepts arbitrary stored JSON as a benefit.
+fn reviewed_outcome(calculation: &Calculation) -> Value {
+    match crate::backend::validate_assistant_for_calculation(calculation) {
+        Ok(()) => match previus_rgps::calculate_case(calculation) {
+            Ok(value) => value,
+            Err(_) => serde_json::json!({"status":"blocked","data":null,"legal_validation_performed":false,
+                "warnings":["Não foi possível recalcular a hipótese; nenhum resultado armazenado foi aceito."],
+                "blockers":[{"code":"report_input_unresolved","message":"Dados ou política ainda não permitem executar o motor."}]}),
+        },
+        Err(message) => serde_json::json!({"status":"blocked","data":null,"legal_validation_performed":false,
+            "warnings":["Este PDF registra conferência de dados, não benefício calculado."],
+            "blockers":[{"code":"assistant_review_pending","message":message}]}),
+    }
+}
+fn render_pdf_kind(calculation: &Calculation, workspace: &Workspace, kind: previus_reports::ReportKind,
+    include_personal: bool, outcome: &Value, presentation: previus_reports::Presentation) -> Result<Vec<u8>, String> {
+    let bytes = previus_reports::render_pdf(calculation, workspace,
+        previus_reports::ReportOptions { kind, include_personal, presentation }, Some(outcome))?;
+    if bytes.len() as u64 > MAX_WORKSPACE_BYTES { return Err("PDF excede o limite de 64 MiB.".into()); }
+    Ok(bytes)
+}
+/// Presentation choices requested by the interface. An absent field keeps the
+/// report type's own default; nothing here changes the calculation.
+#[derive(Clone, Copy, Debug, Default, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PresentationRequest {
+    pub include_appendix: Option<bool>,
+    pub include_quality: Option<bool>,
+    pub include_planning: Option<bool>,
+}
+impl PresentationRequest {
+    pub fn to_presentation(self) -> previus_reports::Presentation {
+        previus_reports::Presentation {
+            include_appendix: self.include_appendix.unwrap_or(true),
+            include_quality: self.include_quality.unwrap_or(true),
+            include_planning: self.include_planning.unwrap_or(true),
+        }
+    }
+}
+#[cfg(test)]
+fn render_report(calculation: &Calculation, workspace: &Workspace, format: ReportFormat, include_personal: bool) -> Result<Vec<u8>, String> {
+    render_report_with(calculation, workspace, format, include_personal, PresentationRequest::default())
+}
+fn render_report_with(calculation: &Calculation, workspace: &Workspace, format: ReportFormat, include_personal: bool,
+    presentation: PresentationRequest) -> Result<Vec<u8>, String> {
     validate_workspace(workspace)?; validate_calculation(calculation)?;
     if let ReportFormat::Pdf(kind) = format {
         // PDF always describes the current reviewed input, not arbitrary stored JSON.
         // Missing data/unsupported policies produce a conferência report with no fake RMI.
-        let outcome = match crate::backend::validate_assistant_for_calculation(calculation) {
-            Ok(()) => match previus_rgps::calculate_case(calculation) {
-                Ok(value) => value,
-                Err(_) => serde_json::json!({"status":"blocked","data":null,"legal_validation_performed":false,
-                    "warnings":["Não foi possível recalcular a hipótese; nenhum resultado armazenado foi aceito."],
-                    "blockers":[{"code":"report_input_unresolved","message":"Dados ou política ainda não permitem executar o motor."}]}),
-            },
-            Err(message) => serde_json::json!({"status":"blocked","data":null,"legal_validation_performed":false,
-                "warnings":["Este PDF registra conferência de dados, não benefício calculado."],
-                "blockers":[{"code":"assistant_review_pending","message":message}]}),
-        };
-        let bytes = previus_reports::render_pdf(calculation, workspace,
-            previus_reports::ReportOptions { kind, include_personal }, Some(&outcome))?;
-        if bytes.len() as u64 > MAX_WORKSPACE_BYTES { return Err("PDF excede o limite de 64 MiB.".into()); }
-        return Ok(bytes);
+        let outcome = reviewed_outcome(calculation);
+        return render_pdf_kind(calculation, workspace, kind, include_personal, &outcome, presentation.to_presentation());
     }
     let text = match format {
         ReportFormat::Html => {
@@ -250,22 +283,111 @@ pub fn dialog_import() -> Result<Option<ImportResult>, String> {
     selected.map(|path| import_path(&path)).transpose()
 }
 /// Preview and export share the exact renderer. No file/dialog is opened here.
+#[cfg(test)]
 pub fn preview_pdf(calculation: &Calculation, workspace: &Workspace, format: &str, include_personal: bool) -> Result<String, String> {
+    preview_pdf_with(calculation, workspace, format, include_personal, PresentationRequest::default())
+}
+pub fn preview_pdf_with(calculation: &Calculation, workspace: &Workspace, format: &str, include_personal: bool,
+    presentation: PresentationRequest) -> Result<String, String> {
     use base64::Engine;
     let format = ReportFormat::parse(format)?;
     if !matches!(format, ReportFormat::Pdf(_)) { return Err("A prévia está disponível para os formatos PDF.".into()); }
-    let bytes = render_report(calculation, workspace, format, include_personal)?;
+    let bytes = render_report_with(calculation, workspace, format, include_personal, presentation)?;
     if bytes.len() > 12 * 1024 * 1024 { return Err("PDF maior que 12 MiB. Use Exportar arquivo para salvar a versão completa.".into()); }
     Ok(base64::engine::general_purpose::STANDARD.encode(bytes))
 }
 
-pub fn dialog_export(calculation: Calculation, workspace: Workspace, format: String, include_personal: bool) -> Result<Option<String>, String> {
+pub fn dialog_export_with(calculation: Calculation, workspace: Workspace, format: String, include_personal: bool,
+    presentation: PresentationRequest) -> Result<Option<String>, String> {
     let format = ReportFormat::parse(&format)?;
-    let bytes = render_report(&calculation, &workspace, format, include_personal)?;
+    let bytes = render_report_with(&calculation, &workspace, format, include_personal, presentation)?;
     let filename = format!("previus-relatorio.{}", format.extension());
     let selected = rfd::FileDialog::new().set_title("Exportar para NOVO arquivo (não sobrescreve)")
         .add_filter(format.label(), &[format.extension()]).set_file_name(filename).save_file();
     selected.map(|path| write_new(&path, format.extension(), &bytes)).transpose()
+}
+/// Fixed reading order for the seven report families supported by this app.
+/// The original exported one file per family; names are deterministic so a
+/// folder can be reviewed without guessing which PDF is which.
+const BATCH_REPORTS: [(&str, previus_reports::ReportKind, &str); 8] = [
+    ("pdf_detailed", previus_reports::ReportKind::Detailed, "previus-01-relatorio-completo.pdf"),
+    ("pdf_summary", previus_reports::ReportKind::Summary, "previus-02-resumo.pdf"),
+    ("pdf_periods", previus_reports::ReportKind::Periods, "previus-03-tempo-de-contribuicao.pdf"),
+    ("pdf_salaries", previus_reports::ReportKind::Salaries, "previus-04-remuneracoes.pdf"),
+    ("pdf_memory", previus_reports::ReportKind::Memory, "previus-05-memoria-rmi.pdf"),
+    ("pdf_transitions", previus_reports::ReportKind::Transitions, "previus-06-transicoes.pdf"),
+    ("pdf_indicators", previus_reports::ReportKind::Indicators, "previus-07-pendencias.pdf"),
+    ("pdf_quality", previus_reports::ReportKind::Quality, "previus-08-qualidade-de-segurado.pdf"),
+];
+
+#[derive(serde::Serialize)]
+pub struct BatchFile { pub format: &'static str, pub path: String }
+#[derive(serde::Serialize)]
+pub struct BatchFailure { pub format: &'static str, pub message: String }
+#[derive(serde::Serialize)]
+pub struct BatchExport { pub directory: String, pub files: Vec<BatchFile>, pub errors: Vec<BatchFailure> }
+
+fn checked_directory(path: &Path) -> Result<(), String> {
+    validate_local_path(path)?;
+    check_ancestors(path, false)
+}
+pub fn batch_export_formats(formats: &[String]) -> Result<Vec<(&'static str, previus_reports::ReportKind, &'static str)>, String> {
+    if formats.is_empty() { return Err("Selecione ao menos um relatório para exportar em lote.".into()); }
+    for value in formats {
+        if !BATCH_REPORTS.iter().any(|(id, _, _)| id == value) {
+            return Err("Formato não suportado no lote. Use somente os oito relatórios PDF próprios.".into());
+        }
+    }
+    let selected = BATCH_REPORTS.into_iter().filter(|(id, _, _)| formats.iter().any(|value| value.as_str() == *id)).collect::<Vec<_>>();
+    if selected.is_empty() { return Err("Selecione ao menos um relatório para exportar em lote.".into()); }
+    Ok(selected)
+}
+#[cfg(test)]
+fn write_batch_to(directory: &Path, calculation: &Calculation, workspace: &Workspace,
+    selected: &[(&'static str, previus_reports::ReportKind, &'static str)], include_personal: bool) -> Result<BatchExport, String> {
+    write_batch_to_with(directory, calculation, workspace, selected, include_personal, PresentationRequest::default())
+}
+fn write_batch_to_with(directory: &Path, calculation: &Calculation, workspace: &Workspace,
+    selected: &[(&'static str, previus_reports::ReportKind, &'static str)], include_personal: bool,
+    presentation: PresentationRequest) -> Result<BatchExport, String> {
+    checked_directory(directory)?;
+    validate_workspace(workspace)?; validate_calculation(calculation)?;
+    let outcome = reviewed_outcome(calculation);
+    let presentation = presentation.to_presentation();
+    let mut files = Vec::new();
+    let mut errors = Vec::new();
+    for &(format, kind, base) in selected {
+        let bytes = match render_pdf_kind(calculation, workspace, kind, include_personal, &outcome, presentation) {
+            Ok(bytes) => bytes,
+            Err(message) => { errors.push(BatchFailure { format, message }); continue; }
+        };
+        let mut attempt = 1u32;
+        loop {
+            let name = if attempt == 1 { base.to_string() } else {
+                format!("{}-{attempt}.pdf", base.trim_end_matches(".pdf"))
+            };
+            let path = directory.join(name);
+            match write_new(&path, "pdf", &bytes) {
+                Ok(path) => { files.push(BatchFile { format, path }); break; }
+                Err(message) => {
+                    // Existing destination is not overwritten: try a new suffix.
+                    if path.exists() && attempt < 20 { attempt += 1; continue; }
+                    errors.push(BatchFailure { format, message });
+                    break;
+                }
+            }
+        }
+    }
+    let directory = directory.to_str().ok_or_else(|| "Pasta de destino sem representação UTF-8.".to_owned())?.to_owned();
+    Ok(BatchExport { directory, files, errors })
+}
+pub fn dialog_export_batch(calculation: Calculation, workspace: Workspace, formats: Vec<String>, include_personal: bool,
+    presentation: PresentationRequest) -> Result<Option<BatchExport>, String> {
+    let selected = batch_export_formats(&formats)?;
+    let directory = match rfd::FileDialog::new()
+        .set_title("Exportar PDFs separados em uma pasta (não sobrescreve)")
+        .pick_folder() { Some(path) => path, None => return Ok(None) };
+    write_batch_to_with(&directory, &calculation, &workspace, &selected, include_personal, presentation).map(Some)
 }
 pub fn dialog_document(text: String) -> Result<Option<String>, String> {
     if text.len() as u64 > MAX_WORKSPACE_BYTES { return Err("Documento excede o limite de 64 MiB.".into()); }
@@ -306,6 +428,52 @@ mod tests {
         let dir = TestDir::new(); let output = dir.0.join("new.txt");
         assert!(write_new(&output, "txt", "ação".as_bytes()).is_ok());
         assert_eq!(fs::read_to_string(&output).unwrap(), "ação"); assert!(write_new(&output, "txt", b"second").is_err());
+    }
+    #[test]
+    fn batch_selection_is_canonical_and_rejects_non_pdf_formats() {
+        let selected = batch_export_formats(&["pdf_memory".into(), "pdf_detailed".into()]).unwrap();
+        assert_eq!(selected.iter().map(|(id, _, _)| *id).collect::<Vec<_>>(), vec!["pdf_detailed", "pdf_memory"]);
+        assert!(batch_export_formats(&[]).is_err());
+        for value in ["csv", "html", "json", "pdf_unknown"] {
+            assert!(batch_export_formats(&[value.to_owned()]).is_err(), "{value}");
+        }
+    }
+    #[test]
+    fn batch_creates_new_files_and_never_overwrites_them() {
+        let dir = TestDir::new();
+        let selected = batch_export_formats(&["pdf_summary".into(), "pdf_indicators".into()]).unwrap();
+        let first = write_batch_to(&dir.0, &Calculation::default(), &Workspace::default(), &selected, false).unwrap();
+        assert_eq!(first.files.len(), 2); assert!(first.errors.is_empty());
+        let first_bytes = fs::read(&first.files[0].path).unwrap();
+        let second = write_batch_to(&dir.0, &Calculation::default(), &Workspace::default(), &selected, false).unwrap();
+        assert_eq!(second.files.len(), 2);
+        assert_ne!(first.files[0].path, second.files[0].path);
+        assert_eq!(fs::read(&first.files[0].path).unwrap(), first_bytes);
+        assert_eq!(fs::read_dir(&dir.0).unwrap().count(), 4);
+    }
+    #[test]
+    fn batch_rejects_a_relative_or_missing_destination() {
+        let selected = batch_export_formats(&["pdf_summary".into()]).unwrap();
+        assert!(write_batch_to(Path::new("relative"), &Calculation::default(), &Workspace::default(), &selected, false).is_err());
+        let dir = TestDir::new();
+        assert!(write_batch_to(&dir.0.join("missing"), &Calculation::default(), &Workspace::default(), &selected, false).is_err());
+    }
+    #[test]
+    fn presentation_request_keeps_every_section_by_default_and_honours_the_request() {
+        let default = PresentationRequest::default().to_presentation();
+        assert!(default.include_appendix && default.include_quality && default.include_planning);
+        let custom = PresentationRequest { include_appendix: Some(false), include_quality: None, include_planning: Some(true) }.to_presentation();
+        assert!(!custom.include_appendix); assert!(custom.include_quality); assert!(custom.include_planning);
+    }
+    #[test]
+    fn preview_accepts_the_operator_title_and_the_presentation_choices() {
+        use base64::Engine;
+        let mut case = Calculation::default();
+        case.options.report_title = "Título sintético do teste".into();
+        let encoded = preview_pdf_with(&case, &Workspace::default(), "pdf_summary", false,
+            PresentationRequest { include_appendix: Some(false), include_quality: Some(false), include_planning: Some(false) }).unwrap();
+        let bytes = base64::engine::general_purpose::STANDARD.decode(encoded).unwrap();
+        assert!(bytes.starts_with(b"%PDF-")); assert!(bytes.len() > 1000);
     }
     #[test]
     fn rejects_traversal_device_ads_and_wrong_extensions() {
@@ -441,7 +609,7 @@ fn recomputed_rgps_report(case:&Calculation)->String{
 
 #[cfg(test)]mod native_pdf_backend_tests{
  use super::*;
- #[test]fn binary_pdf_formats_are_exact_known_variants(){for input in["pdf","pdf_detailed","pdf_summary","pdf_periods","pdf_salaries","pdf_memory","pdf_transitions","pdf_indicators"]{let format=ReportFormat::parse(input).unwrap();assert_eq!(format.extension(),"pdf");assert!(format.label().contains("PDF"));}assert!(ReportFormat::parse("pdf_unrecognized").is_err());}
+ #[test]fn binary_pdf_formats_are_exact_known_variants(){for input in["pdf","pdf_detailed","pdf_summary","pdf_periods","pdf_salaries","pdf_memory","pdf_transitions","pdf_indicators","pdf_quality"]{let format=ReportFormat::parse(input).unwrap();assert_eq!(format.extension(),"pdf");assert!(format.label().contains("PDF"));}assert!(ReportFormat::parse("pdf_unrecognized").is_err());}
  #[test]fn incomplete_assistant_can_generate_conferencia_not_a_fake_financial_result(){
   let c=Calculation{kind:"RGPS".into(),assistant:Some(previus_workspace::AssistantInterview{mode:"assisted".into(),..Default::default()}),result:Some(json!({"rmi":"999999.00"})),..Default::default()};
   let original=serde_json::to_vec(&c).unwrap();let bytes=render_report(&c,&Workspace::default(),ReportFormat::parse("pdf").unwrap(),false).unwrap();assert!(bytes.starts_with(b"%PDF-"));assert!(bytes.len()>500);assert_eq!(original,serde_json::to_vec(&c).unwrap());

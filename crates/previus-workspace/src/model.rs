@@ -130,6 +130,9 @@ pub struct CalcOptions {
     pub reference_base: String,
     pub include_thirteenth: bool,
     pub rule_policy: String,
+    /// Optional name chosen by the operator for the generated documents.
+    /// Empty keeps the report type's own title. It never changes the engine.
+    pub report_title: String,
 }
 #[derive(Clone, Default, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]

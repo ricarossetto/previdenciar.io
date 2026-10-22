@@ -159,6 +159,53 @@ fn nonadjacent_columns_warn_and_do_not_guess_values() {
     assert!(r.warnings.iter().any(|w|w.code=="nonadjacent_table_columns"));
 }
 #[test]
+fn cooperative_rows_with_the_non_cooperated_marker_are_imported() {
+    let text = "CNIS\nRelações Previdenciárias\nSeq. NIT Código Emp. Origem do Vínculo Tipo Filiado no Vínculo Data Início Data Fim\n1 111.11111.11-1 AGRUPAMENTO FICTICIO Contribuinte Individual 01/03/2022 31/10/2022\nRemunerações\nCompetência Contrat. Estabelecimento Tomador Forma Prestação Serviço Remuneração Indicadores\n03/2022 89.652.010 89.652.010/0001-15 Normal 120,00\n04/2022 89.652.010 89.652.010/0001-15 Não Cooperado 80,00\n";
+    let r = import_text(text).unwrap();
+    assert_eq!(r.salary_entries.len(), 2);
+    assert_eq!(r.salary_entries[0].competence, "2022-03");
+    assert_eq!(r.salary_entries[0].amount_centavos, 12000);
+    assert_eq!(r.salary_entries[1].competence, "2022-04");
+    assert_eq!(r.salary_entries[1].amount_centavos, 8000);
+    assert_eq!(r.salary_entries[1].link_sequence, Some(1));
+    assert!(!r.warnings.iter().any(|w| w.code == "nonadjacent_table_columns"));
+}
+/// Tabela de valores consolidados com a geometria real: cada valor fica na
+/// coluna do seu mês, como o extrator posicional do CNIS entrega.
+fn consolidated_table(year: u32, values: &[&str]) -> String {
+    const MONTHS: [&str; 12] = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+    let mut header = String::from("Ano");
+    let mut row = format!("{year:04}");
+    for (index, month) in MONTHS.iter().enumerate() {
+        header.push_str(&format!("{:>10}", month));
+        row.push_str(&format!("{:>10}", values.get(index).copied().unwrap_or("")));
+    }
+    format!("{header}\n{row}\n")
+}
+#[test]
+fn consolidated_annual_values_are_read_by_their_column_position() {
+    let values = ["5.649,60","5.648,00","5.650,00","5.650,00","5.650,00","5.650,00","5.650,00","5.650,00","5.650,00","5.650,00","5.650,00","5.650,00"];
+    let text = format!("CNIS\nRemunerações\nCompetência Remuneração Indicadores\n01/2023 1.000,00\nValores Consolidados por Ano Civil\n{}", consolidated_table(2024, &values));
+    let r = import_text(&text).unwrap();
+    let consolidated: Vec<_> = r.salary_entries.iter().filter(|e| e.amount_kind == previus_cnis::AmountKind::ConsolidatedAnnualValue).collect();
+    assert_eq!(consolidated.len(), 12);
+    assert_eq!(consolidated[0].competence, "2024-01");
+    assert_eq!(consolidated[0].amount_centavos, 564960);
+    assert_eq!(consolidated[11].competence, "2024-12");
+    assert_eq!(r.salary_months["2024-01"].amount_sum_centavos, 564960);
+}
+#[test]
+fn consolidated_annual_values_do_not_duplicate_a_month_already_read() {
+    let values = ["1.000,00","2.000,00","3.000,00","4.000,00","5.000,00","6.000,00","7.000,00","8.000,00","9.000,00","10.000,00","11.000,00","12.000,00"];
+    let text = format!("CNIS\nRelações Previdenciárias\nSeq. NIT Código Emp. Origem do Vínculo Tipo Filiado no Vínculo Data Início Data Fim\n1 111.11111.11-1 EMPREGADOR FICTICIO Empregado 01/01/2024 31/12/2024\nRemunerações\nCompetência Remuneração Indicadores\n01/2024 1.000,00\nValores Consolidados por Ano Civil\n{}", consolidated_table(2024, &values));
+    let r = import_text(&text).unwrap();
+    assert_eq!(r.salary_months["2024-01"].count, 1);
+    assert_eq!(r.salary_months["2024-01"].amount_sum_centavos, 100000);
+    assert_eq!(r.salary_months["2024-02"].count, 1);
+    assert_eq!(r.salary_months["2024-12"].count, 1);
+    assert!(r.findings.iter().any(|f| f.code == "consolidated_annual_value_already_covered"));
+}
+#[test]
 fn hyphen_wrapped_indicator_rejoins_without_stealing_next_entry() {
     let r = import_text(&tiny("01/2020 100,00 PREC-\nMENOR-MIN 02/2020 200,00")).unwrap();
     assert_eq!(r.salary_entries[0].indicators,vec!["PREC-MENOR-MIN"]);

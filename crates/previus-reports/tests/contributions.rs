@@ -55,10 +55,7 @@ fn real_private_pdf_contains_original_and_adjusted_amounts_but_hides_evidence() 
     let bytes = render_pdf(
         &c,
         &Workspace::default(),
-        ReportOptions {
-            kind: ReportKind::Salaries,
-            include_personal: false,
-        },
+        ReportOptions::new(ReportKind::Salaries, false,),
         None,
     )
     .unwrap();
@@ -76,10 +73,7 @@ fn authorized_synthetic_report_includes_audit_evidence_without_fabricating_outco
     let bytes = render_pdf(
         &c,
         &Workspace::default(),
-        ReportOptions {
-            kind: ReportKind::Detailed,
-            include_personal: true,
-        },
+        ReportOptions::new(ReportKind::Detailed, true,),
         None,
     )
     .unwrap();

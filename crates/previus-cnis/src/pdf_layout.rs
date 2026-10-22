@@ -44,8 +44,14 @@ impl PositionedText {
             let mut previous: Option<(f64,f64)> = None;
             for glyph in row {
                 if let Some((end,size)) = previous {
-                    if glyph.x - end > size.min(glyph.size)*0.18 && !output.ends_with(' ') && !glyph.text.starts_with(' ') {
-                        output.push(' ');
+                    let gap = glyph.x - end;
+                    if gap > size.min(glyph.size)*0.18 && !output.ends_with(' ') && !glyph.text.starts_with(' ') {
+                        // Keep the horizontal distance between columns observable:
+                        // one space per gap unit, so a later parser can tell
+                        // which column a value belongs to.
+                        let unit = size.min(glyph.size)*0.35;
+                        let spaces = if unit > 0.0 { ((gap/unit).round() as usize).clamp(1,40) } else { 1 };
+                        for _ in 0..spaces { output.push(' '); }
                     }
                 }
                 output.push_str(&glyph.text);

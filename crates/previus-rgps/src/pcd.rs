@@ -364,6 +364,12 @@ pub fn calculate(case: &Calculation, p: &Lc142Policy) -> Result<Value, String> {
     }) {
         issue(&mut errors,"lc142_salary_column","cnis.salary_entries","Há valores de contribuição sem salário identificado; não inferir salário pela alíquota.");
     }
+    let consolidated_entries = cnis.salary_entries.iter().filter(|w| {
+        matches!(w.amount_kind, previus_cnis::AmountKind::ConsolidatedAnnualValue)
+    }).count();
+    if consolidated_entries > 0 {
+        issue(&mut errors,"lc142_consolidated_values","cnis.salary_entries","Há competências lidas da tabela de valores consolidados por ano civil, que não declara o vínculo de origem: a atribuição e a composição de cada mês exigem conferência documental.");
+    }
     let mut intervals = vec![];
     if case.manual_links.is_empty() {
         for l in &cnis.links {
