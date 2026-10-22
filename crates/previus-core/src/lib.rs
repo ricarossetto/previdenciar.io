@@ -27,6 +27,6 @@ pub mod quality;
 pub use dates::{CivilDate, YearMonth};
 pub use error::DomainError;
 pub use facade::run_tool;
-pub use insured_quality::{insured_quality, QualityInput, QualityPeriod, QualitySummary};
+pub use insured_quality::{insured_quality, AffiliationKind, DisregardReason, QualityInput, QualityPeriod, QualitySummary};
 pub use money::{Money, RoundingMode};
 pub use outcome::{CalculationOutcome, OutcomeStatus, RuleReviewStatus, Warning};

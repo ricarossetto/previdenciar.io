@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.2 - 2026-10-22
+
+Carência do contribuinte individual e snapshot oficial da Fábrica de Cálculos.
+
+- **Art. 27, II, da Lei nº 8.213/1991 implementado**: para contribuinte individual, especial e facultativo a carência conta a partir do **primeiro pagamento sem atraso**, e as competências anteriores marcadas na origem como informadas fora do prazo (indicador `PREM-EXT`) não entram. Para empregado, doméstico e avulso vale o art. 27, I (desde a filiação). O relatório passou a imprimir o **fundamento da contagem por vínculo**.
+- **Snapshot da consulta pública aceita a vigência**: o piso e o teto usam a última competência informada até o mês de referência (o teto é anual) e o snapshot publicado até o mês anterior à correção é aceito. Antes, o mês exato era exigido e o snapshot oficial de setembro era recusado para uma DIB de outubro.
+- **Consulta pública exercitada de ponta a ponta no aplicativo**: `fetch_economic_snapshot` retornou 387 competências com INPC, INPC-INSS, IGP-DI, IPC-r, piso e teto oficiais em menos de um segundo, com as fontes declaradas por competência (ex.: piso de 2026 pelo Decreto nº 12.797/2025 e teto pela Portaria Interministerial MPS/MF nº 13/2026).
+- **Comparação com o relatório de referência com os índices oficiais**: PBC de 364 parcelas, 80% = 291, soma R$ 1.501.880,78 e **RMI de R$ 5.161,10** contra R$ 5.200,89 do software de referência — diferença de **0,77%**, atribuída às sete competências que o CNIS lista apenas na visão "Contribuições" (ver a limitação declarada).
+
 ## 0.9.1 - 2026-10-22
 
 Correções de leitura de origem e o cenário PcD executável sem rede.

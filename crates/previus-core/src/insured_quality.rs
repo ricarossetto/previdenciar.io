@@ -47,6 +47,10 @@ pub enum DisregardReason {
     /// Período de gozo de benefício: o tempo intercalado não conta para
     /// carência (art. 19-C, § 1º, do Decreto nº 3.048/1999).
     Benefit,
+    /// Contribuinte individual, especial ou facultativo: competência anterior
+    /// ao primeiro pagamento sem atraso não conta para carência
+    /// (art. 27, II, da Lei nº 8.213/1991).
+    BeforeFirstPromptPayment,
     /// Exclusão declarada pelo operador na hipótese.
     Operator,
 }
@@ -56,7 +60,42 @@ impl DisregardReason {
         match self {
             DisregardReason::Overlap => "competência já contada em período anterior",
             DisregardReason::Benefit => "período de gozo de benefício",
+            DisregardReason::BeforeFirstPromptPayment => "anterior ao primeiro pagamento em dia (art. 27, II)",
             DisregardReason::Operator => "excluída pelo operador",
+        }
+    }
+}
+
+/// Categoria do segurado no vínculo, que decide a regra de contagem da
+/// carência: art. 27, I (empregado, doméstico e avulso) ou art. 27, II
+/// (contribuinte individual, especial e facultativo).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AffiliationKind {
+    Employee,
+    IndividualContributor,
+    Unknown,
+}
+
+impl AffiliationKind {
+    /// Lê a filiação declarada na origem. O que não é reconhecidamente
+    /// empregado nem contribuinte individual fica em `Unknown`, e a contagem
+    /// segue a regra mais conservadora com a ressalva declarada.
+    pub fn parse(value: Option<&str>) -> Self {
+        let lower = value.unwrap_or("").to_lowercase();
+        if lower.contains("contribuinte individual") || lower.contains("facultativo") || lower.contains("especial") {
+            AffiliationKind::IndividualContributor
+        } else if lower.contains("empregado") || lower.contains("doméstico") || lower.contains("domestico") || lower.contains("avulso") || lower.contains("agente público") || lower.contains("agente publico") {
+            AffiliationKind::Employee
+        } else {
+            AffiliationKind::Unknown
+        }
+    }
+
+    pub fn basis(self) -> &'static str {
+        match self {
+            AffiliationKind::Employee => "art. 27, I, da Lei nº 8.213/1991: contribuições a partir da filiação",
+            AffiliationKind::IndividualContributor => "art. 27, II, da Lei nº 8.213/1991: contribuições a partir do primeiro pagamento sem atraso",
+            AffiliationKind::Unknown => "filiação não reconhecida: contagem conservadora, com ressalva",
         }
     }
 }
@@ -70,6 +109,11 @@ pub struct QualityPeriod {
     pub end: Option<CivilDate>,
     /// Filiação declarada na origem (empregado, contribuinte individual…).
     pub affiliation: Option<String>,
+    /// Categoria que decide a regra de contagem da carência.
+    pub affiliation_kind: AffiliationKind,
+    /// Competências marcadas na origem como informadas fora do prazo
+    /// (indicador PREM-EXT).
+    pub late_months: Vec<YearMonth>,
     /// Empregador ou origem declarada do período.
     pub employer: Option<String>,
     /// Competências com contribuição neste período.
@@ -101,6 +145,9 @@ pub struct PeriodQuality {
     pub start: Option<CivilDate>,
     pub end: Option<CivilDate>,
     pub affiliation: Option<String>,
+    /// Categoria e fundamento da contagem de carência aplicados ao período.
+    pub affiliation_kind: AffiliationKind,
+    pub carencia_basis: &'static str,
     pub employer: Option<String>,
     /// Meses com contribuição depois das exclusões declaradas.
     pub counted_months: u32,
@@ -215,8 +262,19 @@ fn period_quality(
     already_counted: &BTreeSet<YearMonth>,
 ) -> Result<(PeriodQuality, BTreeSet<YearMonth>), DomainError> {
     let operator: BTreeSet<YearMonth> = period.disregarded_months.iter().copied().collect();
+    let late: BTreeSet<YearMonth> = period.late_months.iter().copied().collect();
     let mut counted: BTreeSet<YearMonth> = BTreeSet::new();
     let mut disregarded_detail: Vec<(YearMonth, DisregardReason)> = Vec::new();
+    // Art. 27, II: para contribuinte individual, especial e facultativo a
+    // carência conta do primeiro pagamento sem atraso, e as contribuições
+    // recolhidas com atraso de competências anteriores não entram.
+    let prompt_start = if period.affiliation_kind == AffiliationKind::IndividualContributor {
+        period.contribution_months.iter().copied()
+            .filter(|month| !operator.contains(month) && !late.contains(month))
+            .min()
+    } else {
+        None
+    };
     for month in period.contribution_months.iter().copied().collect::<BTreeSet<YearMonth>>() {
         if operator.contains(&month) {
             disregarded_detail.push((month, DisregardReason::Operator));
@@ -224,6 +282,8 @@ fn period_quality(
             disregarded_detail.push((month, DisregardReason::Benefit));
         } else if already_counted.contains(&month) {
             disregarded_detail.push((month, DisregardReason::Overlap));
+        } else if prompt_start.is_some_and(|start| month < start) {
+            disregarded_detail.push((month, DisregardReason::BeforeFirstPromptPayment));
         } else {
             counted.insert(month);
         }
@@ -231,6 +291,7 @@ fn period_quality(
     let overlap_months = disregarded_detail.iter().filter(|(_, reason)| *reason == DisregardReason::Overlap).count() as u32;
     let benefit_months = disregarded_detail.iter().filter(|(_, reason)| *reason == DisregardReason::Benefit).count() as u32;
     let operator_months = disregarded_detail.iter().filter(|(_, reason)| *reason == DisregardReason::Operator).count() as u32;
+    let before_prompt_months = disregarded_detail.iter().filter(|(_, reason)| *reason == DisregardReason::BeforeFirstPromptPayment).count() as u32;
     let first_payment = counted.iter().next().copied();
     let last_payment = counted.iter().next_back().copied();
     let mut notes = Vec::new();
@@ -248,6 +309,12 @@ fn period_quality(
     if overlap_months > 0 {
         notes.push(format!("{overlap_months} competência(s) já contadas em período anterior: dupla contagem de carência evitada."));
     }
+    if before_prompt_months > 0 {
+        notes.push(format!("{before_prompt_months} competência(s) anterior(es) ao primeiro pagamento sem atraso não contam para carência (art. 27, II, da Lei nº 8.213/1991)."));
+    }
+    if period.affiliation_kind == AffiliationKind::Unknown {
+        notes.push("Filiação não reconhecida na origem: a contagem da carência segue a regra mais conservadora e exige conferência.".into());
+    }
     if operator_months > 0 {
         notes.push(format!("{operator_months} competência(s) excluída(s) da hipótese por decisão do operador."));
     }
@@ -262,7 +329,10 @@ fn period_quality(
     };
     Ok((PeriodQuality {
         label: period.label.clone(), start: period.start, end: period.end,
-        affiliation: period.affiliation.clone(), employer: period.employer.clone(),
+        affiliation: period.affiliation.clone(),
+        affiliation_kind: period.affiliation_kind,
+        carencia_basis: period.affiliation_kind.basis(),
+        employer: period.employer.clone(),
         counted_months: counted.len() as u32,
         disregarded_months: operator_months,
         overlap_months, benefit_months,
@@ -373,7 +443,8 @@ mod tests {
         QualityPeriod {
             label: "Vínculo 01".into(),
             start: Some(date("2020-01-01")), end: Some(date("2021-12-31")),
-            affiliation: Some("Empregado".into()), employer: Some("EMPREGADOR FICTÍCIO".into()),
+            affiliation: Some("Empregado".into()), affiliation_kind: AffiliationKind::Employee,
+            late_months: Vec::new(), employer: Some("EMPREGADOR FICTÍCIO".into()),
             contribution_months: months.iter().map(|value| month(value)).collect(),
             disregarded_months: disregarded.iter().map(|value| month(value)).collect(),
             had_benefit_episode: false,
@@ -487,6 +558,41 @@ mod tests {
         assert_eq!(summary.total_counted_months, 3);
         assert_eq!(summary.total_overlap_months, 1);
         assert!(summary.periods[1].disregarded_detail.iter().any(|(value, reason)| *value == month("2020-02") && *reason == DisregardReason::Overlap));
+    }
+
+    #[test]
+    fn individual_contributor_counts_from_the_first_prompt_payment() {
+        let mut value = period(&["2020-01","2020-02","2020-03","2020-04"], &[]);
+        value.affiliation = Some("Contribuinte Individual".into());
+        value.affiliation_kind = AffiliationKind::IndividualContributor;
+        // 2020-01 e 2020-02 foram informadas fora do prazo (PREM-EXT).
+        value.late_months = vec![month("2020-01"), month("2020-02")];
+        let summary = insured_quality(&input(vec![value])).unwrap();
+        let first = &summary.periods[0];
+        assert_eq!(first.counted_months, 2);
+        assert_eq!(first.first_payment, Some(month("2020-03")));
+        assert_eq!(summary.total_counted_months, 2);
+        assert!(first.disregarded_detail.iter().any(|(value, reason)| *value == month("2020-01") && *reason == DisregardReason::BeforeFirstPromptPayment));
+        assert!(first.notes.iter().any(|note| note.contains("art. 27, II")));
+    }
+
+    #[test]
+    fn employee_counts_every_month_even_when_reported_late() {
+        let mut value = period(&["2020-01","2020-02","2020-03"], &[]);
+        value.late_months = vec![month("2020-01")];
+        let summary = insured_quality(&input(vec![value])).unwrap();
+        assert_eq!(summary.periods[0].counted_months, 3);
+        assert!(!summary.periods[0].disregarded_detail.iter().any(|(_, reason)| *reason == DisregardReason::BeforeFirstPromptPayment));
+    }
+
+    #[test]
+    fn unknown_affiliation_is_declared_and_never_assumed() {
+        let mut value = period(&["2020-01"], &[]);
+        value.affiliation = None;
+        value.affiliation_kind = AffiliationKind::Unknown;
+        let summary = insured_quality(&input(vec![value])).unwrap();
+        assert!(summary.periods[0].notes.iter().any(|note| note.contains("não reconhecida")));
+        assert!(summary.periods[0].carencia_basis.contains("ressalva"));
     }
 
     #[test]

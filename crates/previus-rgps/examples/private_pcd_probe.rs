@@ -18,7 +18,10 @@ fn main() {
     let negative = args[4].to_str().expect("politica").to_string();
     let cnis = previus_cnis::import_pdf(&source).expect("Leitor local do CNIS");
     let correction_month = format!("{}-{}", &dib[..4], &dib[5..7]);
-    let snapshot = previus_rgps::pcd::local_snapshot_with_minimum(&correction_month, Some("1621.00")).expect("Snapshot local");
+    let snapshot = match std::env::var("SNAPSHOT_JSON") {
+        Ok(path) => serde_json::from_slice(&std::fs::read(path).expect("snapshot oficial")).expect("snapshot oficial tipado"),
+        Err(_) => previus_rgps::pcd::local_snapshot_with_minimum(&correction_month, Some("1621.00")).expect("Snapshot local"),
+    };
     let policy = json!({
         "lc142": {
         "version": previus_rgps::pcd::VERSION,

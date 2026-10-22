@@ -417,12 +417,20 @@ pub fn calculate(case: &Calculation, p: &Lc142Policy) -> Result<Value, String> {
         return Ok(blocked(errors, vec![]));
     };
     snapshot.validate()?;
-    if snapshot.through != p.correction_month {
+    // O snapshot precisa cobrir as taxas até o mês anterior à correção; o piso
+    // e o teto usam a vigência (última competência informada até o mês). Um
+    // snapshot publicado até o mês anterior é suficiente e não é recusado.
+    let previous_month = {
+        let month: u32 = p.correction_month[5..7].parse().unwrap_or(1);
+        let year: i32 = p.correction_month[..4].parse().unwrap_or(0);
+        if month == 1 { format!("{:04}-12", year - 1) } else { format!("{year:04}-{:02}", month - 1) }
+    };
+    if snapshot.through.as_str() < previous_month.as_str() {
         issue(
             &mut errors,
             "lc142_snapshot_date",
             "snapshot.through",
-            "Snapshot pertence a outro mês de referência.",
+            "Snapshot não cobre as taxas até o mês anterior à correção.",
         );
     }
     let Some(cnis) = &case.cnis else {
@@ -574,7 +582,10 @@ pub fn calculate(case: &Calculation, p: &Lc142Policy) -> Result<Value, String> {
         .iter()
         .map(|r| (r.month.as_str(), r))
         .collect();
-    let Some(current_limit) = limits.get(p.correction_month.as_str()) else {
+    // Piso e teto seguem a vigência: vale a última competência informada até o
+    // mês de referência. O teto é anual e o snapshot pode terminar antes.
+    let effective_limit = limits.range(..=p.correction_month.as_str()).next_back().map(|(_, value)| *value);
+    let Some(current_limit) = effective_limit else {
         issue(
             &mut errors,
             "lc142_limits",
@@ -644,7 +655,9 @@ pub fn calculate(case: &Calculation, p: &Lc142Policy) -> Result<Value, String> {
             cursor.as_str()
         };
         let bound = limits
-            .get(known_month)
+            .range(..=known_month)
+            .next_back()
+            .map(|(_, value)| *value)
             .ok_or("Snapshot sem piso/teto da competência; não extrapolar.")?;
         let (nominal, origin) = if let Some(v) = wages.get(&cursor) {
             *v

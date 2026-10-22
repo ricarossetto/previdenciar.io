@@ -1,10 +1,10 @@
-## previdenciar.io 0.9.1
+## previdenciar.io 0.9.2
 
 Versão estável da linha 0.9 para Windows x64. Desktop local, gratuito e open source sob MIT; não é serviço oficial do INSS nem certificação de direito a benefício.
 
 ### Novidades e correções
 
-- **Importação de CNIS corrigida em três defeitos**, todos achados num caso real de 23 páginas: a tabela de contribuições (competência, data de pagamento, contribuição e salário) continuava na página seguinte sem repetir o cabeçalho e as linhas seguintes eram descartadas; a nota de rodapé do CNIS era confundida com um cabeçalho de tabela e marcava salários válidos como "contribuição não resolvida"; e o contexto de tabela não atravessava a quebra de página. Com as correções, a leitura do caso real passou de 485 para 610 lançamentos e os salários por competência passaram a coincidir um a um com o relatório de referência.
+- **Art. 27, II, da Lei nº 8.213/1991**: a carência do contribuinte individual, especial e facultativo conta a partir do primeiro pagamento sem atraso, e as competências anteriores informadas fora do prazo (indicador PREM-EXT) não entram. O relatório imprime o fundamento por vínculo.`n- **Snapshot da consulta pública aceita a vigência**: piso e teto usam a última competência até o mês de referência, e o snapshot de setembro serve a uma DIB de outubro.`n- **Consulta pública exercitada no aplicativo**: 387 competências com INPC, INPC-INSS, IGP-DI, IPC-r, piso e teto oficiais, com as fontes por competência.`n- **Importação de CNIS corrigida em três defeitos**, todos achados num caso real de 23 páginas: a tabela de contribuições (competência, data de pagamento, contribuição e salário) continuava na página seguinte sem repetir o cabeçalho e as linhas seguintes eram descartadas; a nota de rodapé do CNIS era confundida com um cabeçalho de tabela e marcava salários válidos como "contribuição não resolvida"; e o contexto de tabela não atravessava a quebra de página. Com as correções, a leitura do caso real passou de 485 para 610 lançamentos e os salários por competência passaram a coincidir um a um com o relatório de referência.
 - **Série oficial do IGP-DI/FGV embutida** (SGS/BCB, série 190) e INPC até 2026-09, gerados por `scripts/gerar-dados-economicos.mjs` a partir da fonte pública, com a fonte declarada no próprio arquivo.
 - **Cenário PcD calculável sem rede**: snapshot montado com as séries e tetos oficiais embutidos, com proveniência declarada (origem local e SHA-256 das tabelas). A consulta pública do TRF3 continua disponível e tem precedência.
 - **Apuração da qualidade de segurado por vínculo, com cálculo próprio e fonte primária citada**: período de graça de 12 meses (art. 15, II) prorrogado para até 24 meses com mais de 120 contribuições (art. 15, § 1º), carência de 180 contribuições (art. 25, II) ou a faixa da tabela do art. 142, tempo em gozo de benefício fora da carência (Decreto 3.048/1999, art. 19-C, § 1º) e competência contada uma única vez quando aparece em mais de um vínculo.
@@ -20,14 +20,14 @@ Continuam **não implementados** e declarados: a carência legal por tabelas do 
 
 ### Validação e limites
 
-Validação local: **456 testes Rust**, **97 testes de interface** (15 arquivos) e **36 testes de navegador** aprovados; `tsc` limpo; revisão de fonte pública aprovada sem achados. Testes de navegador usam IPC sintético. A verificação nativa em perfil isolado cobre importação, cálculo, os 8 PDFs, gravação cifrada e reabertura, sem modificar a base normal.
+Validação local: **459 testes Rust**, **97 testes de interface** (15 arquivos) e **36 testes de navegador** aprovados; `tsc` limpo; revisão de fonte pública aprovada sem achados. Testes de navegador usam IPC sintético. A verificação nativa em perfil isolado cobre importação, cálculo, os 8 PDFs, gravação cifrada e reabertura, sem modificar a base normal.
 
-O caso real de conferência (em área privada, fora do repositório) reproduz a estrutura do relatório de referência — PBC, regra dos 80% maiores, soma e média por competência e os fatores de correção de 2009 em diante — com a diferença final declarada: sete competências que o CNIS lista apenas na visão "Contribuições" entram no PBC do motor e não entram no do software de referência, o que desloca a RMI em cerca de 4%. A escolha entre as duas leituras é profesional e está documentada.
+O caso real de conferência (em área privada, fora do repositório) reproduz a estrutura do relatório de referência — PBC, regra dos 80% maiores, soma e média por competência e os fatores de correção — e, com o snapshot oficial da Fábrica de Cálculos, chega a **R$ 5.161,10 contra R$ 5.200,89** do software de referência (**0,77%** de diferença). A diferença vem das sete competências que o CNIS lista apenas na visão "Contribuições" e que entram no PBC do motor: a leitura é mais fiel à origem e a escolha entre as duas é profissional, está documentada e não altera os dados da origem.
 
 Essas evidências não certificam atualização normativa universal, carência juridicamente válida, deficiência, concessão ou equivalência integral a outro software. O diálogo nativo de Salvar PDF e a aprovação visual humana não estão certificados. Leia `docs/LC142_SCENARIOS.md`, `docs/LIMITATIONS.md` e `docs/PRIVACY.md`.
 
 ### Download e compatibilidade
 
-Executável portátil `previdenciar.io-0.9.1-windows-x64.exe`, sem assinatura de código; requer Windows 10/11 x64 e WebView2. Confira `SHA256SUMS.txt` e `BUILDINFO.json`. Não desative proteções do Windows para executar o arquivo.
+Executável portátil `previdenciar.io-0.9.2-windows-x64.exe`, sem assinatura de código; requer Windows 10/11 x64 e WebView2. Confira `SHA256SUMS.txt` e `BUILDINFO.json`. Não desative proteções do Windows para executar o arquivo.
 
 A base local cifrada e o identificador legado são preservados, sem migração silenciosa. Hipóteses com política/snapshot desta versão podem não abrir em versões antigas; preserve seus backups. Nenhum CNIS, PDF de cliente, base, credencial ou perfil de teste acompanha esta release. Use dados fictícios no primeiro teste.

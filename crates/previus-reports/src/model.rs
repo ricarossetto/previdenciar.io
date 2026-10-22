@@ -255,8 +255,11 @@ fn quality_calculation(case:&Calculation,personal:bool)->Result<Section,String>{
         let start=link.start_date.as_deref().and_then(|value|value.parse::<previus_core::CivilDate>().ok());
         let end=link.end_date.as_deref().and_then(|value|value.parse::<previus_core::CivilDate>().ok());
         let mut contribution_months=Vec::new();
+        let mut late_months=Vec::new();
         for entry in cnis.salary_entries.iter().filter(|entry|entry.link_sequence==Some(link.sequence)){
-            contribution_months.push(entry.competence.parse::<previus_core::YearMonth>().map_err(|_|"Competência de origem inválida; a apuração de qualidade foi recusada.".to_owned())?);
+            let competence=entry.competence.parse::<previus_core::YearMonth>().map_err(|_|"Competência de origem inválida; a apuração de qualidade foi recusada.".to_owned())?;
+            if entry.indicators.iter().any(|code|code.eq_ignore_ascii_case("PREM-EXT")){ late_months.push(competence); }
+            contribution_months.push(competence);
         }
         let mut disregarded=Vec::new();
         if let Some(review)=&case.contribution_review{
@@ -269,6 +272,8 @@ fn quality_calculation(case:&Calculation,personal:bool)->Result<Section,String>{
             label:format!("Vínculo {:02}",link.sequence),
             start,end,
             affiliation:link.affiliation.clone(),
+            affiliation_kind:previus_core::AffiliationKind::parse(link.affiliation.as_deref()),
+            late_months,
             employer:link.raw_employer.clone(),
             contribution_months,disregarded_months:disregarded,
             had_benefit_episode:false,
@@ -292,6 +297,14 @@ fn quality_calculation(case:&Calculation,personal:bool)->Result<Section,String>{
             if personal{optional_field(period.employer.as_deref())?}else{period.label.clone()}]);
     }
     s.tables.push(table("Vínculos e contribuições apuradas",&["Vínculo","Filiação","Início","Fim","Cont.","Sob.","Ben.","Desc.","Origem do vínculo"],&[2,3,2,2,1,1,1,1,4],rows));
+    let mut rows=vec![];
+    for period in &summary.periods{
+        rows.push(vec![period.label.clone(),
+            period.affiliation.clone().filter(|value|!value.trim().is_empty()).unwrap_or_else(||"Não informada".into()),
+            period.carencia_basis.to_string(),
+            period.counted_months.to_string()]);
+    }
+    s.tables.push(table("Fundamento da contagem de carência por vínculo",&["Vínculo","Filiação","Regra aplicada","Meses contados"],&[2,3,7,2],rows));
     let mut rows=vec![];
     for period in &summary.periods{
         let payments=match(period.first_payment,period.last_payment){

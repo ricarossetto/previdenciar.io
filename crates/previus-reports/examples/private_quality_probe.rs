@@ -28,14 +28,20 @@ fn main() {
         let start = link.start_date.as_deref().and_then(|value| value.parse::<CivilDate>().ok());
         let end = link.end_date.as_deref().and_then(|value| value.parse::<CivilDate>().ok());
         let mut contribution_months = Vec::new();
+        let mut entry_late = Vec::new();
         for entry in cnis.salary_entries.iter().filter(|entry| entry.link_sequence == Some(link.sequence)) {
-            if let Ok(month) = entry.competence.parse::<YearMonth>() { contribution_months.push(month); }
+            if let Ok(month) = entry.competence.parse::<YearMonth>() {
+                if entry.indicators.iter().any(|code| code.eq_ignore_ascii_case("PREM-EXT")) { entry_late.push(month); }
+                contribution_months.push(month);
+            }
         }
         let benefit_period = link.affiliation.as_deref().map(|value| value.to_lowercase().contains("benefício")).unwrap_or(false);
         periods.push(QualityPeriod {
             label: format!("Vínculo {:02}", link.sequence),
             start, end,
             affiliation: link.affiliation.clone(),
+            affiliation_kind: previus_core::AffiliationKind::parse(link.affiliation.as_deref()),
+            late_months: entry_late,
             employer: link.raw_employer.clone(),
             contribution_months,
             disregarded_months: Vec::new(),
