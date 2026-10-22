@@ -61,4 +61,9 @@ jobs:
           @{ commit=(git rev-parse HEAD); tag=$env:RELEASE_TAG; version=$coreVersion; product='previdenciar.io'; platform='windows-x64'; sha256=$hash; bytes=(Get-Item "release/$name").Length; signed=$false } | ConvertTo-Json | Set-Content -LiteralPath release/BUILDINFO.json -Encoding utf8
           gh release view $env:RELEASE_TAG *> $null
           if ($LASTEXITCODE -eq 0) { Write-Output 'Release already exists; assets are not replaced automatically.'; exit 0 }
-          gh release create $env:RELEASE_TAG "release/$name" release/SHA256SUMS.txt release/BUILDINFO.json --verify-tag --prerelease --title "previdenciar.io $version" --notes-file .github/RELEASE_NOTES.md
+          # Só uma versão com sufixo de pré-lançamento (ex.: 0.9.2-beta.1) é
+          # publicada como pré-release; a versão sem sufixo é a linha estável.
+          $prereleaseFlag = if ($version.Contains('-')) { '--prerelease' } else { '' }
+          $arguments = @($env:RELEASE_TAG, "release/$name", 'release/SHA256SUMS.txt', 'release/BUILDINFO.json', '--verify-tag', '--title', "previdenciar.io $version", '--notes-file', '.github/RELEASE_NOTES.md')
+          if ($prereleaseFlag) { $arguments += $prereleaseFlag }
+          gh release create @arguments
