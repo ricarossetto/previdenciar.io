@@ -96,6 +96,17 @@ fn amount(v: &Option<String>, field: &str, out: &mut Vec<Blocker>, max: Decimal)
     }
 }
 
+/// Salário mínimo vigente na competência, pela série oficial embutida.
+/// Sem cobertura para a competência, não há exclusão (não se inventa piso).
+fn salario_minimo_vigente(competencia: &Competencia) -> Option<Decimal> {
+    let chave = competencia.to_string();
+    rgps_core::dados::salario_minimo::SALARIO_MINIMO
+        .iter()
+        .filter(|(periodo, _)| *periodo <= chave.as_str())
+        .last()
+        .and_then(|(_, valor)| Decimal::from_str_exact(valor).ok())
+}
+
 /// Malformed/unknown JSON fields return Err. Missing/unsafe domain data returns a
 /// blocked envelope with data:null. Successful output is explicitly experimental.
 pub fn calculate_json(input: Value) -> Result<Value, String> {
@@ -174,6 +185,7 @@ fn calculate_input(r: CalculationInput) -> Result<Value, String> {
     let mut wages = Vec::new();
     let mut seen = BTreeSet::new();
     let mut pre94 = 0;
+    let mut abaixo_do_minimo: Vec<String> = Vec::new();
     for (i,w) in r.competencias.iter().enumerate() {
         let f = format!("competencias[{i}]");
         let Some(c) = month(&w.competencia,&f,&mut b) else { continue; };
@@ -185,9 +197,21 @@ fn calculate_input(r: CalculationInput) -> Result<Value, String> {
         if dib.is_some_and(|d| c > (Competencia {ano:d.ano as u16,mes:d.mes})) { issue(&mut b,"wage_after_dib",&f,"Remuneração posterior à DIB."); }
         let covered = links.iter().any(|l| c >= Competencia {ano:l.inicio.ano as u16,mes:l.inicio.mes} && l.fim.is_some_and(|e| c <= Competencia {ano:e.ano as u16,mes:e.mes}));
         if !covered { issue(&mut b,"wage_outside_confirmed_links",&f,"Competência sem período confirmado correspondente."); }
-        if let Some(a)=amount(&w.salario,&f,&mut b,Decimal::from(1_000_000_000u64)) { wages.push((c,a)); }
+        if let Some(a)=amount(&w.salario,&f,&mut b,Decimal::from(1_000_000_000u64)) {
+            // Regra do CNIS: a competência só é reconhecida como tempo quando o
+            // valor alcança o salário mínimo vigente. Abaixo disso, fica fora do
+            // PBC até a complementação.
+            if let Some(minimo) = salario_minimo_vigente(&c) {
+                if a < minimo { abaixo_do_minimo.push(c.to_string()); continue; }
+            }
+            wages.push((c,a));
+        }
     }
     if pre94>0 { warnings.push(format!("{pre94} registro(s) pré-07/1994 fora do PBC, sem soma ou conversão monetária histórica; períodos confirmados permanecem separados.")); }
+    if !abaixo_do_minimo.is_empty() {
+        let lista = abaixo_do_minimo.iter().take(12).cloned().collect::<Vec<_>>().join(", ");
+        warnings.push(format!("{} competência(s) com valor abaixo do salário mínimo não entraram no PBC até a complementação: {lista}{}. O CNIS marca esses meses com PREC-MENOR-MIN.", abaixo_do_minimo.len(), if abaixo_do_minimo.len()>12 {", e outras"} else {""}));
+    }
     if wages.is_empty() { issue(&mut b,"pbc_missing","competencias","Nenhuma remuneração confirmada válida desde 07/1994."); }
     let o = &r.opcoes;
     for (name,value) in [("corrigirSalarios",o.corrigir_salarios),("descarte",o.descarte),("divisorMinimo",o.divisor_minimo),("aplicarTetoVigenteDer",o.aplicar_teto_vigente_der)] {

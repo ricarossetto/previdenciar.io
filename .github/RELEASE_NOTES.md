@@ -1,4 +1,4 @@
-## previdenciar.io 0.10.1
+## previdenciar.io 0.10.2
 
 Versão estável da linha 0.10 para Windows x64. Desktop local, gratuito e open source sob MIT; não é serviço oficial do INSS nem certificação de direito a benefício.
 
@@ -11,6 +11,10 @@ Versão estável da linha 0.10 para Windows x64. Desktop local, gratuito e open 
 - Transições medidas por tempo apurado, com corte em 13/11/2019, e qualidade de segurado unificada em 12 meses.
 - Importação de CNIS sem rejeição pelo índice dos valores consolidados; duplicação de cálculo com identificadores novos; origem dos valores na revisão de contribuições.
 - Abertura da base fora da thread principal.
+
+### Correção
+
+- Competências com valor abaixo do salário mínimo (indicador PREC-MENOR-MIN) também ficam fora do PBC no caminho RGPS comum, com aviso e lista das competências. Antes a regra valia apenas no cenário PcD.
 
 ### Revisão de texto
 
@@ -25,11 +29,10 @@ Versão estável da linha 0.10 para Windows x64. Desktop local, gratuito e open 
 
 - Decreto 10.410/2020: as duas regras aparecem na interface do software de referência (R$ 5.032,06 e R$ 4.874,98), mas a fórmula não é recuperável do export. Não foi implementada por inferência.
 - Conversão de tempo comum para PcD (0,93/0,89/0,83), ROI, Análise da Situação Atual e planejamento na interface continuam fora desta versão.
-- A exclusão de competências abaixo do salário mínimo foi aplicada ao cenário PcD; o caminho RGPS comum ainda precisa do mesmo alinhamento.
 - O diálogo nativo de Salvar PDF e a aprovação visual humana não estão certificados.
 
 ### Download e compatibilidade
 
-Executável portátil `previdenciar.io-0.10.1-windows-x64.exe`, sem assinatura de código; requer Windows 10/11 x64 e WebView2. Confira `SHA256SUMS.txt` e `BUILDINFO.json`. Não desative proteções do Windows para executar o arquivo.
+Executável portátil `previdenciar.io-0.10.2-windows-x64.exe`, sem assinatura de código; requer Windows 10/11 x64 e WebView2. Confira `SHA256SUMS.txt` e `BUILDINFO.json`. Não desative proteções do Windows para executar o arquivo.
 
 A base local cifrada e o identificador legado são preservados, sem migração silenciosa. Nenhum CNIS, PDF de cliente, base, credencial ou perfil de teste acompanha esta release. Use dados fictícios no primeiro teste.

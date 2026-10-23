@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.10.2 - 2026-10-23
+
+Salário mínimo no PBC do RGPS comum.
+
+- Competências com valor abaixo do salário mínimo vigente (PREC-MENOR-MIN) deixam de entrar no PBC também no caminho RGPS comum, com aviso e lista das competências. A regra já valia no cenário PcD.
+
 ## 0.10.1 - 2026-10-23
 
 Revisão de texto em todo o projeto.
