@@ -20,7 +20,7 @@ fn main() {
     let correction_month = format!("{}-{}", &dib[..4], &dib[5..7]);
     let snapshot = match std::env::var("SNAPSHOT_JSON") {
         Ok(path) => serde_json::from_slice(&std::fs::read(path).expect("snapshot oficial")).expect("snapshot oficial tipado"),
-        Err(_) => previus_rgps::pcd::local_snapshot_with_minimum(&correction_month, Some("1621.00")).expect("Snapshot local"),
+        Err(_) => previus_rgps::pcd::local_snapshot(&correction_month).expect("Snapshot local"),
     };
     let policy = json!({
         "lc142": {

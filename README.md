@@ -3,7 +3,7 @@
 <p align="center">Ferramenta desktop gratuita e open source para organizar CNIS, hipóteses de cálculo e relatórios locais.</p>
 <p align="center"><a href="https://github.com/ricarossetto/previdenciar.io/releases">Baixar para Windows</a> · <a href="https://ricarossetto.github.io/previdenciar.io/">Apresentação</a> · <a href="docs/GETTING_STARTED.md">Começar</a> · <a href="docs/LIMITATIONS.md">Limitações</a></p>
 
-> **Versão 0.9.3.** O motor continua experimental. O programa não é serviço oficial do INSS, não certifica direito a benefício e não substitui revisão profissional. Hipótese bloqueada continua bloqueada, e dado ausente não vira zero.
+> **Versão 0.9.4.** O motor continua experimental. O programa não é serviço oficial do INSS, não certifica direito a benefício e não substitui revisão profissional. Hipótese bloqueada continua bloqueada, e dado ausente não vira zero.
 
 ## O que já existe
 
@@ -35,7 +35,7 @@ Não estão implementados: a carência legal por tabelas do RGPS, a desconsidera
 
 ## Baixar e executar
 
-1. Abra [Releases](https://github.com/ricarossetto/previdenciar.io/releases) e escolha a versão 0.9.3.
+1. Abra [Releases](https://github.com/ricarossetto/previdenciar.io/releases) e escolha a versão 0.9.4.
 2. Baixe o executável Windows e o arquivo SHA256SUMS.txt.
 3. Confira o SHA-256 antes de executar. A distribuição não possui assinatura digital de código.
 4. Requer Windows 10/11 x64 com Microsoft Edge WebView2. Não desative proteções do Windows para ignorar alertas. Se não confiar no binário, compile a partir do código.

@@ -299,27 +299,37 @@ pub fn local_snapshot_with_minimum(through: &str, minimum: Option<&str>) -> Resu
         })
         .collect::<Result<Vec<_>, String>>()?;
     if rates.is_empty() { return Err("Séries oficiais embutidas sem cobertura para o corte.".into()); }
-    // O teto é declarado por ano: cada competência recebe o teto vigente.
+    // Cada competência recebe o teto vigente nela e o salário mínimo vigente
+    // nela; o snapshot público publica as duas séries por competência.
     let mut limits: Vec<Limits> = Vec::new();
-    let mut current_ceiling: Option<&str> = None;
-    for (period, ceiling) in rgps_core::dados::tetos::TETOS_CONTRIBUICAO {
-        if period > through { break; }
-        current_ceiling = Some(ceiling);
-    }
-    let Some(ceiling) = current_ceiling else {
-        return Err("Tetos embutidos sem cobertura para o corte.".into());
-    };
-    let minimum_value = match minimum {
-        Some(value) => value.to_string(),
-        None => ceiling.to_string(),
-    };
     let mut cursor = rates.first().map(|rate| rate.month.clone()).unwrap_or_default();
     while cursor <= through.to_string() {
+        let ceiling = rgps_core::dados::tetos::TETOS_CONTRIBUICAO
+            .iter()
+            .filter(|(period, _)| *period <= cursor.as_str())
+            .last()
+            .map(|(_, value)| *value)
+            .ok_or("Tetos embutidos sem cobertura para a competência.")?;
+        let (minimum_value, minimum_source) = match minimum {
+            Some(value) => (
+                value.to_string(),
+                "Salário mínimo declarado pelo operador".to_string(),
+            ),
+            None => (
+                rgps_core::dados::salario_minimo::SALARIO_MINIMO
+                    .iter()
+                    .filter(|(period, _)| *period <= cursor.as_str())
+                    .last()
+                    .map(|(_, value)| (*value).to_string())
+                    .ok_or("Série embutida de salário mínimo sem cobertura para a competência.")?,
+                rgps_core::dados::salario_minimo::SALARIO_MINIMO_FONTE.to_string(),
+            ),
+        };
         limits.push(Limits {
             month: cursor.clone(),
-            minimum: minimum_value.clone(),
+            minimum: minimum_value,
             ceiling: ceiling.to_string(),
-            minimum_source: rgps_core::dados::tetos::TETOS_FONTE.to_string(),
+            minimum_source,
             ceiling_source: rgps_core::dados::tetos::TETOS_FONTE.to_string(),
         });
         let (year, month) = (cursor[..4].parse::<i32>().unwrap_or(0), cursor[5..7].parse::<u32>().unwrap_or(1));
@@ -329,9 +339,11 @@ pub fn local_snapshot_with_minimum(through: &str, minimum: Option<&str>) -> Resu
     hasher.update(rgps_core::dados::inpc::INPC_FONTE.as_bytes());
     hasher.update(rgps_core::dados::igpdi::IGPDI_FONTE.as_bytes());
     hasher.update(rgps_core::dados::tetos::TETOS_FONTE.as_bytes());
+    hasher.update(rgps_core::dados::salario_minimo::SALARIO_MINIMO_FONTE.as_bytes());
     for (period, value) in rgps_core::dados::inpc::INPC_MENSAL { hasher.update(format!("{period}={value};").as_bytes()); }
     for (period, value) in rgps_core::dados::igpdi::IGPDI_MENSAL { hasher.update(format!("{period}={value};").as_bytes()); }
     for (period, value) in rgps_core::dados::tetos::TETOS_CONTRIBUICAO { hasher.update(format!("{period}={value};").as_bytes()); }
+    for (period, value) in rgps_core::dados::salario_minimo::SALARIO_MINIMO { hasher.update(format!("{period}={value};").as_bytes()); }
     let response_sha256 = format!("{:x}", hasher.finalize());
     Ok(Snapshot {
         source_url: format!("{LOCAL_SNAPSHOT_URL_PREFIX}/?through={through}"),

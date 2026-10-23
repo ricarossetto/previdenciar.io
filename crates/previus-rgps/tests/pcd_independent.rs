@@ -62,6 +62,18 @@ fn below_minimum_competence_is_not_time_or_pbc_until_complemented() {
     assert!(warnings.iter().any(|w| w.as_str().unwrap_or("").contains("2020-02")));
 }
 #[test]
+fn local_snapshot_carries_monthly_minimum_and_ceiling() {
+    let snapshot = previus_rgps::pcd::local_snapshot("2026-09").unwrap();
+    let l2012 = snapshot.limits.iter().find(|limit| limit.month == "2012-06").unwrap();
+    assert_eq!(l2012.minimum, "622.00");
+    assert_eq!(l2012.ceiling, "3916.20");
+    let l2026 = snapshot.limits.iter().find(|limit| limit.month == "2026-09").unwrap();
+    assert_eq!(l2026.minimum, "1621.00");
+    assert_eq!(l2026.ceiling, "8475.55");
+    // O piso nunca pode ser o teto por omissão.
+    assert!(snapshot.limits.iter().all(|limit| limit.minimum != limit.ceiling));
+}
+#[test]
 fn future_salary_needs_declared_projection_and_is_not_imported() {
     let (mut c, mut p) = scenario();
     c.dib = "2020-06-01".into();
