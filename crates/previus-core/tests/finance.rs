@@ -17,14 +17,15 @@ fn cents(value: &Value) -> i64 {
 #[test]
 fn published_examples_and_public_dispatch_are_executable() {
     let schema: Value = serde_json::from_str(include_str!("finance-schema.json")).unwrap();
-    assert_eq!(schema["oneOf"].as_array().unwrap().len(),6);
+    assert_eq!(schema["oneOf"].as_array().unwrap().len(),7);
     for e in schema["x-examples"].as_array().unwrap() {
         let tool = e["tool"].as_str().unwrap();
         let direct = run(tool,e["input"].clone());
         assert_eq!(run_tool(tool,e["input"].clone()).unwrap(),direct);
         assert_eq!(direct["status"],"experimental");
         assert_eq!(direct["rules_verified"],false);
-        assert_eq!(direct["reference_tables_source"],"operator_input");
+        let expected_source = if tool == "irrf_oficial" { "rgps_core::dados::irrf" } else { "operator_input" };
+        assert_eq!(direct["reference_tables_source"],expected_source);
         assert_eq!(direct["provenance"],e["input"]["provenance"]);
         assert!(direct["assumptions"].as_array().unwrap().len() >= 4);
         assert!(!direct["warnings"].as_array().unwrap().is_empty());
@@ -33,7 +34,7 @@ fn published_examples_and_public_dispatch_are_executable() {
 }
 #[test]
 fn every_required_top_level_field_is_really_required() {
-    for tool in ["update_values","irrf_refund","undue_discounts","financial_formula","currency_conversion","benefit_adjustment"] {
+    for tool in ["update_values","irrf_refund","irrf_oficial","undue_discounts","financial_formula","currency_conversion","benefit_adjustment"] {
         let original = example(tool);
         for key in original.as_object().unwrap().keys() {
             let mut missing = original.clone();
@@ -44,7 +45,7 @@ fn every_required_top_level_field_is_really_required() {
 }
 #[test]
 fn unknown_top_level_fields_are_rejected() {
-    for tool in ["update_values","irrf_refund","undue_discounts","financial_formula","currency_conversion","benefit_adjustment"] {
+    for tool in ["update_values","irrf_refund","irrf_oficial","undue_discounts","financial_formula","currency_conversion","benefit_adjustment"] {
         let mut input = example(tool); input["typo"] = json!(true);
         assert!(run_finance(tool,input).is_err());
     }
@@ -544,4 +545,16 @@ fn simple_interest_reports_exact_numeric_backend() {
     assert_eq!(r["rounding_policy"]["formula_numeric_backend"],"checked_i128_ratios");
     assert_eq!(r["data"]["operation"],"simple_interest");
     assert_eq!(amount(&r,"interest"),"7.50");
+}
+#[test]
+fn embedded_irrf_matches_the_published_table() {
+    let r = run("irrf_oficial", json!({"competencia":"2026-10","base":"5000.00","dependentes":0,"isencao_65":null,"provenance":"synthetic"}));
+    assert_eq!(r["data"]["irrf"], "466.27");
+    assert_eq!(r["data"]["aliquota"], "27.50");
+    assert_eq!(r["data"]["tabela_competencia"], "2026-10");
+    let r = run("irrf_oficial", json!({"competencia":"2026-10","base":"3000.00","dependentes":1,"isencao_65":null,"provenance":"synthetic"}));
+    assert_eq!(r["data"]["irrf"], "28.62");
+    let r = run("irrf_oficial", json!({"competencia":"2026-10","base":"2000.00","dependentes":0,"isencao_65":null,"provenance":"synthetic"}));
+    assert_eq!(r["data"]["irrf"], "0.00");
+    assert!(run_finance("irrf_oficial", json!({"competencia":"1994-06","base":"100.00","dependentes":0,"isencao_65":null,"provenance":"synthetic"})).is_err());
 }

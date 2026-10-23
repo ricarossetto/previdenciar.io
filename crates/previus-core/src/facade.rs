@@ -16,7 +16,7 @@ use serde_json::Value;
 /// No defaulting, fuzzy tool selection or argument guessing occurs here.
 pub fn run_tool(tool: &str, input: Value) -> Result<Value, String> {
     match tool {
-        "update_values" | "irrf_refund" | "undue_discounts" | "financial_formula"
+        "update_values" | "irrf_refund" | "irrf_oficial" | "undue_discounts" | "financial_formula"
         | "currency_conversion" | "benefit_adjustment" => crate::finance::run_finance(tool, input),
         "inclusive_dates" => {
             let input: InclusiveIntervalInput = decode(input)?;

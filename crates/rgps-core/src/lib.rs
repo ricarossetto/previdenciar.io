@@ -3,6 +3,7 @@ pub mod calendar;
 pub mod carencia;
 pub mod dados;
 pub mod engine;
+pub mod fiscal;
 pub mod money;
 pub mod projecao;
 pub mod rmi;

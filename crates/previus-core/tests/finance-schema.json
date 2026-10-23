@@ -383,6 +383,26 @@
         "input"
       ],
       "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "tool": { "const": "irrf_oficial" },
+        "input": {
+          "type": "object",
+          "properties": {
+            "competencia": { "type": "string", "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$" },
+            "base": { "$ref": "#/$defs/decimal" },
+            "dependentes": { "type": "integer", "minimum": 0, "maximum": 20 },
+            "isencao_65": { "anyOf": [{ "$ref": "#/$defs/decimal" }, { "type": "null" }] },
+            "provenance": { "$ref": "#/$defs/provenance" }
+          },
+          "required": ["competencia", "base", "dependentes", "isencao_65", "provenance"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["tool", "input"],
+      "additionalProperties": false
     }
   ],
   "$defs": {
@@ -743,6 +763,10 @@
     }
   },
   "x-examples": [
+    {
+      "tool": "irrf_oficial",
+      "input": { "competencia": "2026-10", "base": "5000.00", "dependentes": 0, "isencao_65": null, "provenance": "synthetic" }
+    },
     {
       "tool": "update_values",
       "input": {

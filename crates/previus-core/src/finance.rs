@@ -558,6 +558,62 @@ fn formulas(input: FormulaInput) -> ResultF<Value> {
           "Em cronograma de empréstimo, juros e prestações em centavos por período; última prestação ajusta o saldo residual."],approximate))
 }
 
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct IrrfOficialInput {
+    competencia: String,
+    base: String,
+    dependentes: u32,
+    isencao_65: Value,
+    provenance: String,
+}
+fn duas_casas(value: rust_decimal::Decimal) -> String {
+    let arredondado = value.round_dp(2);
+    let mut texto = arredondado.to_string();
+    match texto.split_once('.') {
+        Some((_, frac)) if frac.len() == 1 => texto.push('0'),
+        Some(_) => {}
+        None => texto.push_str(".00"),
+    }
+    texto
+}
+fn irrf_oficial(input: IrrfOficialInput) -> ResultF<Value> {
+    source(&input.provenance)?;
+    let isencao_65 = match &input.isencao_65 {
+        Value::Null => None,
+        Value::String(texto) if !texto.trim().is_empty() => Some(texto.as_str()),
+        _ => return Err(fail("Isenção de 65 anos deve ser valor decimal ou nula.")),
+    };
+    let resultado = rgps_core::fiscal::irrf_mensal(
+        &input.competencia,
+        &input.base,
+        input.dependentes,
+        isencao_65,
+    )?;
+    Ok(json!({
+        "status":"experimental", "rules_verified":false, "rule_review_status":"declared_table",
+        "policy_version":"embedded_tables_v1", "tool":"irrf_oficial",
+        "reference_tables_source":"rgps_core::dados::irrf",
+        "provenance":input.provenance,
+        "data":{
+            "tabela_competencia":resultado.tabela_competencia,
+            "base_bruta":duas_casas(resultado.base_bruta),
+            "deducao_dependentes":duas_casas(resultado.deducao_dependentes),
+            "isencao_65":duas_casas(resultado.isencao_65),
+            "base_ajustada":duas_casas(resultado.base_ajustada),
+            "aliquota":duas_casas(resultado.aliquota),
+            "deducao":duas_casas(resultado.deducao),
+            "irrf":duas_casas(resultado.irrf)
+        },
+        "assumptions":[
+            "Tabela de IRRF mensal embutida por competência; faixas e deduções conferidas com a Lei 14.848/2024 na vigência atual.",
+            "Dependentes usam o valor da tabela da competência; a isenção adicional de 65 anos só entra se declarada pelo operador.",
+            "Não calcula 13º, RRA, pensão alimentícia ou outras deduções; não valida enquadramento legal.",
+            "Competências anteriores a 07/1994 são recusadas para não converter moeda histórica."
+        ],
+        "warnings":[{"code":"embedded_table","message":"Tabela embutida; confira a publicação oficial da competência antes de uso judicial."}]
+    }))
+}
 /// Stable integration entry point. Unknown IDs and invalid inputs return errors,
 /// never fabricated zero results. No IO, personal data, official tables or clock.
 /// Existing pension_accumulation intentionally remains in crate::run_tool.
@@ -566,6 +622,7 @@ pub fn run_finance(tool: &str, input: Value) -> Result<Value, String> {
     match tool {
         "update_values" => update(decode(input)?),
         "irrf_refund" => tax(decode(input)?),
+        "irrf_oficial" => irrf_oficial(decode(input)?),
         "undue_discounts" => discounts(decode(input)?),
         "financial_formula" => formulas(decode(input)?),
         "currency_conversion" => conversion(decode(input)?),

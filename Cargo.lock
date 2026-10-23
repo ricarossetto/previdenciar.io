@@ -3244,13 +3244,15 @@ name = "previus-core"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "rgps-core",
+ "rust_decimal",
  "serde",
  "serde_json",
 ]
 
 [[package]]
 name = "previus-next-desktop"
-version = "0.9.7"
+version = "0.9.8"
 dependencies = [
  "base64 0.21.7",
  "chrono",
