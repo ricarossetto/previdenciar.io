@@ -393,4 +393,4 @@ pub static IGPDI_MENSAL: [(&str, &str); 387] = [
     ("2026-09", "1.50"),
 ];
 
-pub const IGPDI_FONTE: &str = "IGP-DI/FGV — variação mensal (SGS/BCB, série 190), extraída em 2026-10-22.";
+pub const IGPDI_FONTE: &str = "IGP-DI/FGV: variação mensal (SGS/BCB, série 190), extraída em 2026-10-22.";

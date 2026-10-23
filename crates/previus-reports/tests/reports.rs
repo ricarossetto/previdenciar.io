@@ -131,10 +131,10 @@ fn opts(kind:ReportKind,personal:bool)->ReportOptions{ReportOptions::new(kind, p
 }
 #[test]fn operator_title_replaces_the_default_document_title(){
     let(mut case,ws)=synthetic_case();
-    case.options.report_title="RMI — revisão de origem (2026)".into();
+    case.options.report_title="RMI, revisão de origem (2026)".into();
     let pdf=render_pdf(&case,&ws,opts(ReportKind::Detailed,false),None).unwrap();
     let(_,text)=extract(&pdf);
-    assert!(text.contains("RMI — revisão de origem (2026)"));
+    assert!(text.contains("RMI, revisão de origem (2026)"));
     assert!(!text.contains("Relatório detalhado do cálculo previdenciário"));
 }
 #[test]fn an_oversized_operator_title_is_refused_instead_of_being_cut(){

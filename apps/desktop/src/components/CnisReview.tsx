@@ -29,7 +29,7 @@ export function CnisReview({cnis}: {cnis:Cnis}) {
         ['CPF',cnis.identity.cpf],['NIT',cnis.identity.nit],
       ].map(([label,value])=><div key={label}><dt>{label}</dt><dd>{value||'Não informado no documento'}</dd></div>)}</dl>
       :view===1?<>
-        <div className="table-wrap"><table className="data-table"><caption>Qualidade de segurado — dados por vínculo, sem cálculo de graça ou prorrogação</caption>
+        <div className="table-wrap"><table className="data-table"><caption>Qualidade de segurado: dados por vínculo, sem cálculo de graça ou prorrogação</caption>
           <thead><tr>{['Vínculo','Filiação','Primeiro lançamento','Último lançamento','Lançamentos','Desconsideradas','Fim original','Situação'].map(label=><th key={label} scope="col">{label}</th>)}</tr></thead>
           <tbody>{quality.map(item=>{const excluded=cnis.salary_entries.filter(entry=>entry.link_sequence===item.sequence&&entry.excluded_from_validated_domain).length;return <tr key={item.sequence}>
             <td><strong>Vínculo {item.sequence}</strong></td>
@@ -37,7 +37,7 @@ export function CnisReview({cnis}: {cnis:Cnis}) {
             <td>{item.firstCompetence||'Sem lançamento'}</td>
             <td>{item.lastCompetence||'Sem lançamento'}</td>
             <td>{item.entries}</td>
-            <td>{excluded||'—'}</td>
+            <td>{excluded?'Sim':'Não'}</td>
             <td>{item.missingEnd?'Fim não informado':'Fim informado'}</td>
             <td>{item.prpps?'PRPPS / CTC pendente':item.indicators.length?'Indicadores pendentes':'Conferência pendente'}</td>
           </tr>})}</tbody></table></div>
@@ -45,7 +45,7 @@ export function CnisReview({cnis}: {cnis:Cnis}) {
         <p className="form-note">Período de graça, prorrogações e enquadramento não são calculados nesta versão. A tabela reúne filiação, primeiro e último lançamento, contribuições desconsideradas e pendências para conferência por vínculo. Ausência de lançamento não prova ausência de filiação.</p>
       </>
       :<>
-        <div className="table-wrap"><table className="data-table"><caption>{view===2?'Períodos informados no documento':'Remunerações nominais do documento — lançamentos separados, sem conversão presumida'}</caption>
+        <div className="table-wrap"><table className="data-table"><caption>{view===2?'Períodos informados no documento':'Remunerações nominais do documento: lançamentos separados, sem conversão presumida'}</caption>
           <thead><tr>{(view===2?['Vínculo','Início','Fim','Indicadores','Origem']:['Competência','Valor nominal','Vínculo','Indicadores','Origem']).map(label=><th key={label} scope="col">{label}</th>)}</tr></thead>
           <tbody>{view===2?cnis.links.slice(currentPage*PAGE_SIZE,(currentPage+1)*PAGE_SIZE).map((link,index)=><tr key={`${link.sequence}-${index}`}>
             <td><strong>{link.raw_employer||`Vínculo ${link.sequence}`}</strong>{link.affiliation&&<small>Filiação: {link.affiliation}</small>}{link.prpps&&<small>RPPS / CTC a conferir</small>}</td>
@@ -56,7 +56,7 @@ export function CnisReview({cnis}: {cnis:Cnis}) {
             <td>{entry.indicators.join(', ')||'Sem indicador informado'}{entry.excluded_from_validated_domain&&<small>Exige revisão antes do cálculo</small>}</td><td>Página {entry.source.page}, linha {entry.source.line}</td>
           </tr>)}</tbody></table></div>
         {!rows.length&&<p className="form-note">Nenhum registro deste tipo foi extraído.</p>}
-        {rows.length>PAGE_SIZE&&<div className="cnis-review__pagination"><Button disabled={currentPage===0} onClick={()=>setPage(currentPage-1)}>Página anterior</Button><span role="status">{currentPage*PAGE_SIZE+1}–{Math.min((currentPage+1)*PAGE_SIZE,rows.length)} de {rows.length}</span><Button disabled={currentPage+1>=pageCount} onClick={()=>setPage(currentPage+1)}>Próxima página</Button></div>}
+        {rows.length>PAGE_SIZE&&<div className="cnis-review__pagination"><Button disabled={currentPage===0} onClick={()=>setPage(currentPage-1)}>Página anterior</Button><span role="status">{currentPage*PAGE_SIZE+1} a {Math.min((currentPage+1)*PAGE_SIZE,rows.length)} de {rows.length}</span><Button disabled={currentPage+1>=pageCount} onClick={()=>setPage(currentPage+1)}>Próxima página</Button></div>}
       </>}
     </div>
     {cnis.warnings.length>0&&<details className="details"><summary>Pendências da leitura · {cnis.warnings.length}</summary><ul className="review-list">{cnis.warnings.map((warning,index)=><li key={index}>{warning.message||'Conferência documental necessária'} · {warning.count} registro(s)</li>)}</ul></details>}

@@ -12,7 +12,7 @@
 
 ## Contribuições
 
-Em Salários, clique Abrir livro de contribuições. Cada origem permanece separada dos ajustes. Leia docs/CONTRIBUTIONS.md para editar, documentar, selecionar, consolidar, desfazer e aplicar a revisão. Indicadores/moeda/concomitâncias não são resolvidos automaticamente. O cálculo usa a projeção aplicada, não simplesmente o total mostrado na tabela.
+Em Salários, clique Abrir livro de contribuições. Cada origem permanece separada dos ajustes. Leia docs/CONTRIBUTIONS.md para editar, documentar, selecionar, consolidar, desfazer e aplicar a revisão. Indicadores/moeda/concomitâncias não são resolvidos automaticamente. O cálculo usa a projeção aplicada, não o total mostrado na tabela.
 
 ## Base existente
 

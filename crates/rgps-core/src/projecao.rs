@@ -24,7 +24,7 @@ pub struct ProjecaoResultado {
     pub avisos: Vec<String>,
 }
 
-/// Entrada da projeção — construída a partir da RgpsEntrada pelo engine.
+/// Entrada da projeção, construída a partir da RgpsEntrada pelo engine.
 pub struct ProjecaoRequisicao {
     pub sexo: String,
     pub data_nascimento: IsoDate,

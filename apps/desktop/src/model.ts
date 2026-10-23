@@ -35,7 +35,7 @@ export function isoDate(s:string):string|null{const m=/^(\d{2})\/(\d{2})\/(\d{4}
 export function brDate(s:string|null):string{if(!s)return 'Não informado';const p=/^(\d{4})-(\d{2})-(\d{2})$/.exec(s);return p?[p[3],p[2],p[1]].join('/'):s}
 export function parseMoney(s:string):string|null{const clean=s.trim().replace(/^R\$\s*/,'');if(!/^-?(?:\d+|\d{1,3}(?:\.\d{3})+)(?:,\d{1,2})?$/.test(clean))return null;const [whole,fraction='']=clean.replaceAll('.','').split(',');return whole+'.'+fraction.padEnd(2,'0')}
 export function money(s:string|number|null|undefined):string{
-  if(s==null || String(s).trim()==='')return '—';
+  if(s==null || String(s).trim()==='')return 'Sem dado';
   const text=String(s).trim(),match=/^(-?)(\d+)(?:\.(\d+))?$/.exec(text);
   if(match && text.length<=128){
     const fraction=match[3]??'';let exact=BigInt(match[2])*100n+BigInt(fraction.slice(0,2).padEnd(2,'0'));
@@ -57,7 +57,7 @@ export const SCENARIOS=['Simulação de novo benefício','Revisão e valor da ca
 /// fórmula implementada aqui: o motor bloqueia, nunca aproxima.
 export const ESPECIES=['42'];
 export const ESPECIE_PADRAO='42';
-export const REFERENCE_LABELS=['IGP-DI (FGV)','INPC (IBGE)','IPCA-E (IBGE)','IPCA (IBGE)','IRSM','Meta da Taxa Selic','Precatórios: IPCA-E a partir de 07/2009','Precatórios: TR até 03/2015 e após IPCA-E','Reajuste dos salários de contribuição','Reajuste dos salários — RVT','Reajuste dos salários — RVT TRF3','Salário mínimo nacional','Justiça Federal com TR','Justiça Federal com INPC','Justiça Federal com IPCA-E','Taxa legal','Taxa legal INPC','Taxa Selic','TR','URV','Reajuste dos benefícios','Expectativa de sobrevida','Tabela de limites','Tabela de INSS','Tabela de IRRF'];
+export const REFERENCE_LABELS=['IGP-DI (FGV)','INPC (IBGE)','IPCA-E (IBGE)','IPCA (IBGE)','IRSM','Meta da Taxa Selic','Precatórios: IPCA-E a partir de 07/2009','Precatórios: TR até 03/2015 e após IPCA-E','Reajuste dos salários de contribuição','Reajuste dos salários, RVT','Reajuste dos salários, RVT TRF3','Salário mínimo nacional','Justiça Federal com TR','Justiça Federal com INPC','Justiça Federal com IPCA-E','Taxa legal','Taxa legal INPC','Taxa Selic','TR','URV','Reajuste dos benefícios','Expectativa de sobrevida','Tabela de limites','Tabela de INSS','Tabela de IRRF'];
 
 export function normalizeCaseForEngine(c:Calculation):Calculation{const x=structuredClone(c);x.dib=isoDate(x.dib)??x.dib;if(x.identity.birth_date)x.identity.birth_date=isoDate(x.identity.birth_date)??x.identity.birth_date;if(x.disability==='Sem deficiência declarada')x.disability='none';x.manual_links=x.manual_links.map(l=>({...l,start_date:isoDate(l.start_date)??l.start_date,end_date:isoDate(l.end_date)??l.end_date}));x.manual_salaries=x.manual_salaries.map(s=>{const canonical=/^\d+(\.\d{1,2})?$/.test(s.amount)?s.amount:(parseMoney(s.amount)??s.amount);return {...s,amount:canonical}});return x}
 

@@ -107,7 +107,7 @@ pub struct QualityPeriod {
     pub label: String,
     pub start: Option<CivilDate>,
     pub end: Option<CivilDate>,
-    /// Filiação declarada na origem (empregado, contribuinte individual…).
+    /// Filiação declarada na origem (empregado, contribuinte individual...).
     pub affiliation: Option<String>,
     /// Categoria que decide a regra de contagem da carência.
     pub affiliation_kind: AffiliationKind,
@@ -304,7 +304,7 @@ fn period_quality(
         notes.push("Origem registra episódio de benefício: as contribuições do período precisam de conferência de desconsideração.".into());
     }
     if period.benefit_period {
-        notes.push("Período classificado como “Em Benefício” na origem.".into());
+        notes.push("Período classificado como \"Em Benefício\" na origem.".into());
     }
     if overlap_months > 0 {
         notes.push(format!("{overlap_months} competência(s) já contadas em período anterior: dupla contagem de carência evitada."));

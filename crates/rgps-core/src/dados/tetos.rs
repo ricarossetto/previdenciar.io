@@ -1,4 +1,4 @@
-// GERADO AUTOMATICAMENTE a partir do ATRIUM lib/calc/dados — não editar à mão.
+// GERADO AUTOMATICAMENTE a partir do ATRIUM lib/calc/dados: não editar à mão.
 // Regenerar com o script gerar-dados.mjs (fonte canônica: dados oficiais com fonte declarada).
 
 /// (competência, valor). Ordenado por competência.
@@ -318,4 +318,4 @@ pub static TETOS_CONTRIBUICAO: [(&str, &str); 313] = [
     ("2026-01", "8475.55"),
 ];
 
-pub const TETOS_FONTE: &str = "Tabela oficial de tetos do salário de contribuição — extraída da planilha RMI-PREV (JFRS/TRF4, versão 11/2019-c) e completada com as Portarias Interministeriais MPS/MF de 2020 a 2026.";
+pub const TETOS_FONTE: &str = "Tabela oficial de tetos do salário de contribuição, extraída da planilha RMI-PREV (JFRS/TRF4, versão 11/2019-c) e completada com as Portarias Interministeriais MPS/MF de 2020 a 2026.";

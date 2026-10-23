@@ -35,7 +35,7 @@ fn nominal(value: i64) -> String {
 /// result is intentionally not rendered: arbitrary stored JSON cannot become
 /// a claimed RMI, entitlement or verified financial answer.
 pub fn report_html(case: &Calculation, workspace: &Workspace, include_personal: bool) -> String {
-    let mut out = String::from("<!doctype html><html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Revisão técnica — Previus Rust</title><style>body{font-family:system-ui,sans-serif;margin:2rem;color:#17212b}table{border-collapse:collapse;width:100%;margin:1rem 0}th,td{border:1px solid #bbc3cb;padding:.4rem;text-align:left;overflow-wrap:anywhere}caption{text-align:left;font-weight:bold}.warning{border:2px solid #955d00;padding:1rem}pre{white-space:pre-wrap}</style></head><body><h1>Revisão técnica — Previus Rust</h1><p class=\"warning\">RMI, direito a benefício, tempo de contribuição e regras financeiras: PENDENTES. Este relatório não é parecer jurídico nem cálculo de benefício validado. Confirmação manual de uma linha não valida regras previdenciárias.</p>");
+    let mut out = String::from("<!doctype html><html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Revisão técnica · Previus Rust</title><style>body{font-family:system-ui,sans-serif;margin:2rem;color:#17212b}table{border-collapse:collapse;width:100%;margin:1rem 0}th,td{border:1px solid #bbc3cb;padding:.4rem;text-align:left;overflow-wrap:anywhere}caption{text-align:left;font-weight:bold}.warning{border:2px solid #955d00;padding:1rem}pre{white-space:pre-wrap}</style></head><body><h1>Revisão técnica · Previus Rust</h1><p class=\"warning\">RMI, direito a benefício, tempo de contribuição e regras financeiras: PENDENTES. Este relatório não é parecer jurídico nem cálculo de benefício validado. Confirmação manual de uma linha não valida regras previdenciárias.</p>");
     let _ = write!(out, "<p>Schema: {} · Revisão: {} · Cálculo interno: {}</p>", workspace.schema_version, workspace.revision, case.id);
     if include_personal {
         let _ = write!(out, "<h2>{}</h2><p>{}</p>", escape(&case.name), escape(&workspace.settings.office_name));
@@ -54,7 +54,7 @@ pub fn report_html(case: &Calculation, workspace: &Workspace, include_personal: 
     if case.result.is_some() { out.push_str("<p>Há resultado JSON armazenado; não foi exibido nem tratado como RMI/elegibilidade verificada.</p>"); }
     if let Some(cnis) = &case.cnis {
         let _ = write!(out, "<h2>CNIS importado</h2><p>{} lançamentos · {} competências distintas · {} vínculos. Valores em centésimos nominais da unidade fonte, sem conversão monetária histórica ou teto validado.</p>", cnis.salary_entries.len(), cnis.salary_months.len(), cnis.links.len());
-        table(&mut out, "Vínculos importados — dados originais preservados", &["Seq.", "Empregador", "Início", "Fim declarado", "Fim candidato (não confirmado)", "Indicadores", "Situação", "Excluído do domínio validado", "Fonte"]);
+        table(&mut out, "Vínculos importados: dados originais preservados", &["Seq.", "Empregador", "Início", "Fim declarado", "Fim candidato (não confirmado)", "Indicadores", "Situação", "Excluído do domínio validado", "Fonte"]);
         for link in &cnis.links {
             row(&mut out, &[link.sequence.to_string(), if include_personal { link.raw_employer.clone().unwrap_or_default() } else { "Omitido".into() },
                 link.start_date.clone().unwrap_or_else(|| "Ausente".into()), link.end_date.clone().unwrap_or_else(|| "Ausente".into()),
@@ -75,14 +75,14 @@ pub fn report_html(case: &Calculation, workspace: &Workspace, include_personal: 
             row(&mut out, &[finding.code.clone(), finding.count.to_string(), if include_personal { finding.message.clone() } else { "Mensagem livre omitida".into() }]);
         }
         end_table(&mut out);
-        table(&mut out, "Benefícios — não considerados automaticamente como vínculos", &["Seq.", "Espécie", "Estado", "Incluído como vínculo"]);
+        table(&mut out, "Benefícios: não considerados automaticamente como vínculos", &["Seq.", "Espécie", "Estado", "Incluído como vínculo"]);
         for benefit in &cnis.benefits {
             row(&mut out, &[benefit.sequence.to_string(), benefit.species.map(|v| v.to_string()).unwrap_or_else(|| "Desconhecida".into()),
                 match benefit.status { previus_cnis::BenefitStatus::Denied => "Indeferido", previus_cnis::BenefitStatus::Unknown => "Desconhecido" }.into(), benefit.included_as_employment_link.to_string()]);
         }
         end_table(&mut out);
     }
-    table(&mut out, "Vínculos manuais — não substituem pendências do CNIS", &["ID", "Empregador", "Início", "Fim", "Regime", "Indicadores", "Linha confirmada"]);
+    table(&mut out, "Vínculos manuais: não substituem pendências do CNIS", &["ID", "Empregador", "Início", "Fim", "Regime", "Indicadores", "Linha confirmada"]);
     for link in &case.manual_links {
         row(&mut out, &[link.id.to_string(), if include_personal { link.employer.clone() } else { "Omitido".into() }, link.start_date.clone(),
             link.end_date.clone(), link.regime.clone(), link.indicators.clone(), link.confirmed.to_string()]);
@@ -93,7 +93,7 @@ pub fn report_html(case: &Calculation, workspace: &Workspace, include_personal: 
         row(&mut out, &[salary.id.to_string(), salary.competence.clone(), salary.amount.clone(), salary.indicators.clone(), salary.confirmed.to_string()]);
     }
     end_table(&mut out);
-    out.push_str("<h2>Parâmetros informados — sem aplicação financeira</h2>");
+    out.push_str("<h2>Parâmetros informados: sem aplicação financeira</h2>");
     table(&mut out, "Opções do cálculo (não são índices/taxas validados)", &["Opção", "Valor"]);
     for (name, value) in [("Índice de correção", &case.options.correction_index), ("Taxa de juros", &case.options.interest_rate),
         ("Tipo de juros", &case.options.interest_kind), ("Honorários percentuais", &case.options.fees_percent), ("Honorários fixos", &case.options.fees_fixed),

@@ -407,7 +407,7 @@ fn interview(case:&Calculation,personal:bool)->Result<Section,String>{
         }
         if personal {for(key,label)in[("review_evidence","Referência documental declarada"),("source_exclusion_evidence","Justificativa declarada para excluir fonte")]{if let Some(v)=p.get(key).and_then(Value::as_str){rows.push(vec![label.into(),field(v)?]);}}}
     }else{s.paragraphs.push("Política de cálculo estruturada não informada ou ilegível; nenhum texto livre foi convertido em regra automaticamente.".into());}
-    s.tables.push(table("Política declarada — não substitui os parâmetros efetivamente usados",&["Campo","Declaração"],&[5,5],rows));
+    s.tables.push(table("Política declarada: não substitui os parâmetros efetivamente usados",&["Campo","Declaração"],&[5,5],rows));
     Ok(s)
 }
 fn periods(case:&Calculation,personal:bool,native:Option<&Value>)->Result<Section,String>{
@@ -416,16 +416,16 @@ fn periods(case:&Calculation,personal:bool,native:Option<&Value>)->Result<Sectio
     if let Some(cnis)=&case.cnis {
         let mut rows=vec![];
         for l in &cnis.links {rows.push(vec![l.sequence.to_string(),if personal{optional_field(l.raw_employer.as_deref())?}else{format!("Vínculo {:02}",l.sequence)},
-            date(l.start_date.as_deref()),date(l.end_date.as_deref()),if l.prpps{"PRPPS — pendente"}else{"Fonte não revisada"}.into(),
+            date(l.start_date.as_deref()),date(l.end_date.as_deref()),if l.prpps{"PRPPS pendente"}else{"Fonte não revisada"}.into(),
             indicators(&l.indicators,personal)?,source(&l.source)]);}
         s.tables.push(table("Todos os vínculos originais",&["Nº","Vínculo / empregador","Início","Fim original","Situação","Indicadores","Fonte"],&[1,4,2,2,3,3,2],rows));
         let mut rows=vec![];for l in &cnis.links {if let Some(candidate)=&l.inferred_last_salary_end{rows.push(vec![l.sequence.to_string(),month(&candidate.competence)?,date(Some(&candidate.date_candidate)),"Candidato não confirmado; não usado como fim original".into(),source(&candidate.source)]);}}
-        if !rows.is_empty(){s.tables.push(table("Candidatos de fim — separados da informação original",&["Vínculo","Última competência","Data candidata","Alcance","Fonte"],&[1,2,2,5,2],rows));}
+        if !rows.is_empty(){s.tables.push(table("Candidatos de fim: separados da informação original",&["Vínculo","Última competência","Data candidata","Alcance","Fonte"],&[1,2,2,5,2],rows));}
         let rows=cnis.benefits.iter().map(|b|vec![b.sequence.to_string(),b.species.map(|v|v.to_string()).unwrap_or("Não informada".into()),match b.status{BenefitStatus::Denied=>"Indeferido",BenefitStatus::Unknown=>"Situação desconhecida"}.into(),"Não prova recebimento atual".into(),source(&b.source)]).collect();
-        if !cnis.benefits.is_empty(){s.tables.push(table("Eventos de benefício — não são vínculos de emprego",&["Nº","Espécie","Situação na fonte","Alcance","Fonte"],&[1,1,3,4,2],rows));}
+        if !cnis.benefits.is_empty(){s.tables.push(table("Eventos de benefício: não são vínculos de emprego",&["Nº","Espécie","Situação na fonte","Alcance","Fonte"],&[1,1,3,4,2],rows));}
     }
     let mut rows=vec![];for(i,l)in case.manual_links.iter().enumerate(){rows.push(vec![(i+1).to_string(),if personal{optional_field(Some(&l.employer))?}else{format!("Período manual {:02}",i+1)},date(Some(&l.start_date)),date(Some(&l.end_date)),enum_text(Some(&l.regime),&["RGPS","RPPS","PRPPS","rgps","rpps"]),if l.source_review.as_ref().is_some_and(|r|r.excluded){"Excluído da hipótese".into()}else{bool_text(l.confirmed)},indicators(&if l.indicators.is_empty(){vec![]}else{vec![l.indicators.clone()]},personal)?]);}
-    s.tables.push(table("Declarações manuais — mantidas separadas da fonte",&["Nº","Vínculo","Início","Fim","Regime","Confirmado?","Indicadores"],&[1,4,2,2,2,2,3],rows));
+    s.tables.push(table("Declarações manuais: mantidas separadas da fonte",&["Nº","Vínculo","Início","Fim","Regime","Confirmado?","Indicadores"],&[1,4,2,2,2,2,3],rows));
     let mut audit=vec![];
     for link in &case.manual_links {if let Some(review)=&link.source_review{
         for (index,change) in review.history.iter().enumerate(){audit.push(vec![review.sequence.to_string(),(index+1).to_string(),change.at.clone(),if review.excluded{"Excluído da hipótese".into()}else{"Ajuste declarado".into()},if personal{field(&change.reason)?}else{"Justificativa ocultada".into()}]);}
@@ -433,7 +433,7 @@ fn periods(case:&Calculation,personal:bool,native:Option<&Value>)->Result<Sectio
     if !audit.is_empty(){s.tables.push(table("Revisão de vínculos - origem preservada",&["Origem #","Operação","Data registrada","Estado","Motivo"],&[1,1,3,3,5],audit));}
     if let Some(t)=native.and_then(|v|v.get("tempo")){if !t.is_null(){
         let mut rows=vec![];for(key,label)in[("total_dias","Dias do motor"),("total_dias_efetivos","Dias efetivos do motor"),("carencia_meses","Carência do módulo de tempo")]{rows.push(vec![label.into(),numeric(t.get(key),false)?]);}
-        for(key,label)in[("ate_ec20","Marco EC20 — dias"),("ate_ec103","Marco EC103 — dias"),("apos_ec103","Após EC103 — dias")]{rows.push(vec![label.into(),numeric(t.get("marcos").and_then(|v|v.get(key)),false)?]);}
+        for(key,label)in[("ate_ec20","Marco EC20, dias"),("ate_ec103","Marco EC103, dias"),("apos_ec103","Após EC103, dias")]{rows.push(vec![label.into(),numeric(t.get("marcos").and_then(|v|v.get(key)),false)?]);}
         s.tables.push(table("Tempo computacional experimental",&["Medida","Resultado fornecido"],&[6,4],rows));
         if let Some(vs)=t.get("vinculos").and_then(Value::as_array){let mut rows=vec![];for v in vs{rows.push(vec![numeric(v.get("indice"),false)?,date(v.get("inicio").and_then(Value::as_str)),date(v.get("fim").and_then(Value::as_str)),numeric(v.get("dias"),false)?,numeric(v.get("dias_efetivos"),false)?,opt_bool(v.get("concomitante").and_then(Value::as_bool)).into(),opt_bool(v.get("sobreposto").and_then(Value::as_bool)).into()]);}
             s.tables.push(table("Períodos processados pelo motor (não substituem a fonte)",&["Nº","Início","Fim usado","Dias","Dias efetivos","Concomitante","Sobreposto"],&[1,2,2,2,2,2,2],rows));}
@@ -456,7 +456,7 @@ fn salaries(case:&Calculation,personal:bool)->Result<Vec<Section>,String>{
         detail.tables.push(table("Todos os lançamentos importados",&["Nº","Competência","Vínculo","Valor nominal (u.f.)","Natureza","Indicadores","Fonte"],&[1,2,1,3,3,3,2],rows));
     }else{s.paragraphs.push("Não há remunerações importadas de CNIS neste cenário.".into());}
     let mut rows=vec![];for(i,m)in case.manual_salaries.iter().enumerate(){rows.push(vec![(i+1).to_string(),month(&m.competence)?,manual_amount(&m.amount)?,bool_text(m.confirmed),indicators(&if m.indicators.trim().is_empty(){vec![]}else{vec![m.indicators.clone()]},personal)?]);}
-    detail.tables.push(table("Remunerações manuais — moeda depende da política declarada",&["Nº","Competência","Valor informado","Confirmada?","Indicadores"],&[1,2,3,2,4],rows));
+    detail.tables.push(table("Remunerações manuais: moeda depende da política declarada",&["Nº","Competência","Valor informado","Confirmada?","Indicadores"],&[1,2,3,2,4],rows));
     Ok(vec![s,detail])
 }
 fn pending_label(code:&str)->Option<&'static str>{
@@ -546,7 +546,7 @@ fn engine(native:Option<&Value>,personal:bool)->Result<Vec<Section>,String>{
     if let Some(items)=n.get("memoria").and_then(Value::as_array){for(i,v)in items.iter().enumerate(){let kind=v.get("tipo").and_then(Value::as_str);let known=match kind{Some("media")=>Some("Média / salário de benefício"),Some("coeficiente")=>Some("Coeficiente computacional"),Some("rmi")=>Some("Salário de benefício × coeficiente"),Some("limite")=>Some("Aplicação de piso ou teto"),_=>None};let value=v.get("valor").and_then(Value::as_str);let number=match value{Some(v)=>if let Some(v)=v.strip_suffix('%'){format!("{}%",decimal(v,false)?)}else{decimal(v,true)?},None=>"Não produzido".into()};
         rows.push(vec![(i+1).to_string(),known.unwrap_or("Etapa não catalogada").into(),if personal{optional_field(v.get("descricao").and_then(Value::as_str))?}else{known.unwrap_or("Descrição livre oculta").into()},number]);}}
     memory.tables.push(table("Todas as etapas numéricas retornadas",&["Nº","Etapa","Descrição","Valor fornecido"],&[1,3,6,3],rows));
-    if let Some(c)=n.get("carencia"){let mut rows=vec![];for(key,label)in[("competencias_salario","Competências de remuneração"),("competencias_vinculo","Competências de vínculos"),("competencias_graca","Competências de graça"),("recolhimentos_atraso","Recolhimentos em atraso"),("carencia_meses","União de competências — meses")]{rows.push(vec![label.into(),numeric(c.get(key),false)?]);}memory.tables.push(table("Decomposição da carência computacional",&["Origem","Quantidade fornecida"],&[6,4],rows));}
+    if let Some(c)=n.get("carencia"){let mut rows=vec![];for(key,label)in[("competencias_salario","Competências de remuneração"),("competencias_vinculo","Competências de vínculos"),("competencias_graca","Competências de graça"),("recolhimentos_atraso","Recolhimentos em atraso"),("carencia_meses","União de competências, meses")]{rows.push(vec![label.into(),numeric(c.get(key),false)?]);}memory.tables.push(table("Decomposição da carência computacional",&["Origem","Quantidade fornecida"],&[6,4],rows));}
     if let Some(c)=n.get("correcao").filter(|v|!v.is_null()){
         let mut rows=vec![];for(key,label,money)in[("pbc","Parcelas no PBC",false),("consideradas","Parcelas consideradas",false),("descartadas","Parcelas descartadas",false),("soma_considerada","Soma considerada",true),("media","Média computacional",true),("salario_beneficio","Salário de benefício",true)]{rows.push(vec![label.into(),numeric(c.get(key),money)?]);}
         if let Some(v)=c.get("referencia").and_then(Value::as_str){rows.push(vec!["Referência de correção".into(),month(v)?]);}
@@ -557,7 +557,7 @@ fn engine(native:Option<&Value>,personal:bool)->Result<Vec<Section>,String>{
             rows.push(vec![month(comp)?,numeric(v.get("salario"),true)?,numeric(v.get("teto"),true)?,numeric(v.get("considerado"),true)?,numeric(v.get("indice"),false)?,numeric(v.get("corrigido"),true)?,if discarded.contains(comp){"Descartada"}else{"Considerada"}.into(),format!("F{source_id}")]);}}
         correction.tables.push(table("Todas as parcelas de correção do resultado",&["Competência","Nominal","Teto época","Considerado","Fator","Corrigido","Uso no PBC","Fonte"],&[2,2,2,2,2,2,2,1],rows));
         let rows=if personal{sources.iter().map(|(s,id)|vec![format!("F{id}"),s.clone()]).collect()}else{vec![vec!["F1".into(),"Fonte textual do motor oculta no modo sem identificação; proveniência e cobertura exigem conferência na aplicação.".into()]]};
-        correction.tables.push(table("Referências declaradas pelo resultado — não certificadas pelo renderer",&["ID","Descrição"],&[1,9],rows));
+        correction.tables.push(table("Referências declaradas pelo resultado: não certificadas pelo renderer",&["ID","Descrição"],&[1,9],rows));
     }else{correction.paragraphs.push("Resultado não contém correção parcela a parcela. Sem série de índices fabricada; média nominal somente se explicitamente retornada pelo motor.".into());}
     for(key,label)in[("parametros","Parâmetros"),("resumo","Resumo"),("tempo","Tempo"),("carencia","Carência"),("correcao","Correção"),("memoria","Memória"),("transicoes","Transições")]{if let Some(v)=n.get(key){let known:&[&str]=match key{
         "resumo"=>&["competencias","carencia_meses","soma_salarios","salario_beneficio","coeficiente","rmi_bruta","rmi","limite_aplicado","teto","piso"],
@@ -583,7 +583,7 @@ fn transitions(native:Option<&Value>,personal:bool)->Result<Section,String>{
         for(i,r)in rules.iter().enumerate(){let mut rows=vec![];if let Some(reqs)=r.get("requisitos").and_then(Value::as_array){for(j,req)in reqs.iter().enumerate(){rows.push(vec![format!("Requisito {}",j+1),if personal{optional_field(req.as_str())?}else{"Texto livre do requisito oculto; ver dados numéricos da comparação e conferir na aplicação.".into()}]);}}
             if let Some(f)=r.get("faltas").and_then(Value::as_object){for(key,label)in[("tempoMeses","Tempo faltante (meses)"),("pontos","Pontos faltantes"),("idadeMeses","Idade faltante (meses)"),("pedagioMeses","Pedágio faltante (meses)")]{if f.contains_key(key){rows.push(vec![label.into(),numeric(f.get(key),false)?]);}}let unknown=f.keys().filter(|k|!["tempoMeses","pontos","idadeMeses","pedagioMeses"].contains(&k.as_str())).count();if unknown>0{rows.push(vec!["Campos não publicados".into(),format!("{unknown} campo(s) de estrutura não reconhecida; nenhum conteúdo arbitrário divulgado")]);}}
             if personal{if let Some(obs)=r.get("observacao").and_then(Value::as_str){rows.push(vec!["Observação do motor".into(),field(obs)?]);}}
-            if !rows.is_empty(){s.tables.push(table(&format!("Regra {} — requisitos e faltas",i+1),&["Item","Detalhe fornecido"],&[4,6],rows));}
+            if !rows.is_empty(){s.tables.push(table(&format!("Regra {}: requisitos e faltas",i+1),&["Item","Detalhe fornecido"],&[4,6],rows));}
         }
     }
     s.paragraphs.push("*Critério atingido = flag elegivel do motor, não concessão nem conclusão jurídica. Vencedor do comparador pode diferir do coeficiente/resumo do motor; ambos são preservados sem forçar igualdade.".into());Ok(s)

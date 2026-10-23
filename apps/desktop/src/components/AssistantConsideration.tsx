@@ -26,7 +26,7 @@ export function AssistantConsiderationPanel({consideration, onFix}:{consideratio
       <span className="consideration-arrow" aria-hidden="true"><Icon name="arrow" size={16}/></span>
       <div className={'consideration-card '+(ready?'is-ready':'is-blocked')}>
         <span>Usado pelo motor</span>
-        <strong>{ready?count(used.links,'vínculo','vínculos')+' · '+count(used.salaries,'competência','competências'):'0 — execução bloqueada'}</strong>
+        <strong>{ready?count(used.links,'vínculo','vínculos')+' · '+count(used.salaries,'competência','competências'):'0, execução bloqueada'}</strong>
         <small>{ready?'Somente linhas revisadas; a fonte não é reescrita.':'O motor não recebeu uma hipótese válida.'}</small>
       </div>
     </div>

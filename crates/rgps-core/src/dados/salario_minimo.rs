@@ -394,4 +394,4 @@ pub static SALARIO_MINIMO: [(&str, &str); 387] = [
     ("2026-09", "1621.00"),
 ];
 
-pub const SALARIO_MINIMO_FONTE: &str = "Salário mínimo por competência — série oficial do snapshot público da Fábrica de Cálculos (TRF3), conferida com as leis e decretos de cada ano.";
+pub const SALARIO_MINIMO_FONTE: &str = "Salário mínimo por competência: série oficial do snapshot público da Fábrica de Cálculos (TRF3), conferida com as leis e decretos de cada ano.";

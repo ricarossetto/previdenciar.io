@@ -5,7 +5,7 @@
   "inpc": {
     "source_path": "src/dados/inpc.rs",
     "source_sha256": "e011007efc2c9f6f3216cdee9cabce7a9183defbf42aa34beb6d39088e6cce17",
-    "source_declaration": "INPC/IBGE — variação mensal (SGS/BCB, série 188), extraída em 2026-10-22.",
+    "source_declaration": "INPC/IBGE: variação mensal (SGS/BCB, série 188), extraída em 2026-10-22.",
     "first": "1994-07",
     "last": "2026-09",
     "count": 387,
@@ -1563,7 +1563,7 @@
   "ceilings": {
     "source_path": "src/dados/tetos.rs",
     "source_sha256": "fe2d604a94738423be06cc48fa6c7ade91c8d4b5b3a69335947ee8d8f8b89d59",
-    "source_declaration": "Tabela oficial de tetos do salário de contribuição — extraída da planilha RMI-PREV (JFRS/TRF4, versão 11/2019-c) e completada com as Portarias Interministeriais MPS/MF de 2020 a 2026.",
+    "source_declaration": "Tabela oficial de tetos do salário de contribuição, extraída da planilha RMI-PREV (JFRS/TRF4, versão 11/2019-c) e completada com as Portarias Interministeriais MPS/MF de 2020 a 2026.",
     "first": "1994-07",
     "last": "2026-01",
     "count": 313,
@@ -2825,7 +2825,7 @@
   "igpdi": {
     "source_path": "src/dados/igpdi.rs",
     "source_sha256": "d49e6e6cc5f0a29e074c0f2872df23be1113030dc58a514194e0ea0cf5219bfe",
-    "source_declaration": "IGP-DI/FGV — variação mensal (SGS/BCB, série 190), extraída em 2026-10-22.",
+    "source_declaration": "IGP-DI/FGV: variação mensal (SGS/BCB, série 190), extraída em 2026-10-22.",
     "first": "1994-07",
     "last": "2026-09",
     "count": 387,

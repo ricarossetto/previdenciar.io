@@ -393,4 +393,4 @@ pub static INPC_MENSAL: [(&str, &str); 387] = [
     ("2026-09", "0.82"),
 ];
 
-pub const INPC_FONTE: &str = "INPC/IBGE — variação mensal (SGS/BCB, série 188), extraída em 2026-10-22.";
+pub const INPC_FONTE: &str = "INPC/IBGE: variação mensal (SGS/BCB, série 188), extraída em 2026-10-22.";

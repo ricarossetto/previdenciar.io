@@ -1,33 +1,35 @@
-## previdenciar.io 0.9.2
+## previdenciar.io 0.10.1
 
-Versão estável da linha 0.9 para Windows x64. Desktop local, gratuito e open source sob MIT; não é serviço oficial do INSS nem certificação de direito a benefício.
+Versão estável da linha 0.10 para Windows x64. Desktop local, gratuito e open source sob MIT; não é serviço oficial do INSS nem certificação de direito a benefício.
 
-### Novidades e correções
+### Novidades
 
-- **Art. 27, II, da Lei nº 8.213/1991**: a carência do contribuinte individual, especial e facultativo conta a partir do primeiro pagamento sem atraso, e as competências anteriores informadas fora do prazo (indicador PREM-EXT) não entram. O relatório imprime o fundamento por vínculo.`n- **Snapshot da consulta pública aceita a vigência**: piso e teto usam a última competência até o mês de referência, e o snapshot de setembro serve a uma DIB de outubro.`n- **Consulta pública exercitada no aplicativo**: 387 competências com INPC, INPC-INSS, IGP-DI, IPC-r, piso e teto oficiais, com as fontes por competência.`n- **Importação de CNIS corrigida em três defeitos**, todos achados num caso real de 23 páginas: a tabela de contribuições (competência, data de pagamento, contribuição e salário) continuava na página seguinte sem repetir o cabeçalho e as linhas seguintes eram descartadas; a nota de rodapé do CNIS era confundida com um cabeçalho de tabela e marcava salários válidos como "contribuição não resolvida"; e o contexto de tabela não atravessava a quebra de página. Com as correções, a leitura do caso real passou de 485 para 610 lançamentos e os salários por competência passaram a coincidir um a um com o relatório de referência.
-- **Série oficial do IGP-DI/FGV embutida** (SGS/BCB, série 190) e INPC até 2026-09, gerados por `scripts/gerar-dados-economicos.mjs` a partir da fonte pública, com a fonte declarada no próprio arquivo.
-- **Cenário PcD calculável sem rede**: snapshot montado com as séries e tetos oficiais embutidos, com proveniência declarada (origem local e SHA-256 das tabelas). A consulta pública do TRF3 continua disponível e tem precedência.
-- **Apuração da qualidade de segurado por vínculo, com cálculo próprio e fonte primária citada**: período de graça de 12 meses (art. 15, II) prorrogado para até 24 meses com mais de 120 contribuições (art. 15, § 1º), carência de 180 contribuições (art. 25, II) ou a faixa da tabela do art. 142, tempo em gozo de benefício fora da carência (Decreto 3.048/1999, art. 19-C, § 1º) e competência contada uma única vez quando aparece em mais de um vínculo.
-- **8º relatório PDF**: "Cálculo da Qualidade de Segurado", na central, no assistente e no lote.
-- **Correção de perda silenciosa de texto no renderer**: palavras mais largas que a coluna eram descartadas e as linhas cortadas perdiam o conteúdo. Vale para todos os tipos de relatório.
-- Competência sem lançamento na origem deixa de bloquear o cálculo: fica fora do PBC (não é tempo de contribuição) e a omissão é declarada nos avisos. Nunca vira zero.
+- Espécie de benefício explícita no contrato. Apenas a 42 tem motor; as demais espécies bloqueiam com motivo.
+- Fator previdenciário com as alíquotas da Lei 9.876/1999 (0,31 e 0,30) e tábua de expectativa de sobrevida embutida, com vigências de 1992 a 2025. O pedágio de 50% calcula sem expectativa declarada.
+- IRRF mensal oficial por competência, com dependentes e isenção de 65 anos declarada. A vigência atual foi conferida com a Lei 14.848/2024.
+- Descarte dos menores salários da EC 103 (art. 26, § 6º) como opção explícita, com o mínimo de competências que preserva o direito.
+- Transições medidas por tempo apurado, com corte em 13/11/2019, e qualidade de segurado unificada em 12 meses.
+- Importação de CNIS sem rejeição pelo índice dos valores consolidados; duplicação de cálculo com identificadores novos; origem dos valores na revisão de contribuições.
+- Abertura da base fora da thread principal.
 
-### Base legal e o que permanece em aberto
+### Revisão de texto
 
-O cálculo do salário de benefício da pessoa com deficiência segue a remissão do art. 22 da EC 103/2019 para o art. 8º da LC 142/2013 e o art. 29, II, da Lei nº 8.213/1991: média aritmética simples dos 80% **maiores** salários-de-contribuição, com descarte dos 20% menores. A regra de carência "4/5" (144 contribuições) **não existe** no texto vigente — verificada em dez documentos primários, inclusive a MP 676/2015, a Lei nº 13.183/2015 e as mensagens de veto. Valem a carência do art. 25, II ou a faixa da tabela do art. 142.
+- Revisão de texto na interface, nos documentos e nas mensagens: travessões substituídos por vírgulas, dois-pontos ou pontos, aspas curvas convertidas em aspas retas, reticências em três pontos e títulos em caixa de frase. Nenhum cálculo, código de bloqueio ou dado foi alterado.
 
-Continuam **não implementados** e declarados: a carência legal por tabelas do RGPS, o "Em Benefício" e a desconsideração por afastamento reproduzidos do software original, e os módulos de planejamento. As fórmulas do software de referência **não são recuperáveis** do binário original: a REA (Ghidra) não encontra os rótulos do relatório de qualidade entre as strings do executável, e o recurso que os contém está comprimido. Por isso esta apuração é calculada por regra legal primária e declarada como cálculo próprio, nunca como reprodução.
+### Paridade e validação
 
-### Validação e limites
+- Caso PcD de referência: PBC 357, divisor 285, soma R$ 1.482.072,91 e RMI R$ 5.200,25. O motor público do TRF3 retorna R$ 5.200,88 e o software de referência R$ 5.200,89, diferença de 0,012% compatível com arredondamento de índices. Tempo e carência batem: 10.698 dias e 357 meses.
+- 471 testes Rust, 99 testes de interface e 36 testes de navegador aprovados; `tsc` limpo; revisão de fonte pública sem achados. Os testes de navegador usam IPC sintético.
 
-Validação local: **459 testes Rust**, **97 testes de interface** (15 arquivos) e **36 testes de navegador** aprovados; `tsc` limpo; revisão de fonte pública aprovada sem achados. Testes de navegador usam IPC sintético. A verificação nativa em perfil isolado cobre importação, cálculo, os 8 PDFs, gravação cifrada e reabertura, sem modificar a base normal.
+### O que permanece em aberto
 
-O caso real de conferência (em área privada, fora do repositório) reproduz a estrutura do relatório de referência — PBC, regra dos 80% maiores, soma e média por competência e os fatores de correção — e, com o snapshot oficial da Fábrica de Cálculos, chega a **R$ 5.161,10 contra R$ 5.200,89** do software de referência (**0,77%** de diferença). A diferença vem das sete competências que o CNIS lista apenas na visão "Contribuições" e que entram no PBC do motor: a leitura é mais fiel à origem e a escolha entre as duas é profissional, está documentada e não altera os dados da origem.
-
-Essas evidências não certificam atualização normativa universal, carência juridicamente válida, deficiência, concessão ou equivalência integral a outro software. O diálogo nativo de Salvar PDF e a aprovação visual humana não estão certificados. Leia `docs/LC142_SCENARIOS.md`, `docs/LIMITATIONS.md` e `docs/PRIVACY.md`.
+- Decreto 10.410/2020: as duas regras aparecem na interface do software de referência (R$ 5.032,06 e R$ 4.874,98), mas a fórmula não é recuperável do export. Não foi implementada por inferência.
+- Conversão de tempo comum para PcD (0,93/0,89/0,83), ROI, Análise da Situação Atual e planejamento na interface continuam fora desta versão.
+- A exclusão de competências abaixo do salário mínimo foi aplicada ao cenário PcD; o caminho RGPS comum ainda precisa do mesmo alinhamento.
+- O diálogo nativo de Salvar PDF e a aprovação visual humana não estão certificados.
 
 ### Download e compatibilidade
 
-Executável portátil `previdenciar.io-0.9.2-windows-x64.exe`, sem assinatura de código; requer Windows 10/11 x64 e WebView2. Confira `SHA256SUMS.txt` e `BUILDINFO.json`. Não desative proteções do Windows para executar o arquivo.
+Executável portátil `previdenciar.io-0.10.1-windows-x64.exe`, sem assinatura de código; requer Windows 10/11 x64 e WebView2. Confira `SHA256SUMS.txt` e `BUILDINFO.json`. Não desative proteções do Windows para executar o arquivo.
 
-A base local cifrada e o identificador legado são preservados, sem migração silenciosa. Hipóteses com política/snapshot desta versão podem não abrir em versões antigas; preserve seus backups. Nenhum CNIS, PDF de cliente, base, credencial ou perfil de teste acompanha esta release. Use dados fictícios no primeiro teste.
+A base local cifrada e o identificador legado são preservados, sem migração silenciosa. Nenhum CNIS, PDF de cliente, base, credencial ou perfil de teste acompanha esta release. Use dados fictícios no primeiro teste.

@@ -1,4 +1,4 @@
-//! Casos-âncora do motor RGPS — portados de tests/calculation_previdenciario.mjs (ATRIUM)
+//! Casos-âncora do motor RGPS, portados de tests/calculation_previdenciario.mjs (ATRIUM)
 //! e do spec specs/calculations-previdenciario.md.
 
 use rgps_core::calendar::{Competencia, IsoDate};

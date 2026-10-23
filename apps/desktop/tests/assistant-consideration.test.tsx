@@ -25,7 +25,7 @@ describe('assistant traceability panel',()=>{
     render(<AssistantConsiderationPanel consideration={assistantConsideration(c)} onFix={()=>{}}/>);
     expect(screen.getByText('O que entra no cálculo')).toBeInTheDocument();
     expect(screen.getByText('1 vínculo · 1 lançamento')).toBeInTheDocument();
-    expect(screen.getByText('0 — execução bloqueada')).toBeInTheDocument();
+    expect(screen.getByText('0, execução bloqueada')).toBeInTheDocument();
     expect(screen.getByText('Pendências que impedem calcular')).toBeInTheDocument();
     expect(screen.getAllByText(/Fonte CNIS ainda não excluída/).length).toBeGreaterThan(0);
     expect(screen.getAllByRole('button',{name:/Corrigir:/}).length).toBeGreaterThan(0);

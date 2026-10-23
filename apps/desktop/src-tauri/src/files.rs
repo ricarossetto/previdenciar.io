@@ -278,7 +278,7 @@ pub fn encrypted_snapshot(source: &Path) -> Result<Vec<u8>, String> {
 }
 
 pub fn dialog_import() -> Result<Option<ImportResult>, String> {
-    let selected = rfd::FileDialog::new().set_title("Selecionar CNIS local — não grava automaticamente")
+    let selected = rfd::FileDialog::new().set_title("Selecionar CNIS local: não grava automaticamente")
         .add_filter("CNIS em PDF", &["pdf"]).pick_file();
     selected.map(|path| import_path(&path)).transpose()
 }
@@ -396,7 +396,7 @@ pub fn dialog_document(text: String) -> Result<Option<String>, String> {
     selected.map(|path| write_new(&path, "txt", text.as_bytes())).transpose()
 }
 pub fn dialog_backup(bytes: Vec<u8>) -> Result<Option<String>, String> {
-    let selected = rfd::FileDialog::new().set_title("Exportar backup cifrado — somente novo arquivo")
+    let selected = rfd::FileDialog::new().set_title("Exportar backup cifrado: somente novo arquivo")
         .add_filter("Backup cifrado PVRS2", &["pvr"]).set_file_name("previus-backup.pvr").save_file();
     selected.map(|path| write_new(&path, "pvr", &bytes)).transpose()
 }

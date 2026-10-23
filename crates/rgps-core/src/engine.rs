@@ -529,7 +529,7 @@ mod tests {
         entrada.competencias.truncate(50);
         entrada.opcoes.divisor_minimo = true;
         let resultado = calcular(&entrada).unwrap();
-        // 50 × 2000 = 100.000 / 108 = 925.9259... → 925.93; coeficiente 60%; RMI 555.56 (925.93×0.6 = 555.5555…)
+        // 50 × 2000 = 100.000 / 108 = 925.9259... → 925.93; coeficiente 60%; RMI 555.56 (925.93×0.6 = 555.5555...)
         assert_eq!(resultado.resumo.salario_beneficio, "925.93");
         assert_eq!(resultado.resumo.coeficiente, "60");
         assert_eq!(resultado.resumo.rmi, "555.56");

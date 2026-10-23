@@ -101,7 +101,7 @@ fn date(s: &str) -> Result<NaiveDate, String> {
             if (1900..=2100).contains(&d.year()) {
                 Ok(d)
             } else {
-                Err("Data fora do intervalo operacional 1900–2100.".into())
+                Err("Data fora do intervalo operacional 1900 a 2100.".into())
             }
         })
 }

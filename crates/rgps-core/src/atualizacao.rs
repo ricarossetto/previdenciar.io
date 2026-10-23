@@ -66,7 +66,7 @@ pub struct ParcelaCorrigida {
     pub considerado: Decimal,
     pub indice: Decimal,
     pub corrigido: Decimal,
-    /// Valor cheio (sem arredondar a 2 casas) — usado na ordenação do descarte.
+    /// Valor cheio (sem arredondar a 2 casas), usado na ordenação do descarte.
     pub corrigido_full: Decimal,
 }
 

@@ -52,7 +52,7 @@ test('report center offers an editable title and presentation choices',async({pa
   await page.getByRole('button',{name:'Relatórios',exact:true}).click();
   await page.getByLabel('Selecionar cálculo').selectOption('1');
   await expect(page.getByText('Apresentação e título')).toBeVisible();
-  await page.getByLabel('Título do relatório').fill('RMI — revisão de origem (2026)');
+  await page.getByLabel('Título do relatório').fill('RMI, revisão de origem (2026)');
   await expect(page.getByRole('button',{name:'Aplicar título ao cálculo'})).toBeEnabled();
   await page.getByRole('checkbox',{name:'Incluir o anexo técnico de origem (relatório completo)'}).uncheck();
   await page.getByRole('checkbox',{name:'Incluir a conferência de qualidade por vínculo'}).uncheck();

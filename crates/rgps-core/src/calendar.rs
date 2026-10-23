@@ -138,7 +138,7 @@ pub fn dias_no_mes(ano: i32, mes: u8) -> u8 {
     }
 }
 
-/// Algoritmo civil (Howard Hinnant) — dias desde 1970-01-01.
+/// Algoritmo civil (Howard Hinnant): dias desde 1970-01-01.
 fn to_days_from_civil(ano: i32, mes: i64, dia: i64) -> i64 {
     let y = ano as i64 - if mes <= 2 { 1 } else { 0 };
     let era = y.div_euclid(400);

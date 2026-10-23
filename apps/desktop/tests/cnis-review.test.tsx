@@ -24,9 +24,9 @@ describe('CNIS source review',()=>{
     const user=userEvent.setup();render(<CnisReview cnis={fixture()}/>);
     const first=screen.getByRole('tab',{name:'Dados pessoais'});first.focus();await user.keyboard('{End}');
     expect(screen.getByRole('tab',{name:/Remunerações/})).toHaveFocus();
-    expect(screen.getByText('1–20 de 21')).toBeInTheDocument();
+    expect(screen.getByText('1 a 20 de 21')).toBeInTheDocument();
     await user.click(screen.getByRole('button',{name:'Próxima página'}));
-    expect(screen.getByText('21–21 de 21')).toBeInTheDocument();expect(screen.getByText('1.000,21')).toBeInTheDocument();
+    expect(screen.getByText('21 a 21 de 21')).toBeInTheDocument();expect(screen.getByText('1.000,21')).toBeInTheDocument();
     expect(screen.getByRole('button',{name:'Próxima página'})).toBeDisabled();
   });
 });

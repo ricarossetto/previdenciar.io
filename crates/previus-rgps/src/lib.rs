@@ -74,7 +74,7 @@ fn date(v: &Option<String>, field: &str, out: &mut Vec<Blocker>) -> Option<IsoDa
     };
     match IsoDate::parse(s,field) {
         Ok(d) if (1900..=2100).contains(&d.ano) => Some(d),
-        _ => { issue(out,"missing_or_invalid_date",field,"Data inválida ou fora do intervalo operacional 1900–2100."); None }
+        _ => { issue(out,"missing_or_invalid_date",field,"Data inválida ou fora do intervalo operacional 1900 a 2100."); None }
     }
 }
 fn month(v: &Option<String>, field: &str, out: &mut Vec<Blocker>) -> Option<Competencia> {

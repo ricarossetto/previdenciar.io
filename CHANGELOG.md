@@ -1,5 +1,69 @@
 # Changelog
 
+## 0.10.1 - 2026-10-23
+
+Revisão de texto em todo o projeto.
+
+- Travessões substituídos por vírgulas, dois-pontos ou pontos; aspas curvas convertidas em aspas retas; reticências em três pontos; títulos em caixa de frase. Nenhum cálculo, código de bloqueio ou dado foi alterado.
+
+## 0.10.0 - 2026-10-23
+
+Abertura da base fora da thread principal e documentação das regras novas.
+
+- A abertura da base local (DPAPI, validação e serialização) roda em `spawn_blocking`. Uma falha mantém a gravação bloqueada com mensagem, em vez de congelar a interface.
+- As limitações passam a documentar a espécie 42, o fator previdenciário com tábua de expectativa embutida e o IRRF mensal oficial.
+
+## 0.9.9 - 2026-10-23
+
+Descarte dos menores salários da EC 103.
+
+- Opção explícita de descarte (art. 26, § 6º) com o mínimo de competências que preserva o direito declarado pelo operador. O motor remove as menores remunerações corrigidas até esse piso e lista as competências descartadas.
+- A opção exige correção ativa e não se combina com o descarte fixo de 20%.
+
+## 0.9.8 - 2026-10-23
+
+IRRF mensal oficial.
+
+- Tabela por competência de 1989 a 2026, com a vigência atual conferida contra a Lei 14.848/2024.
+- Ferramenta `irrf_oficial` com dedução de dependentes e isenção de 65 anos declarada pelo operador. Competências anteriores a 07/1994 são recusadas para não converter moeda histórica.
+
+## 0.9.7 - 2026-10-23
+
+Fator previdenciário e tábua de expectativa.
+
+- Alíquotas corrigidas para 0,31 (homem) e 0,30 (mulher), sem piso artificial em 1.
+- Tábua de expectativa de sobrevida embutida, com vigências de 1992 a 2025 por idade e sexo. O pedágio de 50% calcula sem expectativa declarada.
+
+## 0.9.6 - 2026-10-23
+
+Espécie de benefício no contrato.
+
+- Apenas a espécie 42 tem motor. As demais bloqueiam com motivo no motor, no adaptador e na interface, em vez de aproximar coeficiente.
+
+## 0.9.5 - 2026-10-23
+
+Transições e qualidade.
+
+- Transições medidas por tempo apurado, com corte em 13/11/2019 e marcos sem dupla contagem de períodos sobrepostos.
+- Qualidade de segurado unificada em 12 meses, com a prorrogação para 24 meses dependente do histórico.
+
+## 0.9.4 - 2026-10-23
+
+Salário mínimo e snapshot PcD.
+
+- Série de salário mínimo por competência embutida (1994-07 a 2026-09).
+- Snapshot local usa piso e teto de cada competência, corrigindo o caminho offline.
+
+## 0.9.3 - 2026-10-23
+
+Correções P0 e paridade PcD.
+
+- Índice global dos valores consolidados do CNIS, sem rejeitar a importação inteira.
+- Duplicação de cálculo com linhas manuais, com identificadores novos.
+- Origem dos valores na revisão de contribuições, impedindo que contribuição paga vire salário.
+- Remoção do comando de restauração que sempre falhava.
+- Paridade PcD com o motor público: PBC 357, divisor 285 e R$ 5.200,25 contra R$ 5.200,88 (0,012%).
+
 ## 0.9.2 - 2026-10-22
 
 Carência do contribuinte individual e snapshot oficial da Fábrica de Cálculos.
@@ -7,7 +71,7 @@ Carência do contribuinte individual e snapshot oficial da Fábrica de Cálculos
 - **Art. 27, II, da Lei nº 8.213/1991 implementado**: para contribuinte individual, especial e facultativo a carência conta a partir do **primeiro pagamento sem atraso**, e as competências anteriores marcadas na origem como informadas fora do prazo (indicador `PREM-EXT`) não entram. Para empregado, doméstico e avulso vale o art. 27, I (desde a filiação). O relatório passou a imprimir o **fundamento da contagem por vínculo**.
 - **Snapshot da consulta pública aceita a vigência**: o piso e o teto usam a última competência informada até o mês de referência (o teto é anual) e o snapshot publicado até o mês anterior à correção é aceito. Antes, o mês exato era exigido e o snapshot oficial de setembro era recusado para uma DIB de outubro.
 - **Consulta pública exercitada de ponta a ponta no aplicativo**: `fetch_economic_snapshot` retornou 387 competências com INPC, INPC-INSS, IGP-DI, IPC-r, piso e teto oficiais em menos de um segundo, com as fontes declaradas por competência (ex.: piso de 2026 pelo Decreto nº 12.797/2025 e teto pela Portaria Interministerial MPS/MF nº 13/2026).
-- **Comparação com o relatório de referência com os índices oficiais**: PBC de 364 parcelas, 80% = 291, soma R$ 1.501.880,78 e **RMI de R$ 5.161,10** contra R$ 5.200,89 do software de referência — diferença de **0,77%**, atribuída às sete competências que o CNIS lista apenas na visão "Contribuições" (ver a limitação declarada).
+- **Comparação com o relatório de referência com os índices oficiais**: PBC de 364 parcelas, 80% = 291, soma R$ 1.501.880,78 e **RMI de R$ 5.161,10** contra R$ 5.200,89 do software de referência, diferença de **0,77%**, atribuída às sete competências que o CNIS lista apenas na visão "Contribuições" (ver a limitação declarada).
 
 ## 0.9.1 - 2026-10-22
 

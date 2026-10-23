@@ -134,7 +134,7 @@ pub fn build_transicoes(entrada: &TransicoesEntrada) -> Result<TransicoesResulta
 
     let mut regras: Vec<RegraTransicao> = Vec::new();
 
-    // 1. Direito adquirido (pré-reforma) — elegibilidade apenas.
+    // 1. Direito adquirido (pré-reforma): elegibilidade apenas.
     let direito_adquirido = tempo_ate_reforma >= tempo_minimo;
     regras.push(RegraTransicao {
         id: "direito-adquirido",
@@ -216,7 +216,7 @@ pub fn build_transicoes(entrada: &TransicoesEntrada) -> Result<TransicoesResulta
         observacao: limite_coef.map(|l| format!("Limite de {l} aplicado.")),
     });
 
-    // 4. Pedágio de 50% (art. 17) — RMI por fator previdenciário.
+    // 4. Pedágio de 50% (art. 17): RMI por fator previdenciário.
     let faltava50 = (tempo_minimo - tempo_ate_reforma).max(0);
     let aplica50 = faltava50 > 0 && faltava50 <= 24;
     let pedagio50 = (faltava50 + 1) / 2;
@@ -285,7 +285,7 @@ pub fn build_transicoes(entrada: &TransicoesEntrada) -> Result<TransicoesResulta
         observacao: observacao_fator,
     });
 
-    // 5. Pedágio de 100% (art. 20) — RMI de 100% da média.
+    // 5. Pedágio de 100% (art. 20): RMI de 100% da média.
     let aplica100 = tempo_ate_reforma > 0 && tempo_ate_reforma < tempo_minimo;
     let pedagio100 = faltava50;
     let idade_100_exigida = kv(&PEDAGIO_100_IDADE, sexo) * 12;
