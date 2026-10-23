@@ -2,6 +2,27 @@ use crate::{blocked, calculate_json, issue, POLICY_VERSION};
 use crate::contracts::*;
 use previus_workspace::Calculation;
 use serde_json::Value;
+use std::collections::HashMap;
+
+fn tipo_do_vinculo(afiliacao: Option<&str>) -> String {
+    let texto = afiliacao.unwrap_or("").to_lowercase();
+    if texto.contains("doméstico") || texto.contains("domestico") {
+        "empregado_domestico"
+    } else if texto.contains("contribuinte individual") {
+        "contribuinte_individual"
+    } else if texto.contains("avulso") {
+        "avulso"
+    } else if texto.contains("facultativo") {
+        "facultativo"
+    } else if texto.contains("rural") {
+        "rural"
+    } else if texto.contains("servidor") {
+        "servidor"
+    } else {
+        "empregado"
+    }
+    .to_string()
+}
 
 /// Bridge for the current private workspace. Only manually confirmed rows are
 /// calculated. Import flags are NEVER promoted to validation by this bridge.
@@ -84,11 +105,21 @@ pub fn calculate_case(case: &Calculation) -> Result<Value,String> {
     if !opts.correction_index.trim().is_empty() && !opts.correction_index.trim().eq_ignore_ascii_case("INPC") {
         issue(&mut blockers,"correction_index_unsupported","options.correction_index","Motor copiado suporta INPC neste caminho, não outro índice arbitrário.");
     }
+    let tipos: HashMap<u32, String> = case
+        .cnis
+        .as_ref()
+        .map(|cnis| {
+            cnis.links
+                .iter()
+                .map(|link| (link.sequence, tipo_do_vinculo(link.affiliation.as_deref())))
+                .collect()
+        })
+        .unwrap_or_default();
     let request = CalculationInput {
         segurado:InsuredInput {sexo:case.sex.clone(),data_nascimento:case.identity.birth_date.clone(),deficiencia:case.disability.clone(),especie:case.especie.clone()},
         data_referencia:Some(case.dib.clone()),
         vinculos:case.manual_links.iter().filter(|l|!l.source_review.as_ref().is_some_and(|r|r.excluded)).map(|l|LinkInput {
-            inicio:Some(l.start_date.clone()),fim:Some(l.end_date.clone()),tipo:policy.manual_link_kind.clone(),
+            inicio:Some(l.start_date.clone()),fim:Some(l.end_date.clone()),tipo:l.source_review.as_ref().and_then(|review| tipos.get(&review.sequence).cloned()).or_else(|| policy.manual_link_kind.clone()),
             regime:Some(l.regime.clone()),confirmado:l.confirmed,evidencia:policy.review_evidence.clone(),
             indicadores:if l.indicators.trim().is_empty(){vec![]}else{vec!["manual_indicator_unresolved".into()]},
             origem:Some("manual_documentado".into()),prpps:l.regime.trim().eq_ignore_ascii_case("PRPPS") || l.regime.trim().eq_ignore_ascii_case("RPPS"),

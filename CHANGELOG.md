@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.10.3 - 2026-10-23
+
+Preparação guiada a partir do CNIS e cálculo em um clique.
+
+- A tela de parâmetros prepara a hipótese a partir do CNIS com decisões explícitas: exclui vínculos PRPPS, fecha vínculo sem data final pelo último salário, soma remunerações concomitantes do RGPS, limpa indicadores informativos e registra tudo em notas. Em seguida calcula e abre o resultado.
+- Vínculos sobrepostos deixam de bloquear: o motor deduplica totais e marcos desde 0.9.5.
+- Sem INPC para a DIB, a correção é desativada e o resultado é nominal, com aviso.
+- Textos da tela de parâmetros reduzidos; explicações longas movidas para um bloco recolhível.
+
 ## 0.10.2 - 2026-10-23
 
 Salário mínimo no PBC do RGPS comum.

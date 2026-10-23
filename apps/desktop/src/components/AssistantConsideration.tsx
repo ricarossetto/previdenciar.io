@@ -3,7 +3,7 @@ import {Badge, Icon, Notice} from './ui';
 
 const count=(value:number,singular:string,plural:string)=>value+' '+(value===1?singular:plural);
 export function AssistantConsiderationPanel({consideration, onFix}:{consideration:AssistantConsideration;onFix?:(fix:ConsiderationFix)=>void}) {
-  const {imported,adjusted,used,issues,sourceNotes,effect,conclusion,ready} = consideration;
+  const {imported,adjusted,used,issues,sourceNotes,effect,conclusion,ready,execution} = consideration;
   const decisive = issues.filter(issue => issue.decisive);
   const reviewOnly = issues.filter(issue => !issue.decisive);
   return <section className="consideration-panel" aria-label="Dados importados, ajustados e usados no cálculo">
@@ -25,9 +25,9 @@ export function AssistantConsiderationPanel({consideration, onFix}:{consideratio
       </div>
       <span className="consideration-arrow" aria-hidden="true"><Icon name="arrow" size={16}/></span>
       <div className={'consideration-card '+(ready?'is-ready':'is-blocked')}>
-        <span>Usado pelo motor</span>
-        <strong>{ready?count(used.links,'vínculo','vínculos')+' · '+count(used.salaries,'competência','competências'):'0, execução bloqueada'}</strong>
-        <small>{ready?'Somente linhas revisadas; a fonte não é reescrita.':'O motor não recebeu uma hipótese válida.'}</small>
+        <span>{execution==='calculated'?'Execução registrada':'Preparado para execução'}</span>
+        <strong>{execution==='blocked'?'Última execução bloqueada':ready?count(used.links,'vínculo','vínculos')+' · '+count(used.salaries,'competência','competências'):'Entrada com pendências'}</strong>
+        <small>{execution==='calculated'?'Resultado experimental disponível; confira a memória do motor.':execution==='blocked'?'Nenhum resultado financeiro foi produzido.':ready?'Somente linhas revisadas; a fonte não é reescrita.':'Revise os dados antes de enviar a hipótese ao motor.'}</small>
       </div>
     </div>
     <p className="consideration-effect">{effect}</p>

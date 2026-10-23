@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-prepare-case-from-cnis"
+description = "Enables the prepare_case_from_cnis command without any pre-configured scope."
+commands.allow = ["prepare_case_from_cnis"]
+
+[[permission]]
+identifier = "deny-prepare-case-from-cnis"
+description = "Denies the prepare_case_from_cnis command without any pre-configured scope."
+commands.deny = ["prepare_case_from_cnis"]

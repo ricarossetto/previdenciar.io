@@ -1,4 +1,11 @@
 .previus-app .robot-workspace{gap:18px}
+.assistant-case-context{display:flex;align-items:center;gap:20px;flex-wrap:wrap;padding:14px 18px;border:1px solid var(--border);border-radius:8px;background:var(--inset)}
+.assistant-case-context>div{flex:1;min-width:130px}.assistant-case-context span{display:block;font-size:11px;color:var(--muted);margin-bottom:5px}.assistant-case-context strong{font-size:12px;overflow-wrap:anywhere}
+.assistant-steps .robot-progress button small{display:block;font-size:10px;font-weight:400;color:var(--muted);margin-left:5px}
+.assistant-domain-nav{display:flex;gap:6px;overflow-x:auto;padding:3px 0 12px;border-bottom:1px solid var(--border)}
+.assistant-domain-nav button{flex:1;min-width:150px;text-align:left;padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:7px;color:var(--fg);cursor:pointer}
+.assistant-domain-nav button strong{display:block;font-size:12px}.assistant-domain-nav button small{display:block;font-size:11px;color:var(--muted);margin-top:6px;line-height:1.4}
+.assistant-domain-nav button[aria-current=page]{border-color:var(--accent);background:var(--inset)}.assistant-domain-nav button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}.assistant-domain-nav button:disabled{opacity:.55;cursor:default}
 .previus-app .assistant-stepbar{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:0 0 14px;border-bottom:1px solid var(--border)}
 .assistant-stepbar>div{flex:1;min-width:0}.assistant-stepbar strong{font-size:14px}.assistant-stepbar p{margin:5px 0 0;font-size:12px;color:var(--muted)}
 .assistant-stepbar progress{display:block;width:160px;height:4px;margin-top:12px;accent-color:var(--accent)}

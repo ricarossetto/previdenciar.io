@@ -3252,7 +3252,7 @@ dependencies = [
 
 [[package]]
 name = "previus-next-desktop"
-version = "0.10.2"
+version = "0.10.3"
 dependencies = [
  "base64 0.21.7",
  "chrono",

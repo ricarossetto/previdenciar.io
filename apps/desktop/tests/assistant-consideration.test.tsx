@@ -25,7 +25,9 @@ describe('assistant traceability panel',()=>{
     render(<AssistantConsiderationPanel consideration={assistantConsideration(c)} onFix={()=>{}}/>);
     expect(screen.getByText('O que entra no cálculo')).toBeInTheDocument();
     expect(screen.getByText('1 vínculo · 1 lançamento')).toBeInTheDocument();
-    expect(screen.getByText('0, execução bloqueada')).toBeInTheDocument();
+    expect(screen.getByText('Entrada com pendências')).toBeInTheDocument();
+    expect(screen.getByText('Preparado para execução')).toBeInTheDocument();
+    expect(screen.queryByText('Usado pelo motor')).not.toBeInTheDocument();
     expect(screen.getByText('Pendências que impedem calcular')).toBeInTheDocument();
     expect(screen.getAllByText(/Fonte CNIS ainda não excluída/).length).toBeGreaterThan(0);
     expect(screen.getAllByRole('button',{name:/Corrigir:/}).length).toBeGreaterThan(0);
@@ -42,4 +44,17 @@ describe('assistant traceability panel',()=>{
     expect(screen.queryByText('Pendências que impedem calcular')).not.toBeInTheDocument();
     expect(screen.getByText(/Somente linhas revisadas; a fonte não é reescrita/)).toBeInTheDocument();
   });
+});
+
+it('distinguishes a prepared hypothesis from a blocked native response',()=>{
+  const c=base();c.cnis=cnis();c.result={status:'blocked',data:null};
+  render(<AssistantConsiderationPanel consideration={assistantConsideration(c)}/>);
+  expect(screen.getByText('Última execução bloqueada')).toBeInTheDocument();
+  expect(screen.getByText('Nenhum resultado financeiro foi produzido.')).toBeInTheDocument();
+});
+it('labels a successful experimental output as an execution',()=>{
+  const c=base();c.result={status:'experimental',data:{native_result:{resumo:{rmi:'1600.00'}}}};
+  render(<AssistantConsiderationPanel consideration={assistantConsideration(c)}/>);
+  expect(screen.getByText('Execução registrada')).toBeInTheDocument();
+  expect(screen.getByText('Resultado experimental disponível; confira a memória do motor.')).toBeInTheDocument();
 });

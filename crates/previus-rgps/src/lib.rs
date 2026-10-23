@@ -3,8 +3,10 @@
 #![forbid(unsafe_code)]
 mod bridge;
 pub mod pcd;
+pub mod guided;
 pub mod contracts;
 pub use bridge::calculate_case;
+pub use guided::prepare_from_cnis;
 use contracts::*;
 use rgps_core::{RgpsEntrada, RgpsOpcoes};
 use rgps_core::calendar::{Competencia, IsoDate};
@@ -34,7 +36,7 @@ pub fn capabilities() -> Value {
         "legal_validation_performed": false,
         "implemented_native": ["pbc", "inpc_correction", "ceilings", "contribution_time", "carencia", "rmi_observational", "transitions", "projection_typed_core_api"],
         "adapter_supported": ["calculate_json", "calculate_case_manual_confirmed"],
-        "unsupported": ["automatic_cnis_validation", "disability_rules", "rural_special_rules", "automatic_ctc", "fator_previdenciario_adapter", "historic_currency_conversion", "old_law_rmi", "statutory_entitlement", "projection_json"],
+        "unsupported": ["automatic_cnis_validation", "disability_rules", "rural_special_rules", "automatic_ctc",  "historic_currency_conversion", "old_law_rmi", "statutory_entitlement", "projection_json"],
         "known_model_risks": model_risks(),
         "tables": {
             "inpc": {"first": tables["inpc"]["first"], "last": tables["inpc"]["last"], "count": tables["inpc"]["count"], "source_declaration": tables["inpc"]["source_declaration"]},
@@ -46,15 +48,11 @@ pub fn capabilities() -> Value {
 }
 fn model_risks() -> Vec<&'static str> {
     vec![
-        "unvalidated_native_fator_uses_sex_specific_rate_and_floor_one",
-        "transitions_use_salary_month_count_not_full_confirmed_periods",
-        "reform_month_not_split_at_2019_11_13",
         "points_truncate_age_and_time_to_whole_years",
         "grace_and_late_payments_model_not_validated_and_adapter_blocks_them",
         "pre_reform_rmi_not_recalculated",
         "discard_and_divisor_are_operator_options_not_date_selected_law",
         "native_corrected_pbc_does_not_apply_minimum_divisor_option",
-        "time_markers_may_double_count_overlapping_links",
         "tables_are_owned_source_snapshot_not_freshly_verified_official_values",
     ]
 }
@@ -173,13 +171,6 @@ fn calculate_input(r: CalculationInput) -> Result<Value, String> {
             if dib.is_some_and(|d| end > d) { issue(&mut b,"source_end_after_dib",&f,"Data final posterior à DIB; não truncar automaticamente."); }
             if birth.is_some_and(|d| start < d) { issue(&mut b,"source_start_before_birth",&f,"Período anterior ao nascimento."); }
             links.push(VinculoEntrada {inicio:start,fim:Some(end),tipo:kind.into(),empresa:None,fator:1.0});
-        }
-    }
-    let mut sorted_links = links.iter().collect::<Vec<_>>();
-    sorted_links.sort_by_key(|l| l.inicio);
-    for pair in sorted_links.windows(2) {
-        if pair[0].fim.is_some_and(|e| e >= pair[1].inicio) {
-            issue(&mut b,"overlapping_links_model_unvalidated","vinculos","A cópia nativa deduplica total mas não todos os marcos. Revisar períodos concomitantes em cenário documental sem sobreposição; não aplicar resultado silenciosamente.");
         }
     }
     let mut wages = Vec::new();

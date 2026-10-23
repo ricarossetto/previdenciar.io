@@ -81,6 +81,12 @@ fn local_economic_snapshot(through: String) -> Result<previus_rgps::pcd::Snapsho
 }
 
 #[tauri::command]
+fn prepare_case_from_cnis(calculation: Calculation, reference: String) -> Result<Value, String> {
+    let (prepared, notes) = previus_rgps::prepare_from_cnis(&calculation, &reference)?;
+    Ok(serde_json::json!({ "calculation": prepared, "notes": notes }))
+}
+
+#[tauri::command]
 async fn calculate_case(calculation: Calculation) -> Result<Value, String> {
     tauri::async_runtime::spawn_blocking(move || {
         backend::validate_calculation(&calculation)?;
@@ -229,7 +235,7 @@ mod tests {
         }
         let permissions = capability["permissions"].as_array().unwrap();
         assert!(permissions.iter().any(|value| value == "allow-export-reports-batch"));
-        assert_eq!(permissions.len(), 15);
+        assert_eq!(permissions.len(), 16);
     }
     #[test]
     fn direct_rgps_json_rejects_invalid_schema_without_false_result() {

@@ -6,6 +6,7 @@ export interface Presentation {includeAppendix?:boolean;includeQuality?:boolean;
 export const api={
  fetchEconomicSnapshot:(through:string)=>invoke<import('./pcd').EconomicSnapshot>('fetch_economic_snapshot',{through}),
  fetchLocalEconomicSnapshot:(through:string)=>invoke<import('./pcd').EconomicSnapshot>('local_economic_snapshot',{through}),
+ prepareFromCnis:(calculation:Calculation,reference:string)=>invoke<{calculation:Calculation;notes:string[]}>('prepare_case_from_cnis',{calculation:normalizeCaseForEngine(calculation),reference}),
  boot:()=>invoke<Boot>('bootstrap'),
  save:(workspace:Workspace)=>invoke<Workspace>('save_workspace',{workspace}),
  pickCnis:()=>invoke<Cnis|null>('pick_import_cnis'),

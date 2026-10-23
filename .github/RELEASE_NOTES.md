@@ -1,4 +1,4 @@
-## previdenciar.io 0.10.2
+## previdenciar.io 0.10.3
 
 Versão estável da linha 0.10 para Windows x64. Desktop local, gratuito e open source sob MIT; não é serviço oficial do INSS nem certificação de direito a benefício.
 
@@ -11,6 +11,11 @@ Versão estável da linha 0.10 para Windows x64. Desktop local, gratuito e open 
 - Transições medidas por tempo apurado, com corte em 13/11/2019, e qualidade de segurado unificada em 12 meses.
 - Importação de CNIS sem rejeição pelo índice dos valores consolidados; duplicação de cálculo com identificadores novos; origem dos valores na revisão de contribuições.
 - Abertura da base fora da thread principal.
+
+### Preparação guiada a partir do CNIS
+
+- A tela de parâmetros ganhou um botão único que prepara e calcula a hipótese a partir do CNIS: exclui vínculos PRPPS, fecha vínculo sem data final pelo último salário, soma remunerações concomitantes do RGPS e registra cada decisão em notas. A fonte permanece intacta.
+- Sem INPC publicado para a DIB, a correção é desativada e o resultado é nominal, com aviso.
 
 ### Correção
 
@@ -33,6 +38,6 @@ Versão estável da linha 0.10 para Windows x64. Desktop local, gratuito e open 
 
 ### Download e compatibilidade
 
-Executável portátil `previdenciar.io-0.10.2-windows-x64.exe`, sem assinatura de código; requer Windows 10/11 x64 e WebView2. Confira `SHA256SUMS.txt` e `BUILDINFO.json`. Não desative proteções do Windows para executar o arquivo.
+Executável portátil `previdenciar.io-0.10.3-windows-x64.exe`, sem assinatura de código; requer Windows 10/11 x64 e WebView2. Confira `SHA256SUMS.txt` e `BUILDINFO.json`. Não desative proteções do Windows para executar o arquivo.
 
 A base local cifrada e o identificador legado são preservados, sem migração silenciosa. Nenhum CNIS, PDF de cliente, base, credencial ou perfil de teste acompanha esta release. Use dados fictícios no primeiro teste.

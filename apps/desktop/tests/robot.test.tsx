@@ -1,4 +1,4 @@
-import{describe,it,expect,vi,beforeEach}from'vitest';import{render,screen,within,waitFor}from'@testing-library/react';import userEvent from'@testing-library/user-event';import App from'../src/App';import{RobotAssistant}from'../src/components/RobotAssistant';import{blankWorkspace,blankCase,blankInterview,withInterviewAnswer,robotParameterIssues}from'../src/model';import type{Calculation,Cnis}from'../src/model';const invoke=vi.hoisted(()=>vi.fn());vi.mock('@tauri-apps/api/core',()=>({invoke}));
+import{describe,it,expect,vi,beforeEach}from'vitest';import{render,screen,within,waitFor}from'@testing-library/react';import userEvent from'@testing-library/user-event';import App from'../src/App';import{RobotAssistant,assistantStepState}from'../src/components/RobotAssistant';import{blankWorkspace,blankCase,blankInterview,withInterviewAnswer,robotParameterIssues}from'../src/model';import type{Calculation,Cnis}from'../src/model';const invoke=vi.hoisted(()=>vi.fn());vi.mock('@tauri-apps/api/core',()=>({invoke}));
 function fixtureCnis():Cnis{return{metadata:{page_count:1,source_sha256:null,extractor:'synthetic'},identity:{full_name:'Pessoa Fictícia de Teste',cpf:null,nit:null,birth_date:'1962-03-10',mother_name:null},salary_entries:[{competence:'2020-01',amount_centavos:200000,indicators:['PRPPS'],link_sequence:1,source:{page:1,line:1,index:1},excluded_from_validated_domain:true}],salary_months:{'2020-01':{count:1,amount_sum_centavos:200000,contains_unresolved_prpps:true}},links:[{sequence:1,raw_employer:'EMPREGADOR FICTÍCIO',start_date:'2020-01-01',end_date:null,prpps:true,indicators:['PRPPS'],reported_last_salary_month:'2020-01',inferred_last_salary_end:{date_candidate:'2020-01-31',requires_confirmation:true},source:{page:1}}],benefits:[{sequence:2,species:41,status:'denied'}],findings:[],warnings:[{code:'unresolved_prpps',message:'Sintético: pendência',count:1},{code:'missing_end_date',message:'Fim ausente',count:1}]}}
 beforeEach(()=>{invoke.mockReset();invoke.mockImplementation(async(cmd:string,args?:Record<string,unknown>)=>{if(cmd==='bootstrap')return{workspace:blankWorkspace(),storage_ready:true,message:null};if(cmd==='save_workspace')return{...(args?.workspace as object),revision:1};if(cmd==='pick_import_cnis'||cmd==='import_cnis_path')return fixtureCnis();if(cmd==='calculate_case')return{status:'blocked',data:null,warnings:['Teste de fronteira'],blockers:[{message:'Registros de origem não confirmados.'}]};throw new Error('Unexpected command '+cmd)});});
 async function begin(){render(<App/>);await screen.findByRole('heading',{name:'Início'});const u=userEvent.setup();await u.click(screen.getByRole('button',{name:'Cálculos do RGPS',exact:true}));await u.click(screen.getByRole('button',{name:'Novo cálculo',exact:true}));await u.click(screen.getByRole('button',{name:'Usar o assistente de cálculos',exact:true}));return u}
@@ -24,3 +24,41 @@ it('an explicitly unknown current-benefit answer stays null while document revie
 it('changing an interview answer invalidates prior review and cached financial output',()=>{const c={...blankCase(),assistant:{...blankInterview(),current_benefit_received:false,review_confirmed:true},result:{status:'experimental',data:{rmi:'1600.00'}}}as Calculation;const changed=withInterviewAnswer(c,{current_benefit_received:true},'benefit');expect(changed.assistant?.review_confirmed).toBe(false);expect(changed.result).toBeNull();expect(c.assistant?.review_confirmed).toBe(true)});
 
 it('assistant result offers detailed PDF without inventing a new calculation or personal consent',async()=>{const c={...blankCase(),name:'Relatório sintético do assistente',assistant:{...blankInterview(),current_benefit_received:false,import_requested:false,process_kind:'Simulação do benefício',goal:'Calcular um novo benefício',review_confirmed:true,completed_steps:['intro','benefit','import','process','goal','parameters','periods','salaries','policy','review']},result:{status:'experimental',data:{native_result:{resumo:{rmi:'1600.00'},memoria:[]}},warnings:[]}}as Calculation;invoke.mockImplementation(async(cmd:string)=>cmd==='export_report'?'C:\\destino-sintetico\\relatorio.pdf':null);const notice=vi.fn();render(<RobotAssistant draft={c}setDraft={vi.fn()}workspace={blankWorkspace()}onSave={vi.fn()}onNotify={notice}onManual={vi.fn()}/>);const u=userEvent.setup();expect(screen.getByLabelText('Tipo de relatório PDF')).toHaveValue('pdf_detailed');await u.click(screen.getByRole('button',{name:/Gerar relatório PDF detalhado/}));await waitFor(()=>expect(notice).toHaveBeenCalledWith('PDF detalhado gerado localmente. Confira os avisos e o estado da hipótese.'));const call=invoke.mock.calls.find(x=>x[0]==='export_report');expect(call?.[1].format).toBe('pdf_detailed');expect(call?.[1].includePersonal).toBe(false);expect(invoke.mock.calls.filter(x=>x[0]==='calculate_case')).toHaveLength(0)});
+
+it('keeps missing answers pending even when later modules have been visited',()=>{
+ const c=blankCase();c.assistant={...blankInterview(),completed_steps:['benefit','periods','salaries','policy']};
+ expect(assistantStepState(c,'situation')).toBe('visited');
+ expect(assistantStepState(c,'objective')).toBe('pending');
+ expect(assistantStepState(c,'conference')).toBe('visited');
+ expect(assistantStepState(c,'review')).toBe('pending');
+ c.result={status:'blocked',data:null};expect(assistantStepState(c,'result')).toBe('visited');
+});
+it('offers correction links on final review and returns to the affected module',async()=>{
+ const c={...blankCase(),name:'Hipótese sintética',sex:'Feminino',disability:'Sem deficiência declarada',dib:'2024-01-01',identity:{...blankCase().identity,full_name:'Pessoa Fictícia',birth_date:'1960-01-01'},assistant:{...blankInterview(),current_benefit_received:false,import_requested:false,process_kind:'Simulação do benefício',goal:'Calcular um novo benefício',completed_steps:['periods','salaries','policy']}};
+ render(<RobotAssistant draft={c} setDraft={vi.fn()} workspace={blankWorkspace()} onSave={vi.fn()} onNotify={vi.fn()} onManual={vi.fn()}/>);
+ expect(screen.getByRole('heading',{name:'O que você informou'})).toBeInTheDocument();
+ await userEvent.setup().click(screen.getAllByRole('button',{name:/Corrigir:/})[0]);
+ expect(screen.getByRole('group',{name:'Módulos de conferência'})).toBeInTheDocument();
+ expect(screen.getByRole('region',{name:'Resumo do cenário'})).toHaveTextContent('Pessoa Fictícia');
+});
+
+it('opens the internal domains from a blocked result without losing the current draft',async()=>{
+ const c:Calculation={...blankCase(),name:'Cenário sintético preservado',identity:{...blankCase().identity,full_name:'Pessoa Fictícia',birth_date:'1960-01-01'},sex:'Feminino',disability:'Sem deficiência declarada',dib:'2024-01-01',manual_links:[{id:10,employer:'EMPREGADOR SINTÉTICO DO PAINEL',start_date:'2020-01-01',end_date:'2023-12-31',regime:'RGPS',indicators:'',confirmed:true,source_review:null}],manual_salaries:[{id:11,competence:'2022-01',amount:'2000.00',indicators:'',confirmed:true}],assistant:{...blankInterview(),current_benefit_received:false,import_requested:false,process_kind:'Simulação do benefício',goal:'Calcular um novo benefício',review_confirmed:true,completed_steps:['periods','salaries','policy','review']},result:{status:'blocked',data:null,blockers:[{message:'Conferência sintética pendente.'}]}};
+ const save=vi.fn(),change=vi.fn(),u=userEvent.setup();
+ render(<RobotAssistant draft={c} setDraft={change} workspace={blankWorkspace()} onSave={save} onNotify={vi.fn()} onManual={vi.fn()}/>);
+ const nav=screen.getByRole('navigation',{name:'Painel do cálculo'});
+ expect(within(nav).getByRole('button',{name:/Abrir resultado/})).toHaveAttribute('aria-current','page');
+ expect(screen.getAllByRole('button',{name:/Corrigir:/}).length).toBeGreaterThan(0);
+ await u.click(within(nav).getByRole('button',{name:/Abrir períodos/}));
+ expect(screen.getByText(/EMPREGADOR SINTÉTICO DO PAINEL/)).toBeInTheDocument();
+ expect(within(nav).getByRole('button',{name:/Abrir períodos/})).toHaveAttribute('aria-current','page');
+ await u.click(within(nav).getByRole('button',{name:/Abrir remunerações/}));
+ expect(screen.getByLabelText('Competência manual')).toHaveValue('2022-01');
+ expect(screen.getByLabelText('Salário manual')).toHaveValue('2000.00');
+ await u.click(within(nav).getByRole('button',{name:/Abrir revisão/}));
+ expect(screen.getByRole('heading',{name:'O que você informou'})).toBeInTheDocument();
+ await u.click(within(nav).getByRole('button',{name:/Abrir resultado/}));
+ expect(screen.getByText('Conferência sintética pendente.')).toBeInTheDocument();
+ await u.click(screen.getByRole('button',{name:'Salvar rascunho',exact:true}));
+ expect(save).toHaveBeenCalledWith(c);expect(change).not.toHaveBeenCalled();
+});

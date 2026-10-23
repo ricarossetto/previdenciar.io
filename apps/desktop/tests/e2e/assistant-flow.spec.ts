@@ -31,7 +31,7 @@ async function openAssistant(page:import('@playwright/test').Page,width:number,t
 for(const width of[390,1440]){
   test('assistant opens at the conference hub with source, adjustments and used data at '+width+'px',async({page},testInfo)=>{
     await openAssistant(page,width,testInfo);
-    for(const label of['Importado da fonte','Ajustado pelo operador','Usado pelo motor','Conferir períodos','Conferir remunerações','Conferir opções da RMI'])await expect(page.getByText(label,{exact:true})).toBeVisible();
+    for(const label of['Importado da fonte','Ajustado pelo operador','Preparado para execução','Conferir períodos','Conferir remunerações','Conferir opções da RMI'])await expect(page.getByText(label,{exact:true})).toBeVisible();
     await expect(page.getByRole('button',{name:'Revisar entrevista'})).toBeDisabled();
     await page.getByRole('button',{name:'Conferir remunerações'}).click();
     await page.getByRole('button',{name:'Conferir opções da RMI'}).click();

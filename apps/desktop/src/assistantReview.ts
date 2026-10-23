@@ -1,5 +1,5 @@
 import type {AssistantInterview, Calculation, CnisLink, ManualLink} from './model';
-import {isoDate, parseMoney, robotParameterIssues} from './model';
+import {isoDate, parseMoney, robotParameterIssues, hasFinancialResult} from './model';
 
 /** Versioned policy accepted by the local RGPS adapter. */
 export const POLICY_VERSION = 'rgps-core-observational-v1';
@@ -47,6 +47,7 @@ export interface AssistantConsideration {
   effect: string;
   conclusion: string;
   ready: boolean;
+  execution: 'pending'|'ready'|'blocked'|'calculated';
 }
 
 function object(value: unknown): Record<string, unknown>|null {
@@ -230,6 +231,7 @@ export function assistantConsideration(c: Calculation, _interview?: AssistantInt
   else conclusion = 'Ainda não é possível calcular: ' + decisive.slice(0,2).map(item => item.label.replace(/\.$/,'')).join('; ') + (decisive.length > 2 ? '; e mais ' + (decisive.length-2) + ' pendência(s).' : '.');
 
   return {
+    execution: blockedResult ? 'blocked' : hasFinancialResult(c) ? 'calculated' : ready ? 'ready' : 'pending',
     imported: {
       present: Boolean(c.cnis),
       links: c.cnis?.links.length ?? 0,
