@@ -223,6 +223,24 @@ fn consolidated_annual_values_do_not_duplicate_a_month_already_read() {
     assert!(r.findings.iter().any(|f| f.code == "consolidated_annual_value_already_covered"));
 }
 #[test]
+fn consolidated_entries_keep_global_source_indices_and_resolve_months() {
+    let values = ["1.000,00","2.000,00","3.000,00","4.000,00","5.000,00","6.000,00","7.000,00","8.000,00","9.000,00","10.000,00","11.000,00","12.000,00"];
+    let text = format!("CNIS\nRemunerações\nCompetência Remuneração Indicadores\n01/2023 100,00\n02/2023 200,00\nValores Consolidados por Ano Civil\n{}", consolidated_table(2024, &values));
+    let r = import_text(&text).unwrap();
+    assert_eq!(r.salary_entries.len(), 14);
+    // O workspace valida source.index como posição global em salary_entries.
+    for (position, entry) in r.salary_entries.iter().enumerate() {
+        assert_eq!(entry.source.index, position + 1, "índice global do lançamento {}", position + 1);
+    }
+    for (competence, month) in &r.salary_months {
+        for &source_index in &month.entry_indices {
+            let entry = &r.salary_entries[source_index - 1];
+            assert_eq!(entry.source.index, source_index);
+            assert_eq!(&entry.competence, competence);
+        }
+    }
+}
+#[test]
 fn hyphen_wrapped_indicator_rejoins_without_stealing_next_entry() {
     let r = import_text(&tiny("01/2020 100,00 PREC-\nMENOR-MIN 02/2020 200,00")).unwrap();
     assert_eq!(r.salary_entries[0].indicators,vec!["PREC-MENOR-MIN"]);

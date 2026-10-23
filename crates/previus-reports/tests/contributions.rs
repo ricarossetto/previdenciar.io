@@ -21,6 +21,7 @@ fn reviewed() -> Calculation {
         confirmed: false,
         excluded: false,
         evidence: String::new(),
+        amount_kind: e.amount_kind.clone(),
     };
     let after = ContributionRecord {
         amount: "110.11".into(),

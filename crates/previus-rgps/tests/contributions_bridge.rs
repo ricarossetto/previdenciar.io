@@ -20,6 +20,7 @@ fn reviewed() -> Calculation {
             confirmed: false,
             excluded: false,
             evidence: String::new(),
+            amount_kind: previus_cnis::AmountKind::Remuneration,
         })
         .collect();
     let after: Vec<_> = before

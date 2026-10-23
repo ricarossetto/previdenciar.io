@@ -18,8 +18,8 @@
     "allow-export-reports-batch",
     "allow-export-document",
     "allow-backup-export",
-    "allow-restore-snapshot",
-    "allow-preview-report",
-    "allow-fetch-economic-snapshot"
+        "allow-preview-report",
+    "allow-fetch-economic-snapshot",
+    "allow-local-economic-snapshot"
   ]
 }

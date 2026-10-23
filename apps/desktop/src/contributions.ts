@@ -35,13 +35,15 @@ export function beginContributionReview(caseData: Calculation): Calculation {
     const indicators = new Set(entry.indicators);
     if (link?.prpps) indicators.add('PRPPS');
     if (entry.excluded_from_validated_domain && !link?.prpps) indicators.add('origem_excluida_a_revisar');
+    if (entry.amount_kind === 'contribution_column_unresolved') indicators.add('origem:contribuicao');
+    if (entry.amount_kind === 'consolidated_annual_value') indicators.add('origem:valor_consolidado');
     return { key: 'source:' + entry.source.index, source_indices: [entry.source.index], competence: entry.competence,
       amount: fromCents(BigInt(entry.amount_centavos)), currency: 'unconfirmed', link_sequence: entry.link_sequence,
-      indicators: [...indicators].join(', '), confirmed: false, excluded: false, evidence: '' };
+      indicators: [...indicators].join(', '), confirmed: false, excluded: false, evidence: '', amount_kind: entry.amount_kind };
   });
   caseData.manual_salaries.forEach((entry, index) => records.push({ key: 'manual:legacy-' + index, source_indices: [],
     competence: entry.competence, amount: canonicalAmount(entry.amount), currency: 'unconfirmed', link_sequence: null,
-    indicators: entry.indicators, confirmed: false, excluded: false, evidence: '' }));
+    indicators: entry.indicators, confirmed: false, excluded: false, evidence: '', amount_kind: 'remuneration' }));
   if (records.length > 10000) throw Error('Livro excede 10.000 lançamentos.');
   return invalidateContributions(caseData, { version: 1, source_sha256: caseData.cnis?.metadata.source_sha256 ?? null,
     records, history: [], applied: false });

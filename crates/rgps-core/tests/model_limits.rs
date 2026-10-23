@@ -5,9 +5,10 @@ use rgps_core::calendar::{Competencia,IsoDate};
 use rgps_core::tempo::{calcular_tempo,VinculoEntrada};
 use rust_decimal::Decimal;
 fn date(s:&str)->IsoDate{IsoDate::parse(s,"fixture").unwrap()}
-#[test] fn known_fator_floor_one_is_explicit_observed_legacy_limit(){
+#[test] fn fator_previdenciario_reduces_when_expectativa_is_long(){
     let f=rgps_core::transicoes::fator_previdenciario("masculino",120,600,Decimal::from(40)).unwrap();
-    assert_eq!(f,Decimal::ONE,"copied source floors a reducing factor; NOT validated legal behavior");
+    assert!(f<Decimal::ONE,"Lei 9.876/1999 aplica o fator ainda que redutor: {f}");
+    assert!(f>Decimal::ZERO);
 }
 #[test] fn known_transition_time_ignores_confirmed_pre_1994_periods(){
     let e=RgpsEntrada{nome:None,sexo:"feminino".into(),data_nascimento:Some(date("1960-01-01")),data_referencia:Some(date("2025-01-31")),vinculos:vec![VinculoEntrada{inicio:date("1980-01-01"),fim:Some(date("2024-12-31")),tipo:"empregado".into(),empresa:None,fator:1.0}],competencias:vec![(Competencia::parse("2024-12","fixture").unwrap(),Decimal::from(2000))],opcoes:RgpsOpcoes::default()};

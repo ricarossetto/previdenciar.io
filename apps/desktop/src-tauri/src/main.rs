@@ -62,6 +62,11 @@ async fn fetch_economic_snapshot(through:String)->Result<previus_rgps::pcd::Snap
 }
 
 #[tauri::command]
+fn local_economic_snapshot(through: String) -> Result<previus_rgps::pcd::Snapshot, String> {
+    previus_rgps::pcd::local_snapshot(&through)
+}
+
+#[tauri::command]
 async fn calculate_case(calculation: Calculation) -> Result<Value, String> {
     tauri::async_runtime::spawn_blocking(move || {
         backend::validate_calculation(&calculation)?;
@@ -130,10 +135,6 @@ async fn backup_export(state: State<'_, BackendState>) -> Result<Option<String>,
     }).await.map_err(|_| "Exportação de backup interrompida.".to_owned())?
 }
 
-#[tauri::command]
-fn restore_snapshot() -> Result<(), String> {
-    Err("Restauração não implementada: exige pré-visualização do snapshot e confirmação explícita de revisão. Nenhum arquivo foi substituído; bases corrompidas não são sobrescritas.".into())
-}
 
 fn navigation_allowed(url: &tauri::Url, development: bool) -> bool {
     if url.username() != "" || url.password().is_some() { return false; }
@@ -146,7 +147,7 @@ fn main() {
     let result = tauri::Builder::default()
         .manage(BackendState::default())
         .invoke_handler(tauri::generate_handler![bootstrap, save_workspace, pick_import_cnis, import_cnis_path,
-            run_tool, run_finance, fetch_economic_snapshot, calculate_case, calculate_rgps, preview_report, export_report, export_reports_batch, export_document, backup_export, restore_snapshot])
+            run_tool, run_finance, fetch_economic_snapshot, calculate_case, calculate_rgps, preview_report, export_report, export_reports_batch, export_document, backup_export])
         .setup(|app| {
             let config = app.config().app.windows.first().ok_or("Configuração da janela principal ausente.")?;
             WebviewWindowBuilder::from_config(app, config)?
@@ -190,8 +191,6 @@ mod tests {
         assert_eq!(actual["status"], "blocked"); assert!(actual["data"].is_null());
         assert!(actual["blockers"].as_array().unwrap().len() > 0); assert_eq!(actual["legal_validation_performed"], false);
     }
-    #[test]
-    fn restore_is_explicitly_unsupported() { assert!(restore_snapshot().unwrap_err().contains("não implementada")); }
     #[test]
     fn existing_core_facade_is_real_and_unknown_tool_is_error() {
         let value = previus_core::run_tool("inclusive_dates", json!({"start":"2026-10-10","end":"2026-10-10"})).unwrap();

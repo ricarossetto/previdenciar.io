@@ -39,6 +39,29 @@ fn missing_salary_is_not_zero_and_is_declared() {
     );
 }
 #[test]
+fn below_minimum_competence_is_not_time_or_pbc_until_complemented() {
+    let (c0, p0) = scenario();
+    let before = previus_rgps::pcd::calculate(&c0, &p0).unwrap()["data"]["native_result"]["resumo"]
+        ["carencia_meses"]
+        .as_u64()
+        .unwrap();
+    let (mut c, p) = scenario();
+    c.cnis.as_mut().unwrap().salary_months.get_mut("2020-02").unwrap().amount_sum_centavos = 50000;
+    let out = previus_rgps::pcd::calculate(&c, &p).unwrap();
+    let n = &out["data"]["native_result"];
+    assert_eq!(out["status"], "experimental");
+    assert_eq!(n["correcao"]["pbc"], 2);
+    assert_eq!(n["resumo"]["carencia_meses"].as_u64().unwrap(), before - 1);
+    assert!(!n["correcao"]["parcelas"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|row| row["competencia"] == "2020-02"));
+    let warnings = out["warnings"].as_array().unwrap();
+    assert!(warnings.iter().any(|w| w.as_str().unwrap_or("").contains("abaixo do salário mínimo")));
+    assert!(warnings.iter().any(|w| w.as_str().unwrap_or("").contains("2020-02")));
+}
+#[test]
 fn future_salary_needs_declared_projection_and_is_not_imported() {
     let (mut c, mut p) = scenario();
     c.dib = "2020-06-01".into();

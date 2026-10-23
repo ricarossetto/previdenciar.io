@@ -16,6 +16,12 @@ pub struct ContributionRecord {
     pub confirmed: bool,
     pub excluded: bool,
     pub evidence: String,
+    /// Origem do valor no CNIS. Ausente em bases antigas: remuneração.
+    #[serde(default = "default_amount_kind")]
+    pub amount_kind: previus_cnis::AmountKind,
+}
+fn default_amount_kind() -> previus_cnis::AmountKind {
+    previus_cnis::AmountKind::Remuneration
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -303,6 +309,12 @@ impl ContributionReview {
         let mut projected = vec![];
         for record in self.records.iter().filter(|r| !r.excluded) {
             amount_cents(&record.amount)?;
+            if !matches!(record.amount_kind, previus_cnis::AmountKind::Remuneration) {
+                return Err(
+                    "Valor de contribuição ou consolidado sem origem salarial não pode ser aplicado como salário; confira a coluna de remuneração na origem."
+                        .into(),
+                );
+            }
             if !record.confirmed
                 || record.evidence.trim().is_empty()
                 || record.currency != "BRL"

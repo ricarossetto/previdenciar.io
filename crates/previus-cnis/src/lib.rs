@@ -498,7 +498,7 @@ fn parse_pages(pages: &[String]) -> Result<ImportResult, ImportError> {
                             let amount_centavos = money(&text)?;
                             consolidated_candidates.push(SalaryEntry{
                                 competence: format!("{year}-{month:02}"), amount_centavos, indicators: vec![],
-                                source: source(page_index, line_index, consolidated_candidates.len()+1, offset+index),
+                                source: source(page_index, line_index, 0, offset+index),
                                 link_sequence: None, amount_kind: AmountKind::ConsolidatedAnnualValue,
                                 validation_status: ValidationStatus::Unvalidated, excluded_from_validated_domain: false,
                             });
@@ -597,6 +597,11 @@ fn parse_pages(pages: &[String]) -> Result<ImportResult, ImportError> {
             [only] => { candidate.link_sequence = Some(*only); consolidated_attributed += 1; }
             _ => { consolidated_ambiguous += 1; }
         }
+        // O índice de origem é a posição global (1-based) em salary_entries,
+        // inclusive para o consolidado, que só é anexado aqui: um contador
+        // próprio colidiria com os lançamentos por vínculo e a validação do
+        // workspace rejeitaria a importação inteira.
+        candidate.source.index = result.salary_entries.len() + 1;
         covered.insert(candidate.competence.clone());
         result.salary_entries.push(candidate);
     }

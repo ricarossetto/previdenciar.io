@@ -30,7 +30,17 @@ describe('contribution review',()=>{
   });
   it('rejects unsafe imported numbers atomically',()=>{
     const c=imported();c.cnis!.salary_entries[1].amount_centavos=Number.MAX_SAFE_INTEGER+1;
-    expect(()=>beginContributionReview(c)).toThrow(/precisão/);expect(c.contribution_review).toBeNull();
+    expect(()=>beginContributionReview(c)).toThrow(/Origem fora da precis/);expect(c.contribution_review).toBeNull();
+  });
+  it('carries the amount origin so a contribution column cannot pass as salary',()=>{
+    const c=imported();
+    c.cnis!.salary_entries[0].amount_kind='contribution_column_unresolved';
+    c.cnis!.salary_entries[1].amount_kind='consolidated_annual_value';
+    const review=beginContributionReview(c).contribution_review!;
+    expect(review.records[0].amount_kind).toBe('contribution_column_unresolved');
+    expect(review.records[0].indicators).toContain('origem:contribuicao');
+    expect(review.records[1].amount_kind).toBe('consolidated_annual_value');
+    expect(review.records[1].indicators).toContain('origem:valor_consolidado');
   });
   it('merges documented concomitance with exact cents and invalidates confirmation',()=>{
     const c=confirm(beginContributionReview(imported()));

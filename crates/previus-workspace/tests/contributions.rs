@@ -21,6 +21,7 @@ fn case() -> Calculation {
             confirmed: false,
             excluded: false,
             evidence: String::new(),
+            amount_kind: e.amount_kind.clone(),
         })
         .collect();
     let review = ContributionReview {
@@ -256,6 +257,34 @@ fn mismatched_applied_manual_rows_are_rejected() {
         .is_err());
 }
 
+#[test]
+fn contribution_column_value_cannot_be_applied_as_salary() {
+    let mut c = case();
+    let mut record = c.contribution_review.as_ref().unwrap().records[0].clone();
+    record.currency = "BRL".into();
+    record.confirmed = true;
+    record.evidence = "Guia sintética declarada".into();
+    record.amount_kind = previus_cnis::AmountKind::ContributionColumnUnresolved;
+    operation(&mut c, vec![record], "edit");
+    let error = match c.contribution_review.as_ref().unwrap().projection() {
+        Ok(_) => panic!("projeção aceitou valor de contribuição como salário"),
+        Err(error) => error,
+    };
+    assert!(error.contains("origem salarial"), "{error}");
+}
+#[test]
+fn legacy_review_without_amount_kind_defaults_to_remuneration() {
+    let review = case().contribution_review.unwrap();
+    let mut value = serde_json::to_value(&review).unwrap();
+    for record in value["records"].as_array_mut().unwrap() {
+        record.as_object_mut().unwrap().remove("amount_kind");
+    }
+    let loaded: ContributionReview = serde_json::from_value(value).unwrap();
+    assert!(loaded
+        .records
+        .iter()
+        .all(|r| matches!(r.amount_kind, previus_cnis::AmountKind::Remuneration)));
+}
 #[cfg(windows)]
 #[test]
 fn reviewed_overlay_roundtrips_through_actual_dpapi_without_plaintext() {

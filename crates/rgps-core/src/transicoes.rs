@@ -30,7 +30,8 @@ pub fn idade_exigida_meses(sexo: &str, ano: i32) -> i64 {
     (exigida.min(kv(&IDADE_TETO, sexo) as f64) * 12.0).round() as i64
 }
 
-/// Fator previdenciário (Lei 9.876/1999): (Tc×a/Es)×[1+(Id+Tc×a)/100], mínimo 1.
+/// Fator previdenciário (Lei 9.876/1999): (Tc×a/Es)×[1+(Id+Tc×a)/100].
+/// O fator pode reduzir o salário de benefício; não há piso legal em 1.
 pub fn fator_previdenciario(
     sexo: &str,
     tempo_total_meses: i64,
@@ -53,7 +54,7 @@ pub fn fator_previdenciario(
     let parcela1 = div(mul(tc, a), es)?;
     let interna = add(add(id, mul(tc, a)), Decimal::from(100)) / Decimal::from(100);
     let fator = mul(parcela1, interna);
-    Ok(fator.max(Decimal::ONE))
+    Ok(fator)
 }
 
 #[derive(Debug, Clone, Serialize)]
