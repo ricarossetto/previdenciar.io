@@ -36,6 +36,8 @@ pub struct Calculation {
     pub disability: Option<String>,
     pub dib: String,
     pub scenario: String,
+    /// Espécie INSS declarada pelo operador (ex.: "42"). Ausente em bases antigas.
+    pub especie: Option<String>,
     /// Interview answers only; missing legacy data stays null, never guessed.
     pub assistant: Option<AssistantInterview>,
     pub manual_links: Vec<ManualLink>,

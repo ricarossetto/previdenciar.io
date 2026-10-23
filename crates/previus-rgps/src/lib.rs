@@ -229,7 +229,7 @@ fn calculate_input(r: CalculationInput) -> Result<Value, String> {
     if !b.is_empty() { return Ok(blocked(b,warnings)); }
     let dib = dib.expect("validated DIB");
     let native = RgpsEntrada {
-        nome:None, sexo:sex, data_nascimento:birth, data_referencia:Some(dib), vinculos:links, competencias:wages,
+        nome:None, especie:r.segurado.especie.clone(), sexo:sex, data_nascimento:birth, data_referencia:Some(dib), vinculos:links, competencias:wages,
         opcoes:RgpsOpcoes {corrigir_salarios:o.corrigir_salarios.unwrap(),descarte:o.descarte.unwrap(),divisor_minimo:o.divisor_minimo.unwrap(),referencia_correcao:reference.or(Some(Competencia {ano:dib.ano as u16,mes:dib.mes})),teto:ceiling,piso:floor,aplicar_teto_vigente_der:o.aplicar_teto_vigente_der.unwrap(),expectativa_sobrevida:expectation,periodos_graca:vec![],recolhimentos_atraso:vec![],regra_alvo:None}
     };
     // The copied core is kept byte-identical; overflow/panic never becomes a zero result.

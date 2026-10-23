@@ -18,6 +18,8 @@ pub struct InsuredInput {
     #[serde(rename = "dataNascimento")]
     pub data_nascimento: Option<String>,
     pub deficiencia: Option<String>,
+    /// Espécie INSS declarada (ex.: "42"). Ausente em bases antigas.
+    pub especie: Option<String>,
 }
 #[derive(Clone, Default, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]

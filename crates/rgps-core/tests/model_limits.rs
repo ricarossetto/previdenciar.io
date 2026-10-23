@@ -11,7 +11,7 @@ fn date(s:&str)->IsoDate{IsoDate::parse(s,"fixture").unwrap()}
     assert!(f>Decimal::ZERO);
 }
 #[test] fn transition_time_uses_confirmed_periods_including_pre_1994(){
-    let e=RgpsEntrada{nome:None,sexo:"feminino".into(),data_nascimento:Some(date("1960-01-01")),data_referencia:Some(date("2025-01-31")),vinculos:vec![VinculoEntrada{inicio:date("1980-01-01"),fim:Some(date("2024-12-31")),tipo:"empregado".into(),empresa:None,fator:1.0}],competencias:vec![(Competencia::parse("2024-12","fixture").unwrap(),Decimal::from(2000))],opcoes:RgpsOpcoes::default()};
+    let e=RgpsEntrada{nome:None,especie:None,sexo:"feminino".into(),data_nascimento:Some(date("1960-01-01")),data_referencia:Some(date("2025-01-31")),vinculos:vec![VinculoEntrada{inicio:date("1980-01-01"),fim:Some(date("2024-12-31")),tipo:"empregado".into(),empresa:None,fator:1.0}],competencias:vec![(Competencia::parse("2024-12","fixture").unwrap(),Decimal::from(2000))],opcoes:RgpsOpcoes::default()};
     let r=calcular(&e).unwrap();
     let transicoes=r.transicoes.unwrap();
     // O tempo apurado cobre 1980..2024, mesmo com uma única competência no PBC.

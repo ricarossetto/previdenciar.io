@@ -30,7 +30,12 @@ pub fn calculate_case(case: &Calculation) -> Result<Value,String> {
         }
     }
     if case.kind.trim().to_lowercase() != "rgps" {
-        issue(&mut blockers,"case_kind_unsupported","kind","Este adaptador atende exclusivamente cálculos RGPS.");
+        issue(&mut blockers,"case_kind_unsupported","kind","Este adaptador atende exclusivamente cǭlculos RGPS.");
+    }
+    if let Some(especie) = case.especie.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+        if especie != "42" {
+            issue(&mut blockers,"especie_unsupported","especie","Este motor atende a espécie 42 (aposentadoria por tempo de contribuição); a espécie informada não tem fórmula própria aqui e não é aproximada.");
+        }
     }
     let policy: CasePolicy = if case.options.rule_policy.trim().starts_with('{') {
         serde_json::from_str(&case.options.rule_policy).map_err(|e|format!("invalid_case_policy: {e}"))?
@@ -80,7 +85,7 @@ pub fn calculate_case(case: &Calculation) -> Result<Value,String> {
         issue(&mut blockers,"correction_index_unsupported","options.correction_index","Motor copiado suporta INPC neste caminho, não outro índice arbitrário.");
     }
     let request = CalculationInput {
-        segurado:InsuredInput {sexo:case.sex.clone(),data_nascimento:case.identity.birth_date.clone(),deficiencia:case.disability.clone()},
+        segurado:InsuredInput {sexo:case.sex.clone(),data_nascimento:case.identity.birth_date.clone(),deficiencia:case.disability.clone(),especie:case.especie.clone()},
         data_referencia:Some(case.dib.clone()),
         vinculos:case.manual_links.iter().filter(|l|!l.source_review.as_ref().is_some_and(|r|r.excluded)).map(|l|LinkInput {
             inicio:Some(l.start_date.clone()),fim:Some(l.end_date.clone()),tipo:policy.manual_link_kind.clone(),

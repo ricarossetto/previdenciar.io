@@ -75,3 +75,13 @@ fn forged_application_or_modified_manual_rows_fail_before_the_engine() {
     c.manual_salaries[0].amount = "999.00".into();
     assert!(previus_rgps::calculate_case(&c).is_err());
 }
+#[test]
+fn especie_sem_motor_bloqueia_o_caso() {
+    let mut c = reviewed();
+    c.especie = Some("31".into());
+    let result = previus_rgps::calculate_case(&c).unwrap();
+    assert_eq!(result["status"], "blocked", "{result}");
+    assert!(result["blockers"].as_array().unwrap().iter().any(|b| b["code"] == "especie_unsupported"), "{result}");
+    c.especie = Some("42".into());
+    assert!(previus_rgps::calculate_case(&c).is_ok());
+}

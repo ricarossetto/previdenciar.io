@@ -16,6 +16,9 @@ const COMPETENCIA_REFORMA: Competencia = Competencia { ano: 2019, mes: 11 };
 #[derive(Debug, Clone)]
 pub struct RgpsEntrada {
     pub nome: Option<String>,
+    /// Espécie INSS declarada. Só a 42 (aposentadoria por tempo de
+    /// contribuição) tem motor aqui: outra espécie bloqueia, nunca é aproximada.
+    pub especie: Option<String>,
     pub sexo: String,
     pub data_nascimento: Option<IsoDate>,
     pub data_referencia: Option<IsoDate>,
@@ -113,6 +116,13 @@ pub fn validar(entrada: &RgpsEntrada) -> Result<()> {
         return Err(RgpsError(
             "Informe ao menos uma competência com salário de contribuição.".into(),
         ));
+    }
+    if let Some(especie) = entrada.especie.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+        if especie != "42" {
+            return Err(RgpsError(format!(
+                "Espécie {especie} não é suportada por este motor; os cálculos cobrem a 42 (aposentadoria por tempo de contribuição)."
+            )));
+        }
     }
     let mut vistas: std::collections::BTreeSet<Competencia> = std::collections::BTreeSet::new();
     let primeira = Competencia::parse(crate::PRIMEIRA_COMPETENCIA, "primeira competência")?;
@@ -411,6 +421,7 @@ mod tests {
     fn entrada_feminina_300() -> RgpsEntrada {
         RgpsEntrada {
             nome: Some("Cliente Teste".into()),
+            especie: None,
             sexo: "feminino".into(),
             data_nascimento: None,
             data_referencia: None,
@@ -429,6 +440,16 @@ mod tests {
                 .collect(),
             opcoes: RgpsOpcoes::default(),
         }
+    }
+
+    #[test]
+    fn especie_sem_motor_bloqueia() {
+        let mut entrada = entrada_feminina_300();
+        entrada.especie = Some("80".into());
+        let erro = calcular(&entrada).unwrap_err();
+        assert!(erro.0.contains("não é suportada"), "{erro}");
+        entrada.especie = Some("42".into());
+        assert!(calcular(&entrada).is_ok());
     }
 
     #[test]

@@ -25,6 +25,7 @@ fn sequencia(inicio: &str, quantidade: u32, salario: &str) -> Vec<(Competencia, 
 fn entrada_base(sexo: &str, quantidade: u32, salario: &str) -> RgpsEntrada {
     RgpsEntrada {
         nome: Some("Cliente Teste".into()),
+        especie: None,
         sexo: sexo.into(),
         data_nascimento: None,
         data_referencia: None,
@@ -107,6 +108,7 @@ fn correcao_ativa_com_teto_da_epoca_e_descarte() {
         .collect();
     let entrada = RgpsEntrada {
         nome: None,
+        especie: None,
         sexo: "feminino".into(),
         data_nascimento: None,
         data_referencia: None,
