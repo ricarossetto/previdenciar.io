@@ -224,8 +224,8 @@ fn calculate_input(r: CalculationInput) -> Result<Value, String> {
     }
     if floor.is_none() { warnings.push("Nenhum piso de benefício foi informado; nenhum piso é inventado ou atualizado automaticamente.".into()); }
     let expectation = o.expectativa_sobrevida.as_ref().and_then(|_| amount(&o.expectativa_sobrevida,"opcoes.expectativaSobrevida",&mut b,Decimal::from(150)));
-    if expectation.is_some() { issue(&mut b,"fator_previdenciario_unvalidated","opcoes.expectativaSobrevida","A fórmula do fator na cópia original possui divergências conhecidas; adaptador bloqueia esse caminho até correção e validação, sem alterar o original."); }
-    if expectation.is_none() { warnings.push("Sem expectativa de sobrevida documentada: regra que exige fator pode permanecer sem RMI. Não inferir valor IBGE.".into()); }
+    if expectation.is_some() { warnings.push("Expectativa de sobrevida declarada: o fator usa a fórmula da Lei 9.876/1999 (alíquotas 0,31/0,30, sem piso artificial). Conferir a fonte antes de uso judicial.".into()); }
+    if expectation.is_none() { warnings.push("Sem expectativa declarada: o pedágio de 50% usa a tábua de expectativa embutida (vigência mais recente até a DER); conferir com a publicação IBGE.".into()); }
     if !b.is_empty() { return Ok(blocked(b,warnings)); }
     let dib = dib.expect("validated DIB");
     let native = RgpsEntrada {

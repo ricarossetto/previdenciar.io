@@ -30,7 +30,8 @@ pub fn idade_exigida_meses(sexo: &str, ano: i32) -> i64 {
     (exigida.min(kv(&IDADE_TETO, sexo) as f64) * 12.0).round() as i64
 }
 
-/// Fator previdenciário (Lei 9.876/1999): (Tc×a/Es)×[1+(Id+Tc×a)/100].
+/// Fator previdenciário (Lei 9.876/1999): (Tc×a/Es)×[1+(Id+Tc×a)/100],
+/// com a alíquota de 0,31 para homens e 0,30 para mulheres.
 /// O fator pode reduzir o salário de benefício; não há piso legal em 1.
 pub fn fator_previdenciario(
     sexo: &str,
@@ -39,9 +40,9 @@ pub fn fator_previdenciario(
     expectativa_sobrevida: Decimal,
 ) -> Result<Decimal> {
     let a = if sexo == "feminino" {
-        Decimal::from_str_exact("0.31").unwrap()
+        Decimal::from_str_exact("0.30").unwrap()
     } else {
-        Decimal::from_str_exact("0.26").unwrap()
+        Decimal::from_str_exact("0.31").unwrap()
     };
     let tc = div(Decimal::from(tempo_total_meses), Decimal::from(12))?;
     let id = div(Decimal::from(idade_meses), Decimal::from(12))?;
@@ -219,7 +220,29 @@ pub fn build_transicoes(entrada: &TransicoesEntrada) -> Result<TransicoesResulta
     let faltava50 = (tempo_minimo - tempo_ate_reforma).max(0);
     let aplica50 = faltava50 > 0 && faltava50 <= 24;
     let pedagio50 = (faltava50 + 1) / 2;
-    let (rmi_fator, rmi_fator_final, observacao_fator) = match entrada.expectativa_sobrevida {
+    // Expectativa declarada pelo operador tem precedência; sem declaração, usa a
+    // tábua IBGE embutida (vigência mais recente até a DER).
+    let expectativa_tabelada = if entrada.expectativa_sobrevida.is_none() {
+        let tabela = if sexo.eq_ignore_ascii_case("feminino") {
+            &crate::dados::expectativa_sobrevida::EXPECTATIVA_FEMININA
+        } else {
+            &crate::dados::expectativa_sobrevida::EXPECTATIVA_MASCULINA
+        };
+        let idade = (idade_meses / 12).clamp(0, 90) as usize;
+        let referencia = entrada.data_referencia.to_string();
+        let mut linha_encontrada = None;
+        for (vigencia, linha) in tabela.iter() {
+            if *vigencia <= referencia.as_str() { linha_encontrada = Some(linha); } else { break; }
+        }
+        linha_encontrada.and_then(|linha| {
+            let valor = linha[idade];
+            if valor.is_empty() { None } else { Decimal::from_str_exact(valor).ok() }
+        })
+    } else {
+        None
+    };
+    let fonte_expectativa = if entrada.expectativa_sobrevida.is_some() { "declarada pelo operador" } else { "da tábua IBGE embutida" };
+    let (rmi_fator, rmi_fator_final, observacao_fator) = match entrada.expectativa_sobrevida.or(expectativa_tabelada) {
         Some(es) if aplica50 => {
             let idade_der = idade_meses;
             let fator = fator_previdenciario(sexo, tempo_total, idade_der, es)?;
@@ -229,14 +252,15 @@ pub fn build_transicoes(entrada: &TransicoesEntrada) -> Result<TransicoesResulta
                 Some(bruta),
                 Some(final_valor),
                 Some(format!(
-                    "Fator previdenciário {:.4} aplicado (expectativa declarada pelo operador){}.",
+                    "Fator previdenciário {:.4} aplicado (expectativa {}){}.",
                     fator,
+                    fonte_expectativa,
                     limite.map(|l| format!("; limite de {l} aplicado")).unwrap_or_default()
                 )),
             )
         }
         _ => (None, None, Some(
-            "O RMI desta regra usa fator previdenciário (Lei 9.876/1999); informe a expectativa de sobrevida do IBGE para calculá-lo.".into(),
+            "O RMI desta regra usa fator previdenciário (Lei 9.876/1999); a tábua embutida não cobre a idade/data desta DER. Informe a expectativa de sobrevida do IBGE para calculá-lo.".into(),
         )),
     };
     regras.push(RegraTransicao {
@@ -404,6 +428,15 @@ mod tests {
     }
 
     #[test]
+    fn fator_usa_aliquotas_legais_por_sexo() {
+        let masculino = fator_previdenciario("masculino", 120, 600, Decimal::from(40)).unwrap();
+        let feminino = fator_previdenciario("feminino", 120, 600, Decimal::from(40)).unwrap();
+        // Lei 9.876/1999: a = 0,31 (homem) e 0,30 (mulher).
+        assert_eq!(masculino, Decimal::from_str_exact("0.1186525").unwrap());
+        assert_eq!(feminino, Decimal::from_str_exact("0.11475").unwrap());
+    }
+
+    #[test]
     fn pedagio_50_calcula_com_expectativa() {
         let mut entrada = entrada("feminino", "1963-01-15", "2026-10-09", 348, 24);
         entrada.expectativa_sobrevida = Some(parse_money("18.5", "es").unwrap());
@@ -412,6 +445,20 @@ mod tests {
         // faltava 12 meses na reforma; pedágio 6 meses; tempo total 372 >= 360+6.
         assert!(pedagio50.elegivel, "{pedagio50:?}");
         assert!(pedagio50.rmi.is_some());
+    }
+
+    #[test]
+    fn pedagio_50_usa_tabua_embutida_sem_expectativa_declarada() {
+        let entrada = entrada("feminino", "1963-01-15", "2026-10-09", 348, 24);
+        assert!(entrada.expectativa_sobrevida.is_none());
+        let resultado = build_transicoes(&entrada).unwrap();
+        let pedagio50 = resultado.regras.iter().find(|r| r.id == "pedagio-50").unwrap();
+        assert!(pedagio50.rmi.is_some(), "{pedagio50:?}");
+        assert!(pedagio50
+            .observacao
+            .as_deref()
+            .unwrap_or("")
+            .contains("tábua IBGE"));
     }
 
     #[test]
