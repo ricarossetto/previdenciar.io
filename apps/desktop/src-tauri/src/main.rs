@@ -10,11 +10,25 @@ use serde_json::Value;
 use tauri::{State, WebviewWindowBuilder};
 
 #[tauri::command]
-fn bootstrap(state: State<'_, BackendState>) -> BootResult {
-    match state.lock() {
+async fn bootstrap(state: State<'_, BackendState>) -> Result<BootResult, String> {
+    // DPAPI, validação e serialização não bloqueiam a thread principal.
+    let store = std::sync::Arc::clone(&state.0);
+    let result = match tauri::async_runtime::spawn_blocking(move || match store.lock() {
         Ok(mut guard) => guard.bootstrap(),
-        Err(message) => BootResult { workspace: Workspace::default(), storage_ready: false, message: Some(message) },
-    }
+        Err(_) => BootResult {
+            workspace: Workspace::default(),
+            storage_ready: false,
+            message: Some("Estado privado indisponível; a gravação permanece bloqueada.".into()),
+        },
+    }).await {
+        Ok(result) => result,
+        Err(_) => BootResult {
+            workspace: Workspace::default(),
+            storage_ready: false,
+            message: Some("Abertura da base interrompida; a gravação permanece bloqueada até nova abertura.".into()),
+        },
+    };
+    Ok(result)
 }
 
 #[tauri::command]
