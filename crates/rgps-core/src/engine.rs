@@ -32,6 +32,9 @@ pub struct RgpsOpcoes {
     pub corrigir_salarios: bool,
     pub descarte: bool,
     pub divisor_minimo: bool,
+    /// Descarte dos menores salários (EC 103/2019, art. 26, § 6º) mantendo o
+    /// mínimo de competências declarado como necessário para o direito.
+    pub descartar_menores_minimo: Option<u32>,
     pub referencia_correcao: Option<Competencia>,
     pub teto: Option<Decimal>,
     pub piso: Option<Decimal>,
@@ -197,14 +200,19 @@ pub fn calcular(entrada: &RgpsEntrada) -> Result<RgpsResultado> {
     // PBC / salário de benefício.
     let correcao_ativa = entrada.opcoes.corrigir_salarios;
     let correcao = if correcao_ativa {
-        Some(calcular_pbc_com_correcao(
-            &competencias,
-            &entrada
-                .opcoes
-                .referencia_correcao
-                .unwrap_or(ultima),
-            entrada.opcoes.descarte,
-        )?)
+        let referencia_correcao = entrada.opcoes.referencia_correcao.unwrap_or(ultima);
+        Some(match entrada.opcoes.descartar_menores_minimo {
+            Some(minimo) => crate::rmi::calcular_pbc_com_descarte_minimo(
+                &competencias,
+                &referencia_correcao,
+                minimo,
+            )?,
+            None => calcular_pbc_com_correcao(
+                &competencias,
+                &referencia_correcao,
+                entrada.opcoes.descarte,
+            )?,
+        })
     } else {
         None
     };
@@ -452,6 +460,28 @@ mod tests {
         assert!(calcular(&entrada).is_ok());
     }
 
+    #[test]
+    fn descarte_ec103_remove_os_menores_ate_o_minimo() {
+        let mut entrada = entrada_feminina_300();
+        entrada.competencias = (0..10)
+            .map(|i| {
+                (
+                    Competencia { ano: 2024, mes: (i + 1) as u8 },
+                    parse_money(&format!("{}.00", (i + 1) * 100), "s").unwrap(),
+                )
+            })
+            .collect();
+        entrada.opcoes.corrigir_salarios = true;
+        entrada.opcoes.referencia_correcao = Some(Competencia { ano: 2024, mes: 10 });
+        entrada.opcoes.descartar_menores_minimo = Some(8);
+        let resultado = calcular(&entrada).unwrap();
+        let correcao = resultado.correcao.as_ref().unwrap();
+        assert_eq!(correcao["pbc"], 10);
+        assert_eq!(correcao["consideradas"], 8);
+        assert_eq!(correcao["descartadas"], 2);
+        assert_eq!(correcao["descarte_aplicado"], true);
+        assert_eq!(correcao["parcelas_descartadas"], serde_json::json!(["2024-01", "2024-02"]));
+    }
     #[test]
     fn reform_split_usa_tempo_apurado_e_nao_competencias() {
         let mut entrada = entrada_feminina_300();

@@ -60,6 +60,9 @@ pub struct OptionsInput {
     pub corrigir_salarios: Option<bool>,
     pub descarte: Option<bool>,
     pub divisor_minimo: Option<bool>,
+    /// EC 103/2019, art. 26, § 6º: descarta os menores salários mantendo este
+    /// mínimo de competências. Ausente desliga o descarte por redutores.
+    pub descartar_menores_minimo: Option<u32>,
     pub referencia_correcao: Option<String>,
     pub teto: Option<String>,
     pub piso: Option<String>,

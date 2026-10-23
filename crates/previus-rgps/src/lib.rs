@@ -196,6 +196,11 @@ fn calculate_input(r: CalculationInput) -> Result<Value, String> {
     if !o.graca.is_empty() || !o.recolhimentos_atraso.is_empty() { issue(&mut b,"carencia_extras_unsupported","opcoes.graca/recolhimentosAtraso","O modelo nativo soma estas competências sem validação jurídica: operação bloqueada no adaptador."); }
     if nonempty(&o.regra_alvo) { issue(&mut b,"rule_target_unsupported","opcoes.regraAlvo","calcular não aplica seleção de regra-alvo; projeção existe somente na API tipada original."); }
     let reference = if o.referencia_correcao.is_some() { month(&o.referencia_correcao,"opcoes.referenciaCorrecao",&mut b) } else { None };
+    if let Some(minimo) = o.descartar_menores_minimo {
+        if minimo < 1 || minimo > 600 { issue(&mut b,"descartar_menores_minimo_invalid","opcoes.descartarMenoresMinimo","Mínimo de competências deve ficar entre 1 e 600."); }
+        if o.corrigir_salarios != Some(true) { issue(&mut b,"descartar_menores_requires_correction","opcoes.descartarMenoresMinimo","O descarte da EC 103 é definido sobre o PBC corrigido; ative corrigirSalarios."); }
+        if o.descarte == Some(true) { issue(&mut b,"descartar_menores_conflict","opcoes.descartarMenoresMinimo","Use o descarte dos menores (EC 103) ou o descarte fixo de 20%, não ambos."); }
+    }
     if o.corrigir_salarios==Some(true) && reference.is_none() { issue(&mut b,"correction_reference_missing","opcoes.referenciaCorrecao","Correção exige referência explicitamente informada."); }
     if let (Some(reference),Some(dib))=(reference,dib) {
         if reference != (Competencia {ano:dib.ano as u16,mes:dib.mes}) { issue(&mut b,"correction_reference_mismatch","opcoes.referenciaCorrecao","Referência precisa corresponder ao mês da DIB; não corrigir para data diferente silenciosamente."); }
@@ -230,7 +235,7 @@ fn calculate_input(r: CalculationInput) -> Result<Value, String> {
     let dib = dib.expect("validated DIB");
     let native = RgpsEntrada {
         nome:None, especie:r.segurado.especie.clone(), sexo:sex, data_nascimento:birth, data_referencia:Some(dib), vinculos:links, competencias:wages,
-        opcoes:RgpsOpcoes {corrigir_salarios:o.corrigir_salarios.unwrap(),descarte:o.descarte.unwrap(),divisor_minimo:o.divisor_minimo.unwrap(),referencia_correcao:reference.or(Some(Competencia {ano:dib.ano as u16,mes:dib.mes})),teto:ceiling,piso:floor,aplicar_teto_vigente_der:o.aplicar_teto_vigente_der.unwrap(),expectativa_sobrevida:expectation,periodos_graca:vec![],recolhimentos_atraso:vec![],regra_alvo:None}
+        opcoes:RgpsOpcoes {corrigir_salarios:o.corrigir_salarios.unwrap(),descarte:o.descarte.unwrap(),divisor_minimo:o.divisor_minimo.unwrap(),descartar_menores_minimo:o.descartar_menores_minimo,referencia_correcao:reference.or(Some(Competencia {ano:dib.ano as u16,mes:dib.mes})),teto:ceiling,piso:floor,aplicar_teto_vigente_der:o.aplicar_teto_vigente_der.unwrap(),expectativa_sobrevida:expectation,periodos_graca:vec![],recolhimentos_atraso:vec![],regra_alvo:None}
     };
     // The copied core is kept byte-identical; overflow/panic never becomes a zero result.
     let result = std::panic::catch_unwind(|| rgps_core::calcular(&native))

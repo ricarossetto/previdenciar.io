@@ -102,6 +102,69 @@ pub fn calcular_pbc_com_correcao(
     })
 }
 
+/// Descarte dos menores salários (EC 103/2019, art. 26, § 6º) até o mínimo de
+/// competências que o operador declara necessário para manter o direito.
+/// Remove as menores remunerações corrigidas; o divisor é o número restante.
+pub fn calcular_pbc_com_descarte_minimo(
+    competencias: &[(Competencia, Decimal)],
+    referencia: &Competencia,
+    minimo_competencias: u32,
+) -> Result<PbcResultado> {
+    let mut parcelas: Vec<_> = Vec::with_capacity(competencias.len());
+    for (competencia, salario) in competencias {
+        parcelas.push(corrigir_salario(competencia, *salario, referencia)?);
+    }
+    let pbc = parcelas.len();
+    let minimo = (minimo_competencias as usize).min(pbc);
+    let mut ordenadas = parcelas.clone();
+    ordenadas.sort_by(|a, b| {
+        a.corrigido_full
+            .partial_cmp(&b.corrigido_full)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+    let corte = pbc - minimo;
+    let descartadas = &ordenadas[..corte];
+    let usadas = &ordenadas[corte..];
+    let mut soma = Decimal::ZERO;
+    for parcela in usadas {
+        soma = add(soma, to_cents(parcela.corrigido_full));
+    }
+    let media = if minimo == 0 {
+        Decimal::ZERO
+    } else {
+        div(soma, Decimal::from(minimo as i64))?
+    };
+    let salario_beneficio = to_cents(media);
+    let parcelas_publicas: Vec<ParcelaPbc> = parcelas
+        .iter()
+        .map(|p| {
+            let (tetos, inpc) = fontes_atualizacao();
+            ParcelaPbc {
+                competencia: p.competencia.to_string(),
+                salario: money(p.salario_nominal),
+                teto: money(p.teto),
+                considerado: money(p.considerado),
+                indice: fixed(p.indice, 6),
+                corrigido: money(p.corrigido),
+                fonte: format!("{tetos} | {inpc}"),
+            }
+        })
+        .collect();
+    Ok(PbcResultado {
+        referencia: referencia.to_string(),
+        pbc,
+        consideradas: minimo,
+        descartadas: corte,
+        parcelas_descartadas: descartadas.iter().map(|p| p.competencia.to_string()).collect(),
+        soma_considerada: money(soma),
+        media: money(salario_beneficio),
+        salario_beneficio: money(salario_beneficio),
+        descarte_aplicado: corte > 0,
+        parcelas: parcelas_publicas,
+        fontes_tetos: fontes_atualizacao().0,
+        fontes_inpc: fontes_atualizacao().1,
+    })
+}
 /// Média simples sem correção (salários já corrigidos), com divisor mínimo opcional.
 pub fn salario_beneficio_sem_correcao(
     competencias: &[(Competencia, Decimal)],
