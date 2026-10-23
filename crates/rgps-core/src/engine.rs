@@ -249,26 +249,29 @@ pub fn calcular(entrada: &RgpsEntrada) -> Result<RgpsResultado> {
                 "Informe a data de referência (DER) para comparar as regras de transição.".into(),
             )
         })?;
-        let tempo_total_meses = tempo
-            .as_ref()
-            .map(|t| (t.total_dias_efetivos / 30).max(quantidade as i64))
-            .unwrap_or(quantidade as i64);
-        let meses_ate_reforma = competencias
-            .iter()
-            .filter(|(c, _)| *c <= COMPETENCIA_REFORMA)
-            .count() as i64;
+        // Tempo apurado (dias efetivos / 30) antes e depois de 13/11/2019.
+        // A contagem de competências fica só como fallback quando não há vínculos.
+        let (meses_ate_reforma, meses_apos_reforma) = match tempo.as_ref() {
+            Some(t) => (t.marcos.ate_ec103 / 30, t.marcos.apos_ec103 / 30),
+            None => {
+                let ate = competencias
+                    .iter()
+                    .filter(|(c, _)| *c <= COMPETENCIA_REFORMA)
+                    .count() as i64;
+                (ate, quantidade as i64 - ate)
+            }
+        };
         let resultado = build_transicoes(&TransicoesEntrada {
             sexo: entrada.sexo.clone(),
             data_nascimento: nascimento,
             data_referencia,
             meses_ate_reforma,
-            meses_apos_reforma: quantidade as i64 - meses_ate_reforma,
+            meses_apos_reforma,
             salario_beneficio,
             teto: teto_derivado,
             piso: entrada.opcoes.piso,
             expectativa_sobrevida: entrada.opcoes.expectativa_sobrevida,
         })?;
-        let _ = tempo_total_meses; // documentado: coeficiente das regras usa tempoTotal (meses de competências)
         transicoes = Some(serde_json::to_value(&resultado).expect("serialização de transições"));
     } else {
         avisos.push(
@@ -426,6 +429,25 @@ mod tests {
                 .collect(),
             opcoes: RgpsOpcoes::default(),
         }
+    }
+
+    #[test]
+    fn reform_split_usa_tempo_apurado_e_nao_competencias() {
+        let mut entrada = entrada_feminina_300();
+        entrada.data_nascimento = Some(IsoDate::parse("1960-01-01", "nascimento").unwrap());
+        entrada.data_referencia = Some(IsoDate::parse("2025-01-31", "referencia").unwrap());
+        entrada.vinculos = vec![VinculoEntrada {
+            inicio: IsoDate::parse("2019-01-01", "inicio").unwrap(),
+            fim: Some(IsoDate::parse("2019-11-13", "fim").unwrap()),
+            tipo: "empregado".into(),
+            empresa: None,
+            fator: 1.0,
+        }];
+        let resultado = calcular(&entrada).unwrap();
+        let transicoes = resultado.transicoes.unwrap();
+        // 2019-01-01..2019-11-13 = 317 dias inclusivos; 317/30 = 10 meses.
+        assert_eq!(transicoes["tempo_ate_reforma_meses"], 10);
+        assert_eq!(transicoes["tempo_total_meses"], 10);
     }
 
     #[test]

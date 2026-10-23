@@ -30,16 +30,16 @@ pub fn calculate_facultative_quality(input: &QualityOfInsuredInput) -> Result<Ca
         || input.insured_category != InsuredCategory::Facultative {
         return Ok(CalculationOutcome::unsupported("facultative_quality_v1", vec![]));
     }
-    let last_grace_month = input.last_contribution_date.year_month().checked_add_months(6)?;
-    let latest_payment_date = last_grace_month.checked_add_months(2)?.on_day(15)?;
+    let last_grace_month = input.last_contribution_date.year_month().checked_add_months(12)?;
+    let latest_payment_date = last_grace_month.on_day(15)?;
     let quality_loss_date = latest_payment_date.next_day()?;
     Ok(CalculationOutcome::experimental(QualityOfInsuredOutput {
-        grace_months: 6, last_grace_month, latest_payment_date, quality_loss_date,
+        grace_months: 12, last_grace_month, latest_payment_date, quality_loss_date,
         explanation: vec![
-            "Mês da contribuição informado explicitamente; somam-se seis meses civis ao mês, sem deslocar o dia.".to_owned(),
-            "Prazo experimental: dia 15 do segundo mês após o último mês de graça.".to_owned(),
-            "Perda experimental: dia seguinte ao prazo, sem correção de feriados/fins de semana.".to_owned(),
+            "Art. 15, II, da Lei nº 8.213/1991: até 12 meses após a cessação das contribuições; encerramento no dia 15 do mês, a mesma convenção do relatório de qualidade.".to_owned(),
+            "A prorrogação para até 24 meses exige mais de 120 contribuições e o histórico completo; este cálculo rápido não a aplica.".to_owned(),
+            "Perda no dia seguinte ao prazo, sem correção de feriados/fins de semana.".to_owned(),
         ],
-    }, "facultative_quality_v1", &["TEST-02", "TEST-03", "UI-030", "UI-033"],
+    }, "facultative_quality_v2", &["TEST-02", "TEST-03", "UI-030", "UI-033"],
     "Apenas dois vetores facultativos foram observados; outras datas são extrapolação experimental. Sem benefício atual e após parar de contribuir. Não determina direito a benefício."))
 }

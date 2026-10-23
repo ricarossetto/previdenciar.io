@@ -12,7 +12,7 @@ use serde_json::json;
     let input=json!({"stopped_contributing":true,"currently_receiving_benefit":false,
         "insured_category":"facultative","last_contribution_date":"2024-02-29"});
     let result=run_tool("facultative_quality",input.clone()).unwrap();
-    assert_eq!(result["data"]["quality_loss_date"],"2024-10-16");
+    assert_eq!(result["data"]["quality_loss_date"],"2025-02-16");
     let mut unsupported=input; unsupported["insured_category"]=json!("employee");
     let result=run_tool("facultative_quality",unsupported).unwrap();
     assert_eq!(result["status"],"unsupported");

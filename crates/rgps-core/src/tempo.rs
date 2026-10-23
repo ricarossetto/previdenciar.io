@@ -143,6 +143,8 @@ pub fn calcular_tempo(
     });
 
     let mut processados: Vec<VinculoProcessado> = Vec::new();
+    // Segmentos efetivamente somados (sem sobreposição), para os marcos.
+    let mut efetivos: Vec<(IsoDate, IsoDate, f64)> = Vec::new();
     let mut cursor: Option<IsoDate> = None;
     let mut total_dias: i64 = 0;
     let mut total_dias_efetivos: i64 = 0;
@@ -164,6 +166,7 @@ pub fn calcular_tempo(
         total_dias += dias;
         total_dias_efetivos += dias_efetivos;
         if dias > 0 {
+            efetivos.push((inicio_efetivo, vinculo.fim, vinculo.fator));
             let mut periodo = Competencia {
                 ano: inicio_efetivo.ano as u16,
                 mes: inicio_efetivo.mes,
@@ -200,38 +203,38 @@ pub fn calcular_tempo(
 
     let marco_ec20 = IsoDate::parse(MARCO_EC20, "marco EC20")?;
     let marco_ec103 = IsoDate::parse(MARCO_EC103, "marco EC103")?;
-    let ate_ec20 = normalizados
+    let ate_ec20 = efetivos
         .iter()
-        .map(|v| {
-            let fim = if v.fim < marco_ec20 { v.fim } else { marco_ec20 };
-            if v.inicio <= fim {
-                (dias_inclusivos(&v.inicio, &fim) as f64 * v.fator).round() as i64
+        .map(|(inicio, fim_vinculo, fator)| {
+            let fim = if *fim_vinculo < marco_ec20 { *fim_vinculo } else { marco_ec20 };
+            if *inicio <= fim {
+                (dias_inclusivos(inicio, &fim) as f64 * fator).round() as i64
             } else {
                 0
             }
         })
         .sum();
-    let ate_ec103 = normalizados
+    let ate_ec103 = efetivos
         .iter()
-        .map(|v| {
-            let fim = if v.fim < marco_ec103 { v.fim } else { marco_ec103 };
-            if v.inicio <= fim {
-                (dias_inclusivos(&v.inicio, &fim) as f64 * v.fator).round() as i64
+        .map(|(inicio, fim_vinculo, fator)| {
+            let fim = if *fim_vinculo < marco_ec103 { *fim_vinculo } else { marco_ec103 };
+            if *inicio <= fim {
+                (dias_inclusivos(inicio, &fim) as f64 * fator).round() as i64
             } else {
                 0
             }
         })
         .sum();
-    let apos_ec103 = normalizados
+    let apos_ec103 = efetivos
         .iter()
-        .map(|v| {
-            let inicio = if v.inicio > marco_ec103 {
-                v.inicio
+        .map(|(inicio_vinculo, fim_vinculo, fator)| {
+            let inicio = if *inicio_vinculo > marco_ec103 {
+                *inicio_vinculo
             } else {
                 marco_ec103.add_days(1)
             };
-            if inicio <= v.fim {
-                (dias_inclusivos(&inicio, &v.fim) as f64 * v.fator).round() as i64
+            if inicio <= *fim_vinculo {
+                (dias_inclusivos(&inicio, fim_vinculo) as f64 * fator).round() as i64
             } else {
                 0
             }

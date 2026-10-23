@@ -10,16 +10,19 @@ fn date(s:&str)->IsoDate{IsoDate::parse(s,"fixture").unwrap()}
     assert!(f<Decimal::ONE,"Lei 9.876/1999 aplica o fator ainda que redutor: {f}");
     assert!(f>Decimal::ZERO);
 }
-#[test] fn known_transition_time_ignores_confirmed_pre_1994_periods(){
+#[test] fn transition_time_uses_confirmed_periods_including_pre_1994(){
     let e=RgpsEntrada{nome:None,sexo:"feminino".into(),data_nascimento:Some(date("1960-01-01")),data_referencia:Some(date("2025-01-31")),vinculos:vec![VinculoEntrada{inicio:date("1980-01-01"),fim:Some(date("2024-12-31")),tipo:"empregado".into(),empresa:None,fator:1.0}],competencias:vec![(Competencia::parse("2024-12","fixture").unwrap(),Decimal::from(2000))],opcoes:RgpsOpcoes::default()};
-    let r=calcular(&e).unwrap();assert_eq!(r.transicoes.unwrap()["tempo_total_meses"],1);
+    let r=calcular(&e).unwrap();
+    let transicoes=r.transicoes.unwrap();
+    // O tempo apurado cobre 1980..2024, mesmo com uma única competência no PBC.
+    assert!(transicoes["tempo_total_meses"].as_i64().unwrap()>400, "{transicoes}");
     assert!(r.tempo.unwrap()["total_dias_efetivos"].as_i64().unwrap()>10000);
 }
-#[test] fn known_overlap_is_deduplicated_total_but_not_reform_markers(){
+#[test] fn overlap_is_deduplicated_in_total_and_reform_markers(){
     let l=VinculoEntrada{inicio:date("2019-01-01"),fim:Some(date("2019-10-31")),tipo:"empregado".into(),empresa:None,fator:1.0};
     let r=calcular_tempo(&[l.clone(),l],Some(&date("2025-01-31"))).unwrap();
     let v=serde_json::to_value(r).unwrap();
     let total=v["total_dias_efetivos"].as_i64().unwrap();
     assert!(total>0);
-    assert_eq!(v["marcos"]["ate_ec103"].as_i64().unwrap(),total*2, "original markers sum overlapping periods twice");
+    assert_eq!(v["marcos"]["ate_ec103"].as_i64().unwrap(),total,"marcos usam os segmentos efetivos, sem dupla contagem");
 }

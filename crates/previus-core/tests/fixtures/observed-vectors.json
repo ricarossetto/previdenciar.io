@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "policy": "Observed product behavior, not normative or mathematical proof. Synthetic inputs only.",
+  "policy": "Synthetic oracles. The grace period was corrected to art. 15, II (12 months); the original observation had 6 months. Inputs are synthetic.",
   "tests": [
     {
       "id": "TEST-02",
@@ -14,10 +14,10 @@
         "last_contribution": "2026-10-10"
       },
       "output": {
-        "grace_months": 6,
-        "last_grace_month": "2027-04",
-        "payment_deadline": "2027-06-15",
-        "loss_date": "2027-06-16"
+        "grace_months": 12,
+        "last_grace_month": "2027-10",
+        "payment_deadline": "2027-10-15",
+        "loss_date": "2027-10-16"
       },
       "evidence": [
         "UI-027",
@@ -39,10 +39,10 @@
         "last_contribution": "2024-02-29"
       },
       "output": {
-        "grace_months": 6,
-        "last_grace_month": "2024-08",
-        "payment_deadline": "2024-10-15",
-        "loss_date": "2024-10-16"
+        "grace_months": 12,
+        "last_grace_month": "2025-02",
+        "payment_deadline": "2025-02-15",
+        "loss_date": "2025-02-16"
       },
       "evidence": [
         "UI-032",
