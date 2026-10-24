@@ -7,6 +7,7 @@ import type{ConsiderationFix}from'../assistantReview';
 import{api,errorMessage}from'../api';
 import{Badge,Button,Field,Icon,Notice,Panel,Select}from'./ui';
 import{CaseWorkbench,ResultView}from'./CaseWorkbench';
+import{PrepareFromCnis}from'./PrepareFromCnis';
 import{ReportCenter}from'./ReportCenter';
 
 type Screen='intro'|'situation'|'objective'|'parameters'|'conference'|'review'|'result';
@@ -173,8 +174,9 @@ export function RobotAssistant({draft,setDraft,workspace,onSave,onNotify,onManua
 
     {screen==='parameters'&&<Panel title="Dados iniciais para o benefício" subtitle="Somente os campos que alteram o cálculo."><div className="form-grid" data-ui-stack><Field label="Nome do segurado" required value={draft.identity.full_name??''} onChange={s=>update({identity:{...draft.identity,full_name:s}})}/><Field label="Nascimento do segurado" required value={draft.identity.birth_date?brDate(draft.identity.birth_date):''} onChange={s=>update({identity:{...draft.identity,birth_date:isoDate(s)??s}})} placeholder="DD/MM/AAAA"/><Field label="DIB / data da simulação" required value={draft.dib} onChange={dib=>update({dib})} placeholder="DD/MM/AAAA"/><Select label="Sexo cadastral do segurado" value={draft.sex??''} onChange={sex=>update({sex:sex||null})} items={['','Feminino','Masculino','A confirmar']}/><Select label="Deficiência na DIB" value={draft.disability??''} onChange={disability=>update({disability:disability||null})} items={['','Sem deficiência declarada','Leve','Moderada','Grave','A apurar']}/><div className="field"><span>Objetivo informado</span><Badge>{a.goal??'Não informado'}</Badge></div></div><p className="form-note">O CNIS não fornece sexo ou confirmação de deficiência. Não preencher pela aparência do nome. Cenários de teste devem ser registrados como hipóteses, não dados pessoais confirmados.</p>{issues.length>0&&<Notice>Falta confirmar: {issues.join('; ')}.</Notice>}<div className="form-actions" data-ui-actions><Button onClick={()=>setScreen('objective')}>Voltar ao objetivo</Button><Button primary disabled={issues.length>0} onClick={()=>next('conference',['parameters','periods'])}>Conferir períodos<Icon name="arrow" size={16}/></Button></div></Panel>}
 
-    {screen==='conference'&&<>
-      <AssistantConsiderationPanel consideration={consideration} onFix={fix}/>
+  {screen==='conference'&&<>
+  <PrepareFromCnis draft={draft} onResult={(prepared)=>{setDraft(prepared);setScreen('result')}} onNotify={onNotify}/>
+  <AssistantConsiderationPanel consideration={consideration} onFix={fix}/>
       <div className="conference-tabs" role="group" aria-label="Módulos de conferência">{TABS.map(item=><button key={item.id} type="button" aria-label={item.label} aria-pressed={tab===item.id} aria-controls="conference-panel" onClick={()=>{setTab(item.id);setError('')}}><span>{item.label}</span><small>{item.detail}</small></button>)}</div>
       <div id="conference-panel" role="region" aria-label={TABS.find(item=>item.id===tab)?.label}>
         <CaseWorkbench key={tab} draft={draft} setDraft={setDraft} workspace={workspace} onSave={onSave} onNotify={onNotify} initialStep={TABS.find(item=>item.id===tab)?.step??3} embedded/>

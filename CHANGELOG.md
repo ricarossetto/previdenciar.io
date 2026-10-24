@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.10.5 - 2026-10-24
+
+Preparação guiada no ponto de decisão.
+
+- O bloco "Preparar e calcular a partir do CNIS" virou componente único, usado na conferência do assistente e nos parâmetros do cálculo.
+- Com CNIS importado, a política manual fica recolhida em "Ajustar manualmente"; o caminho guiado aplica correção INPC até a DIB, sem descarte e com teto vigente.
+- Sem CNIS ou em cenário PcD, a política permanece aberta.
+- Nenhuma mudança de cálculo; testes de interface e navegador mantidos.
+
 ## 0.10.4 - 2026-10-23
 
 Correções da revisão de código.
