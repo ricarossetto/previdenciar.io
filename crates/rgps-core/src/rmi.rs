@@ -110,6 +110,9 @@ pub fn calcular_pbc_com_descarte_minimo(
     referencia: &Competencia,
     minimo_competencias: u32,
 ) -> Result<PbcResultado> {
+    if competencias.is_empty() || minimo_competencias == 0 {
+        return crate::money::erro("Descarte exige competências e mínimo maior que zero.");
+    }
     let mut parcelas: Vec<_> = Vec::with_capacity(competencias.len());
     for (competencia, salario) in competencias {
         parcelas.push(corrigir_salario(competencia, *salario, referencia)?);

@@ -115,7 +115,7 @@ pub fn prepare_from_cnis(case: &Calculation, reference: &str) -> Result<(Calcula
         .collect();
     let mut fora_de_vinculo = 0;
     let mut wages = Vec::new();
-    let mut meses_prpps = 0;
+    let mut meses_sem_remuneracao = 0;
     let mut concomitantes = 0;
     for (competencia, mes) in &cnis.salary_months {
         if competencia.as_str() < "1994-07" {
@@ -130,13 +130,16 @@ pub fn prepare_from_cnis(case: &Calculation, reference: &str) -> Result<(Calcula
             if entry.link_sequence.is_some_and(|sequence| prpps.contains(&sequence)) {
                 continue;
             }
+            if !matches!(entry.amount_kind, previus_cnis::AmountKind::Remuneration) {
+                continue;
+            }
             total = total
                 .checked_add(entry.amount_centavos)
                 .ok_or("Soma de remunerações excede o limite suportado.")?;
             usados += 1;
         }
         if usados == 0 {
-            meses_prpps += 1;
+            meses_sem_remuneracao += 1;
             continue;
         }
         let coberto = cobertura
@@ -157,10 +160,10 @@ pub fn prepare_from_cnis(case: &Calculation, reference: &str) -> Result<(Calcula
             confirmed: true,
         });
     }
-    if meses_prpps > 0 {
+    if meses_sem_remuneracao > 0 {
         notes.push(format!(
-            "{} mês(es) com apenas remuneração PRPPS ficaram fora do PBC.",
-            meses_prpps
+            "{} mês(es) sem remuneração RGPS (PRPPS ou coluna de contribuição) ficaram fora do PBC.",
+            meses_sem_remuneracao
         ));
     }
     if fora_de_vinculo > 0 {

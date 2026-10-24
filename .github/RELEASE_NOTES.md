@@ -1,16 +1,24 @@
-## previdenciar.io 0.10.3
+## previdenciar.io 0.10.4
 
 Versão estável da linha 0.10 para Windows x64. Desktop local, gratuito e open source sob MIT; não é serviço oficial do INSS nem certificação de direito a benefício.
 
 ### Novidades
 
 - Espécie de benefício explícita no contrato. Apenas a 42 tem motor; as demais espécies bloqueiam com motivo.
-- Fator previdenciário com as alíquotas da Lei 9.876/1999 (0,31 e 0,30) e tábua de expectativa de sobrevida embutida, com vigências de 1992 a 2025. O pedágio de 50% calcula sem expectativa declarada.
+- Fator previdenciário com alíquota fixa de 0,31 e acréscimo de cinco anos ao tempo da mulher (Lei 9.876/1999), com tábua de expectativa de sobrevida embutida, com vigências de 1992 a 2025. O pedágio de 50% calcula sem expectativa declarada.
 - IRRF mensal oficial por competência, com dependentes e isenção de 65 anos declarada. A vigência atual foi conferida com a Lei 14.848/2024.
 - Descarte dos menores salários da EC 103 (art. 26, § 6º) como opção explícita, com o mínimo de competências que preserva o direito.
 - Transições medidas por tempo apurado, com corte em 13/11/2019, e qualidade de segurado unificada em 12 meses.
 - Importação de CNIS sem rejeição pelo índice dos valores consolidados; duplicação de cálculo com identificadores novos; origem dos valores na revisão de contribuições.
 - Abertura da base fora da thread principal.
+
+### Correções da revisão de código
+
+- Os comandos `local_economic_snapshot` e `prepare_case_from_cnis` passam a estar registrados no handler do Tauri; na 0.10.3 a interface chamava comandos inexistentes.
+- O modal da preparação guiada saiu do ramo de importação e agora abre pelo botão, preparando e calculando.
+- Fator previdenciário com alíquota fixa de 0,31 e acréscimo de cinco anos ao tempo da mulher (Lei 9.876/1999).
+- Tábua de expectativa gerada pelo nome das colunas; idades 78 a 90 não herdam mais valores de outra série.
+- Descarte da EC 103 recusa mínimo zero; o IRRF não cai em faixa silenciosa; a preparação guiada ignora valores de contribuição que não são remuneração.
 
 ### Preparação guiada a partir do CNIS
 
@@ -28,7 +36,7 @@ Versão estável da linha 0.10 para Windows x64. Desktop local, gratuito e open 
 ### Paridade e validação
 
 - Caso PcD de referência: PBC 357, divisor 285, soma R$ 1.482.072,91 e RMI R$ 5.200,25. O motor público do TRF3 retorna R$ 5.200,88 e o software de referência R$ 5.200,89, diferença de 0,012% compatível com arredondamento de índices. Tempo e carência batem: 10.698 dias e 357 meses.
-- 471 testes Rust, 99 testes de interface e 36 testes de navegador aprovados; `tsc` limpo; revisão de fonte pública sem achados. Os testes de navegador usam IPC sintético.
+- 474 testes Rust, 104 testes de interface e 36 testes de navegador aprovados; `tsc` limpo; revisão de fonte pública sem achados. Os testes de navegador usam IPC sintético.
 
 ### O que permanece em aberto
 
@@ -38,6 +46,6 @@ Versão estável da linha 0.10 para Windows x64. Desktop local, gratuito e open 
 
 ### Download e compatibilidade
 
-Executável portátil `previdenciar.io-0.10.3-windows-x64.exe`, sem assinatura de código; requer Windows 10/11 x64 e WebView2. Confira `SHA256SUMS.txt` e `BUILDINFO.json`. Não desative proteções do Windows para executar o arquivo.
+Executável portátil `previdenciar.io-0.10.4-windows-x64.exe`, sem assinatura de código; requer Windows 10/11 x64 e WebView2. Confira `SHA256SUMS.txt` e `BUILDINFO.json`. Não desative proteções do Windows para executar o arquivo.
 
 A base local cifrada e o identificador legado são preservados, sem migração silenciosa. Nenhum CNIS, PDF de cliente, base, credencial ou perfil de teste acompanha esta release. Use dados fictícios no primeiro teste.

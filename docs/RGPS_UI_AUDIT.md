@@ -4,7 +4,7 @@ Data: 23/10/2026. Referência de comportamento: aplicativo proprietário instala
 
 ## Escopo da observação
 
-REA MCP 6.7.0 e Ghidra 12.1.4 analisaram o executável x64 com SHA-256 `70e97d5780aa2222b3231d3bc2ee4ecbf573f79462bd452d2ced11bed72d3a8e`. A navegação Windows foi feita separadamente com Computer Use, pois o observador nativo do REA desta instalação atende macOS.
+REA MCP 6.7.0 e Ghidra 12.1.4 analisaram o executável x64; o hash e os caminhos locais ficam fora do repositório por política de proveniência. A navegação Windows foi feita separadamente com Computer Use, pois o observador nativo do REA desta instalação atende macOS.
 
 Foi percorrido Novo cálculo → Utilizar o assistente → sem benefício atual → sem importação → simulação → novo benefício → nascimento e inscrição fictícios → sexo, DIB e espécie → painel interno. O aplicativo abriu diretamente o domínio de tempo de contribuição. As telas de dados iniciais conservaram as datas e escolhas da entrevista, com identificação pessoal vazia.
 
@@ -36,9 +36,7 @@ Ao acionar Gerar Relatórios sem períodos cadastrados, o original apresentou um
 
 ## Evidência estática e limites
 
-O Ghidra encontrou a string `INFOEXE` em `0x1400487e8` e sete referências. A decompilação da função que contém `0x140002781` mostra carregamento de recurso e tratamento de uma lista WLL. Isso evidencia um carregador; não recupera o assistente, suas fórmulas ou o motor previdenciário. A busca por nomes associados a assistente/RGPS não encontrou funções nomeadas, e o estado de carregamento do PDB foi reportado como desconhecido.
-
-Evidências REA: `ev_b09afd37e72e8df87ed8f8c79c733a8bcc3a182e2b76b8e0cccd8f15fa95b4a3`, `ev_14b7f76e61db62d1b56116b2a316296e1bd1a9641399692528a36dd543898f12`, `ev_d62d6343c5b189729db74aadf45fdd5f9cbd91d271f6c7dcd73323136e8f9d6b` e `ev_e7f3b0e7c868995908f1f195c3363710fd3f119f3ff410eaf39334fe77dfadbd`.
+A análise estática confirmou apenas um carregador de recursos; não recuperou o assistente, suas fórmulas ou o motor previdenciário. Endereços, nomes internos de funções, decompilação e identificadores de evidência local não são publicados neste repositório.
 
 Não houve cobertura exaustiva de todas as combinações, operações em massa, divisão de vínculo, gráficos, cálculo preenchido com contribuições nem exportação nesta rodada. Não se afirma equivalência matemática, jurídica ou visual. O motor Rust, o renderer PDF, os contratos IPC e o armazenamento não foram alterados.
 

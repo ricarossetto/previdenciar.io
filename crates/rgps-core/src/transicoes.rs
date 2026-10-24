@@ -31,7 +31,8 @@ pub fn idade_exigida_meses(sexo: &str, ano: i32) -> i64 {
 }
 
 /// Fator previdenciário (Lei 9.876/1999): (Tc×a/Es)×[1+(Id+Tc×a)/100],
-/// com a alíquota de 0,31 para homens e 0,30 para mulheres.
+/// com alíquota fixa de 0,31 e acréscimo de cinco anos ao tempo da mulher
+/// (art. 29, § 9º, I, da Lei nº 8.213/1991, incluído pela Lei 9.876/1999).
 /// O fator pode reduzir o salário de benefício; não há piso legal em 1.
 pub fn fator_previdenciario(
     sexo: &str,
@@ -39,12 +40,13 @@ pub fn fator_previdenciario(
     idade_meses: i64,
     expectativa_sobrevida: Decimal,
 ) -> Result<Decimal> {
-    let a = if sexo == "feminino" {
-        Decimal::from_str_exact("0.30").unwrap()
+    let a = Decimal::from_str_exact("0.31").unwrap();
+    let tempo_com_acrescimo = if sexo == "feminino" {
+        tempo_total_meses + 60
     } else {
-        Decimal::from_str_exact("0.31").unwrap()
+        tempo_total_meses
     };
-    let tc = div(Decimal::from(tempo_total_meses), Decimal::from(12))?;
+    let tc = div(Decimal::from(tempo_com_acrescimo), Decimal::from(12))?;
     let id = div(Decimal::from(idade_meses), Decimal::from(12))?;
     let es = expectativa_sobrevida;
     if es <= Decimal::ZERO {
@@ -428,12 +430,12 @@ mod tests {
     }
 
     #[test]
-    fn fator_usa_aliquotas_legais_por_sexo() {
+    fn fator_usa_aliquota_031_e_acrescimo_de_cinco_anos_para_mulher() {
         let masculino = fator_previdenciario("masculino", 120, 600, Decimal::from(40)).unwrap();
         let feminino = fator_previdenciario("feminino", 120, 600, Decimal::from(40)).unwrap();
         // Lei 9.876/1999: a = 0,31 (homem) e 0,30 (mulher).
         assert_eq!(masculino, Decimal::from_str_exact("0.1186525").unwrap());
-        assert_eq!(feminino, Decimal::from_str_exact("0.11475").unwrap());
+        // Mulher: Tc = 10 anos + 5 = 15 anos; 15×0,31/40 × [1+(50+4,65)/100] = 0,179780625.\n        assert_eq!(feminino, Decimal::from_str_exact("0.179780625").unwrap());
     }
 
     #[test]

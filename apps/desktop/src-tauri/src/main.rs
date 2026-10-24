@@ -167,7 +167,8 @@ fn main() {
     let result = tauri::Builder::default()
         .manage(BackendState::default())
         .invoke_handler(tauri::generate_handler![bootstrap, save_workspace, pick_import_cnis, import_cnis_path,
-            run_tool, run_finance, fetch_economic_snapshot, calculate_case, calculate_rgps, preview_report, export_report, export_reports_batch, export_document, backup_export])
+            run_tool, run_finance, fetch_economic_snapshot, local_economic_snapshot, prepare_case_from_cnis,
+            calculate_case, calculate_rgps, preview_report, export_report, export_reports_batch, export_document, backup_export])
         .setup(|app| {
             let config = app.config().app.windows.first().ok_or("Configuração da janela principal ausente.")?;
             WebviewWindowBuilder::from_config(app, config)?

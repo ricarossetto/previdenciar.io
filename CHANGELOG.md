@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.10.4 - 2026-10-23
+
+Correções da revisão de código.
+
+- Comandos `local_economic_snapshot` e `prepare_case_from_cnis` registrados no handler do Tauri.
+- Modal da preparação guiada movido para o retorno principal; o botão abre o diálogo, prepara e calcula.
+- Fator previdenciário com alíquota fixa de 0,31 e acréscimo de cinco anos ao tempo da mulher.
+- Tábua de expectativa gerada pelo nome das colunas; idades 78 a 90 corrigidas.
+- Descarte da EC 103 recusa mínimo zero; IRRF sem faixa silenciosa; preparação guiada ignora valores de contribuição não remuneratórios.
+- Auditoria de UI sem hash do executável, endereços ou evidências locais.
+
 ## 0.10.3 - 2026-10-23
 
 Preparação guiada a partir do CNIS e cálculo em um clique.
@@ -46,7 +57,7 @@ IRRF mensal oficial.
 
 Fator previdenciário e tábua de expectativa.
 
-- Alíquotas corrigidas para 0,31 (homem) e 0,30 (mulher), sem piso artificial em 1.
+- Alíquota fixa de 0,31 e acréscimo de cinco anos ao tempo da mulher (Lei 9.876/1999), sem piso artificial em 1.
 - Tábua de expectativa de sobrevida embutida, com vigências de 1992 a 2025 por idade e sexo. O pedágio de 50% calcula sem expectativa declarada.
 
 ## 0.9.6 - 2026-10-23

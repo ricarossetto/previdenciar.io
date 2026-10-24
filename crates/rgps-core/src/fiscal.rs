@@ -67,11 +67,16 @@ pub fn irrf_mensal(
         .ok_or("Competência anterior à primeira tabela de IRRF embutida.")?;
     let deducao_dependentes = Decimal::from(dependentes) * decimal(tabela.dependente, "Dependente")?;
     let base_ajustada = (base - deducao_dependentes - isencao_65).max(Decimal::ZERO);
-    let faixa = tabela
-        .faixas
-        .iter()
-        .find(|faixa| faixa.limite != "0" && base_ajustada <= decimal(faixa.limite, "Limite").unwrap_or(Decimal::ZERO))
-        .unwrap_or(&tabela.faixas[4]);
+    let mut faixa = &tabela.faixas[4];
+    for candidata in &tabela.faixas {
+        if candidata.limite == "0" {
+            continue;
+        }
+        if base_ajustada <= decimal(candidata.limite, "Limite")? {
+            faixa = candidata;
+            break;
+        }
+    }
     let aliquota = decimal(faixa.aliquota, "Alíquota")?;
     let deducao = decimal(faixa.deducao, "Dedução")?;
     let bruto = base_ajustada * aliquota / Decimal::from(100) - deducao;
