@@ -101,6 +101,12 @@ async fn calculate_rgps(input: Value) -> Result<Value, String> {
         .map_err(|_| "Motor RGPS interrompido; nenhum resultado produzido.".to_owned())?
 }
 
+#[tauri::command]
+async fn project_rgps(calculation: Calculation) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || previus_rgps::project_case(&calculation)).await
+        .map_err(|_| "Projeção interrompida; nenhum resultado produzido.".to_owned())?
+}
+
 /// Preserve the actual engine data, warnings and blockers. Never convert a blocked
 /// or experimental output into a successful/legally validated benefit result.
 fn enforce_rgps_envelope(mut value: Value) -> Result<Value, String> {
@@ -143,6 +149,12 @@ async fn export_document(text: String) -> Result<Option<String>, String> {
 }
 
 #[tauri::command]
+async fn merge_pdfs() -> Result<Option<String>, String> {
+    tauri::async_runtime::spawn_blocking(move || files::dialog_merge_pdfs()).await
+        .map_err(|_| "Mesclagem de PDFs interrompida.".to_owned())?
+}
+
+#[tauri::command]
 async fn backup_export(state: State<'_, BackendState>) -> Result<Option<String>, String> {
     let path = {
         let guard = state.lock()?;
@@ -168,7 +180,7 @@ fn main() {
         .manage(BackendState::default())
         .invoke_handler(tauri::generate_handler![bootstrap, save_workspace, pick_import_cnis, import_cnis_path,
             run_tool, run_finance, fetch_economic_snapshot, local_economic_snapshot, prepare_case_from_cnis,
-            calculate_case, calculate_rgps, preview_report, export_report, export_reports_batch, export_document, backup_export])
+            calculate_case, calculate_rgps, project_rgps, preview_report, export_report, export_reports_batch, export_document, merge_pdfs, backup_export])
         .setup(|app| {
             let config = app.config().app.windows.first().ok_or("Configuração da janela principal ausente.")?;
             WebviewWindowBuilder::from_config(app, config)?

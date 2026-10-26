@@ -245,3 +245,51 @@ fn salary_ledger_shows_only_the_days_covered_by_joined_periods() {
     assert_eq!(rows[1]["dias"], 18);
     assert_eq!(rows[2]["dias"], 30);
 }
+
+#[test]
+fn common_time_conversion_factor_is_applied_before_disability_start() {
+    let (c, mut p) = scenario();
+    p.disability_all_periods = false;
+    p.disability_start_date = Some("2020-01-01".into());
+    p.fator_conversao_comum = Some("0.93".into());
+    let out = previus_rgps::pcd::calculate(&c, &p).unwrap();
+    assert_eq!(out["status"], "experimental");
+    let tempo = &out["data"]["native_result"]["tempo"];
+    // 1990-01-01..2019-12-31 = 10800 dias 30/360 * 0.93 = 10044
+    // 2020-01-01..2020-04-01 = 91 dias 30/360 * 1.0 = 91
+    // total = 10135
+    assert_eq!(tempo["total"]["days_30_360"], 10135);
+    assert_eq!(tempo["total"]["years"], 28);
+    assert_eq!(tempo["total"]["months"], 1);
+    assert_eq!(tempo["total"]["days"], 25);
+    // Conversion metadata is exposed.
+    let pcd = &out["data"]["native_result"]["pcd"];
+    assert_eq!(pcd["disability_start_date"], "2020-01-01");
+    assert_eq!(pcd["fator_conversao_comum"], "0.93");
+}
+#[test]
+fn conversion_without_start_date_is_blocked() {
+    let (c, mut p) = scenario();
+    p.disability_all_periods = false;
+    p.fator_conversao_comum = Some("0.93".into());
+    let out = previus_rgps::pcd::calculate(&c, &p).unwrap();
+    assert_eq!(out["status"], "blocked");
+    let (_, mut p) = scenario();
+    p.disability_all_periods = false;
+    p.disability_start_date = Some("2020-01-01".into());
+    let out = previus_rgps::pcd::calculate(&c, &p).unwrap();
+    assert_eq!(out["status"], "blocked");
+}
+#[test]
+fn conversion_factor_out_of_range_fails_closed() {
+    let (c, mut p) = scenario();
+    p.disability_all_periods = false;
+    p.disability_start_date = Some("2020-01-01".into());
+    p.fator_conversao_comum = Some("1.01".into());
+    assert!(previus_rgps::pcd::calculate(&c, &p).is_err());
+    let (_, mut p) = scenario();
+    p.disability_all_periods = false;
+    p.disability_start_date = Some("2020-01-01".into());
+    p.fator_conversao_comum = Some("0".into());
+    assert!(previus_rgps::pcd::calculate(&c, &p).is_err());
+}

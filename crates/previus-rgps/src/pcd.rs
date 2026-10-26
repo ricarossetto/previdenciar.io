@@ -3,7 +3,7 @@
 use crate::{blocked, issue};
 use chrono::{Datelike, Duration, NaiveDate};
 use previus_workspace::Calculation;
-use rust_decimal::{Decimal, RoundingStrategy};
+use rust_decimal::{Decimal, RoundingStrategy, prelude::ToPrimitive};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
@@ -36,6 +36,12 @@ pub struct Lc142Policy {
     pub projection_evidence: String,
     pub historical_negative_policy: String,
     pub apply_inss_overrides: bool,
+    /// Data em que a deficiência se inicia (AAAA-MM-DD). Períodos anteriores
+    /// contam como tempo comum e recebem o fator de conversão declarado.
+    pub disability_start_date: Option<String>,
+    /// Fator de conversão de tempo comum para tempo PcD (0.93 leve, 0.89
+    /// moderada, 0.83 grave). Exige `disability_start_date`.
+    pub fator_conversao_comum: Option<String>,
     pub snapshot: Option<Snapshot>,
 }
 #[derive(Clone, Serialize, Deserialize)]
@@ -189,13 +195,38 @@ fn salary_days(periods: &[(NaiveDate, NaiveDate)], competence: &str) -> i64 {
         .sum::<i64>()
         .min(30)
 }
-fn duration(periods: &[(NaiveDate, NaiveDate)], until: NaiveDate) -> Value {
-    let days: i64 = periods
+fn duration(
+    periods: &[(NaiveDate, NaiveDate)],
+    until: NaiveDate,
+    disability_start: Option<NaiveDate>,
+    conversion_factor: Option<Decimal>,
+) -> Value {
+    let convert = disability_start.zip(conversion_factor);
+    let days: Decimal = periods
         .iter()
         .filter(|(a, _)| *a <= until)
-        .map(|(a, b)| period_days(*a, (*b).min(until)))
+        .map(|(a, b)| {
+            let end = (*b).min(until);
+            let total = Decimal::from(period_days(*a, end));
+            match convert {
+                Some((start, factor)) => {
+                    if end <= start {
+                        total * factor
+                    } else if *a >= start {
+                        total
+                    } else {
+                        let before_end = start - Duration::days(1);
+                        let before = Decimal::from(period_days(*a, before_end));
+                        let after = Decimal::from(period_days(start, end));
+                        before * factor + after
+                    }
+                }
+                None => total,
+            }
+        })
         .sum();
-    json!({"days_30_360":days,"years":days/360,"months":days%360/30,"days":days%30})
+    let days_i64 = days.floor().to_i64().unwrap_or(0);
+    json!({"days_30_360":days_i64,"years":days_i64/360,"months":days_i64%360/30,"days":days_i64%30})
 }
 impl Snapshot {
     pub fn validate(&self) -> Result<(), String> {
@@ -373,8 +404,12 @@ pub fn calculate(case: &Calculation, p: &Lc142Policy) -> Result<Value, String> {
             "Confirme as premissas e a referência documental deste cenário.",
         );
     }
-    if !p.disability_all_periods || p.disability_evidence.trim().is_empty() {
-        issue(&mut errors,"lc142_disability_periods","disability","Esta versão exige um grau constante em todos os períodos, declarado e documentado. Graus mistos/conversões não são presumidos.");
+    let has_conversion = p.disability_start_date.as_deref().is_some_and(|s| !s.trim().is_empty())
+        && p.fator_conversao_comum.as_deref().is_some_and(|s| !s.trim().is_empty());
+    if (!p.disability_all_periods && !has_conversion)
+        || p.disability_evidence.trim().is_empty()
+    {
+        issue(&mut errors,"lc142_disability_periods","disability","Grau constante em todos os períodos OU período da deficiência com fator de conversão declarado e documentado. Graus mistos não são presumidos.");
     }
     if !p.rgps_confirmed {
         issue(
@@ -820,8 +855,34 @@ pub fn calculate(case: &Calculation, p: &Lc142Policy) -> Result<Value, String> {
     }
     let average = (sum / Decimal::from(used))
         .round_dp_with_strategy(2, RoundingStrategy::MidpointAwayFromZero);
-    let time = duration(&merged_time, dib);
-    let past = duration(&merged_time, base);
+    let conv_start = p
+        .disability_start_date
+        .as_deref()
+        .filter(|s| !s.trim().is_empty())
+        .map(|s| date(s.trim()))
+        .transpose()?;
+    let conv_factor = p
+        .fator_conversao_comum
+        .as_deref()
+        .filter(|s| !s.trim().is_empty())
+        .map(|s| dec(s.trim()))
+        .transpose()?;
+    if conv_start.is_some() != conv_factor.is_some() {
+        return Err(
+            "Conversão de tempo comum exige disability_start_date e fator_conversao_comum juntos."
+                .into(),
+        );
+    }
+    if let (Some(start), Some(factor)) = (conv_start, conv_factor) {
+        if factor <= Decimal::ZERO || factor > Decimal::ONE {
+            return Err("Fator de conversão deve estar entre 0 (exclusivo) e 1.".into());
+        }
+        if start > dib {
+            return Err("Data de início da deficiência posterior à DIB.".into());
+        }
+    }
+    let time = duration(&merged_time, dib, conv_start, conv_factor);
+    let past = duration(&merged_time, base, conv_start, conv_factor);
     let mut months = BTreeSet::new();
     for (a, b) in &merged_time {
         let mut m = format!("{:04}-{:02}", a.year(), a.month());
@@ -836,7 +897,7 @@ pub fn calculate(case: &Calculation, p: &Lc142Policy) -> Result<Value, String> {
     let rmi = average
         .min(dec(&current_limit.ceiling)?)
         .max(dec(&current_limit.minimum)?);
-    let mut warnings:Vec<String>=vec!["SIMULAÇÃO com premissas declaradas, não concessão ou validação jurídica.".to_string(),"LC 142: apenas grau constante em todos os períodos; não suporta conversões por graus mistos, atividade especial, CTC automática ou fator previdenciário.".into(),format!("{floor_count} competências preenchidas por hipótese de mínimo; {projection_count} projetadas pelo teto conhecido. Não são salários extraídos."),"Períodos abertos são continuados somente por hipótese explícita. Limites futuros são congelados no snapshot conhecido, não valores oficiais futuros.".into(),"Contagem de tempo adota convenção declarada 30/360 inclusiva, com união das sobreposições; revisar a aplicação profissional.".into()];
+    let mut warnings:Vec<String>=vec!["SIMULAÇÃO com premissas declaradas, não concessão ou validação jurídica.".to_string(),"LC 142: grau constante; conversao de tempo comum por fator declarado quando aplicavel. Nao suporta graus mistos, atividade especial, CTC automatica ou fator previdenciario.".into(),format!("{floor_count} competências preenchidas por hipótese de mínimo; {projection_count} projetadas pelo teto conhecido. Não são salários extraídos."),"Períodos abertos são continuados somente por hipótese explícita. Limites futuros são congelados no snapshot conhecido, não valores oficiais futuros.".into(),"Contagem de tempo adota convenção declarada 30/360 inclusiva, com união das sobreposições; revisar a aplicação profissional.".into()];
     if let Some(note)=consolidated_note{warnings.push(note);}
     if !missing_salary_months.is_empty(){
         let list=missing_salary_months.iter().take(12).cloned().collect::<Vec<_>>().join(", ");
@@ -847,6 +908,6 @@ pub fn calculate(case: &Calculation, p: &Lc142Policy) -> Result<Value, String> {
         warnings.push(format!("{} competência(s) com valor consolidado abaixo do salário mínimo não entraram no PBC até a complementação: {list}{}. O CNIS marca esses meses com PREC-MENOR-MIN; a regra de reconhecimento é a do próprio extrato.",below_minimum.len(),if below_minimum.len()>12{", e outras" }else{""}));
     }
     Ok(
-        json!({"status":"experimental","legal_validation_performed":false,"rule_review_status":"declared_scenario_assumptions","warnings":warnings,"data":{"native_result":{"engine_id":VERSION,"resumo":{"competencias":rows.len(),"carencia_meses":months.len(),"soma_salarios":money(sum),"salario_beneficio":money(average),"coeficiente":"100.00","rmi_bruta":money(average),"rmi":if eligible{json!(money(rmi))}else{Value::Null},"teto":current_limit.ceiling,"piso":current_limit.minimum},"parametros":{"divisor":used,"correcao_ativa":true,"referencia_correcao":p.correction_month,"descarte_aplicado":true,"divisor_minimo_aplicado":false,"coeficiente":"100.00"},"correcao":{"referencia":p.correction_month,"pbc":rows.len(),"consideradas":used,"descartadas":discarded.len(),"parcelas":rows,"parcelas_descartadas":discarded,"soma_considerada":money(sum),"media":money(average),"salario_beneficio":money(average),"descarte_aplicado":true},"tempo":{"total":time,"sem_projecao":past,"carencia_meses":months.len(),"convention":"declared_30_360_inclusive_union","vinculos":merged_time.iter().map(|(a,b)|json!({"inicio":a.to_string(),"fim":b.to_string(),"dias_30_360":period_days(*a,*b)})).collect::<Vec<_>>()},"pcd":{"grau":grade,"anos_exigidos":required,"tempo_atingido_no_cenario":eligible,"calculation_date":p.calculation_date,"projection_count":projection_count,"filled_minimum_count":floor_count,"source_sha256":cnis.metadata.source_sha256,"snapshot_sha256":snapshot.response_sha256,"disability_evidence":p.disability_evidence,"review_evidence":p.review_evidence,"assumptions_confirmed":true,"actual_entitlement_verified":false},"memoria":[{"tipo":"regra","descricao":"LC 142, grau constante; média dos 80% maiores salários e coeficiente declarado de 100%","valor":money(average)}],"avisos":warnings}}}),
+        json!({"status":"experimental","legal_validation_performed":false,"rule_review_status":"declared_scenario_assumptions","warnings":warnings,"data":{"native_result":{"engine_id":VERSION,"resumo":{"competencias":rows.len(),"carencia_meses":months.len(),"soma_salarios":money(sum),"salario_beneficio":money(average),"coeficiente":"100.00","rmi_bruta":money(average),"rmi":if eligible{json!(money(rmi))}else{Value::Null},"teto":current_limit.ceiling,"piso":current_limit.minimum},"parametros":{"divisor":used,"correcao_ativa":true,"referencia_correcao":p.correction_month,"descarte_aplicado":true,"divisor_minimo_aplicado":false,"coeficiente":"100.00"},"correcao":{"referencia":p.correction_month,"pbc":rows.len(),"consideradas":used,"descartadas":discarded.len(),"parcelas":rows,"parcelas_descartadas":discarded,"soma_considerada":money(sum),"media":money(average),"salario_beneficio":money(average),"descarte_aplicado":true},"tempo":{"total":time,"sem_projecao":past,"carencia_meses":months.len(),"convention":"declared_30_360_inclusive_union","vinculos":merged_time.iter().map(|(a,b)|json!({"inicio":a.to_string(),"fim":b.to_string(),"dias_30_360":period_days(*a,*b)})).collect::<Vec<_>>()},"pcd":{"grau":grade,"anos_exigidos":required,"tempo_atingido_no_cenario":eligible,"calculation_date":p.calculation_date,"projection_count":projection_count,"filled_minimum_count":floor_count,"source_sha256":cnis.metadata.source_sha256,"snapshot_sha256":snapshot.response_sha256,"disability_evidence":p.disability_evidence,"review_evidence":p.review_evidence,"disability_start_date":p.disability_start_date,"fator_conversao_comum":p.fator_conversao_comum,"assumptions_confirmed":true,"actual_entitlement_verified":false},"memoria":[{"tipo":"regra","descricao":"LC 142, grau constante; média dos 80% maiores salários e coeficiente declarado de 100%","valor":money(average)}],"avisos":warnings}}}),
     )
 }

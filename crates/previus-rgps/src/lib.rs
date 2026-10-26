@@ -5,7 +5,7 @@ mod bridge;
 pub mod pcd;
 pub mod guided;
 pub mod contracts;
-pub use bridge::calculate_case;
+pub use bridge::{calculate_case, project_case};
 pub use guided::prepare_from_cnis;
 use contracts::*;
 use rgps_core::{RgpsEntrada, RgpsOpcoes};

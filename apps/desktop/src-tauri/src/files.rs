@@ -107,14 +107,15 @@ impl ReportFormat {
     pub fn parse(value: &str) -> Result<Self, String> {
         match value {
             "html" => Ok(Self::Html), "csv" => Ok(Self::Csv), "json" => Ok(Self::Json),
-            "pdf" | "pdf_detailed" => Ok(Self::Pdf(previus_reports::ReportKind::Detailed)),
-            "pdf_summary" => Ok(Self::Pdf(previus_reports::ReportKind::Summary)),
-            "pdf_periods" => Ok(Self::Pdf(previus_reports::ReportKind::Periods)),
-            "pdf_salaries" => Ok(Self::Pdf(previus_reports::ReportKind::Salaries)),
-            "pdf_memory" => Ok(Self::Pdf(previus_reports::ReportKind::Memory)),
-            "pdf_transitions" => Ok(Self::Pdf(previus_reports::ReportKind::Transitions)),
-            "pdf_indicators" => Ok(Self::Pdf(previus_reports::ReportKind::Indicators)),
-            "pdf_quality" => Ok(Self::Pdf(previus_reports::ReportKind::Quality)),
+                "pdf" | "pdf_detailed" => Ok(Self::Pdf(previus_reports::ReportKind::Detailed)),
+                "pdf_summary" => Ok(Self::Pdf(previus_reports::ReportKind::Summary)),
+                "pdf_periods" => Ok(Self::Pdf(previus_reports::ReportKind::Periods)),
+                "pdf_salaries" => Ok(Self::Pdf(previus_reports::ReportKind::Salaries)),
+                "pdf_memory" => Ok(Self::Pdf(previus_reports::ReportKind::Memory)),
+                "pdf_transitions" => Ok(Self::Pdf(previus_reports::ReportKind::Transitions)),
+                "pdf_indicators" => Ok(Self::Pdf(previus_reports::ReportKind::Indicators)),
+                "pdf_quality" => Ok(Self::Pdf(previus_reports::ReportKind::Quality)),
+                "pdf_analysis" => Ok(Self::Pdf(previus_reports::ReportKind::Analysis)),
             _ => Err("Formato não suportado. Use um relatório PDF conhecido, HTML, CSV ou JSON.".into()),
         }
     }
@@ -388,6 +389,32 @@ pub fn dialog_export_batch(calculation: Calculation, workspace: Workspace, forma
         .set_title("Exportar PDFs separados em uma pasta (não sobrescreve)")
         .pick_folder() { Some(path) => path, None => return Ok(None) };
     write_batch_to_with(&directory, &calculation, &workspace, &selected, include_personal, presentation).map(Some)
+}
+/// Merge multiple PDF files selected by the user into a single new PDF.
+pub fn dialog_merge_pdfs() -> Result<Option<String>, String> {
+    let paths = rfd::FileDialog::new()
+        .set_title("Selecione os PDFs para mesclar (na ordem)")
+        .add_filter("PDF", &["pdf"])
+        .pick_files();
+    let Some(paths) = paths else { return Ok(None) };
+    if paths.len() < 2 {
+        return Err("Selecione ao menos dois PDFs para mesclar.".into());
+    }
+    let mut parts = Vec::with_capacity(paths.len());
+    for path in &paths {
+        let bytes = std::fs::read(path)
+            .map_err(|e| format!("Falha ao ler {}: {e}", path.display()))?;
+        parts.push(bytes);
+    }
+    let merged = previus_reports::merge_pdfs(&parts)?;
+    let output = rfd::FileDialog::new()
+        .set_title("Salvar PDF mesclado em NOVO arquivo")
+        .add_filter("PDF", &["pdf"])
+        .set_file_name("previus-mesclado.pdf")
+        .save_file();
+    let Some(output) = output else { return Ok(None) };
+    write_new(&output, "pdf", &merged)?;
+    Ok(Some(output.to_string_lossy().into_owned()))
 }
 pub fn dialog_document(text: String) -> Result<Option<String>, String> {
     if text.len() as u64 > MAX_WORKSPACE_BYTES { return Err("Documento excede o limite de 64 MiB.".into()); }

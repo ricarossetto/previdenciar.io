@@ -74,7 +74,7 @@ fn preflight(report: &Report, regular: &[u8], bold_bytes: &[u8]) -> Result<(), S
     }
     Ok(())
 }
-struct Decorator { page: usize, title: String, office: String, footer: String, private: bool, identification: [String; 3] }
+struct Decorator { page: usize, total_pages: Option<usize>, title: String, office: String, footer: String, private: bool, identification: [String; 3] }
 impl PageDecorator for Decorator {
     fn decorate_page<'a>(&mut self, context: &Context, mut area: render::Area<'a>, style: Style)
         -> Result<render::Area<'a>, Error> {
@@ -115,7 +115,11 @@ impl PageDecorator for Decorator {
         footer_area.set_height(Mm::from(12));
         let mut footer = elements::LinearLayout::vertical();
         footer.push(text(&self.footer).styled(Style::new().with_font_size(7).with_color(gray())));
-        footer.push(text(&format!("Página {} | {} | Revisão necessária", self.page, if self.private {"IDENTIFICAÇÃO OCULTA"} else {"USO CONFIDENCIAL"}))
+        let page_label = match self.total_pages {
+            Some(total) => format!("Página {}/{total}", self.page),
+            None => format!("Página {}", self.page),
+        };
+        footer.push(text(&format!("{page_label} | {} | Revisão necessária", if self.private {"IDENTIFICAÇÃO OCULTA"} else {"USO CONFIDENCIAL"}))
             .aligned(Alignment::Center).styled(Style::new().with_font_size(7).with_color(gray())));
         let footer_result = footer.render(context, footer_area, style)?;
         if footer_result.has_more { return Err(Error::new("Rodapé excede espaço reservado", ErrorKind::InvalidData)); }
@@ -272,19 +276,33 @@ impl Write for BoundedWriter {
 pub(crate) fn render(report: Report) -> Result<Vec<u8>, String> {
     let (regular, bold) = report_fonts();
     preflight(&report, &regular, &bold)?;
-    let fonts = font_family(&regular, &bold)?;
+    // First pass: render without total to count pages.
+    let first = build_and_render(&report, &regular, &bold, None)?;
+    let page_count = lopdf::Document::load_mem(&first)
+        .map(|doc| doc.get_pages().len())
+        .unwrap_or(0);
+    if page_count == 0 {
+        return Err("PDF sem paginas apos a primeira passagem.".into());
+    }
+    // Second pass: render with total page count.
+    build_and_render(&report, &regular, &bold, Some(page_count))
+}
+
+fn build_and_render(report: &Report, regular: &[u8], bold: &[u8], total_pages: Option<usize>)
+    -> Result<Vec<u8>, String> {
+    let fonts = font_family(regular, bold)?;
     let mut doc = Document::new(fonts);
-    doc.set_title(report.title.clone()); // Fixed title, never a person/CPF/file path.
+    doc.set_title(report.title.clone());
     doc.set_paper_size((210, 297)); doc.set_font_size(9); doc.set_line_spacing(1.0);
     doc.set_minimal_conformance();
-    doc.set_page_decorator(Decorator { page: 0, title: report.title.clone(), office: report.office,
-        footer: report.footer, private: !report.personal, identification: report.identification });
+    doc.set_page_decorator(Decorator { page: 0, total_pages, title: report.title.clone(), office: report.office.clone(),
+        footer: report.footer.clone(), private: !report.personal, identification: report.identification.clone() });
     doc.push(text(&report.status).styled(Style::new().with_font_size(8).with_color(gray())));
     if let Some(value) = &report.highlight {
         doc.push(elements::Break::new(0.5));
         doc.push(text("Renda mensal inicial estimada").styled(Style::new().with_font_size(10).with_color(gray())));
         doc.push(text(value).styled(Style::new().bold().with_font_size(22).with_color(navy())));
-        doc.push(text("Valor do cenário declarado. Confira a memória e as pendências abaixo.").styled(body_style()));
+        doc.push(text("Valor do cenario declarado. Confira a memoria e as pendencias abaixo.").styled(body_style()));
         doc.push(elements::Break::new(0.7));
     }
     for section in &report.sections {
@@ -300,8 +318,8 @@ pub(crate) fn render(report: Report) -> Result<Vec<u8>, String> {
         }
     }
     let mut writer = BoundedWriter::default();
-    doc.render(&mut writer).map_err(|e| format!("Falha ao diagramar o PDF (limites de página, fonte ou tamanho); nenhum relatório válido foi produzido. [{}]",e))?;
-    if !writer.0.starts_with(b"%PDF-") || writer.0.len() < 500 { return Err("Saída PDF inválida ou vazia.".into()); }
+    doc.render(&mut writer).map_err(|e| format!("Falha ao diagramar o PDF (limites de pagina, fonte ou tamanho); nenhum relatorio valido foi produzido. [{}]",e))?;
+    if !writer.0.starts_with(b"%PDF-") || writer.0.len() < 500 { return Err("Saida PDF invalida ou vazia.".into()); }
     normalize_unicode_maps(&writer.0)
 }
 #[cfg(test)] mod tests {

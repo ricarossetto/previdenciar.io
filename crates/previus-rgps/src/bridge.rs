@@ -6,7 +6,7 @@ use std::collections::HashMap;
 
 fn tipo_do_vinculo(afiliacao: Option<&str>) -> String {
     let texto = afiliacao.unwrap_or("").to_lowercase();
-    if texto.contains("doméstico") || texto.contains("domestico") {
+    if texto.contains("domÃ©stico") || texto.contains("domestico") {
         "empregado_domestico"
     } else if texto.contains("contribuinte individual") {
         "contribuinte_individual"
@@ -29,33 +29,33 @@ fn tipo_do_vinculo(afiliacao: Option<&str>) -> String {
 /// options.rule_policy carries typed JSON, not automatic parsing of free notes.
 pub fn calculate_case(case: &Calculation) -> Result<Value,String> {
     if case.options.rule_policy.trim().starts_with('{') {
-        let policy:CasePolicy=serde_json::from_str(&case.options.rule_policy).map_err(|_|"Política de cálculo inválida.")?;
+        let policy:CasePolicy=serde_json::from_str(&case.options.rule_policy).map_err(|_|"PolÃ­tica de cÃ¡lculo invÃ¡lida.")?;
         if let Some(pcd)=policy.lc142 { return crate::pcd::calculate(case,&pcd); }
     }
     let mut blockers = Vec::new();
     if case.disability.as_deref().is_some_and(|value|matches!(value.trim().to_lowercase().as_str(),"grave"|"moderada"|"leve")) {
-        issue(&mut blockers,"pcd_lc142_not_implemented","disability","A aposentadoria PcD pela LC 142/2013 ainda não está implementada neste motor local. Não substituir por coeficiente da EC 103 para gerar um número.");
+        issue(&mut blockers,"pcd_lc142_not_implemented","disability","A aposentadoria PcD pela LC 142/2013 ainda nÃ£o estÃ¡ implementada neste motor local. NÃ£o substituir por coeficiente da EC 103 para gerar um nÃºmero.");
     }
     previus_workspace::link_review::validate_source_links(case)?;
     for link in &case.manual_links {
         if let Some(review)=&link.source_review {
             if !review.excluded && case.cnis.as_ref().is_some_and(|c|c.links.iter().any(|l|l.sequence==review.sequence && l.prpps)) {
-                issue(&mut blockers,"source_ctc_proof_required","manual_links.source_review","A origem PRPPS exige CTC documental específica; editar o regime não comprova averbação RGPS.");
+                issue(&mut blockers,"source_ctc_proof_required","manual_links.source_review","A origem PRPPS exige CTC documental especÃ­fica; editar o regime nÃ£o comprova averbaÃ§Ã£o RGPS.");
             }
         }
     }
     if let Some(review) = &case.contribution_review {
         review.validate(case)?;
         if !review.applied {
-            issue(&mut blockers,"contribution_review_unapplied","contribution_review","O livro foi alterado; aplique a revisão aos salários antes de calcular.");
+            issue(&mut blockers,"contribution_review_unapplied","contribution_review","O livro foi alterado; aplique a revisÃ£o aos salÃ¡rios antes de calcular.");
         }
     }
     if case.kind.trim().to_lowercase() != "rgps" {
-        issue(&mut blockers,"case_kind_unsupported","kind","Este adaptador atende exclusivamente cǭlculos RGPS.");
+        issue(&mut blockers,"case_kind_unsupported","kind","Este adaptador atende exclusivamente cÇ­lculos RGPS.");
     }
     if let Some(especie) = case.especie.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
         if especie != "42" {
-            issue(&mut blockers,"especie_unsupported","especie","Este motor atende a espécie 42 (aposentadoria por tempo de contribuição); a espécie informada não tem fórmula própria aqui e não é aproximada.");
+            issue(&mut blockers,"especie_unsupported","especie","Este motor atende a espÃ©cie 42 (aposentadoria por tempo de contribuiÃ§Ã£o); a espÃ©cie informada nÃ£o tem fÃ³rmula prÃ³pria aqui e nÃ£o Ã© aproximada.");
         }
     }
     let policy: CasePolicy = if case.options.rule_policy.trim().starts_with('{') {
@@ -64,46 +64,46 @@ pub fn calculate_case(case: &Calculation) -> Result<Value,String> {
         CasePolicy::default()
     };
     if policy.version.as_deref()!=Some(POLICY_VERSION) {
-        issue(&mut blockers,"case_policy_missing","options.rule_policy","Informar JSON de política versionada e evidência de revisão; não inferir do nome do cenário.");
+        issue(&mut blockers,"case_policy_missing","options.rule_policy","Informar JSON de polÃ­tica versionada e evidÃªncia de revisÃ£o; nÃ£o inferir do nome do cenÃ¡rio.");
     }
     let evidence = policy.review_evidence.as_ref().is_some_and(|s|!s.trim().is_empty());
-    if !evidence { issue(&mut blockers,"case_review_missing","options.rule_policy.review_evidence","Referência documental de revisão obrigatória."); }
+    if !evidence { issue(&mut blockers,"case_review_missing","options.rule_policy.review_evidence","ReferÃªncia documental de revisÃ£o obrigatÃ³ria."); }
     let excluded = policy.exclude_imported_source && policy.source_exclusion_evidence.as_ref().is_some_and(|s|!s.trim().is_empty());
     let mut warnings = Vec::new();
     if let Some(cnis)=&case.cnis {
         let identity_pairs=[(&case.identity.birth_date,&cnis.identity.birth_date),(&case.identity.cpf,&cnis.identity.cpf),(&case.identity.full_name,&cnis.identity.full_name)];
         if identity_pairs.iter().any(|(a,b)|a.is_some() && b.is_some() && a!=b) {
-            issue(&mut blockers,"identity_conflict","identity","Identidade diverge da importação; confirmar sem sobrescrever.");
+            issue(&mut blockers,"identity_conflict","identity","Identidade diverge da importaÃ§Ã£o; confirmar sem sobrescrever.");
         }
         if !excluded {
             // There is no source-review structure in Calculation yet. Imported
             // ValidationStatus::Unvalidated stays unvalidated, even without flags.
-            issue(&mut blockers,"source_review_required","cnis","CNIS importado ainda não possui revisão documental por registro. Usar períodos/salários manuais confirmados e exclusão explícita da fonte somente se documentalmente justificada.");
+            issue(&mut blockers,"source_review_required","cnis","CNIS importado ainda nÃ£o possui revisÃ£o documental por registro. Usar perÃ­odos/salÃ¡rios manuais confirmados e exclusÃ£o explÃ­cita da fonte somente se documentalmente justificada.");
             if cnis.links.iter().any(|l|l.prpps || l.excluded_from_validated_domain) {
-                issue(&mut blockers,"prpps_unvalidated","cnis.links","PRPPS/RPPS da fonte não será contado como RGPS.");
+                issue(&mut blockers,"prpps_unvalidated","cnis.links","PRPPS/RPPS da fonte nÃ£o serÃ¡ contado como RGPS.");
             }
             if cnis.links.iter().any(|l|l.end_date.is_none()) {
-                issue(&mut blockers,"source_end_missing","cnis.links","Datas finais ausentes não são substituídas por último salário, DIB ou hoje.");
+                issue(&mut blockers,"source_end_missing","cnis.links","Datas finais ausentes nÃ£o sÃ£o substituÃ­das por Ãºltimo salÃ¡rio, DIB ou hoje.");
             }
             if !cnis.warnings.is_empty() || cnis.links.iter().any(|l|!l.indicators.is_empty()) || cnis.salary_entries.iter().any(|w|!w.indicators.is_empty()) {
-                issue(&mut blockers,"source_indicators_unresolved","cnis","Avisos/indicadores da fonte continuam não resolvidos.");
+                issue(&mut blockers,"source_indicators_unresolved","cnis","Avisos/indicadores da fonte continuam nÃ£o resolvidos.");
             }
             if cnis.salary_entries.iter().any(|w|w.link_sequence.is_none()) {
-                issue(&mut blockers,"source_wage_unassigned","cnis.salary_entries","Remuneração sem vínculo reconhecido.");
+                issue(&mut blockers,"source_wage_unassigned","cnis.salary_entries","RemuneraÃ§Ã£o sem vÃ­nculo reconhecido.");
             }
         } else {
-            warnings.push("Fonte CNIS excluída explicitamente deste cenário por decisão documental; não alterada. Somente linhas manuais confirmadas são usadas; isso não prova acerto da exclusão nem valida CTC.".into());
+            warnings.push("Fonte CNIS excluÃ­da explicitamente deste cenÃ¡rio por decisÃ£o documental; nÃ£o alterada. Somente linhas manuais confirmadas sÃ£o usadas; isso nÃ£o prova acerto da exclusÃ£o nem valida CTC.".into());
         }
     }
     if policy.exclude_imported_source && !excluded {
-        issue(&mut blockers,"source_exclusion_not_documented","options.rule_policy.source_exclusion_evidence","Exclusão da fonte exige referência documental explícita.");
+        issue(&mut blockers,"source_exclusion_not_documented","options.rule_policy.source_exclusion_evidence","ExclusÃ£o da fonte exige referÃªncia documental explÃ­cita.");
     }
     let opts=&case.options;
     if [(&opts.interest_rate,"interest_rate"),(&opts.interest_kind,"interest_kind"),(&opts.fees_percent,"fees_percent"),(&opts.fees_fixed,"fees_fixed"),(&opts.prescription_date,"prescription_date"),(&opts.reference_base,"reference_base")].iter().any(|(v,_)|!v.trim().is_empty()) || opts.include_thirteenth {
-        issue(&mut blockers,"workspace_options_unsupported","options","Juros, honorários, prescrição, base manual e décimo terceiro não são usados pelo motor RGPS: não podem ser ignorados silenciosamente.");
+        issue(&mut blockers,"workspace_options_unsupported","options","Juros, honorÃ¡rios, prescriÃ§Ã£o, base manual e dÃ©cimo terceiro nÃ£o sÃ£o usados pelo motor RGPS: nÃ£o podem ser ignorados silenciosamente.");
     }
     if !opts.correction_index.trim().is_empty() && !opts.correction_index.trim().eq_ignore_ascii_case("INPC") {
-        issue(&mut blockers,"correction_index_unsupported","options.correction_index","Motor copiado suporta INPC neste caminho, não outro índice arbitrário.");
+        issue(&mut blockers,"correction_index_unsupported","options.correction_index","Motor copiado suporta INPC neste caminho, nÃ£o outro Ã­ndice arbitrÃ¡rio.");
     }
     let tipos: HashMap<u32, String> = case
         .cnis
@@ -140,6 +140,66 @@ pub fn calculate_case(case: &Calculation) -> Result<Value,String> {
         outcome["warnings"].as_array_mut().expect("adapter envelope").extend(warnings.into_iter().map(Value::String));
     }
     outcome["bridge"]=serde_json::json!({"input":"previus_workspace::Calculation","source_import_mutated":false,"manual_only":true,"category_from_explicit_case_policy":true});
-    outcome["warnings"].as_array_mut().expect("adapter envelope").push(Value::String("Categoria e moeda provêm de declaração explícita em options.rule_policy; ManualLink não armazena CTC documental.".into()));
+    outcome["warnings"].as_array_mut().expect("adapter envelope").push(Value::String("Categoria e moeda provÃªm de declaraÃ§Ã£o explÃ­cita em options.rule_policy; ManualLink nÃ£o armazena CTC documental.".into()));
     Ok(outcome)
+}
+
+/// Project future DER from current confirmed data. Returns the first eligible
+/// rule and RMI. This is a planning tool, not a calculation or entitlement.
+pub fn project_case(case: &Calculation) -> Result<Value, String> {
+    let policy: CasePolicy = if case.options.rule_policy.trim().starts_with('{') {
+        serde_json::from_str(&case.options.rule_policy).map_err(|e| format!("invalid_case_policy: {e}"))?
+    } else {
+        CasePolicy::default()
+    };
+    let sex = case.sex.as_deref().unwrap_or("").trim().to_lowercase();
+    if sex != "feminino" && sex != "masculino" {
+        return Err("Sexo cadastrual obrigatório para projeção.".into());
+    }
+    let birth = case.identity.birth_date.as_deref().ok_or("Data de nascimento obrigatória para projeção.")?;
+    let birth_date = rgps_core::calendar::IsoDate::parse(birth, "project.birth").map_err(|e| e.to_string())?;
+    let referencia = rgps_core::calendar::IsoDate::parse(&case.dib, "project.dib").map_err(|e| e.to_string())?;
+    // Build competencias from confirmed manual salaries or CNIS.
+    let mut competencias: Vec<(rgps_core::calendar::Competencia, rust_decimal::Decimal)> = Vec::new();
+    if !case.manual_salaries.is_empty() {
+        for w in &case.manual_salaries {
+            if !w.confirmed { continue; }
+            let comp = rgps_core::calendar::Competencia::parse(&w.competence, "project.wage").map_err(|e| e.to_string())?;
+            let amount = rgps_core::money::parse_money(&w.amount, "project.wage").map_err(|e| e.to_string())?;
+            competencias.push((comp, amount));
+        }
+    } else if let Some(cnis) = &case.cnis {
+        for entry in &cnis.salary_entries {
+            let comp = rgps_core::calendar::Competencia::parse(&entry.competence, "project.cnis").map_err(|e| e.to_string())?;
+            let amount = rust_decimal::Decimal::from(entry.amount_centavos) / rust_decimal::Decimal::from(100);
+            competencias.push((comp, amount));
+        }
+    }
+    if competencias.is_empty() {
+        return Err("Projeção exige ao menos uma competência confirmada.".into());
+    }
+    competencias.sort_by_key(|(c, _)| (c.ano, c.mes));
+    let opts = &policy.native_options;
+    let parse_dec = |v: &Option<String>| -> Result<Option<rust_decimal::Decimal>, String> {
+        match v {
+            Some(s) if !s.trim().is_empty() => rgps_core::money::parse_money(s, "project.opt").map(Some).map_err(|e| e.0),
+            _ => Ok(None),
+        }
+    };
+    let req = rgps_core::projecao::ProjecaoRequisicao {
+        sexo: sex,
+        data_nascimento: birth_date,
+        data_referencia: referencia,
+        competencias,
+        corrigir_salarios: opts.corrigir_salarios.unwrap_or(false),
+        descarte: opts.descarte.unwrap_or(false),
+        salario_simulacao: None,
+        teto: parse_dec(&opts.teto)?,
+        piso: parse_dec(&opts.piso)?,
+        aplicar_teto_vigente_der: opts.aplicar_teto_vigente_der.unwrap_or(false),
+        expectativa_sobrevida: parse_dec(&opts.expectativa_sobrevida)?,
+        regra_alvo: opts.regra_alvo.clone(),
+    };
+    let resultado = rgps_core::projecao::projetar(&req).map_err(|e| e.0)?;
+    serde_json::to_value(&resultado).map_err(|e| e.to_string())
 }

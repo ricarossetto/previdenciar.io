@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.10.6 - 2026-10-25
+
+### Added
+- **Conversao de tempo comum para PcD** (fator 0,93/0,89/0,83 por grau): `disability_start_date` + `fator_conversao_comum` em `Lc142Policy`, aplicado automaticamente a periodos anteriores ao inicio da deficiencia. Testes cobrem conversao, config incompleta e fator fora de faixa.
+- **Merge de PDFs**: comando `merge_pdfs` com seletor de arquivos, funcao `previus_reports::merge_pdfs` que combina N PDFs preservando ordem das paginas. 4 testes unitarios.
+- **Paginacao n/N no rodape do PDF**: renderizacao em duas passadas (primeira conta paginas, segunda renderiza com total). Rodape agora mostra "Pagina X/Y".
+- **Planejamento (projecao de DER)**: comando Tauri `project_rgps` expoe `rgps_core::projecao::projetar` — simula DER futura com contribuicoes continuas ate a primeira regra elegivel.
+- **Analise da Situacao Atual**: novo tipo de relatorio PDF (`pdf_analysis`) com requisitos apurados, cenario financeiro (A PAGAR vs A RECEBER) e ROI (projecao 371 meses, 13o, IRRF simplificado, payback).
+
+### Changed
+- `Lc142Policy` aceita `disability_start_date` e `fator_conversao_comum` para conversao de tempo comum.
+- `duration()` em `pcd.rs` agora aceita parametros de conversao opcionais.
+- Relatorio PDF agora inclui secao de ROI quando o tipo `analysis` e selecionado.
 ## 0.10.5 - 2026-10-24
 
 Preparação guiada no ponto de decisão.

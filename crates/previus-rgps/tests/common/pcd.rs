@@ -79,6 +79,8 @@ pub fn scenario() -> (Calculation, Lc142Policy) {
         projection_evidence: String::new(),
         historical_negative_policy: "preserve".into(),
         apply_inss_overrides: true,
+        disability_start_date: None,
+        fator_conversao_comum: None,
         snapshot: Some(snapshot),
     };
     (case, policy)

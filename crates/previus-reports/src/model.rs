@@ -245,7 +245,109 @@ fn planning(case:&Calculation,personal:bool)->Result<Section,String>{
 /// Apuração da qualidade de segurado por vínculo, com cálculo próprio.
 /// A fonte não é alterada: as contribuições vêm do CNIS lido e as exclusões
 /// vêm do livro de revisão declarado pelo operador.
-fn quality_calculation(case:&Calculation,personal:bool)->Result<Section,String>{
+/// Analise da Situacao Atual: requisitos apurados e cenario financeiro.
+fn analysis_status(case:&Calculation,_options:ReportOptions,native:Option<&Value>)->Result<Section,String>{
+    let mut s=section("Situacao atual - requisitos apurados",false);
+    s.paragraphs.push("Apuracao sobre os dados confirmados neste cenario. A comparacao com os requisitos legais e informativa: nao constitui reconhecimento de direito.".into());
+    let sex=case.sex.as_deref().unwrap_or("").to_lowercase();
+    let birth=case.identity.birth_date.as_deref().unwrap_or("?");
+    s.paragraphs.push(format!("Sexo: {}. Nascimento: {}. DIB de referencia: {}.",if sex.is_empty(){"nao informado"}else{sex.as_str()},birth,case.dib));
+    if let Some(n)=native{
+        if let Some(t)=n.pointer("/tempo/total/days_30_360").and_then(Value::as_i64){
+            let years=t/360;let months=t%360/30;let days=t%30;
+            s.paragraphs.push(format!("Tempo apurado: {years} ano(s), {months} mes(es) e {days} dia(s) (convencao 30/360)."));
+        }
+        if let Some(c)=n.pointer("/resumo/carencia_meses").and_then(Value::as_u64){
+            s.paragraphs.push(format!("Carencia apurada: {c} competencia(s)."));
+        }
+        if let Some(sb)=n.pointer("/resumo/salario_beneficio").and_then(Value::as_str){
+            s.paragraphs.push(format!("Salario de beneficio: R$ {sb}."));
+        }
+        if let Some(rmi)=n.pointer("/resumo/rmi"){
+            if rmi.is_null(){
+                s.paragraphs.push("RMI: nao apurada (requisitos insuficientes neste cenario).".into());
+            }else if let Some(v)=rmi.as_str(){
+                s.paragraphs.push(format!("RMI estimada: R$ {v}."));
+            }
+        }
+        if let Some(rule)=n.pointer("/regra_escolhida").and_then(Value::as_str){
+            s.paragraphs.push(format!("Regra de transicao aplicavel: {rule}."));
+        }
+    }else{
+        s.paragraphs.push("Resultado nativo nao disponivel: dados ou politica pendentes. A analise fica restrita aos requisitos declarados.".into());
+    }
+    Ok(s)
+}
+/// Financeiro: A PAGAR (contribuicoes necessarias) vs A RECEBER (beneficio estimado).
+fn analysis_financial(_case:&Calculation,_options:ReportOptions,native:Option<&Value>)->Result<Section,String>{
+    let mut s=section("Cenario financeiro - a pagar e a receber",false);
+    s.paragraphs.push("Comparacao informativa entre o esforco contributivo e o beneficio estimado. Valores sao simulacoes, nao calculos de debito ou credito.".into());
+    if let Some(n)=native{
+        let soma=n.pointer("/correcao/soma_considerada").and_then(Value::as_str).unwrap_or("?");
+        let rmi=n.pointer("/resumo/rmi").and_then(Value::as_str).unwrap_or("?");
+        let competencias=n.pointer("/resumo/competencias").and_then(Value::as_u64).unwrap_or(0);
+        s.paragraphs.push(format!("A PAGAR (contribuicoes consideradas no PBC): R$ {soma} em {competencias} competencia(s)."));
+        if rmi!="?" && rmi!="null"{
+            let meses_vida=371.0;
+            let total_receber: f64 = rmi.parse::<f64>().unwrap_or(0.0)*meses_vida;
+            s.paragraphs.push(format!("A RECEBER (estimativa com expectativa de 371 meses, sem 13o/IRRF): R$ {total_receber:.2}."));
+            let soma_val=soma.parse::<f64>().unwrap_or(0.0);
+            if soma_val>0.0{
+                let ratio=total_receber/soma_val;
+                s.paragraphs.push(format!("Relacao beneficio/contribuicao: {ratio:.2}x (cada R$ 1,00 contribuido retorna R$ {ratio:.2} em beneficio estimado)."));
+            }
+        }else{
+            s.paragraphs.push("A RECEBER: nao apurado (RMI indisponivel neste cenario).".into());
+        }
+    }else{
+        s.paragraphs.push("Sem resultado nativo: o cenario financeiro requer dados e politica confirmados.".into());
+    }
+    Ok(s)
+}/// ROI: projecao de beneficio ao longo da expectativa de vida, com 13o e IRRF.
+fn analysis_roi(native:Option<&Value>)->Result<Section,String>{
+    let mut s=section("Retorno do investimento (ROI)",false);
+    s.paragraphs.push("Projecao informativa do beneficio ao longo da expectativa de vida. Considera 13o salario (1/12 adicional por mes) e IRRF simplificado (isento apos 65 anos, conforme Lei 7.713/1988, art. 6o, XIV). Nao inclui reajustes anuais, auxilio-alimentacao ou outros beneficios.".into());
+    let Some(n)=native else{s.paragraphs.push("Sem resultado nativo: o ROI requer dados e politica confirmados.".into());return Ok(s);};
+    let Some(rmi_str)=n.pointer("/resumo/rmi").and_then(Value::as_str) else{s.paragraphs.push("RMI indisponivel: ROI nao calculado.".into());return Ok(s);};
+    let rmi: f64 = rmi_str.parse().unwrap_or(0.0);
+    if rmi<=0.0{s.paragraphs.push("RMI zero ou invalida: ROI nao calculado.".into());return Ok(s);}
+    let soma_str=n.pointer("/correcao/soma_considerada").and_then(Value::as_str).unwrap_or("0");
+    let soma: f64 = soma_str.parse().unwrap_or(0.0);
+    let meses_vida=371.0;
+    // 13o salario: 1/12 adicional por mes
+    let rmi_com_13o=rmi*(13.0/12.0);
+    // IRRF: simplificado, isento apos 65 anos. Idade atual na DIB:
+    let idade_atual_meses=n.pointer("/pcd/idade_der_meses").and_then(Value::as_i64).unwrap_or(0);
+    let meses_ate_65=(65*12-idade_atual_meses).max(0) as f64;
+    let meses_com_irrf=meses_ate_65.min(meses_vida);
+    let meses_isentos=(meses_vida-meses_com_irrf).max(0.0);
+    // IRRF simplificado: 7.5% sobre a parcela acima de 1.908,00 (tabela 2024 simplificada)
+    let aliquota=0.075;
+    let isencao=1908.0;
+    let _irrf_mensal=if rmi>isencao{(rmi-isencao)*aliquota}else{0.0};
+    let irrf_com_13o=if rmi_com_13o>isencao{(rmi_com_13o-isencao)*aliquota}else{0.0};
+    let total_bruto=rmi_com_13o*meses_vida;
+    let total_irrf=irrf_com_13o*meses_com_irrf;
+    let total_liquido=total_bruto-total_irrf;
+    let payback_meses=if rmi_com_13o-irrf_com_13o>0.0{Some(soma/(rmi_com_13o-irrf_com_13o))}else{None};
+    s.paragraphs.push(format!("RMI mensal: R$ {rmi:.2}."));
+    s.paragraphs.push(format!("RMI com 13o (1/12 adicional): R$ {rmi_com_13o:.2}/mes."));
+    s.paragraphs.push(format!("IRRF estimado (apos 65 anos isento): R$ {irrf_com_13o:.2}/mes ate os 65 anos."));
+    s.paragraphs.push(format!("Total bruto em {meses_vida:.0} meses (com 13o): R$ {total_bruto:.2}."));
+    s.paragraphs.push(format!("Total IRRF estimado: R$ {total_irrf:.2} em {meses_com_irrf:.0} meses com aliquota, {meses_isentos:.0} meses isentos."));
+    s.paragraphs.push(format!("Total liquido estimado: R$ {total_liquido:.2}."));
+    if soma>0.0{
+        let roi_ratio=total_liquido/soma;
+        s.paragraphs.push(format!("ROI: {roi_ratio:.2}x (cada R$ 1,00 contribuido retorna R$ {roi_ratio:.2} liquidos)."));
+        if let Some(pm)=payback_meses{
+            let anos=pm/12.0;
+            s.paragraphs.push(format!("Payback: {pm:.0} meses ({anos:.1} anos) para recuperar as contribuicoes."));
+        }
+    }else{
+        s.paragraphs.push("Contribuicoes nao apuradas: ROI e payback nao calculados.".into());
+    }
+    Ok(s)
+}fn quality_calculation(case:&Calculation,personal:bool)->Result<Section,String>{
     let mut s=section("Cálculo da qualidade de segurado por vínculo",false);
     s.paragraphs.push("Apuração própria sobre as contribuições declaradas na origem, com as exclusões do livro de revisão. Regras aplicadas: período de graça de 12 meses (art. 15, II, da Lei nº 8.213/1991), prorrogado para até 24 meses quando houve mais de 120 contribuições sem interrupção (art. 15, § 1º, da mesma lei), carência de 180 contribuições mensais (art. 25, II) ou faixa da tabela do art. 142 para quem estava inscrito até 24/07/1991.".into());
     s.paragraphs.push("Limites: a carência é medida em contribuições (arts. 24 e 27, I) e o tempo intercalado em gozo de benefício não conta para carência (art. 19-C, § 1º, do Decreto nº 3.048/1999), embora conte como tempo de serviço (art. 55, II, da Lei nº 8.213/1991). A competência que aparece em mais de um vínculo é contada uma única vez, no vínculo anterior. A comparação com a carência exigida é informativa: não há direito apurado.".into());
@@ -637,6 +739,7 @@ fn pcd_report(case:&Calculation,w:&Workspace,o:ReportOptions,n:&Value)->Result<R
   ReportKind::Transitions=>{let mut s=section("Comparação de cenários",false);s.paragraphs.push("Este documento calcula somente o grau constante declarado pela LC 142. Não foi executada comparação automática com todas as regras da EC 103, direito adquirido, fator ou aposentadoria por idade. Nenhum vencedor foi presumido.".into());sections.push(s);sections.push(time()?);sections.push(assumptions()?);},
   ReportKind::Indicators=>{sections.push(assumptions()?);sections.push(pending(case,o.include_personal,None)?);},
   ReportKind::Quality=>{sections.push(assumptions()?);sections.push(pending(case,o.include_personal,None)?);},
+        ReportKind::Analysis=>{sections.push(assumptions()?);sections.push(pending(case,o.include_personal,None)?);},
  }
  let office=if o.include_personal&&!w.settings.office_name.trim().is_empty(){field(&w.settings.office_name)?}else{"previdenciar.io - cálculo previdenciário".into()};
  if office.chars().count()>120{return Err("Cabeçalho excede o espaço reservado; nenhum texto foi cortado.".into());}
@@ -675,6 +778,13 @@ pub(crate) fn build(case:&Calculation,workspace:&Workspace,options:ReportOptions
     if options.kind == ReportKind::Quality {
         report.sections.push(conclusion(case,options,native,outcome)?);
         report.sections.push(quality_calculation(case,options.include_personal)?);
+        report.sections.push(pending(case,options.include_personal,outcome)?);
+        return finish(report);
+    }
+    if options.kind == ReportKind::Analysis {
+        report.sections.push(analysis_status(case,options,native)?);
+        report.sections.push(analysis_financial(case,options,native)?);
+        report.sections.push(analysis_roi(native)?);
         report.sections.push(pending(case,options.include_personal,outcome)?);
         return finish(report);
     }
