@@ -1,6 +1,6 @@
 //! Constrói o JSON de dados que cada template Typst consome, já formatado em
 //! padrão brasileiro. Nunca inventa valor ausente: campo desconhecido fica vazio.
-use crate::format::{br_date, brl, brl_decimal, decimal, period_from_days_360, period_from_months};
+use crate::format::{br_date, br_month, brl, brl_decimal, decimal, period_from_days_360, period_from_months};
 use previus_workspace::Calculation;
 use rust_decimal::Decimal;
 use serde_json::{json, Value};
@@ -504,6 +504,185 @@ fn roi(case: &Calculation, outcome: Option<&Value>) -> Result<Value, String> {
     }))
 }
 
+fn regras(case: &Calculation, outcome: Option<&Value>) -> Result<Value, String> {
+    let data_calculo = br_date(&case.dib);
+    let n = native(outcome);
+    let idade_possui = n
+        .and_then(|v| v.pointer("/transicoes/idade_meses"))
+        .and_then(Value::as_i64)
+        .map(period_from_months)
+        .unwrap_or_default();
+    let tempo_possui = n
+        .and_then(|v| v.pointer("/tempo/total"))
+        .map(|t| {
+            crate::format::period(
+                t.get("anos").and_then(Value::as_i64).unwrap_or(0),
+                t.get("meses").and_then(Value::as_i64).unwrap_or(0),
+                t.get("dias").and_then(Value::as_i64).unwrap_or(0),
+            )
+        })
+        .unwrap_or_default();
+
+    let regras: Vec<Value> = n
+        .and_then(|v| v.pointer("/transicoes/regras"))
+        .and_then(Value::as_array)
+        .map(|arr| {
+            arr.iter()
+                .map(|r| {
+                    let nome = r.get("nome").and_then(Value::as_str).unwrap_or("").to_string();
+                    let rmi = r
+                        .get("rmi_final")
+                        .or_else(|| r.get("rmi"))
+                        .and_then(decimal);
+                    let rmi_txt = rmi.map(brl_decimal).unwrap_or_else(|| "Não apurada".into());
+                    let retorno = rmi
+                        .map(|v| {
+                            let rmi_13 = v * Decimal::from(13) / Decimal::from(12);
+                            brl_decimal((rmi_13 * Decimal::from(371)).round_dp(2))
+                        })
+                        .unwrap_or_else(|| "Não apurado".into());
+                    let reqs: Vec<String> = r
+                        .get("requisitos")
+                        .and_then(Value::as_array)
+                        .map(|a| a.iter().filter_map(|x| x.as_str().map(String::from)).collect())
+                        .unwrap_or_default();
+                    let idade_nec = reqs
+                        .iter()
+                        .find(|s| s.to_lowercase().contains("idade"))
+                        .cloned()
+                        .unwrap_or_else(|| "não exigida".into());
+                    let tempo_min = reqs
+                        .iter()
+                        .find(|s| s.to_lowercase().contains("tempo"))
+                        .cloned()
+                        .unwrap_or_else(|| "não exigido".into());
+                    json!({
+                        "nome": nome,
+                        "der": data_calculo,
+                        "rmi": rmi_txt,
+                        "idade_necessaria": idade_nec,
+                        "idade_possui": format!("Possui {idade_possui}"),
+                        "tempo_minimo": tempo_min,
+                        "tempo_possui": format!("Possui {tempo_possui}"),
+                        "retorno": retorno,
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+
+    Ok(json!({
+        "title": "Regras de Transição - EC 103/2019",
+        "date": data_calculo,
+        "identification": identification(case, &data_calculo),
+        "regras": regras,
+        "nota1": "As projeções futuras são feitas com a repetição do último salário de contribuição a partir da DIB informada, gerando RMI's com valores aproximados.",
+        "nota2": "As regras de transição dos tempos adicionais de 50% e 100% são calculadas mesmo que o beneficiário já tenha atingido o tempo mínimo de contribuição, ficando a critério do usuário a verificação do direito legal a este tipo de transição.",
+    }))
+}
+
+fn generic_sections(case: &Calculation, outcome: Option<&Value>, kind: &str) -> Result<Value, String> {
+    let data_calculo = br_date(&case.dib);
+    let n = native(outcome);
+    let title = match kind {
+        "summary" => "Resumo do cálculo RGPS",
+        "salaries" => "Salários de contribuição",
+        "indicators" => "Indicadores e pendências de conferência",
+        _ => "Relatório",
+    };
+    let mut sections: Vec<Value> = Vec::new();
+
+    if kind == "salaries" {
+        let mut rows: Vec<Vec<String>> = Vec::new();
+        if let Some(cnis) = &case.cnis {
+            for e in &cnis.salary_entries {
+                let valor = Decimal::new(e.amount_centavos, 2);
+                rows.push(vec![
+                    br_month(&e.competence),
+                    brl_decimal(valor),
+                    e.indicators.first().cloned().unwrap_or_default(),
+                ]);
+            }
+        }
+        for w in &case.manual_salaries {
+            rows.push(vec![br_month(&w.competence), brl(w.amount.trim()), w.indicators.clone()]);
+        }
+        sections.push(json!({
+            "titulo": "Remunerações informadas",
+            "paragrafos": [],
+            "tabela": { "headers": ["Competência", "Valor", "Indicador"], "rows": rows },
+        }));
+    } else if kind == "summary" {
+        let tempo = n
+            .and_then(|v| v.pointer("/tempo/total"))
+            .map(|t| {
+                crate::format::period(
+                    t.get("anos").and_then(Value::as_i64).unwrap_or(0),
+                    t.get("meses").and_then(Value::as_i64).unwrap_or(0),
+                    t.get("dias").and_then(Value::as_i64).unwrap_or(0),
+                )
+            })
+            .unwrap_or_default();
+        let carencia = n
+            .and_then(|v| v.pointer("/carencia/carencia_meses"))
+            .and_then(Value::as_u64)
+            .unwrap_or(0);
+        let rmi = n
+            .and_then(|v| {
+                pick(v, &["/resumo/rmi", "/transicoes/rmi_escolhida"])
+                    .and_then(decimal)
+                    .or_else(|| memoria_valor(v, "rmi"))
+            })
+            .map(brl_decimal)
+            .unwrap_or_else(|| "Não apurado".into());
+        sections.push(json!({
+            "titulo": "Resumo",
+            "paragrafos": [
+                format!("Tempo de contribuição apurado: {tempo}."),
+                format!("Carência apurada: {carencia} contribuições."),
+                format!("Renda mensal inicial estimada: {rmi}."),
+            ],
+            "tabela": null,
+        }));
+    } else {
+        let mut linhas: Vec<String> = Vec::new();
+        if let Some(o) = outcome {
+            for key in ["blockers", "warnings", "known_model_risks"] {
+                if let Some(arr) = o.get(key).and_then(Value::as_array) {
+                    for item in arr {
+                        if let Some(msg) = item.get("message").and_then(Value::as_str) {
+                            linhas.push(msg.to_string());
+                        } else if let Some(s) = item.as_str() {
+                            linhas.push(s.to_string());
+                        }
+                    }
+                }
+            }
+        }
+        if let Some(v) = n {
+            if let Some(avisos) = v.get("avisos").and_then(Value::as_array) {
+                for a in avisos {
+                    if let Some(s) = a.as_str() {
+                        linhas.push(s.to_string());
+                    }
+                }
+            }
+        }
+        sections.push(json!({
+            "titulo": "Pendências e ressalvas",
+            "paragrafos": if linhas.is_empty() { vec!["Nenhuma pendência registrada.".to_string()] } else { linhas },
+            "tabela": null,
+        }));
+    }
+
+    Ok(json!({
+        "title": title,
+        "date": data_calculo,
+        "identification": identification(case, &data_calculo),
+        "sections": sections,
+    }))
+}
+
 /// Constrói os dados de um relatório a partir do caso e do resultado nativo.
 pub fn build(kind: &str, case: &Calculation, outcome: Option<&Value>) -> Result<Value, String> {
     match kind {
@@ -513,6 +692,8 @@ pub fn build(kind: &str, case: &Calculation, outcome: Option<&Value>) -> Result<
         "memory" => memory_report(case, outcome),
         "quality" => quality(case, outcome),
         "roi" => roi(case, outcome),
+        "regras" => regras(case, outcome),
+        "summary" | "salaries" | "indicators" => generic_sections(case, outcome, kind),
         other => Err(format!("Relatório sem construtor de dados: {other}")),
     }
 }

@@ -12,6 +12,8 @@ static TRANSICOES: &str = include_str!("../templates/transicoes.typ");
 static RMI: &str = include_str!("../templates/rmi.typ");
 static QUALIDADE: &str = include_str!("../templates/qualidade.typ");
 static ROI: &str = include_str!("../templates/roi.typ");
+static REGRAS: &str = include_str!("../templates/regras.typ");
+static GENERICO: &str = include_str!("../templates/generico.typ");
 
 /// Converte JSON em valor Typst, preservando a estrutura de dicionários/arrays.
 fn to_typst(v: &Json) -> TValue {
@@ -45,6 +47,8 @@ fn main_source(kind: &str) -> Result<&'static str, String> {
         "memory" => Ok(RMI),
         "quality" => Ok(QUALIDADE),
         "roi" => Ok(ROI),
+        "regras" => Ok(REGRAS),
+        "summary" | "salaries" | "indicators" => Ok(GENERICO),
         other => Err(format!("Template Typst ausente para o tipo {other}.")),
     }
 }

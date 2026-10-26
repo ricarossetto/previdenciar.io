@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.11.1 - 2026-10-26
+
+### Added
+- **Regras de Transição - EC 103/2019** (formato detalhado): card por regra com Possível Aposentadoria, Provável RMI, idade e tempo possuídos vs exigidos, e Retorno do Investimento.
+- **Migração completa**: Resumo, Salários de contribuição e Indicadores passam ao motor Typst. Todos os 11 tipos de relatório usam agora o layout novo; o genpdf deixa de ser usado na exportação.
 ## 0.11.0 - 2026-10-26
 
 ### Added

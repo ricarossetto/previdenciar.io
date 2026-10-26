@@ -10,7 +10,7 @@ use previus_workspace::{Calculation, Workspace};
 use serde_json::Value;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ReportKind { Detailed, Summary, Periods, Salaries, Memory, Transitions, Indicators, Quality, Analysis, Roi }
+pub enum ReportKind { Detailed, Summary, Periods, Salaries, Memory, Transitions, Indicators, Quality, Analysis, Roi, Regras }
 impl ReportKind {
     pub fn parse(value: &str) -> Result<Self, String> {
         match value {
@@ -20,6 +20,7 @@ impl ReportKind {
             "indicators" => Ok(Self::Indicators), "quality" => Ok(Self::Quality),
             "analysis" => Ok(Self::Analysis),
             "roi" => Ok(Self::Roi),
+            "regras" => Ok(Self::Regras),
             _ => Err("Tipo de relatório PDF inválido.".into()),
         }
     }
@@ -34,6 +35,7 @@ impl ReportKind {
             Self::Quality => "Cálculo da Qualidade de Segurado",
             Self::Analysis => "Análise da Situação Atual do Benefício",
             Self::Roi => "Cálculo do Retorno Sobre o Investimento",
+            Self::Regras => "Regras de Transição - EC 103/2019",
         }
     }
 }
@@ -51,6 +53,7 @@ impl ReportKind {
             Self::Quality => "quality",
             Self::Analysis => "analysis",
             Self::Roi => "roi",
+            Self::Regras => "regras",
         }
     }
     /// Se este tipo já tem template Typst no novo formato.

@@ -6,7 +6,10 @@ mod common;
 #[test]
 fn every_typst_report_renders_a_valid_pdf() {
     let (case, _workspace, outcome) = common::calculated_case();
-    for kind in ["analysis", "periods", "transitions", "memory", "quality", "roi"] {
+    for kind in [
+        "analysis", "periods", "transitions", "memory", "quality", "roi", "regras", "summary",
+        "salaries", "indicators",
+    ] {
         let pdf = previus_reports::render_report(&case, kind, Some(&outcome))
             .unwrap_or_else(|e| panic!("{kind} falhou: {e}"));
         assert!(pdf.starts_with(b"%PDF-"), "{kind} nao produziu PDF");
