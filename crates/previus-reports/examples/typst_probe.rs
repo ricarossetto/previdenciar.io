@@ -36,7 +36,8 @@ fn main() {
         ],
         "signature": "Ricardo De Luca Rossetto",
     });
-    match previus_reports::render_typst("analysis", &data) {
+    let kind = std::env::args().nth(2).unwrap_or_else(|| "analysis".into());
+    match previus_reports::render_typst(&kind, &data) {
         Ok(pdf) => {
             let path = std::env::args().nth(1).unwrap_or_else(|| "typst-analise.pdf".into());
             std::fs::write(&path, &pdf).expect("write");

@@ -25,20 +25,17 @@
 
 // Bloco de identificação: cada linha define quantas colunas tem.
 #let identification-block(d) = {
-  let rows = d.rows
-  for row in rows {
+  for row in d.rows {
     grid(
       columns: row.len(),
       column-gutter: 8pt,
-      ..row.map(pair => data-field(pair.at(0), pair.at(1))),
+      ..row.map(f => data-field(f.at(0), f.at(1))),
     )
     v(5pt)
   }
 }
 
-#let section-title(t) = align(center)[
-  #text(size: 11pt, weight: "bold")[#t]
-]
+#let section-title(t) = align(center)[#text(size: 11pt, weight: "bold")[#t]]
 
 #let subsection(t) = text(size: 9.5pt, weight: "bold")[#t]
 
@@ -67,12 +64,17 @@
   align(center, text(size: 8.5pt, weight: "bold", fill: if ok { rgb("#2E6B2E") } else { gray-text })[#label]),
 )
 
-// Relatório padrão: cabeçalho (logo + identificação) no topo do corpo,
-// rodapé com data e n/N em cada página.
+// Relatório padrão. Cabeçalho (logo + título) repete em cada página; a
+// identificação fica no corpo (limitação do header do Typst com conteúdo gerado).
 #let report(title: "", identification: (:), date: "", body) = {
   set page(
     paper: "a4",
-    margin: (top: 1.5cm, bottom: 1.8cm, x: 1.5cm),
+    margin: (top: 3.2cm, bottom: 1.8cm, x: 1.5cm),
+    header: [
+      #align(center)[#image("logo.png", width: 40%)]
+      #v(2pt)
+      #align(center)[#text(size: 12pt, weight: "bold")[#title]]
+    ],
     footer: context [
       #set text(size: 7.5pt, fill: gray-text)
       #grid(
@@ -83,10 +85,6 @@
       )
     ],
   )
-  align(center)[#image("logo.png", width: 46%)]
-  v(3pt)
-  align(center)[#text(size: 12pt, weight: "bold")[#title]]
-  v(5pt)
   identification-block(identification)
   v(2pt)
   line(length: 100%, stroke: 0.5pt + gray-line)

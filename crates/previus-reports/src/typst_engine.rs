@@ -7,6 +7,7 @@ use typst_as_lib::TypstEngine;
 static LOGO: &[u8] = include_bytes!("../assets/logo.png");
 static BASE: &str = include_str!("../templates/_base.typ");
 static ANALISE: &str = include_str!("../templates/analise.typ");
+static HT: &str = include_str!("../templates/_ht.typ");
 
 /// Converte JSON em valor Typst, preservando a estrutura de dicionários/arrays.
 fn to_typst(v: &Json) -> TValue {
@@ -35,6 +36,7 @@ fn to_typst(v: &Json) -> TValue {
 fn main_source(kind: &str) -> Result<&'static str, String> {
     match kind {
         "analysis" => Ok(ANALISE),
+        "ht" => Ok(HT),
         other => Err(format!("Template Typst ausente para o tipo {other}.")),
     }
 }
