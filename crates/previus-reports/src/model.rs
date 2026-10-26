@@ -303,10 +303,10 @@ fn analysis_financial(_case:&Calculation,_options:ReportOptions,native:Option<&V
         s.paragraphs.push("Sem resultado nativo: o cenario financeiro requer dados e politica confirmados.".into());
     }
     Ok(s)
-}/// ROI: projecao de beneficio ao longo da expectativa de vida, com 13o e IRRF.
+}/// ROI: projecao de beneficio ao longo da expectativa de vida, com 13o e IRRF oficial.
 fn analysis_roi(native:Option<&Value>)->Result<Section,String>{
     let mut s=section("Retorno do investimento (ROI)",false);
-    s.paragraphs.push("Projecao informativa do beneficio ao longo da expectativa de vida. Considera 13o salario (1/12 adicional por mes) e IRRF simplificado (isento apos 65 anos, conforme Lei 7.713/1988, art. 6o, XIV). Nao inclui reajustes anuais, auxilio-alimentacao ou outros beneficios.".into());
+    s.paragraphs.push("Projecao informativa do beneficio ao longo da expectativa de vida. Considera 13o salario (1/12 adicional por mes) e IRRF oficial pela tabela embutida (isencao de 65 anos conforme Lei 7.713/1988, art. 6o, XIV). Nao inclui reajustes anuais.".into());
     let Some(n)=native else{s.paragraphs.push("Sem resultado nativo: o ROI requer dados e politica confirmados.".into());return Ok(s);};
     let Some(rmi_str)=n.pointer("/resumo/rmi").and_then(Value::as_str) else{s.paragraphs.push("RMI indisponivel: ROI nao calculado.".into());return Ok(s);};
     let rmi: f64 = rmi_str.parse().unwrap_or(0.0);
@@ -314,27 +314,34 @@ fn analysis_roi(native:Option<&Value>)->Result<Section,String>{
     let soma_str=n.pointer("/correcao/soma_considerada").and_then(Value::as_str).unwrap_or("0");
     let soma: f64 = soma_str.parse().unwrap_or(0.0);
     let meses_vida=371.0;
-    // 13o salario: 1/12 adicional por mes
     let rmi_com_13o=rmi*(13.0/12.0);
-    // IRRF: simplificado, isento apos 65 anos. Idade atual na DIB:
+    // IRRF oficial: usa a tabela embutida do rgps-core.
+    let competencia_irrf="2026-01";
+    let base_irrf_str=format!("{:.2}",rmi_com_13o);
+    let irrf_result=rgps_core::fiscal::irrf_mensal(competencia_irrf,&base_irrf_str,0,None);
+    let (irrf_com_13o,irrf_label)=match &irrf_result{
+        Ok(v)=>(f64::try_from(v.irrf).unwrap_or(0.0),format!("IRRF oficial (tabela {})",v.tabela_competencia)),
+        Err(_)=>{let isencao=1908.0;let aliquota=0.075;let irrf=if rmi_com_13o>isencao{(rmi_com_13o-isencao)*aliquota}else{0.0};(irrf,"IRRF estimado (fallback)".to_string())}
+    };
+    // IRRF com isencao 65: recalcula com isencao
+    let isencao_65_str=format!("{:.2}",rmi_com_13o);
+    let irrf_isento=match rgps_core::fiscal::irrf_mensal(competencia_irrf,&base_irrf_str,0,Some(&isencao_65_str)){
+        Ok(v)=>f64::try_from(v.irrf).unwrap_or(0.0),
+        Err(_)=>0.0,
+    };
     let idade_atual_meses=n.pointer("/pcd/idade_der_meses").and_then(Value::as_i64).unwrap_or(0);
     let meses_ate_65=(65*12-idade_atual_meses).max(0) as f64;
     let meses_com_irrf=meses_ate_65.min(meses_vida);
     let meses_isentos=(meses_vida-meses_com_irrf).max(0.0);
-    // IRRF simplificado: 7.5% sobre a parcela acima de 1.908,00 (tabela 2024 simplificada)
-    let aliquota=0.075;
-    let isencao=1908.0;
-    let _irrf_mensal=if rmi>isencao{(rmi-isencao)*aliquota}else{0.0};
-    let irrf_com_13o=if rmi_com_13o>isencao{(rmi_com_13o-isencao)*aliquota}else{0.0};
     let total_bruto=rmi_com_13o*meses_vida;
-    let total_irrf=irrf_com_13o*meses_com_irrf;
+    let total_irrf=irrf_com_13o*meses_com_irrf+irrf_isento*meses_isentos;
     let total_liquido=total_bruto-total_irrf;
     let payback_meses=if rmi_com_13o-irrf_com_13o>0.0{Some(soma/(rmi_com_13o-irrf_com_13o))}else{None};
     s.paragraphs.push(format!("RMI mensal: R$ {rmi:.2}."));
     s.paragraphs.push(format!("RMI com 13o (1/12 adicional): R$ {rmi_com_13o:.2}/mes."));
-    s.paragraphs.push(format!("IRRF estimado (apos 65 anos isento): R$ {irrf_com_13o:.2}/mes ate os 65 anos."));
+    s.paragraphs.push(format!("{irrf_label}: R$ {irrf_com_13o:.2}/mes (sem isencao 65) / R$ {irrf_isento:.2}/mes (com isencao 65)."));
     s.paragraphs.push(format!("Total bruto em {meses_vida:.0} meses (com 13o): R$ {total_bruto:.2}."));
-    s.paragraphs.push(format!("Total IRRF estimado: R$ {total_irrf:.2} em {meses_com_irrf:.0} meses com aliquota, {meses_isentos:.0} meses isentos."));
+    s.paragraphs.push(format!("Total IRRF estimado: R$ {total_irrf:.2} ({meses_com_irrf:.0} meses com aliquota, {meses_isentos:.0} meses isentos)."));
     s.paragraphs.push(format!("Total liquido estimado: R$ {total_liquido:.2}."));
     if soma>0.0{
         let roi_ratio=total_liquido/soma;
@@ -887,6 +894,16 @@ fn finish(report:Report)->Result<Report,String>{
     let mut total_rows=0usize;
     for s in &report.sections{for t in &s.tables{if t.headers.len()!=t.weights.len()||t.weights.contains(&0){return Err("Definição de tabela PDF inválida.".into());}for r in &t.rows{if r.len()!=t.headers.len(){return Err("Linha de tabela PDF inválida.".into());}total_rows+=1;for v in r{field(v)?;}}}for p in &s.paragraphs{field(p)?;}}
     if total_rows>MAX_ROWS{return Err("Documento excede 10.000 linhas de tabela; nenhum registro foi omitido.".into());}
+    // Signature block: only when personal identification is included.
+    if report.personal {
+        let mut sig = section("Assinatura do responsavel", false);
+        sig.paragraphs.push("".into());
+        sig.paragraphs.push("_______________________________________________".into());
+        sig.paragraphs.push("Nome do responsavel tecnico".into());
+        sig.paragraphs.push("".into());
+        sig.paragraphs.push("Data: ______/______/__________".into());
+        report.sections.push(sig);
+    }
     Ok(report)
 }
 #[cfg(test)]mod tests{use super::*;

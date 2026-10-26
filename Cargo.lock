@@ -3280,6 +3280,7 @@ dependencies = [
  "previus-core",
  "previus-rgps",
  "previus-workspace",
+ "rgps-core",
  "rusttype",
  "serde_json",
 ]
