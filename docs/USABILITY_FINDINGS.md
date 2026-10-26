@@ -1,6 +1,6 @@
-# Teste de usabilidade — advogado idoso (Araken Maica)
+# Teste de usabilidade: advogado idoso com CNIS real
 
-Caso: CNIS `cnis araken 03-26.pdf`, deficiência grave, aposentadoria por tempo
+Caso: CNIS real de um cliente, mantido fora do repositório, deficiência grave, aposentadoria por tempo
 de contribuição. Persona: advogado sênior, ~70 anos, pouca familiaridade com
 computador. Método: Playwright sobre o WebView2 real (CDP), print e texto de
 cada tela, fluxo guiado do início ao relatório.
@@ -47,6 +47,65 @@ cada tela, fluxo guiado do início ao relatório.
 8. "Informar caminho do arquivo" fica recolhido por padrão na importação.
 9. A tabela de remunerações mostra 331 competências de uma vez, cada uma como
    "Conferência pendente" — denso para leitura.
+
+## Estado em 0.12.0 (revisão desta rodada)
+
+Uma revisão do código e a repetição do fluxo com IPC sintético (mesmo estado de
+interface, sem transporte nativo) mudaram o diagnóstico dos itens críticos. O
+que segue foi verificado, não presumido.
+
+### 1. Etapa 5 (Conferência): corrigida
+
+- A conferência agora abre com **1 de 2: respostas da entrevista** (benefício
+  atual, finalidade, objetivo, segurado, sexo/deficiência e DIB), cada bloco com
+  o botão que volta à etapa certa.
+- **2 de 2** é o preparo a partir do CNIS, aberto na própria página, sem modal:
+  a referência documental, a lista do que o clique faz (exclui a fonte como
+  entrada, monta vínculos e remunerações, aplica a política e calcula) e o que
+  ele não faz (não altera o CNIS, não comprova direito).
+- Quando as pendências são exatamente fonte, política, vínculos e remunerações,
+  o painel de rastreabilidade diz que **um clique** as resolve e deixa de
+  oferecer os atalhos "Corrigir" que levavam às abas. O caminho de saída passa a
+  ser um só e visível.
+- O botão deixou de existir duas vezes (um na página, outro no modal). Isso
+  também eliminou a ambiguidade que quebrou a automação do teste anterior.
+
+### 2. Resposta da Etapa 2: não se reproduziu, coberta por teste
+
+- O fluxo completo foi repetido na interface atual, com CNIS sintético e com o
+  mesmo CNIS real usado no teste original (dados fora do repositório). Em ambos,
+  a resposta "não recebe benefício" chega à conferência: a etapa aparece
+  confirmada e a pendência "Situação de benefício atual não confirmada" não é
+  emitida.
+- As evidências originais são compatíveis com um artefato de automação: o print
+  da Etapa 5 mostra a lista de cinco pendências, que é exatamente o estado
+  **anterior** a qualquer preparo, e o print seguinte mostra o modal ainda
+  aberto, com a referência digitada e **sem submissão**. O rodapé dessas telas
+  exibia "versão 0.9.2" fixo, então a versão do binário não pode ser inferida
+  pelo rodapé.
+- Para não depender de conclusão manual, `apps/desktop/tests/guided-flow.test.tsx`
+  reproduz o fluxo inteiro e falha se a resposta não chegar ao preparo, ao
+  cálculo ou à conferência.
+- A conferência passou a mostrar a resposta por extenso, de modo que uma perda
+  futura fique visível e corrigível no mesmo lugar.
+
+### 3. CNIS para o motor: explicado no ponto de decisão
+
+- O texto do preparo diz que o CNIS é documento conferido, não entrada do
+  motor, e que o clique revisa a cópia, registra a referência e calcula.
+- O preparo com o CNIS real do teste produz quatro vínculos e 329 competências e
+  chega ao motor como resultado experimental. Não há necessidade de excluir a
+  fonte nem digitar vínculo e remuneração à mão.
+- A preparação não inventa mais respostas da entrevista: se o benefício atual
+  estiver sem resposta, ele continua pendente e a conferência mostra qual etapa
+  corrigir. Antes, o adaptador gravava "não recebe benefício", "Simulação do
+  benefício" e "Calcular um novo benefício" por conta própria.
+
+### Menores ainda abertas
+
+As três pendências menores listadas acima continuam abertas, assim como `genpdf`
+como dependência sem uso na exportação e os relatórios `Summary`, `Salaries` e
+`Indicators` no template genérico.
 
 ## Recomendações
 

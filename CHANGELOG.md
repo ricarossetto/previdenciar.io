@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.12.0 - 2026-10-26
+
+### Changed
+- **Conferência do assistente (Etapa 5) em dois passos visíveis**: primeiro as respostas da entrevista, com o botão que volta à etapa certa; depois o preparo a partir do CNIS, na própria página.
+- **Preparo sem modal**: a referência documental, o que o clique faz e o que ele não faz ficam visíveis, com um único botão "Preparar e calcular". A duplicidade de botões com o mesmo nome deixou de existir.
+- **Pendências com um caminho só**: quando as pendências são fonte, política, vínculos e remunerações, o painel informa que um clique as resolve e não oferece mais atalhos para as abas.
+- **CNIS explicado como fonte, não como entrada do motor**: o texto diz que o documento é conferido, que a cópia é revisada, que a referência fica registrada e que o cálculo parte dali.
+- **Respostas da entrevista não são mais inventadas pelo preparo**: benefício atual, finalidade e objetivo sem resposta continuam pendentes, com aviso e correção na conferência.
+
+### Added
+- Teste de fluxo guiado com IPC sintético cobrindo entrevista, importação, conferência e preparo em um clique (`apps/desktop/tests/guided-flow.test.tsx`).
+- Conferência mostra a resposta sobre benefício atual por extenso, com correção no mesmo lugar.
+
+### Fixed
+- Testes de interface que renderizam o aplicativo voltaram a rodar: `__APP_VERSION__` passou a ser definido no `vitest.config.ts`.
+- Rótulos desatualizados nos testes do assistente (opções da Etapa 3 e botão de avanço da Etapa 4), herdados da correção de texto anterior.
+- Suíte Rust voltou a compilar: o teste de workspace inicializa `Settings.logo_data_url` e o teste de capacidades reconhece as permissões `updater:default` e `process:allow-restart`/`allow-exit` exigidas pelo atualizador assinado. A descrição da capacidade deixou de negar os dois plugins.
+- Documentação: removidos nome de cliente e valor de RMI derivado do diagnóstico de usabilidade; o CPF de exemplo do formato de relatório passou a ser sintético.
+- Teste Rust garante que o preparo guiado não preenche respostas da entrevista.
+
+
 ## 0.11.1 - 2026-10-26
 
 ### Added

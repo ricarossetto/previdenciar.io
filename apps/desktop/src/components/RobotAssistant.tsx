@@ -63,6 +63,36 @@ function choiceLabel(process:string){
   return process==='Simulação do benefício'?'Organizar os dados para uma hipótese, sem afirmar concessão.':process==='Revisão e valor da causa'?'Registrar a intenção; a modalidade depende de motor e dados próprios.':process==='Planejamento futuro'?'Registrar objetivo, sem inventar salários ou contribuições futuras.':process==='Processo administrativo'?'Resposta declarada pelo operador, não extraída de um indeferimento antigo.':process==='Execução judicial'?'A execução integral não é presumida como suportada pelo motor RGPS.':'Modalidade separada, com parâmetros e regras específicas.';
 }
 
+/// Mostra na conferência exatamente o que a entrevista respondeu. Sem isto, uma
+/// resposta perdida vira uma pendência sem origem visível e o operador precisa
+/// adivinhar em qual etapa ela nasceu.
+function ConferenceInterview({draft,onFix}:{draft:Calculation;onFix:(screen:Screen)=>void}){
+  const a=interviewOf(draft);
+  const answered=a.current_benefit_received!==null;
+  const benefit=answered?(a.current_benefit_received?'Sim, recebe benefício (declarado)':'Não recebe benefício (declarado)'):'Não confirmado';
+  const rows:[string,string][]=[
+    ['Benefício atual',benefit],
+    ['Finalidade',a.process_kind??'Não informada'],
+    ['Objetivo',a.goal??'Não informado'],
+    ['Segurado',(draft.identity.full_name??'Não informado')+(draft.identity.birth_date?' · nascimento '+brDate(draft.identity.birth_date):'')],
+    ['Sexo e deficiência',(draft.sex??'Pendente')+' · '+(draft.disability??'Pendente')],
+    ['DIB',draft.dib||'Não informada'],
+  ];
+  return <section className="conference-interview" aria-label="Respostas da entrevista">
+    <header className="conference-interview__head">
+      <div><span className="eyebrow">Antes de calcular, 1 de 2</span><h3>Confirme as respostas da entrevista</h3></div>
+      <Badge tone={answered?'good':'review'}>{answered?'Respostas registradas':'Falta a resposta de benefício'}</Badge>
+    </header>
+    <dl className="conference-interview__answers">{rows.map(([label,value])=><div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
+    {!answered&&<Notice>Responda na etapa de situação e origem se o segurado recebe benefício hoje. O programa não infere essa resposta a partir do CNIS nem do nome.</Notice>}
+    <div className="form-actions" data-ui-actions>
+      <Button onClick={()=>onFix('situation')}>Corrigir benefício e importação</Button>
+      <Button onClick={()=>onFix('objective')}>Corrigir finalidade e objetivo</Button>
+      <Button onClick={()=>onFix('parameters')}>Corrigir dados do segurado</Button>
+    </div>
+  </section>;
+}
+
 export function RobotFace({large=false}:{large?:boolean}){return <span className={'robot-face '+(large?'large':'')} aria-hidden="true"><svg viewBox="0 0 64 64" fill="none"><path d="M32 7v7" stroke="currentColor" strokeWidth="3"/><circle cx="32" cy="5" r="3" fill="currentColor"/><rect x="12" y="15" width="40" height="34" rx="12" stroke="currentColor" strokeWidth="2.5"/><rect x="6" y="25" width="6" height="14" rx="3" fill="currentColor"/><rect x="52" y="25" width="6" height="14" rx="3" fill="currentColor"/><circle cx="25" cy="29" r="3.5" fill="currentColor"/><circle cx="39" cy="29" r="3.5" fill="currentColor"/><path d="M24 40c5 4 11 4 16 0M22 49v7M42 49v7" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/></svg></span>}
 function Choice({title,text,onClick,selected=false}:{title:string;text:string;onClick:()=>void;selected?:boolean}){return <button type="button" className={'robot-choice '+(selected?'selected':'')} onClick={onClick}><span><strong>{title}</strong><small>{text}</small></span><Icon name="arrow" size={18}/></button>}
 
@@ -175,6 +205,7 @@ export function RobotAssistant({draft,setDraft,workspace,onSave,onNotify,onManua
     {screen==='parameters'&&<Panel title="Dados iniciais para o benefício" subtitle="Somente os campos que alteram o cálculo."><div className="form-grid" data-ui-stack><Field label="Nome do segurado" required value={draft.identity.full_name??''} onChange={s=>update({identity:{...draft.identity,full_name:s}})}/><Field label="Nascimento do segurado" required value={draft.identity.birth_date?brDate(draft.identity.birth_date):''} onChange={s=>update({identity:{...draft.identity,birth_date:isoDate(s)??s}})} placeholder="DD/MM/AAAA"/><Field label="DIB / data da simulação" required value={draft.dib} onChange={dib=>update({dib})} placeholder="DD/MM/AAAA"/><Select label="Sexo cadastral do segurado" value={draft.sex??''} onChange={sex=>update({sex:sex||null})} items={['','Feminino','Masculino','A confirmar']}/><Select label="Deficiência na DIB" value={draft.disability??''} onChange={disability=>update({disability:disability||null})} items={['','Sem deficiência declarada','Leve','Moderada','Grave','A apurar']}/><div className="field"><span>Objetivo informado</span><Badge>{a.goal??'Não informado'}</Badge></div></div><p className="form-note">O CNIS não fornece sexo ou confirmação de deficiência. Não preencher pela aparência do nome. Cenários de teste devem ser registrados como hipóteses, não dados pessoais confirmados.</p>{issues.length>0&&<Notice>Falta confirmar: {issues.join('; ')}.</Notice>}<div className="form-actions" data-ui-actions><Button onClick={()=>setScreen('objective')}>Voltar ao objetivo</Button><Button primary disabled={issues.length>0} onClick={()=>next('conference',['parameters','periods'])}>Prosseguir para a conferência<Icon name="arrow" size={16}/></Button></div></Panel>}
 
   {screen==='conference'&&<>
+  <ConferenceInterview draft={draft} onFix={setScreen}/>
   <PrepareFromCnis draft={draft} onResult={(prepared)=>{setDraft(prepared);setScreen('result')}} onNotify={onNotify}/>
   <AssistantConsiderationPanel consideration={consideration} onFix={fix}/>
       <div className="conference-tabs" role="group" aria-label="Módulos de conferência">{TABS.map(item=><button key={item.id} type="button" aria-label={item.label} aria-pressed={tab===item.id} aria-controls="conference-panel" onClick={()=>{setTab(item.id);setError('')}}><span>{item.label}</span><small>{item.detail}</small></button>)}</div>

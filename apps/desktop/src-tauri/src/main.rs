@@ -246,11 +246,16 @@ mod tests {
         assert!(capability.get("remote").is_none());
         for permission in capability["permissions"].as_array().unwrap() {
             let permission = permission.as_str().unwrap();
-            assert!(permission.starts_with("allow-")); assert!(!permission.contains(':'));
+            // Local commands stay explicit allow-* names. The only namespaced
+            // permissions are the two plugins required by the signed updater.
+            const PLUGIN_PERMISSIONS: [&str; 3] = ["updater:default", "process:allow-restart", "process:allow-exit"];
+            assert!(permission.starts_with("allow-") || PLUGIN_PERMISSIONS.contains(&permission), "{permission}");
+            if permission.starts_with("allow-") { assert!(!permission.contains(':')); }
         }
         let permissions = capability["permissions"].as_array().unwrap();
         assert!(permissions.iter().any(|value| value == "allow-export-reports-batch"));
-        assert_eq!(permissions.len(), 16);
+        assert!(permissions.iter().any(|value| value == "updater:default"));
+        assert_eq!(permissions.len(), 19);
     }
     #[test]
     fn direct_rgps_json_rejects_invalid_schema_without_false_result() {

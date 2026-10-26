@@ -3,12 +3,12 @@
 <p align="center">Ferramenta desktop gratuita e open source para organizar CNIS, hipóteses de cálculo e relatórios locais.</p>
 <p align="center"><a href="https://github.com/ricarossetto/previdenciar.io/releases">Baixar para Windows</a> · <a href="https://ricarossetto.github.io/previdenciar.io/">Apresentação</a> · <a href="docs/GETTING_STARTED.md">Começar</a> · <a href="docs/LIMITATIONS.md">Limitações</a></p>
 
-> **Versão 0.10.5.** O motor continua experimental. O programa não é serviço oficial do INSS, não certifica direito a benefício e não substitui revisão profissional. Hipótese bloqueada continua bloqueada, e dado ausente não vira zero.
+> **Versão 0.12.0.** O motor continua experimental. O programa não é serviço oficial do INSS, não certifica direito a benefício e não substitui revisão profissional. Hipótese bloqueada continua bloqueada, e dado ausente não vira zero.
 
 ## O que já existe
 
 - Cadastro local de clientes, cálculos, agenda e modelos de texto.
-- Entrevista em sete etapas que organiza a hipótese, guarda cada resposta e permite voltar a qualquer ponto. O quadro de conferência mostra o que veio do CNIS, o que foi ajustado e o que o motor usou.
+- Entrevista em sete etapas que organiza a hipótese, guarda cada resposta e permite voltar a qualquer ponto. A conferência abre com as respostas da entrevista e, logo abaixo, o preparo a partir do CNIS em um clique: a fonte não entra no motor, a cópia revisada entra, e a referência da conferência fica registrada. O quadro de rastreabilidade mostra o que veio do CNIS, o que foi ajustado e o que o motor usou.
 - Importação de CNIS em PDF com texto extraível. Lê a tabela de vínculos, a de remunerações, a de contribuições (competência, data de pagamento, contribuição e salário), as linhas de cooperativa e a de valores consolidados por ano civil. A tabela que continua na página seguinte sem repetir o cabeçalho é lida com o contexto herdado.
 - Editor de períodos e livro de contribuições rastreável. Alterar um dado invalida o resultado e a revisão anterior.
 - Motor RGPS experimental com adaptador restritivo, avisos e memória de cálculo.
@@ -21,7 +21,7 @@
 
 ## O que foi conferido
 
-- 474 testes Rust, 104 testes de interface e 36 testes de navegador.
+- 485 testes Rust, 107 testes de interface e 36 testes de navegador.
 - Verificação nativa em perfil isolado: importação, cálculo, as oito prévias de PDF, gravação cifrada e reabertura, sem tocar na base normal.
 - Revisão de fonte pública sem achados.
 - Um CNIS real de 23 páginas, conferido fora do repositório, passou a ser lido com 610 lançamentos e nenhuma diferença de salário por competência contra o relatório de um software de referência.
@@ -35,7 +35,7 @@ Não estão implementados: a carência legal por tabelas do RGPS, a desconsidera
 
 ## Baixar e executar
 
-1. Abra [Releases](https://github.com/ricarossetto/previdenciar.io/releases) e escolha a versão 0.10.5.
+1. Abra [Releases](https://github.com/ricarossetto/previdenciar.io/releases) e escolha a versão 0.12.0.
 2. Baixe o executável Windows e o arquivo SHA256SUMS.txt.
 3. Confira o SHA-256 antes de executar. A distribuição não possui assinatura digital de código.
 4. Requer Windows 10/11 x64 com Microsoft Edge WebView2. Não desative proteções do Windows para ignorar alertas. Se não confiar no binário, compile a partir do código.

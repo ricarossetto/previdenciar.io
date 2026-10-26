@@ -1,3 +1,8 @@
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
-export default defineConfig({plugins:[react()],test:{testTimeout:30000,hookTimeout:30000,fileParallelism:false,maxWorkers:1,environment:'jsdom',include:['tests/**/*.test.ts','tests/**/*.test.tsx'],setupFiles:['./tests/setup.ts']}});
+import { readFileSync } from 'node:fs';
+
+const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as { version: string };
+
+export default defineConfig({plugins:[react()],define:{__APP_VERSION__:JSON.stringify(pkg.version)},test:{testTimeout:30000,hookTimeout:30000,fileParallelism:false,maxWorkers:1,environment:'jsdom',include:['tests/**/*.test.ts','tests/**/*.test.tsx'],setupFiles:['./tests/setup.ts']}});
+

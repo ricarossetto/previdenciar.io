@@ -1,6 +1,6 @@
 {
   "identifier": "main-local",
-  "description": "Only the local main window can invoke narrow application commands. No filesystem, shell, opener or network plugins.",
+  "description": "Only the local main window can invoke narrow application commands. No filesystem, shell or opener plugins. The updater and the process restart/exit permissions exist only for the signed update flow.",
   "local": true,
   "windows": [
     "main"
@@ -18,7 +18,7 @@
     "allow-export-reports-batch",
     "allow-export-document",
     "allow-backup-export",
-        "allow-preview-report",
+    "allow-preview-report",
     "allow-fetch-economic-snapshot",
     "allow-local-economic-snapshot",
     "allow-prepare-case-from-cnis",

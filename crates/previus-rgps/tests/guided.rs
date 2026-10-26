@@ -86,3 +86,16 @@ fn guided_case_reaches_the_engine_as_experimental() {
     assert_eq!(result["status"], "experimental", "{result}");
     assert!(result["data"]["native_result"]["resumo"]["rmi"].is_string(), "{result}");
 }
+
+#[test]
+fn guided_preparation_never_invents_interview_answers() {
+    let mut case = case();
+    case.assistant = Some(previus_workspace::AssistantInterview { mode: "assisted".into(), ..Default::default() });
+    let (prepared, notes) = prepare_from_cnis(&case, "CNIS conferido em 2026-10-23").unwrap();
+    let assistant = prepared.assistant.unwrap();
+    assert_eq!(assistant.current_benefit_received, None);
+    assert_eq!(assistant.process_kind, None);
+    assert_eq!(assistant.goal, None);
+    assert!(assistant.review_confirmed);
+    assert!(notes.iter().any(|note| note.contains("continua pendente")), "{notes:?}");
+}

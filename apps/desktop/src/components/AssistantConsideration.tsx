@@ -6,6 +6,10 @@ export function AssistantConsiderationPanel({consideration, onFix}:{consideratio
   const {imported,adjusted,used,issues,sourceNotes,effect,conclusion,ready,execution} = consideration;
   const decisive = issues.filter(issue => issue.decisive);
   const reviewOnly = issues.filter(issue => !issue.decisive);
+  // Fonte, política, vínculos e remunerações são exatamente o que o preparo
+  // guiado resolve. Mandar o operador para as abas nesse caso é o labirinto.
+  const guidedFixes:ConsiderationFix[] = ['source','policy','links','salaries'];
+  const guidedPending = imported.present && decisive.some(issue => guidedFixes.includes(issue.fix));
   return <section className="consideration-panel" aria-label="Dados importados, ajustados e usados no cálculo">
     <header className="consideration-panel__heading">
       <div><span className="eyebrow">Rastreabilidade</span><h3>O que entra no cálculo</h3></div>
@@ -32,7 +36,7 @@ export function AssistantConsiderationPanel({consideration, onFix}:{consideratio
     </div>
     <p className="consideration-effect">{effect}</p>
     {ready?<Notice tone="ok"><strong>Hipótese revisada.</strong> {conclusion}</Notice>:<Notice><strong>Nenhum resultado financeiro ainda.</strong> {conclusion}</Notice>}
-    {decisive.length>0&&<div className="consideration-blockers"><h4>Pendências que impedem calcular</h4><ul>{decisive.map(issue=><li key={issue.code}><Badge tone="review">Decisiva</Badge><span>{issue.label}</span>{onFix&&<button type="button" className="link-button" aria-label={'Corrigir: '+issue.label} onClick={()=>onFix(issue.fix)}>Corrigir</button>}</li>)}</ul></div>}
+    {decisive.length>0&&<div className="consideration-blockers"><h4>Pendências que impedem calcular</h4>{guidedPending&&<Notice tone="ok"><strong>Um clique resolve as pendências de fonte, política, vínculos e remunerações.</strong> Na conferência, o botão Preparar e calcular aplica as decisões e registra o que fez. As demais pendências continuam com correção própria.</Notice>}<ul>{decisive.map(issue=><li key={issue.code}><Badge tone="review">Decisiva</Badge><span>{issue.label}</span>{onFix&&!(imported.present&&guidedFixes.includes(issue.fix))&&<button type="button" className="link-button" aria-label={'Corrigir: '+issue.label} onClick={()=>onFix(issue.fix)}>Corrigir</button>}</li>)}</ul></div>}
     {reviewOnly.length>0&&<details className="details"><summary>Outras conferências · {reviewOnly.length}</summary><ul className="review-list">{reviewOnly.map(issue=><li key={issue.code}>{issue.label}</li>)}</ul></details>}
     {sourceNotes.length>0&&<details className="details"><summary>Pendências da fonte que não entram no cálculo · {sourceNotes.length}</summary><ul className="review-list">{sourceNotes.map(note=><li key={note.code}>{note.label}</li>)}</ul><p className="form-note">A fonte CNIS permanece preservada. Excluí-la do motor não corrige o documento nem comprova que a exclusão esteja certa.</p></details>}
   </section>;

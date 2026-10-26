@@ -211,9 +211,11 @@ pub fn prepare_from_cnis(case: &Calculation, reference: &str) -> Result<(Calcula
     prepared.status = "Revisão pendente".into();
     if let Some(assistant) = prepared.assistant.as_mut() {
         if assistant.mode == "assisted" {
-            assistant.current_benefit_received.get_or_insert(false);
-            assistant.process_kind.get_or_insert_with(|| "Simulação do benefício".into());
-            assistant.goal.get_or_insert_with(|| "Calcular um novo benefício".into());
+            // A preparação não responde à entrevista: pergunta sem resposta
+            // continua pendente e a conferência mostra qual etapa corrigir.
+            if assistant.current_benefit_received.is_none() {
+                notes.push("A resposta sobre benefício atual continua pendente: a preparação não infere essa informação.".into());
+            }
             assistant.review_confirmed = true;
             for step in ["intro", "benefit", "import", "process", "goal", "parameters", "periods", "salaries", "policy", "review"] {
                 if !assistant.completed_steps.iter().any(|item| item == step) {
