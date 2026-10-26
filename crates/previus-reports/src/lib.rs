@@ -4,6 +4,8 @@
 mod model;
 mod layout;
 mod typst_engine;
+mod format;
+mod report_data;
 use previus_workspace::{Calculation, Workspace};
 use serde_json::Value;
 
@@ -20,8 +22,7 @@ impl ReportKind {
             _ => Err("Tipo de relatório PDF inválido.".into()),
         }
     }
-    fn title(self) -> &'static str {
-        match self {
+    fn title(self) -> &'static str {        match self {
             Self::Detailed => "Relatório detalhado do cálculo previdenciário",
             Self::Summary => "Resumo do cálculo RGPS",
             Self::Periods => "Relatório do Tempo de Contribuição",
@@ -32,6 +33,26 @@ impl ReportKind {
             Self::Quality => "Cálculo da Qualidade de Segurado",
             Self::Analysis => "Análise da Situação Atual do Benefício",
         }
+    }
+}
+impl ReportKind {
+    /// Identificador estável usado pelo motor de templates.
+    pub fn slug(self) -> &'static str {
+        match self {
+            Self::Detailed => "detailed",
+            Self::Summary => "summary",
+            Self::Periods => "periods",
+            Self::Salaries => "salaries",
+            Self::Memory => "memory",
+            Self::Transitions => "transitions",
+            Self::Indicators => "indicators",
+            Self::Quality => "quality",
+            Self::Analysis => "analysis",
+        }
+    }
+    /// Se este tipo já tem template Typst no novo formato.
+    pub fn has_typst_template(self) -> bool {
+        matches!(self, Self::Analysis | Self::Periods)
     }
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -66,6 +87,12 @@ pub fn render_pdf(
 /// Renderiza um relatório a partir dos templates Typst (novo layout).
 pub fn render_typst(kind: &str, data: &Value) -> Result<Vec<u8>, String> {
     typst_engine::render(kind, data)
+}
+
+/// Renderiza um relatório do novo formato a partir do caso e do resultado nativo.
+pub fn render_report(case: &Calculation, kind: &str, outcome: Option<&Value>) -> Result<Vec<u8>, String> {
+    let data = report_data::build(kind, case, outcome)?;
+    typst_engine::render(kind, &data)
 }
 
 /// Merge multiple PDF documents into a single output, preserving page order.

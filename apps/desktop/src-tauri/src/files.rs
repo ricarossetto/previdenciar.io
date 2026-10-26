@@ -194,8 +194,13 @@ fn reviewed_outcome(calculation: &Calculation) -> Value {
 }
 fn render_pdf_kind(calculation: &Calculation, workspace: &Workspace, kind: previus_reports::ReportKind,
     include_personal: bool, outcome: &Value, presentation: previus_reports::Presentation) -> Result<Vec<u8>, String> {
-    let bytes = previus_reports::render_pdf(calculation, workspace,
-        previus_reports::ReportOptions { kind, include_personal, presentation }, Some(outcome))?;
+    // Novo motor Typst para os tipos já migrados; demais seguem no genpdf.
+    let bytes = if kind.has_typst_template() {
+        previus_reports::render_report(calculation, kind.slug(), Some(outcome))?
+    } else {
+        previus_reports::render_pdf(calculation, workspace,
+            previus_reports::ReportOptions { kind, include_personal, presentation }, Some(outcome))?
+    };
     if bytes.len() as u64 > MAX_WORKSPACE_BYTES { return Err("PDF excede o limite de 64 MiB.".into()); }
     Ok(bytes)
 }
