@@ -15,20 +15,20 @@
     #grid(
       columns: (1fr, auto),
       align: (left, right),
-      text(size: 10pt, weight: "bold", fill: navy)[#r.nome],
-      if chosen { text(size: 8pt, weight: "bold", fill: rgb("#2E6B2E"))[Regra Escolhida] } else { [] },
+      text(size: fs-value, weight: "bold", fill: navy)[#r.nome],
+      if chosen { text(size: fs-body, weight: "bold", fill: rgb("#2E6B2E"))[Regra Escolhida] } else { [] },
     )
     #v(5pt)
     #grid(
       columns: (1fr, 1fr, 1fr, 1fr),
       column-gutter: 8pt,
-      [#text(size: 7.5pt, fill: gray-text)[Tempo de Contribuição] #linebreak() #text(size: 9pt)[#r.tempo]],
-      [#text(size: 7.5pt, fill: gray-text)[Carência] #linebreak() #text(size: 9pt)[#r.carencia]],
-      [#text(size: 7.5pt, fill: gray-text)[Idade] #linebreak() #text(size: 9pt)[#r.idade]],
-      [#text(size: 7.5pt, fill: gray-text)[Provável RMI] #linebreak() #text(size: 9pt, weight: "bold", fill: navy)[#r.rmi]],
+      [#text(size: fs-caption, fill: gray-text)[Tempo de Contribuição] #linebreak() #text(size: fs-body)[#r.tempo]],
+      [#text(size: fs-caption, fill: gray-text)[Carência] #linebreak() #text(size: fs-body)[#r.carencia]],
+      [#text(size: fs-caption, fill: gray-text)[Idade] #linebreak() #text(size: fs-body)[#r.idade]],
+      [#text(size: fs-caption, fill: gray-text)[Provável RMI] #linebreak() #text(size: fs-body, weight: "bold", fill: navy)[#r.rmi]],
     )
     #v(4pt)
-    #text(size: 8pt, fill: gray-text)[Possível aposentadoria em #r.der]
+    #text(size: fs-body, fill: gray-text)[Possível aposentadoria em #r.der]
   ]
 }
 
@@ -39,5 +39,5 @@
     #v(8pt)
   ]
   #v(6pt)
-  #text(size: 7.5pt, fill: gray-text)[#d.nota]
+  #text(size: fs-caption, fill: gray-text)[#d.nota]
 ]

@@ -8,9 +8,9 @@
   #data-table(d.headers, d.rows)
   #v(8pt)
   #for t in d.totais [
-    #text(size: 8.5pt)[*#t.at(0):* #t.at(1)]
+    #text(size: fs-body)[*#t.at(0):* #t.at(1)]
     #v(3pt)
   ]
   #v(10pt)
-  #text(size: 7.5pt, fill: gray-text)[#d.nota]
+  #text(size: fs-caption, fill: gray-text)[#d.nota]
 ]

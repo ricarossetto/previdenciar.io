@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.11.0 - 2026-10-26
+
+### Added
+- **Novo motor de relatórios PDF (Typst)**: layout idêntico ao produto de referência — logo do escritório, título centralizado, campos em caixa, tabelas com cabeçalho azul-marinho e linhas alternadas, barras de status, rodapé com data e numeração `n/N`.
+- **6 relatórios migrados**: Análise da Situação Atual, Tempo de Contribuição, Cálculo da Qualidade de Segurado, Cálculo da R.M.I., Análise das Regras de Transição e Cálculo do Retorno Sobre o Investimento.
+- **Documento consolidado** (`detailed`) como merge dos seis, na ordem do produto de referência.
+- **Formatação brasileira** centralizada: moeda (`R$ 1.632.377,53`), datas (`22/05/2026`), períodos (`22 anos, 1 mês e 4 dias`).
+- **Escala tipográfica única** nos templates (fim do drift de tamanhos ad-hoc).
+- ROI com 13º salário, IRRF oficial (tabela embutida) e projeção por regra.
+
+### Changed
+- `ReportKind::Roi` adicionado; `ReportKind::slug` e `has_typst_template`.
+- `render_report(case, kind, outcome)` é o novo caminho; tipos migrados deixam de usar o genpdf.
+- Contribuição mensal (INSS) calculada como 20% do salário de benefício.
+
+### Notes
+- Typst adiciona ~15 MB ao binário; a compilação do workspace exige memória (use `-j 1` em máquinas com pouca RAM).
 ## 0.10.6 - 2026-10-25
 
 ### Added

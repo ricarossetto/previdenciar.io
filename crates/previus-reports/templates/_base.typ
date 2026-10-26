@@ -6,13 +6,22 @@
 #let navy-soft = rgb("#E8EDF3")
 #let gray-bg = rgb("#F2F3F5")
 #let gray-line = rgb("#D5D8DC")
-#let gray-text = rgb("#5A6472")
+#let gray-text = rgb("#4A5568")
 #let green = rgb("#5CB85C")
 #let green-soft = rgb("#E3F2E3")
+#let green-text = rgb("#2E6B2E")
+
+// Escala tipográfica única. Todo texto usa um destes passos.
+#let fs-caption = 7.5pt
+#let fs-body = 9pt
+#let fs-value = 10pt
+#let fs-heading = 11pt
+#let fs-title = 12pt
+#let fs-highlight = 15pt
 
 // Campo rotulado: rótulo pequeno em cima, valor em caixa clara.
 #let data-field(label, value) = block(width: 100%)[
-  #text(size: 7pt, fill: gray-text)[#label]
+  #text(size: fs-caption, fill: gray-text)[#label]
   #v(1.5pt)
   #box(
     width: 100%,
@@ -20,7 +29,7 @@
     fill: gray-bg,
     stroke: 0.5pt + gray-line,
     radius: 2pt,
-  )[#text(size: 8.5pt, weight: "bold")[#value]]
+  )[#text(size: fs-body, weight: "bold")[#value]]
 ]
 
 // Bloco de identificação: cada linha define quantas colunas tem.
@@ -35,9 +44,9 @@
   }
 }
 
-#let section-title(t) = align(center)[#text(size: 11pt, weight: "bold")[#t]]
+#let section-title(t) = align(center)[#text(size: fs-heading, weight: "bold")[#t]]
 
-#let subsection(t) = text(size: 9.5pt, weight: "bold")[#t]
+#let subsection(t) = text(size: fs-value, weight: "bold")[#t]
 
 // Tabela com cabeçalho azul-marinho e linhas alternadas.
 #let data-table(headers, rows, weights: none) = {
@@ -49,8 +58,8 @@
     align: (left,) * n,
     stroke: 0.4pt + gray-line,
     fill: (col, row) => if row == 0 { navy } else if calc.even(row) { gray-bg } else { white },
-    table.header(..headers.map(h => text(fill: white, weight: "bold", size: 8pt)[#h])),
-    ..rows.flatten().map(cell => text(size: 8pt)[#cell]),
+    table.header(..headers.map(h => text(fill: white, weight: "bold", size: fs-caption)[#h])),
+    ..rows.flatten().map(cell => text(size: fs-body)[#cell]),
   )
 }
 
@@ -61,7 +70,7 @@
   fill: if ok { green-soft } else { gray-bg },
   stroke: 0pt,
   radius: 3pt,
-  align(center, text(size: 8.5pt, weight: "bold", fill: if ok { rgb("#2E6B2E") } else { gray-text })[#label]),
+  align(center, text(size: fs-body, weight: "bold", fill: if ok { green-text } else { gray-text })[#label]),
 )
 
 // Relatório padrão. Cabeçalho (logo + título) repete em cada página; a
@@ -73,10 +82,10 @@
     header: [
       #align(center)[#image("logo.png", width: 40%)]
       #v(2pt)
-      #align(center)[#text(size: 12pt, weight: "bold")[#title]]
+      #align(center)[#text(size: fs-title, weight: "bold")[#title]]
     ],
     footer: context [
-      #set text(size: 7.5pt, fill: gray-text)
+      #set text(size: fs-caption, fill: gray-text)
       #grid(
         columns: (1fr, 1fr),
         align: (left, right),

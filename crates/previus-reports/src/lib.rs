@@ -4,7 +4,7 @@
 mod model;
 mod layout;
 mod typst_engine;
-mod format;
+pub mod format;
 mod report_data;
 use previus_workspace::{Calculation, Workspace};
 use serde_json::Value;

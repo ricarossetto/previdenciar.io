@@ -10,8 +10,8 @@
   stroke: 0.6pt + gray-line,
   radius: 3pt,
   stack(dir: ttb, spacing: 4pt,
-    align(center, text(size: 8.5pt, fill: gray-text)[#label]),
-    align(center, text(size: 14pt, weight: "bold", fill: navy)[#value]),
+    align(center, text(size: fs-body, fill: gray-text)[#label]),
+    align(center, text(size: fs-highlight, weight: "bold", fill: navy)[#value]),
   ),
 )
 
@@ -25,8 +25,8 @@
     stroke: 0.5pt + gray-line,
     radius: 3pt,
     stack(dir: ttb, spacing: 2pt,
-      text(size: 7.5pt, fill: gray-text)[#r.label],
-      text(size: 10pt, weight: "bold")[#r.value],
+      text(size: fs-caption, fill: gray-text)[#r.label],
+      text(size: fs-value, weight: "bold")[#r.value],
     ),
   ),
   status-bar(r.status, ok: r.ok),
@@ -43,8 +43,8 @@
     stroke: 0.5pt + gray-line,
     radius: 2pt,
     stack(dir: ttb, spacing: 3pt,
-      align(center, text(size: 8pt, fill: gray-text)[#p.at(0)]),
-      align(center, text(size: 9.5pt, weight: "bold")[#p.at(1)]),
+      align(center, text(size: fs-body, fill: gray-text)[#p.at(0)]),
+      align(center, text(size: fs-value, weight: "bold")[#p.at(1)]),
     ),
   )),
 )
@@ -65,11 +65,11 @@
 
   #subsection("PLANEJAMENTO PARA A SUA APOSENTADORIA")
   #v(4pt)
-  #text(size: 9pt, weight: "bold")[A PAGAR:]
+  #text(size: fs-body, weight: "bold")[A PAGAR:]
   #v(3pt)
   #kv-table(d.a_pagar)
   #v(8pt)
-  #text(size: 9pt, weight: "bold")[A RECEBER:]
+  #text(size: fs-body, weight: "bold")[A RECEBER:]
   #v(3pt)
   #kv-table(d.a_receber)
 
@@ -77,6 +77,6 @@
   #align(center)[
     #line(length: 45%, stroke: 0.5pt + black)
     #v(2pt)
-    #text(size: 9pt)[#d.signature]
+    #text(size: fs-body)[#d.signature]
   ]
 ]

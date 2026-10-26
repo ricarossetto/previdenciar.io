@@ -10,8 +10,8 @@
   stroke: 0.5pt + gray-line,
   radius: 2pt,
   stack(dir: ttb, spacing: 3pt,
-    text(size: 7.5pt, fill: gray-text)[#label],
-    text(size: 10pt, weight: "bold")[#value],
+    text(size: fs-caption, fill: gray-text)[#label],
+    text(size: fs-value, weight: "bold")[#value],
   ),
 )
 
@@ -19,7 +19,7 @@
   #for (i, r) in d.regras.enumerate() [
     #if i > 0 { pagebreak() }
     #rect(width: 100%, inset: (x: 10pt, y: 6pt), fill: navy-soft, radius: 3pt)[
-      #text(size: 12pt, weight: "bold", fill: navy)[#r.nome]
+      #text(size: fs-title, weight: "bold", fill: navy)[#r.nome]
     ]
     #v(10pt)
     #grid(
@@ -32,17 +32,17 @@
       field("Total líquido recebido", r.total),
     )
     #v(10pt)
-    #text(size: 8.5pt, weight: "bold")[Detalhamento:]
+    #text(size: fs-body, weight: "bold")[Detalhamento:]
     #v(4pt)
     #rect(width: 100%, inset: 8pt, fill: gray-bg, stroke: 0.5pt + gray-line, radius: 2pt)[
       #for line in r.detalhe [
-        #text(size: 8.5pt)[#line]
+        #text(size: fs-body)[#line]
         #linebreak()
       ]
     ]
     #v(10pt)
-    #text(size: 8pt, fill: gray-text)[#r.expectativa]
+    #text(size: fs-body, fill: gray-text)[#r.expectativa]
   ]
   #v(6pt)
-  #text(size: 7.5pt, fill: gray-text)[#d.nota]
+  #text(size: fs-caption, fill: gray-text)[#d.nota]
 ]

@@ -22,8 +22,8 @@
       stroke: 0.5pt + gray-line,
       radius: 2pt,
       stack(dir: ttb, spacing: 3pt,
-        text(size: 8pt, fill: gray-text)[#p.at(0)],
-        text(size: 10pt, weight: "bold", fill: navy)[#p.at(1)],
+        text(size: fs-body, fill: gray-text)[#p.at(0)],
+        text(size: fs-value, weight: "bold", fill: navy)[#p.at(1)],
       ),
     )),
   )
