@@ -10,7 +10,7 @@ use previus_workspace::{Calculation, Workspace};
 use serde_json::Value;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ReportKind { Detailed, Summary, Periods, Salaries, Memory, Transitions, Indicators, Quality, Analysis }
+pub enum ReportKind { Detailed, Summary, Periods, Salaries, Memory, Transitions, Indicators, Quality, Analysis, Roi }
 impl ReportKind {
     pub fn parse(value: &str) -> Result<Self, String> {
         match value {
@@ -19,6 +19,7 @@ impl ReportKind {
             "memory" => Ok(Self::Memory), "transitions" => Ok(Self::Transitions),
             "indicators" => Ok(Self::Indicators), "quality" => Ok(Self::Quality),
             "analysis" => Ok(Self::Analysis),
+            "roi" => Ok(Self::Roi),
             _ => Err("Tipo de relatório PDF inválido.".into()),
         }
     }
@@ -32,6 +33,7 @@ impl ReportKind {
             Self::Indicators => "Indicadores e pendências de conferência",
             Self::Quality => "Cálculo da Qualidade de Segurado",
             Self::Analysis => "Análise da Situação Atual do Benefício",
+            Self::Roi => "Cálculo do Retorno Sobre o Investimento",
         }
     }
 }
@@ -48,11 +50,15 @@ impl ReportKind {
             Self::Indicators => "indicators",
             Self::Quality => "quality",
             Self::Analysis => "analysis",
+            Self::Roi => "roi",
         }
     }
     /// Se este tipo já tem template Typst no novo formato.
     pub fn has_typst_template(self) -> bool {
-        matches!(self, Self::Analysis | Self::Periods | Self::Transitions)
+        matches!(
+            self,
+            Self::Detailed | Self::Analysis | Self::Periods | Self::Transitions | Self::Memory | Self::Quality | Self::Roi
+        )
     }
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -91,6 +97,14 @@ pub fn render_typst(kind: &str, data: &Value) -> Result<Vec<u8>, String> {
 
 /// Renderiza um relatório do novo formato a partir do caso e do resultado nativo.
 pub fn render_report(case: &Calculation, kind: &str, outcome: Option<&Value>) -> Result<Vec<u8>, String> {
+    if kind == "detailed" {
+        // Consolidado: mesma ordem do produto de referência.
+        let mut parts = Vec::new();
+        for part in ["periods", "quality", "transitions", "memory", "analysis", "roi"] {
+            parts.push(render_report(case, part, outcome)?);
+        }
+        return merge_pdfs(&parts);
+    }
     let data = report_data::build(kind, case, outcome)?;
     typst_engine::render(kind, &data)
 }

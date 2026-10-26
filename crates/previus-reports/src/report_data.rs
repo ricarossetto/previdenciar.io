@@ -1,6 +1,6 @@
 //! Constrói o JSON de dados que cada template Typst consome, já formatado em
 //! padrão brasileiro. Nunca inventa valor ausente: campo desconhecido fica vazio.
-use crate::format::{br_date, brl_decimal, decimal, period_from_days_360, period_from_months};
+use crate::format::{br_date, brl, brl_decimal, decimal, period_from_days_360, period_from_months};
 use previus_workspace::Calculation;
 use rust_decimal::Decimal;
 use serde_json::{json, Value};
@@ -102,6 +102,10 @@ fn analysis(case: &Calculation, outcome: Option<&Value>) -> Result<Value, String
         })
         .unwrap_or(0);
     let sb_fallback = salario_beneficio.or_else(|| n.and_then(|v| memoria_valor(v, "media")));
+    let contribuicao = sb_fallback
+        .map(|v| (v * Decimal::new(20, 2)).round_dp(2))
+        .map(brl_decimal)
+        .unwrap_or_else(|| "R$ 0,00".into());
 
     let valor = rmi.map(brl_decimal).unwrap_or_else(|| "Não apurado".into());
     let sb = sb_fallback.map(brl_decimal).unwrap_or_else(|| "Não apurado".into());
@@ -132,7 +136,7 @@ fn analysis(case: &Calculation, outcome: Option<&Value>) -> Result<Value, String
         "a_pagar": [
             ["Salário de contribuição", sb],
             ["Alíquota", "20%"],
-            ["Contribuição mensal (INSS)", "R$ 0,00"],
+            ["Contribuição mensal (INSS)", contribuicao],
             ["IRRF", "R$ 0,00"],
             ["Nº de contribuições", competencias.to_string()],
             ["Total de contribuições (INSS + IRRF)", soma_txt],
@@ -302,12 +306,213 @@ fn transitions(case: &Calculation, outcome: Option<&Value>) -> Result<Value, Str
     }))
 }
 
+fn memory_report(case: &Calculation, outcome: Option<&Value>) -> Result<Value, String> {
+    let data_calculo = br_date(&case.dib);
+    let n = native(outcome);
+    let headers = vec![
+        "Nº", "Data", "Dias", "Salário de Contribuição", "Índice de Atualização", "Salário Corrigido",
+    ];
+    let rows: Vec<Vec<String>> = n
+        .and_then(|v| v.pointer("/correcao/parcelas"))
+        .and_then(Value::as_array)
+        .map(|arr| {
+            arr.iter()
+                .enumerate()
+                .map(|(i, p)| {
+                    vec![
+                        format!("{:03}", i + 1),
+                        br_date(p.get("competencia").and_then(Value::as_str).unwrap_or("")),
+                        p.get("dias").and_then(Value::as_i64).unwrap_or(0).to_string(),
+                        p.get("valor").and_then(Value::as_str).map(brl).unwrap_or_default(),
+                        p.get("indice").and_then(Value::as_str).unwrap_or("").to_string(),
+                        p.get("corrigido").and_then(Value::as_str).map(brl).unwrap_or_default(),
+                    ]
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+
+    let idade = n
+        .and_then(|v| v.pointer("/transicoes/idade_meses"))
+        .and_then(Value::as_i64)
+        .map(period_from_months)
+        .unwrap_or_default();
+    let parcelas = n
+        .and_then(|v| v.pointer("/parametros/divisor"))
+        .and_then(Value::as_u64)
+        .or_else(|| n.and_then(|v| v.pointer("/carencia/competencias_salario")).and_then(Value::as_u64))
+        .unwrap_or(0);
+    let tempo = n
+        .and_then(|v| v.pointer("/tempo/total"))
+        .map(|t| {
+            crate::format::period(
+                t.get("anos").and_then(Value::as_i64).unwrap_or(0),
+                t.get("meses").and_then(Value::as_i64).unwrap_or(0),
+                t.get("dias").and_then(Value::as_i64).unwrap_or(0),
+            )
+        })
+        .unwrap_or_default();
+    let soma = n.and_then(|v| v.pointer("/correcao/soma_considerada")).and_then(decimal);
+    let media = n
+        .and_then(|v| v.pointer("/resumo/salario_beneficio"))
+        .and_then(decimal)
+        .or_else(|| n.and_then(|v| memoria_valor(v, "media")));
+    let sb = media;
+    let coeficiente = n
+        .and_then(|v| v.pointer("/parametros/coeficiente"))
+        .and_then(|c| c.as_str().map(|s| s.to_string()).or_else(|| c.as_i64().map(|i| i.to_string())))
+        .unwrap_or_default();
+    let rmi = n.and_then(|v| {
+        pick(v, &["/resumo/rmi", "/transicoes/rmi_escolhida"])
+            .and_then(decimal)
+            .or_else(|| memoria_valor(v, "rmi"))
+    });
+
+    let fmt = |v: Option<Decimal>| v.map(brl_decimal).unwrap_or_else(|| "Não apurado".into());
+    Ok(json!({
+        "title": "Cálculo da R.M.I.",
+        "subtitle": "Cálculo da R.M.I. - Tempo de Contribuição",
+        "date": data_calculo,
+        "identification": identification(case, &data_calculo),
+        "headers": headers,
+        "rows": rows,
+        "resumo": [
+            ["Idade na DIB", idade],
+            ["Nº de Parcelas no PBC", parcelas.to_string()],
+            ["Tempo de Contribuição", tempo],
+            ["Soma dos Salários", fmt(soma)],
+            ["Média dos Salários Corrigidos", fmt(media)],
+            ["Salário de Benefício", fmt(sb)],
+            ["Coeficiente", if coeficiente.is_empty() { String::new() } else { format!("{coeficiente} %") }],
+            ["Renda Mensal Inicial", fmt(rmi)],
+        ],
+    }))
+}
+
+fn iso_parts(iso: &str) -> Option<(i64, i64, i64)> {
+    let parts: Vec<&str> = iso.split('-').collect();
+    if parts.len() == 3 {
+        Some((parts[0].parse().ok()?, parts[1].parse().ok()?, parts[2].parse().ok()?))
+    } else {
+        None
+    }
+}
+
+fn quality(case: &Calculation, _outcome: Option<&Value>) -> Result<Value, String> {
+    let data_calculo = br_date(&case.dib);
+    let headers = vec!["Início", "Fim", "Filiação", "Carência", "Tempo Contribuição", "Origem do Vínculo"];
+    let mut rows: Vec<Vec<String>> = Vec::new();
+    if let Some(cnis) = &case.cnis {
+        for link in &cnis.links {
+            let inicio = link.start_date.as_deref().map(br_date).unwrap_or_default();
+            let fim = link.end_date.as_deref().map(br_date).unwrap_or_default();
+            let meses = cnis
+                .salary_entries
+                .iter()
+                .filter(|e| e.link_sequence == Some(link.sequence))
+                .count();
+            let tempo = match (iso_parts(&inicio), iso_parts(&fim)) {
+                (Some((ay, am, ad)), Some((by, bm, bd))) => {
+                    let dias = (by - ay) * 360 + (bm - am) * 30 + (bd - ad);
+                    period_from_days_360(dias.max(0))
+                }
+                _ => String::new(),
+            };
+            rows.push(vec![
+                inicio,
+                fim,
+                link.affiliation.clone().unwrap_or_default(),
+                format!("{meses} contribuições"),
+                tempo,
+                link.raw_employer.clone().unwrap_or_default(),
+            ]);
+        }
+    }
+    let total_meses: usize = rows
+        .iter()
+        .map(|r| {
+            r.get(3)
+                .and_then(|s| s.split_whitespace().next())
+                .and_then(|n| n.parse::<usize>().ok())
+                .unwrap_or(0)
+        })
+        .sum();
+    Ok(json!({
+        "title": "Cálculo da Qualidade de Segurado",
+        "date": data_calculo,
+        "identification": identification(case, &data_calculo),
+        "headers": headers,
+        "rows": rows,
+        "totais": [
+            ["Total de contribuições", format!("{total_meses} contribuições")],
+        ],
+        "nota": "Apuração própria sobre as contribuições declaradas na origem. A comparação com a carência exigida é informativa: não há direito apurado.",
+    }))
+}
+
+fn roi(case: &Calculation, outcome: Option<&Value>) -> Result<Value, String> {
+    let data_calculo = br_date(&case.dib);
+    let n = native(outcome);
+    let regras: Vec<Value> = n
+        .and_then(|v| v.pointer("/transicoes/regras"))
+        .and_then(Value::as_array)
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|r| {
+                    let rmi = r
+                        .get("rmi_final")
+                        .or_else(|| r.get("rmi"))
+                        .and_then(decimal)?;
+                    if rmi <= Decimal::ZERO {
+                        return None;
+                    }
+                    let nome = r.get("nome").and_then(Value::as_str).unwrap_or("").to_string();
+                    let meses = 371i64;
+                    let rmi_13 = rmi * Decimal::from(13) / Decimal::from(12);
+                    let base = rmi_13.round_dp(2).to_string();
+                    let irrf = rgps_core::fiscal::irrf_mensal("2026-01", &base, 0, None)
+                        .map(|v| v.irrf)
+                        .unwrap_or(Decimal::ZERO);
+                    let liquido = rmi_13 - irrf;
+                    let total = (liquido * Decimal::from(meses)).round_dp(2);
+                    Some(json!({
+                        "nome": nome,
+                        "der": data_calculo,
+                        "investimento": "Nenhum investimento necessário",
+                        "rmi": brl_decimal(rmi),
+                        "total": brl_decimal(total),
+                        "detalhe": [
+                            format!("Total líquido recebido de {} até {} ({} meses considerando o 13º salário)", data_calculo, "a expectativa", meses),
+                            format!("Provável RMI de {}", brl_decimal(rmi)),
+                            format!("RMI com 13º: {}", brl_decimal(rmi_13)),
+                            format!("IRRF mensal estimado: {}", brl_decimal(irrf)),
+                            format!("Total líquido: {}", brl_decimal(total)),
+                        ],
+                        "expectativa": "Expectativa de sobrevida conforme tábua do IBGE; projeção informativa.",
+                    }))
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+
+    Ok(json!({
+        "title": "Cálculo do Retorno Sobre o Investimento",
+        "date": data_calculo,
+        "identification": identification(case, &data_calculo),
+        "regras": regras,
+        "nota": "As projeções futuras são feitas com a repetição do último salário de contribuição a partir da DIB informada, gerando RMI's com valores aproximados.",
+    }))
+}
+
 /// Constrói os dados de um relatório a partir do caso e do resultado nativo.
 pub fn build(kind: &str, case: &Calculation, outcome: Option<&Value>) -> Result<Value, String> {
     match kind {
         "analysis" => analysis(case, outcome),
         "periods" => periods(case, outcome),
         "transitions" => transitions(case, outcome),
+        "memory" => memory_report(case, outcome),
+        "quality" => quality(case, outcome),
+        "roi" => roi(case, outcome),
         other => Err(format!("Relatório sem construtor de dados: {other}")),
     }
 }

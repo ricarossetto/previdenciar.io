@@ -747,6 +747,7 @@ fn pcd_report(case:&Calculation,w:&Workspace,o:ReportOptions,n:&Value)->Result<R
   ReportKind::Indicators=>{sections.push(assumptions()?);sections.push(pending(case,o.include_personal,None)?);},
   ReportKind::Quality=>{sections.push(assumptions()?);sections.push(pending(case,o.include_personal,None)?);},
         ReportKind::Analysis=>{sections.push(assumptions()?);sections.push(pending(case,o.include_personal,None)?);},
+        ReportKind::Roi=>{sections.push(assumptions()?);sections.push(pending(case,o.include_personal,None)?);},
  }
  let office=if o.include_personal&&!w.settings.office_name.trim().is_empty(){field(&w.settings.office_name)?}else{"previdenciar.io - cálculo previdenciário".into()};
  if office.chars().count()>120{return Err("Cabeçalho excede o espaço reservado; nenhum texto foi cortado.".into());}
