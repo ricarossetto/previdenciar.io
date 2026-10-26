@@ -243,11 +243,71 @@ fn periods(case: &Calculation, outcome: Option<&Value>) -> Result<Value, String>
     }))
 }
 
+fn transitions(case: &Calculation, outcome: Option<&Value>) -> Result<Value, String> {
+    let data_calculo = br_date(&case.dib);
+    let n = native(outcome);
+    let regras: Vec<Value> = n
+        .and_then(|v| v.pointer("/transicoes/regras"))
+        .and_then(Value::as_array)
+        .map(|arr| {
+            arr.iter()
+                .map(|r| {
+                    let nome = r.get("nome").and_then(Value::as_str).unwrap_or("").to_string();
+                    let rmi = r
+                        .get("rmi_final")
+                        .or_else(|| r.get("rmi"))
+                        .and_then(decimal)
+                        .map(brl_decimal)
+                        .unwrap_or_else(|| "Não apurada".into());
+                    let elegivel = r.get("elegivel").and_then(Value::as_bool).unwrap_or(false);
+                    let tempo = n
+                        .and_then(|v| v.pointer("/tempo/total"))
+                        .map(|t| {
+                            crate::format::period(
+                                t.get("anos").and_then(Value::as_i64).unwrap_or(0),
+                                t.get("meses").and_then(Value::as_i64).unwrap_or(0),
+                                t.get("dias").and_then(Value::as_i64).unwrap_or(0),
+                            )
+                        })
+                        .unwrap_or_default();
+                    let carencia = n
+                        .and_then(|v| v.pointer("/carencia/carencia_meses"))
+                        .and_then(Value::as_u64)
+                        .unwrap_or(0);
+                    let idade = n
+                        .and_then(|v| v.pointer("/transicoes/idade_meses"))
+                        .and_then(Value::as_i64)
+                        .map(period_from_months)
+                        .unwrap_or_default();
+                    json!({
+                        "nome": nome,
+                        "tempo": tempo,
+                        "carencia": format!("{carencia} contribuições"),
+                        "idade": idade,
+                        "rmi": rmi,
+                        "der": data_calculo,
+                        "chosen": elegivel,
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+
+    Ok(json!({
+        "title": "Análise das Regras de Transição - EC 103/2019",
+        "date": data_calculo,
+        "identification": identification(case, &data_calculo),
+        "regras": regras,
+        "nota": "As projeções futuras são feitas com a repetição do último salário de contribuição a partir da DIB informada, gerando RMI's com valores aproximados.",
+    }))
+}
+
 /// Constrói os dados de um relatório a partir do caso e do resultado nativo.
 pub fn build(kind: &str, case: &Calculation, outcome: Option<&Value>) -> Result<Value, String> {
     match kind {
         "analysis" => analysis(case, outcome),
         "periods" => periods(case, outcome),
+        "transitions" => transitions(case, outcome),
         other => Err(format!("Relatório sem construtor de dados: {other}")),
     }
 }

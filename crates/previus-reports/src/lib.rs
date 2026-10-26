@@ -52,7 +52,7 @@ impl ReportKind {
     }
     /// Se este tipo já tem template Typst no novo formato.
     pub fn has_typst_template(self) -> bool {
-        matches!(self, Self::Analysis | Self::Periods)
+        matches!(self, Self::Analysis | Self::Periods | Self::Transitions)
     }
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
