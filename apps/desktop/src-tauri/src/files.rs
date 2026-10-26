@@ -116,6 +116,7 @@ impl ReportFormat {
                 "pdf_indicators" => Ok(Self::Pdf(previus_reports::ReportKind::Indicators)),
                 "pdf_quality" => Ok(Self::Pdf(previus_reports::ReportKind::Quality)),
                 "pdf_analysis" => Ok(Self::Pdf(previus_reports::ReportKind::Analysis)),
+                "pdf_roi" => Ok(Self::Pdf(previus_reports::ReportKind::Roi)),
             _ => Err("Formato não suportado. Use um relatório PDF conhecido, HTML, CSV ou JSON.".into()),
         }
     }
@@ -315,7 +316,7 @@ pub fn dialog_export_with(calculation: Calculation, workspace: Workspace, format
 /// Fixed reading order for the seven report families supported by this app.
 /// The original exported one file per family; names are deterministic so a
 /// folder can be reviewed without guessing which PDF is which.
-const BATCH_REPORTS: [(&str, previus_reports::ReportKind, &str); 8] = [
+const BATCH_REPORTS: [(&str, previus_reports::ReportKind, &str); 10] = [
     ("pdf_detailed", previus_reports::ReportKind::Detailed, "previus-01-relatorio-completo.pdf"),
     ("pdf_summary", previus_reports::ReportKind::Summary, "previus-02-resumo.pdf"),
     ("pdf_periods", previus_reports::ReportKind::Periods, "previus-03-tempo-de-contribuicao.pdf"),
@@ -324,6 +325,8 @@ const BATCH_REPORTS: [(&str, previus_reports::ReportKind, &str); 8] = [
     ("pdf_transitions", previus_reports::ReportKind::Transitions, "previus-06-transicoes.pdf"),
     ("pdf_indicators", previus_reports::ReportKind::Indicators, "previus-07-pendencias.pdf"),
     ("pdf_quality", previus_reports::ReportKind::Quality, "previus-08-qualidade-de-segurado.pdf"),
+    ("pdf_analysis", previus_reports::ReportKind::Analysis, "previus-09-analise-situacao-atual.pdf"),
+    ("pdf_roi", previus_reports::ReportKind::Roi, "previus-10-retorno-investimento.pdf"),
 ];
 
 #[derive(serde::Serialize)]
@@ -641,7 +644,7 @@ fn recomputed_rgps_report(case:&Calculation)->String{
 
 #[cfg(test)]mod native_pdf_backend_tests{
  use super::*;
- #[test]fn binary_pdf_formats_are_exact_known_variants(){for input in["pdf","pdf_detailed","pdf_summary","pdf_periods","pdf_salaries","pdf_memory","pdf_transitions","pdf_indicators","pdf_quality"]{let format=ReportFormat::parse(input).unwrap();assert_eq!(format.extension(),"pdf");assert!(format.label().contains("PDF"));}assert!(ReportFormat::parse("pdf_unrecognized").is_err());}
+ #[test]fn binary_pdf_formats_are_exact_known_variants(){for input in["pdf","pdf_detailed","pdf_summary","pdf_periods","pdf_salaries","pdf_memory","pdf_transitions","pdf_indicators","pdf_quality","pdf_analysis","pdf_roi"]{let format=ReportFormat::parse(input).unwrap();assert_eq!(format.extension(),"pdf");assert!(format.label().contains("PDF"));}assert!(ReportFormat::parse("pdf_unrecognized").is_err());}
  #[test]fn incomplete_assistant_can_generate_conferencia_not_a_fake_financial_result(){
   let c=Calculation{kind:"RGPS".into(),assistant:Some(previus_workspace::AssistantInterview{mode:"assisted".into(),..Default::default()}),result:Some(json!({"rmi":"999999.00"})),..Default::default()};
   let original=serde_json::to_vec(&c).unwrap();let bytes=render_report(&c,&Workspace::default(),ReportFormat::parse("pdf").unwrap(),false).unwrap();assert!(bytes.starts_with(b"%PDF-"));assert!(bytes.len()>500);assert_eq!(original,serde_json::to_vec(&c).unwrap());
