@@ -4225,6 +4225,7 @@ dependencies = [
 name = "previus-reports"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
  "genpdf",
  "lopdf 0.38.0",
  "previus-cnis",

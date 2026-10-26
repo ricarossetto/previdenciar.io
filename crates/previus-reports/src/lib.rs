@@ -93,23 +93,44 @@ pub fn render_pdf(
         .map_err(|_| "Falha interna no gerador PDF; nenhum relatório válido foi produzido.".to_owned())?
 }
 
-/// Renderiza um relatório a partir dos templates Typst (novo layout).
-pub fn render_typst(kind: &str, data: &Value) -> Result<Vec<u8>, String> {
-    typst_engine::render(kind, data)
+/// Decodifica uma data URL de imagem (`data:image/png;base64,...`) em bytes.
+pub fn decode_logo_data_url(value: &str) -> Option<Vec<u8>> {
+    use base64::Engine as _;
+    let value = value.trim();
+    if !value.starts_with("data:image/") {
+        return None;
+    }
+    let comma = value.find(',')?;
+    let payload = &value[comma + 1..];
+    if value[..comma].contains("base64") {
+        base64::engine::general_purpose::STANDARD.decode(payload.trim()).ok()
+    } else {
+        None
+    }
 }
 
-/// Renderiza um relatório do novo formato a partir do caso e do resultado nativo.
-pub fn render_report(case: &Calculation, kind: &str, outcome: Option<&Value>) -> Result<Vec<u8>, String> {
+/// Renderiza um relatório a partir dos templates Typst (novo layout).
+pub fn render_typst(kind: &str, data: &Value) -> Result<Vec<u8>, String> {
+    typst_engine::render(kind, data, None)
+}
+
+/// Renderiza um relatório do novo formato a partir do caso, resultado e workspace.
+pub fn render_report(
+    case: &Calculation,
+    kind: &str,
+    outcome: Option<&Value>,
+    workspace: &Workspace,
+) -> Result<Vec<u8>, String> {
+    let logo = decode_logo_data_url(&workspace.settings.logo_data_url);
     if kind == "detailed" {
-        // Consolidado: mesma ordem do produto de referência.
         let mut parts = Vec::new();
         for part in ["periods", "quality", "transitions", "memory", "analysis", "roi"] {
-            parts.push(render_report(case, part, outcome)?);
+            parts.push(render_report(case, part, outcome, workspace)?);
         }
         return merge_pdfs(&parts);
     }
     let data = report_data::build(kind, case, outcome)?;
-    typst_engine::render(kind, &data)
+    typst_engine::render(kind, &data, logo.as_deref())
 }
 
 /// Merge multiple PDF documents into a single output, preserving page order.

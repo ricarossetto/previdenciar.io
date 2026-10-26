@@ -18,13 +18,13 @@ export interface Calculation{contribution_review:ContributionReview|null;assista
 export interface ReferenceTable{id:number;name:string;unit:string;periodicity:string;entries:{period:string;value:string;note:string}[];provenance:string;verified:boolean}
 export interface Template{id:number;name:string;category:string;body:string}
 export interface Appointment{id:number;title:string;date:string;time:string;client_id:number|null;notes:string;completed:boolean}
-export interface Workspace{schema_version:number;revision:number;next_id:number;clients:Client[];calculations:Calculation[];reference_tables:ReferenceTable[];documents:Template[];appointments:Appointment[];settings:{office_name:string;report_footer:string;light_theme:boolean}}
+export interface Workspace{schema_version:number;revision:number;next_id:number;clients:Client[];calculations:Calculation[];reference_tables:ReferenceTable[];documents:Template[];appointments:Appointment[];settings:{office_name:string;report_footer:string;light_theme:boolean;logo_data_url:string}}
 export interface Boot{workspace:Workspace;storage_ready:boolean;message:string|null}
 export interface BatchExportFile{format:string;path:string}
 export interface BatchExportFailure{format:string;message:string}
 export interface BatchExport{directory:string;files:BatchExportFile[];errors:BatchExportFailure[]}
 export const emptyIdentity=():Identity=>({full_name:null,cpf:null,nit:null,birth_date:null,mother_name:null});
-export function blankWorkspace():Workspace{return{schema_version:2,revision:0,next_id:1,clients:[],calculations:[],reference_tables:[],documents:[],appointments:[],settings:{office_name:'',report_footer:'',light_theme:false}}}
+export function blankWorkspace():Workspace{return{schema_version:2,revision:0,next_id:1,clients:[],calculations:[],reference_tables:[],documents:[],appointments:[],settings:{office_name:'',report_footer:'',light_theme:false,logo_data_url:''}}}
 export function invalidateRmiAssumptions(c:Calculation):Calculation{try{const policy=JSON.parse(c.options.rule_policy);if(policy.lc142?.assumptions_confirmed)return {...c,options:{...c.options,rule_policy:JSON.stringify({...policy,lc142:{...policy.lc142,assumptions_confirmed:false}})}}}catch{/* Legacy incomplete policies remain drafts, never inferred approval. */}return c}
 export const blankClient=():Client=>({id:0,name:'',cpf:'',email:'',phone:'',birth_date:'',sex:null,notes:'',archived:false});
 export function localDate():string{const d=new Date();return [String(d.getDate()).padStart(2,'0'),String(d.getMonth()+1).padStart(2,'0'),d.getFullYear()].join('/')}

@@ -6,8 +6,8 @@ fn main() {
     let out = std::env::args()
         .nth(1)
         .unwrap_or_else(|| "typst-real.pdf".into());
-    let (case, _workspace, outcome) = common::calculated_case();
-    match previus_reports::render_report(&case, &kind, Some(&outcome)) {
+    let (case, _workspace, outcome) = common::calculated_case(); let ws = previus_workspace::Workspace::default();
+    match previus_reports::render_report(&case, &kind, Some(&outcome), &ws) {
         Ok(pdf) => {
             std::fs::write(&out, &pdf).expect("write");
             println!("{{\"status\":\"ok\",\"kind\":\"{kind}\",\"bytes\":{}}}", pdf.len());

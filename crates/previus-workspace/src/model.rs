@@ -179,6 +179,9 @@ pub struct Settings {
     pub office_name: String,
     pub report_footer: String,
     pub light_theme: bool,
+    /// Logo do escritório embutida como data URL (PNG/JPEG), usada no topo dos
+    /// relatórios PDF. Vazio usa o placeholder embutido.
+    pub logo_data_url: String,
 }
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]

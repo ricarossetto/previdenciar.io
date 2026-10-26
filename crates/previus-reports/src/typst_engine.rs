@@ -4,7 +4,7 @@ use serde_json::Value as Json;
 use typst::foundations::{Dict, IntoValue, Value as TValue};
 use typst_as_lib::TypstEngine;
 
-static LOGO: &[u8] = include_bytes!("../assets/logo.png");
+static PLACEHOLDER_LOGO: &[u8] = include_bytes!("../assets/logo.png");
 static BASE: &str = include_str!("../templates/_base.typ");
 static ANALISE: &str = include_str!("../templates/analise.typ");
 static TEMPO: &str = include_str!("../templates/tempo.typ");
@@ -54,13 +54,13 @@ fn main_source(kind: &str) -> Result<&'static str, String> {
 }
 
 /// Renderiza um relatório a partir do template Typst e dos dados do caso.
-pub fn render(kind: &str, data: &Json) -> Result<Vec<u8>, String> {
+pub fn render(kind: &str, data: &Json, logo: Option<&[u8]>) -> Result<Vec<u8>, String> {
     let main = main_source(kind)?;
     let (regular, bold) = crate::layout::report_fonts();
     let template = TypstEngine::builder()
         .main_file(main)
         .fonts([regular.as_slice(), bold.as_slice()])
-        .with_static_file_resolver([("logo.png", LOGO)])
+        .with_static_file_resolver([("logo.png", logo.unwrap_or(PLACEHOLDER_LOGO))])
         .with_static_source_file_resolver([("_base.typ", BASE.to_string())])
         .build();
     let mut top = Dict::new();
