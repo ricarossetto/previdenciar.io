@@ -10,6 +10,9 @@ genpdf = "=0.2.0"
 serde_json = "1"
 rusttype = "0.8"
 lopdf = "0.38"
+typst-as-lib = "0.17"
+typst = "0.15"
+typst-pdf = "0.15"
 previus-workspace = { path = "../previus-workspace" }
 previus-cnis = { path = "../previus-cnis" }
 previus-core = { path = "../previus-core" }

@@ -3,6 +3,7 @@
 //! Stored Calculation::result is deliberately never consulted.
 mod model;
 mod layout;
+mod typst_engine;
 use previus_workspace::{Calculation, Workspace};
 use serde_json::Value;
 
@@ -21,12 +22,15 @@ impl ReportKind {
     }
     fn title(self) -> &'static str {
         match self {
-            Self::Detailed => "Relatório detalhado do cálculo previdenciário", Self::Summary => "Resumo do cálculo RGPS",
-            Self::Periods => "Relatório do Tempo de Contribuição", Self::Salaries => "Salários de contribuição",
-            Self::Memory => "Cálculo da R.M.I.", Self::Transitions => "Análise das regras de transição - EC 103/2019",
+            Self::Detailed => "Relatório detalhado do cálculo previdenciário",
+            Self::Summary => "Resumo do cálculo RGPS",
+            Self::Periods => "Relatório do Tempo de Contribuição",
+            Self::Salaries => "Salários de contribuição",
+            Self::Memory => "Cálculo da R.M.I.",
+            Self::Transitions => "Análise das Regras de Transição - EC 103/2019",
             Self::Indicators => "Indicadores e pendências de conferência",
             Self::Quality => "Cálculo da Qualidade de Segurado",
-            Self::Analysis => "Análise da Situação Atual",
+            Self::Analysis => "Análise da Situação Atual do Benefício",
         }
     }
 }
@@ -57,6 +61,11 @@ pub fn render_pdf(
     let report = model::build(case, workspace, options, outcome)?;
     std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| layout::render(report)))
         .map_err(|_| "Falha interna no gerador PDF; nenhum relatório válido foi produzido.".to_owned())?
+}
+
+/// Renderiza um relatório a partir dos templates Typst (novo layout).
+pub fn render_typst(kind: &str, data: &Value) -> Result<Vec<u8>, String> {
+    typst_engine::render(kind, data)
 }
 
 /// Merge multiple PDF documents into a single output, preserving page order.

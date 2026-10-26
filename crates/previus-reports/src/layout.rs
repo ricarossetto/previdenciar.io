@@ -36,7 +36,7 @@ fn font_family(regular: &[u8], bold: &[u8]) -> Result<fonts::FontFamily<fonts::F
     Ok(fonts::FontFamily { regular: regular.clone(), bold: bold.clone(), italic: regular, bold_italic: bold })
 }
 // Prefer the same installed typeface as the reference PDFs; never redistribute OS fonts.
-fn report_fonts() -> (Vec<u8>, Vec<u8>) {
+pub(crate) fn report_fonts() -> (Vec<u8>, Vec<u8>) {
     #[cfg(target_os = "windows")]
     {
         let directory = std::env::var_os("WINDIR").map(std::path::PathBuf::from)
