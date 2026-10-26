@@ -25,6 +25,7 @@ async function toConference(){
   await u.click(screen.getByRole('button',{name:/Calcular um novo benefício/}));
   await u.selectOptions(screen.getByLabelText('Sexo cadastral do segurado'),'Feminino');
   await u.selectOptions(screen.getByLabelText('Deficiência na DIB'),'Grave');
+  expect(screen.getByText(/Cenário PcD/)).toBeInTheDocument();
   await u.click(screen.getByRole('button',{name:/Prosseguir para a conferência/}));
   return u;
 }

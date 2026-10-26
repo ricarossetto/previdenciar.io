@@ -17,6 +17,8 @@ Versão para Windows x64. Desktop local, gratuito e open source sob MIT. Não é
 
 ### Correções
 
+- Períodos concomitantes deixaram de travar a conferência: o motor soma apenas a parcela não sobreposta e avisa no resultado.
+- Ao escolher grau de deficiência, a etapa de dados avisa que a LC 142/2013 ainda não tem motor neste adaptador e que a execução será bloqueada com motivo.
 - Rodapé mostra a versão real do build, não mais um texto fixo.
 - Opções da Etapa 3 nomeiam o objetivo, em vez de começar com "Não" ou "Sim".
 - O botão de avanço da Etapa 4 passou a ser "Prosseguir para a conferência".

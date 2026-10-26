@@ -8,6 +8,8 @@
 - **Pendências com um caminho só**: quando as pendências são fonte, política, vínculos e remunerações, o painel informa que um clique as resolve e não oferece mais atalhos para as abas.
 - **CNIS explicado como fonte, não como entrada do motor**: o texto diz que o documento é conferido, que a cópia é revisada, que a referência fica registrada e que o cálculo parte dali.
 - **Respostas da entrevista não são mais inventadas pelo preparo**: benefício atual, finalidade e objetivo sem resposta continuam pendentes, com aviso e correção na conferência.
+- **Períodos concomitantes deixaram de ser pendência decisiva**: o motor soma apenas a parcela não sobreposta e avisa no resultado. O texto anterior dizia que o motor bloqueava a sobreposição, o que não correspondia ao adaptador, e travava o CNIS real com vínculos paralelos.
+- **Cenário PcD avisa antes de executar**: ao escolher grau de deficiência, a etapa de dados informa que a LC 142/2013 ainda não tem motor neste adaptador e que a execução será bloqueada com motivo, em vez de deixar o bloqueio aparecer só no resultado.
 
 ### Added
 - Teste de fluxo guiado com IPC sintético cobrindo entrevista, importação, conferência e preparo em um clique (`apps/desktop/tests/guided-flow.test.tsx`).

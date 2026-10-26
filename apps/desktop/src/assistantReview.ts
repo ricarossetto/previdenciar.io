@@ -188,7 +188,7 @@ export function assistantConsideration(c: Calculation, _interview?: AssistantInt
   const birth = isoDate(c.identity.birth_date ?? '');
   if (birth && links.some(link => { const range = dateRange(link); return range ? range.start < birth : false; })) add('links_before_birth','Vínculo começa antes do nascimento.','links');
   const ordered = links.map(link => ({link,range:dateRange(link)})).filter((item): item is {link:ManualLink;range:{start:string;end:string}} => item.range !== null).sort((x,y) => x.range.start.localeCompare(y.range.start));
-  if (ordered.some((item,index) => index > 0 && ordered[index-1].range.end >= item.range.start)) add('links_overlap','Períodos concomitantes/sobrepostos exigem revisão; o motor bloqueia sobreposição.','links');
+  if (ordered.some((item,index) => index > 0 && ordered[index-1].range.end >= item.range.start)) add('links_overlap','Períodos concomitantes ou sobrepostos: o motor soma apenas a parcela não sobreposta e avisa no resultado.','links',false);
 
   if (salaries.length === 0) add('salaries_missing','Nenhuma remuneração manual selecionada para o motor.','salaries');
   const unconfirmedSalaries = salaries.filter(s => !s.confirmed).length;

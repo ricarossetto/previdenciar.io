@@ -100,6 +100,13 @@ que segue foi verificado, não presumido.
   estiver sem resposta, ele continua pendente e a conferência mostra qual etapa
   corrigir. Antes, o adaptador gravava "não recebe benefício", "Simulação do
   benefício" e "Calcular um novo benefício" por conta própria.
+- Períodos concomitantes deixaram de ser pendência decisiva. O motor soma apenas
+  a parcela não sobreposta e avisa no resultado; o texto anterior afirmava que o
+  motor bloqueava a sobreposição, o que não correspondia ao adaptador e travava
+  o CNIS real, que tem vínculos paralelos.
+- Ao escolher grau de deficiência, a etapa de dados avisa que a aposentadoria
+  PcD pela LC 142/2013 ainda não tem motor neste adaptador. A execução bloqueia
+  com motivo explícito, e a conferência e os relatórios continuam disponíveis.
 
 ### Menores ainda abertas
 
