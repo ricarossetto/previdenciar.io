@@ -75,7 +75,7 @@ jobs:
             if (Test-Path $sigFile) {
               $signature = (Get-Content -LiteralPath $sigFile -Raw).Trim()
               $updaterAsset = $installer.Name
-              @{ version=$version; notes='.github/RELEASE_NOTES.md'; pub_date=(Get-Date -AsUTC -Format 'yyyy-MM-ddTHH:mm:ssZ'); platforms=@{ 'windows-x86_64'=@{ signature=$signature; url="https://github.com/ricarossetto/previdenciar.io/releases/download/$env:RELEASE_TAG/$($installer.Name)" } } } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath release/latest.json -Encoding utf8
+              @{ version=$version; notes=(Get-Content '.github/RELEASE_NOTES.md' -Raw); pub_date=(Get-Date -AsUTC -Format 'yyyy-MM-ddTHH:mm:ssZ'); platforms=@{ 'windows-x86_64'=@{ signature=$signature; url="https://github.com/ricarossetto/previdenciar.io/releases/download/$env:RELEASE_TAG/$($installer.Name)" } } } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath release/latest.json -Encoding utf8
             }
           }
           @{ commit=(git rev-parse HEAD); tag=$env:RELEASE_TAG; version=$coreVersion; product='previdenciar.io'; platform='windows-x64'; sha256=$hash; bytes=(Get-Item "release/$name").Length; signed=$false } | ConvertTo-Json | Set-Content -LiteralPath release/BUILDINFO.json -Encoding utf8

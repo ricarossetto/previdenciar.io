@@ -114,7 +114,7 @@ As três pendências menores listadas acima continuam abertas, assim como `genpd
 como dependência sem uso na exportação e os relatórios `Summary`, `Salaries` e
 `Indicators` no template genérico.
 
-## Recomendações
+## Recomendações originais (implementadas nesta rodada)
 
 - **Etapa 5**: transformar as pendências num assistente passo a passo, com o
   botão "Preparar e calcular" em destaque e a explicação de que ele resolve as
