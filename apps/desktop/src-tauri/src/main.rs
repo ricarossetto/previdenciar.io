@@ -178,6 +178,8 @@ fn navigation_allowed(url: &tauri::Url, development: bool) -> bool {
 fn main() {
     let result = tauri::Builder::default()
         .manage(BackendState::default())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .invoke_handler(tauri::generate_handler![bootstrap, save_workspace, pick_import_cnis, import_cnis_path,
             run_tool, run_finance, fetch_economic_snapshot, local_economic_snapshot, prepare_case_from_cnis,
             calculate_case, calculate_rgps, project_rgps, preview_report, export_report, export_reports_batch, export_document, merge_pdfs, backup_export])
