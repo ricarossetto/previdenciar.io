@@ -3,6 +3,7 @@
 #![forbid(unsafe_code)]
 mod bridge;
 pub mod pcd;
+pub mod fabrica;
 pub mod guided;
 pub mod contracts;
 pub use bridge::{calculate_case, project_case};

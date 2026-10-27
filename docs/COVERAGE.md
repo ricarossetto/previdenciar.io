@@ -1,6 +1,6 @@
 # Cobertura do motor RGPS
 
-Atualizado em 26/10/2026 (versão 0.14.0). Este documento diz o que o motor
+Atualizado em 26/10/2026 (versão 0.15.0). Este documento diz o que o motor
 calcula, com qual fundamento e o que ele recusa calcular. A regra do projeto é
 simples: **nenhuma espécie é aproximada por outra** para produzir um número.
 
@@ -62,6 +62,31 @@ exigido, o apurado, os meses faltantes e se o motor verificou o requisito. A
 interface e o PDF mostram essa tabela. Um requisito não cumprido gera aviso
 "simulação condicional, não concessão"; nenhum valor é apresentado como direito
 adquirido.
+
+## Conferência online opcional (Fábrica de Cálculos/TRF3)
+
+O aplicativo pode comparar a RMI local com o cálculo do provedor oficial, sem
+substituir o resultado local:
+
+- **Endpoint fixo**: `POST https://fabrica-de-calculos.app.trf3.jus.br/rgps/api/v1/calculos-rmi`.
+- **Autenticação**: cabeçalho `x-api-key`, com chave opcional informada em
+  Configurações e guardada na base local cifrada. Escopo necessário: `rgps`.
+- **Enviado**: data de nascimento, sexo, DIB, espécie, períodos e salários
+  revisados. As descrições dos períodos são genéricas ("Período 1").
+- **Não enviado**: nome, CPF, NIT, CNIS, PDF, endereço, anotações e a chave no
+  corpo.
+- **Retorno**: RMI do provedor, regra/fundamento, salário de benefício,
+  coeficiente, requisitos e conclusão. O app guarda o resumo, a fonte, o
+  horário e os hashes SHA-256 do pedido e da resposta; a resposta bruta não é
+  gravada.
+- **Validação em 26/10/2026** com casos sintéticos: 41 e 42 retornaram HTTP 200
+  com RMI e regra; 31 e 32 retornaram HTTP 200 sem RMI apurada com o payload
+  atual. Nesses dois casos o app mostra a resposta do provedor, mantém o motor
+  local e não inventa valor.
+- **PcD (LC 142)**: a conferência online não é oferecida; o módulo PcD continua
+  separado, com premissas declaradas.
+- **Limite**: o hash registra a resposta recebida, não é assinatura do provedor.
+  O provedor pode alterar regras e reter a requisição conforme a política dele.
 
 ## Fontes conferidas
 

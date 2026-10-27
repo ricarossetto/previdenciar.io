@@ -23,6 +23,7 @@ Receber um CNIS real, conferir o que o documento diz, decidir parâmetros com ho
 ## Restrições
 
 - O motor RGPS cobre as espécies 42 (tempo de contribuição), 41 (idade), 32 (incapacidade permanente) e 31 (incapacidade temporária); a 46 (especial) e a 57 (professor) bloqueiam com motivo.
+- A conferência online na Fábrica de Cálculos/TRF3 é opcional, exige chave própria e só envia datas, sexo, espécie e salários revisados. Sem chave, o resultado local e os PDFs funcionam offline.
 - A LC 142/2013 existe como simulação com premissas declaradas em módulo próprio.
 - O aplicativo não tem backend web, conta ou telemetria.
 

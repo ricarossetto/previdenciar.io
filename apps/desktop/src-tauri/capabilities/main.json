@@ -20,6 +20,7 @@
     "allow-backup-export",
     "allow-preview-report",
     "allow-fetch-economic-snapshot",
+    "allow-conferir-fabrica-rmi",
     "allow-local-economic-snapshot",
     "allow-prepare-case-from-cnis",
     "updater:default",

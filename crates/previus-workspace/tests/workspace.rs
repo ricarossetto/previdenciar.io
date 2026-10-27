@@ -33,7 +33,7 @@ fn complete_workspace() -> Workspace {
         reference_tables: vec![ReferenceTable { id: 3, name: "Tabela sintética sem validade normativa".into(), entries: vec![ReferenceEntry { period: "2020-01".into(), value: "TEST ONLY".into(), note: "Not a real index".into() }], provenance: "synthetic".into(), ..Default::default() }],
         documents: vec![DocumentTemplate { id: 4, name: "Modelo fictício".into(), category: "teste".into(), body: "{{name}}".into() }],
         appointments: vec![Appointment { id: 5, title: "Agenda fictícia".into(), date: "2026-10-10".into(), time: "10:00".into(), client_id: Some(1), ..Default::default() }],
-        settings: Settings { office_name: "Escritório fictício".into(), report_footer: "CONFIDENTIAL TEST".into(), light_theme: true, logo_data_url: String::new() },
+        settings: Settings { office_name: "Escritório fictício".into(), report_footer: "CONFIDENTIAL TEST".into(), light_theme: true, logo_data_url: String::new(), fabrica_api_key: String::new() },
         ..Default::default()
     }
 }

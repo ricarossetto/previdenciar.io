@@ -2,6 +2,7 @@
 #![forbid(unsafe_code)]
 mod backend;
 mod economic;
+mod fabrica;
 mod files;
 use backend::{BackendState, BootResult};
 use previus_cnis::ImportResult;
@@ -73,6 +74,13 @@ async fn run_finance(tool: String, input: Value) -> Result<Value, String> {
 #[tauri::command]
 async fn fetch_economic_snapshot(through:String)->Result<previus_rgps::pcd::Snapshot,String>{
  tauri::async_runtime::spawn_blocking(move||economic::load(&through)).await.map_err(|_|"Consulta pública interrompida; snapshot anterior preservado.".to_owned())?
+}
+
+#[tauri::command]
+async fn conferir_fabrica_rmi(input: previus_rgps::fabrica::FabricaInput, api_key: String) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || fabrica::conferir(input, api_key))
+        .await
+        .map_err(|_| "Conferência online interrompida; nenhum valor foi alterado.".to_owned())?
 }
 
 #[tauri::command]
@@ -181,7 +189,7 @@ fn main() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .invoke_handler(tauri::generate_handler![bootstrap, save_workspace, pick_import_cnis, import_cnis_path,
-            run_tool, run_finance, fetch_economic_snapshot, local_economic_snapshot, prepare_case_from_cnis,
+            run_tool, run_finance, fetch_economic_snapshot, conferir_fabrica_rmi, local_economic_snapshot, prepare_case_from_cnis,
             calculate_case, calculate_rgps, project_rgps, preview_report, export_report, export_reports_batch, export_document, merge_pdfs, backup_export])
         .setup(|app| {
             let config = app.config().app.windows.first().ok_or("Configuração da janela principal ausente.")?;
@@ -255,7 +263,7 @@ mod tests {
         let permissions = capability["permissions"].as_array().unwrap();
         assert!(permissions.iter().any(|value| value == "allow-export-reports-batch"));
         assert!(permissions.iter().any(|value| value == "updater:default"));
-        assert_eq!(permissions.len(), 19);
+        assert_eq!(permissions.len(), 20);
     }
     #[test]
     fn direct_rgps_json_rejects_invalid_schema_without_false_result() {

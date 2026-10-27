@@ -25,7 +25,7 @@ A data-base define a referência conhecida dos índices; a DIB define o corte do
 
 ## Consulta pública
 
-O comando nativo `fetch_economic_snapshot` recebe somente `through` (`AAAA-MM`) e consulta os endpoints fixos `indices/api/v1/tabela` e `indices/api/v1/limites` da Fábrica de Cálculos/TRF3. Não lê `.env`, não recebe chave e não envia dados de caso. Usa negociação HTTP explícita de JSON, idioma e conteúdo sem compressão, mantendo a validação normal de certificados TLS. Não segue redirecionamentos, limita tamanho/tempo de resposta e rejeita dados incompletos ou posteriores ao corte.
+O comando nativo `fetch_economic_snapshot` recebe somente `through` (`AAAA-MM`) e consulta os endpoints fixos `indices/api/v1/tabela` e `indices/api/v1/limites` da Fábrica de Cálculos/TRF3. Não lê `.env`, não recebe chave e não envia dados de caso. Usa negociação HTTP explícita de JSON, idioma e conteúdo sem compressão, mantendo a validação normal de certificados TLS. Não segue redirecionamentos, limita tamanho/tempo de resposta e rejeita dados incompletos ou posteriores ao corte. A conferência de RMI é outro comando, opcional e com chave própria; ela não altera esse snapshot público.
 
 O snapshot registra URL, corte, instante e SHA-256 das duas respostas. Após a consulta, cálculo e PDF usam o snapshot local. Metadados de proveniência não substituem uma assinatura do provedor nem prova de atualização normativa.
 

@@ -6,6 +6,7 @@ import{assistantConsideration}from'../assistantReview';
 import type{ConsiderationFix}from'../assistantReview';
 import{api,errorMessage}from'../api';
 import{Badge,Button,Field,Icon,Notice,Panel,Select}from'./ui';
+import{FabricaCheck}from'./FabricaCheck';
 import{CaseWorkbench,ResultView}from'./CaseWorkbench';
 import{PrepareFromCnis}from'./PrepareFromCnis';
 import{ReportCenter}from'./ReportCenter';
@@ -242,7 +243,7 @@ export function RobotAssistant({draft,setDraft,workspace,onSave,onNotify,onManua
     {screen==='result'&&<>
       {draft.result&&<div className={'flow-status '+(hasFinancialResult(draft)?'is-ok':'')} role="status"><strong>{hasFinancialResult(draft)?'Resultado experimental':'Cálculo bloqueado'}</strong><p>{hasFinancialResult(draft)?'O motor gerou um valor experimental. Leia a memória e os avisos antes de usar em qualquer documento.':'Motivo: '+(resultMessage||'o motor recusou a execução e nenhum valor financeiro foi produzido.')}</p></div>}
       <Panel title="Executar com as respostas revisadas" subtitle={draft.result?'A hipótese já foi executada. O resultado abaixo é da última execução.':'O robô envia uma entrada tipada ao motor Rust; nenhum resultado é inventado.'}><div className="head-actions" data-ui-actions>{pcdBlocked?<Button primary disabled={!onManualAt} onClick={()=>onManualAt?.(5)}>Abrir o cenário PcD no editor</Button>:<Button primary disabled={busy||!a.review_confirmed||!!unsupported} onClick={()=>void calculate()}>{busy?<><span className="spinner"/>Executando...</>:<>{(draft.result?'Executar novamente':'Executar cálculo da hipótese')}<Icon name="calc" size={16}/></>}</Button>}<Button disabled={busy} onClick={()=>void onSave(draft)}>Salvar cálculo e entrevista</Button><Button onClick={()=>setScreen('review')}>Voltar à revisão</Button></div>{!a.review_confirmed&&!pcdBlocked&&<Notice>Complete e confirme a revisão da entrevista antes de executar.</Notice>}{a.review_confirmed&&!consideration.ready&&!hasFinancialResult(draft)&&<Notice>A execução será bloqueada pelas pendências decisivas. Nenhum valor será inventado para fazer o fluxo passar.</Notice>}{pcdBlocked&&<Notice><div className="assistant-scope-notice"><p><strong>Cenário PcD.</strong> Este caso não roda no motor RGPS: a LC 142/2013 tem um módulo próprio, com premissas declaradas. O cálculo acima continua bloqueado e nenhum valor foi produzido.</p></div></Notice>}</Panel>
-      {draft.result&&<ResultView result={draft.result}/>}
+      {draft.result&&<><ResultView result={draft.result}/><FabricaCheck draft={draft} workspace={workspace} onChange={setDraft}/></>}
       {draft.result&&!hasFinancialResult(draft)&&<AssistantConsiderationPanel consideration={consideration} onFix={fix}/>}
       <section className="assistant-report-center"><h2>Relatórios detalhados em PDF</h2><ReportCenter workspace={workspace} draftCase={draft} selected={draft.id} onSelect={()=>{}} onNotify={onNotify} onChangeCase={c=>setDraft({...c,result:draft.result,assistant:draft.assistant})}/></section>
     </>}

@@ -40,6 +40,9 @@ pub struct Calculation {
     pub especie: Option<String>,
     /// Interview answers only; missing legacy data stays null, never guessed.
     pub assistant: Option<AssistantInterview>,
+    /// Conferência online opcional na Fábrica de Cálculos/TRF3. Não substitui
+    /// o resultado do motor local e nunca contém a chave da API.
+    pub fabrica: Option<Value>,
     pub manual_links: Vec<ManualLink>,
     pub manual_salaries: Vec<ManualSalary>,
     pub options: CalcOptions,
@@ -182,6 +185,9 @@ pub struct Settings {
     /// Logo do escritório embutida como data URL (PNG/JPEG), usada no topo dos
     /// relatórios PDF. Vazio usa o placeholder embutido.
     pub logo_data_url: String,
+    /// Chave opcional da Fábrica de Cálculos/TRF3. Fica na base local cifrada
+    /// e só é enviada ao endpoint de conferência quando o operador pede.
+    pub fabrica_api_key: String,
 }
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]

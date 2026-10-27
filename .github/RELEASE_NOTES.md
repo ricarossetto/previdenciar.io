@@ -1,3 +1,43 @@
+## previdenciar.io 0.15.0
+
+Agora o aplicativo pode comparar a RMI do motor local com o cálculo da Fábrica
+de Cálculos/TRF3. É uma conferência opcional, com chave própria e envio mínimo:
+o resultado local continua sendo o resultado do aplicativo.
+
+### Como funciona
+
+- Em **Configurações → Fábrica de Cálculos**, informe a chave da API (campo de
+  senha). Ela fica na base local cifrada e só é usada no botão de conferência.
+- No resultado, clique em **Conferir na Fábrica de Cálculos**. Um diálogo mostra
+  exatamente o que sai: data de nascimento, sexo, DIB, espécie, períodos e
+  salários revisados.
+- Nome, CPF, NIT, CNIS, PDF, endereço e anotações **não** são enviados. A chave
+  vai apenas no cabeçalho `x-api-key`; não entra no corpo, no PDF ou nos logs.
+- O resumo do provedor mostra RMI, regra/fundamento, salário de benefício,
+  coeficiente, requisitos, conclusão, fonte, horário e hashes. Quando a correção
+  local está ativa, o app compara os valores em centavos.
+- O PDF detalhado imprime a seção de conferência quando ela foi feita.
+
+### O que foi validado
+
+- Documentação técnica da Fábrica lida por inteiro: 47 rotas na spec unificada
+  v1.5.20, `calculos-rmi`, `fundamentos`, `marcos-temporais`, datas ISO e
+  autenticação `x-api-key`.
+- Caso sintético de 300 competências: espécies 41 e 42 retornaram HTTP 200 com
+  RMI e regra. As espécies 31 e 32 retornaram HTTP 200 **sem RMI apurada** com
+  o payload atual; o app mostra a resposta do provedor, mantém o motor local e
+  não inventa valor.
+- 506 testes Rust, 117 de interface e 36 de navegador.
+
+### Limites
+
+- A conferência de 31/32 não apurou RMI no teste; PcD (LC 142) não é enviada.
+- O hash registra a resposta recebida, não é assinatura do provedor. A retenção
+  do lado da Fábrica segue a política dela.
+- A conferência não substitui revisão documental, perícia, nexo, DII ou
+  conferência de CTC. Sem chave, o aplicativo funciona offline como antes.
+- A distribuição não tem assinatura de código Windows; confira o SHA-256.
+
 ## previdenciar.io 0.14.0
 
 O motor deixou de atender só a espécie 42. Aposentadoria por idade (41),

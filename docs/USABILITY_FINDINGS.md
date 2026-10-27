@@ -215,3 +215,40 @@ Depois do teste PcD, o motor ainda só aceitava a espécie 42. A rodada de
 - Direito adquirido da espécie 42 sem recálculo da RMI antiga.
 - 46 e 57 sem motor próprio.
 - A perícia, o nexo e a DII continuam declarados, não verificados.
+
+## Rodada 3 — conferência online na Fábrica de Cálculos (0.15.0)
+
+O usuário forneceu a chave da API e pediu para usar a Fábrica de Cálculos/TRF3
+dentro do sistema, lendo toda a documentação.
+
+### O que foi lido
+
+- O portal VitePress em `/docs-tec/` e o `hashmap.json` com as 54 páginas.
+- A spec unificada em `/docs-api/_openapi.json` (v1.5.20, 47 rotas): `calculos-tempo`,
+  `calculos-rmi`, `calculos-rmi/por-fundamento`, `calculos-atrasados`,
+  `documentos/*`, `fundamentos`, `marcos-temporais` e `indices/*`.
+- Autenticação: `x-api-key` nas rotas protegidas; `GET` de fundamentos e marcos
+  é público; datas em ISO (`AAAA-MM-DD`/`AAAA-MM`).
+- Contrato do RMI: `dataApuracao`, `dadosSegurado`, `opcoesContagem`,
+  `periodosContribuicao`; resposta com `maiorRmi`, `beneficiosMaisVantajosos`,
+  `dadosRmi`, requisitos e conclusão.
+
+### O que foi integrado
+
+- Botão de conferência no resultado, com confirmação e resumo do envio.
+- Chave em Configurações, cifrada na base local, enviada só no `x-api-key`.
+- Whitelist de payload no Rust; sem nome, CPF, NIT, CNIS, PDF ou anotações.
+- Resumo, fonte, horário e hashes no caso; seção no PDF detalhado.
+- Testes de payload, parser, cliente HTTP local e interface.
+
+### O que a API respondeu
+
+- 41 e 42: HTTP 200 com RMI e regra.
+- 31 e 32: HTTP 200 sem RMI apurada com o payload atual; o app mostra a
+  resposta e mantém o motor local.
+
+### O que continua em aberto
+
+- Descobrir o campo que falta para o provedor apurar 31/32.
+- Avaliar `por-fundamento` para recalcular a RMI antiga do direito adquirido.
+- A conferência não substitui o motor local, a perícia ou a revisão.

@@ -21,3 +21,11 @@ O site é estático e possui links para documentação e releases. Não há camp
 ## Índices públicos por solicitação explícita
 
 A tela de cenário PcD permite consultar índices e limites públicos na Fábrica de Cálculos/TRF3. A requisição contém somente o intervalo de competências, sem CNIS, identidade, salários ou dados de saúde. Esse comando não lê variáveis de credenciais nem exige chave. O snapshot pode integrar a base local protegida quando o usuário salva explicitamente o cálculo. Falha na rede não substitui a tabela anterior nem cria valores ausentes.
+
+## Conferência online opcional de RMI
+
+A conferência na Fábrica de Cálculos/TRF3 é uma ação separada, disparada pelo botão no resultado. Ela exige uma chave de API opcional, informada em Configurações e guardada na base local cifrada. A chave é enviada somente no cabeçalho `x-api-key` para o endpoint fixo `https://fabrica-de-calculos.app.trf3.jus.br/rgps/api/v1/calculos-rmi`; não entra no corpo, no PDF, nos relatórios ou nos logs do aplicativo.
+
+O corpo enviado contém apenas data de nascimento, sexo, DIB, espécie, períodos e salários revisados. Nome, CPF, NIT, CNIS, PDF, endereço, anotações e a chave não são enviados. O provedor é público e pode registrar IP, data e conteúdo da requisição conforme a política dele; o aplicativo não controla a retenção do lado do provedor. O resumo retornado, a fonte, o horário e os hashes ficam na base local protegida; a resposta bruta não é gravada.
+
+Sem chave, sem confirmação no diálogo ou com dados não revisados, nada é enviado. O cálculo local, os PDFs e a exportação continuam funcionando offline. Backups protegidos incluem a chave cifrada e os resumos de conferência; trate o arquivo de backup como documento sensível.

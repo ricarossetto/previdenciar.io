@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-conferir-fabrica-rmi"
+description = "Enables the conferir_fabrica_rmi command without any pre-configured scope."
+commands.allow = ["conferir_fabrica_rmi"]
+
+[[permission]]
+identifier = "deny-conferir-fabrica-rmi"
+description = "Denies the conferir_fabrica_rmi command without any pre-configured scope."
+commands.deny = ["conferir_fabrica_rmi"]

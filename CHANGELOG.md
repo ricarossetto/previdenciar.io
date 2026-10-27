@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.15.0 - 2026-10-27
+
+Conferência online opcional de RMI na Fábrica de Cálculos/TRF3, com chave própria e envio mínimo.
+
+### Added
+- Botão **Conferir na Fábrica de Cálculos** no resultado, tanto no editor quanto na entrevista, com diálogo de confirmação e resumo exato do que será enviado.
+- Chave da API em **Configurações**, em campo de senha, guardada na base local cifrada. A chave é enviada somente no cabeçalho `x-api-key` para o endpoint fixo `/rgps/api/v1/calculos-rmi`.
+- Payload montado por whitelist: data de nascimento, sexo, DIB, espécie, períodos e salários revisados. Descrições genéricas; sem nome, CPF, NIT, CNIS, PDF, endereço ou anotações. O Rust rejeita campos extras e períodos sobrepostos.
+- Resumo do provedor com RMI, regra/fundamento, salário de benefício, coeficiente, requisitos, conclusão, fonte, horário e hashes SHA-256 do pedido e da resposta; comparação em centavos com a RMI local quando a correção está ativa.
+- Seção **Conferência na Fábrica de Cálculos** no PDF detalhado quando a conferência foi feita.
+- Documentação atualizada em `docs/PRIVACY.md`, `docs/COVERAGE.md`, `docs/LIMITATIONS.md` e `README.md`.
+
+### Changed
+- `Settings` ganhou `fabrica_api_key` e `Calculation` ganhou `fabrica`; ambos aditivos e compatíveis com bases antigas.
+- Novo comando Tauri `conferir_fabrica_rmi`, com cliente HTTP dedicado, sem redirecionamentos, timeout de 90 s e limite de 8 MB. Erros 401/403/429 têm mensagens seguras.
+- A chave não aparece em PDF, logs ou mensagens de erro; a resposta bruta não é gravada.
+
+### Verified
+- Documentação técnica da Fábrica lida por inteiro: spec unificada v1.5.20 com 47 rotas, `calculos-rmi`, `fundamentos`, `marcos-temporais`, datas ISO e autenticação `x-api-key`.
+- Chamadas reais com caso sintético de 300 competências: 41 e 42 retornaram HTTP 200 com RMI e regra; 31 e 32 retornaram HTTP 200 sem RMI apurada com o payload atual. O app mostra a resposta e mantém o motor local.
+- 506 testes Rust, 117 de interface e 36 de navegador.
+
+### Limits
+- A conferência de 31/32 não apurou RMI no teste; PcD (LC 142) não é enviada. O motor local continua sendo o resultado do aplicativo.
+- O hash registra a resposta recebida, não é assinatura do provedor. A retenção do lado da Fábrica segue a política dela.
+- A conferência não substitui revisão documental, perícia, nexo, DII ou conferência de CTC.
+
 ## 0.14.0 - 2026-10-27
 
 Motor RGPS por espécie: além da 42, a 41, a 32 e a 31 têm fórmula, requisitos e base legal próprios.

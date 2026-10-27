@@ -12,6 +12,7 @@
 - Importação de CNIS em PDF com texto extraível. Lê a tabela de vínculos, a de remunerações, a de contribuições (competência, data de pagamento, contribuição e salário), as linhas de cooperativa e a de valores consolidados por ano civil. A tabela que continua na página seguinte sem repetir o cabeçalho é lida com o contexto herdado.
 - Editor de períodos e livro de contribuições rastreável. Alterar um dado invalida o resultado e a revisão anterior.
 - Motor RGPS experimental com espécies 42 (tempo de contribuição), 41 (idade), 32 (incapacidade permanente) e 31 (incapacidade temporária), requisitos e bases legais publicados em [docs/COVERAGE.md](docs/COVERAGE.md). A 46 (especial) e a 57 (professor) bloqueiam com motivo; nenhuma espécie é aproximada por outra.
+- Conferência online opcional da RMI na Fábrica de Cálculos/TRF3, com chave própria e confirmação por envio: só datas, sexo, espécie e salários revisados; sem nome, CPF, NIT, CNIS ou PDF. O resultado do provedor fica ao lado do motor local, com fonte, horário e hash; o PDF detalhado imprime a conferência quando ela foi feita.
 - Cenário PcD de grau constante pela LC 142/2013 com premissas declaradas. Consulta os índices e limites públicos da Fábrica de Cálculos/TRF3 e, quando a rede não responde, usa um snapshot local com as séries oficiais embutidas (INPC, IGP-DI e tetos), com a fonte declarada no arquivo.
 - Oito relatórios PDF gerados pelo renderer Rust: completo, resumo, tempo de contribuição, remunerações, memória da RMI, regras de transição, pendências e indicadores, e cálculo da qualidade de segurado.
 - Apuração da qualidade de segurado por vínculo, com a regra e a fonte impressas no documento: período de graça de 12 meses (art. 15, II, da Lei 8.213/1991), prorrogação para até 24 meses quando houve mais de 120 contribuições (art. 15, § 1º), carência de 180 contribuições (art. 25, II) ou a faixa da tabela do art. 142, contagem do contribuinte individual a partir do primeiro pagamento em dia (art. 27, II), tempo em gozo de benefício fora da carência (Decreto 3.048/1999, art. 19-C, § 1º) e competência contada uma única vez quando aparece em mais de um vínculo.
@@ -21,7 +22,7 @@
 
 ## O que foi conferido
 
-- 495 testes Rust, 111 testes de interface e 36 testes de navegador.
+- 506 testes Rust, 117 testes de interface e 36 testes de navegador.
 - Verificação nativa em perfil isolado: importação, cálculo, as oito prévias de PDF, gravação cifrada e reabertura, sem tocar na base normal.
 - Revisão de fonte pública sem achados.
 - Um CNIS real de 23 páginas, conferido fora do repositório, passou a ser lido com 610 lançamentos e nenhuma diferença de salário por competência contra o relatório de um software de referência.
@@ -31,12 +32,12 @@
 
 O livro de contribuições está implementado: edição de competência e valor, moeda e vínculo declarados, filtros, ações em lote, consolidação por competência, exclusão documentada sem apagar o CNIS, histórico, desfazer e aplicação explícita aos salários do cálculo. A validação em Rust recusa origem, histórico ou projeção inconsistentes. Isso não valida regime, CTC ou direito a benefício. Consulte [o guia do editor](docs/CONTRIBUTIONS.md).
 
-Não estão implementados: as espécies 46 (especial), 57 (professor), pensão por morte, salário-maternidade e auxílio-acidente; a carência legal por tabelas do RGPS anterior a 1991; a desconsideração por afastamento como o software de referência a faz (as fórmulas dele não são recuperáveis do binário, e nada foi inferido no lugar); e os módulos de planejamento (contribuição, frequência, alíquota, IRRF, retorno). O programa também não atualiza sozinho toda regra ou índice oficial, não cobre todos os regimes e benefícios, não é sistema de tramitação judicial e não tem backend web público. Consulte [limitações](docs/LIMITATIONS.md) e [roadmap](docs/ROADMAP.md).
+Não estão implementados: as espécies 46 (especial), 57 (professor), pensão por morte, salário-maternidade e auxílio-acidente; a carência legal por tabelas do RGPS anterior a 1991; a desconsideração por afastamento como o software de referência a faz (as fórmulas dele não são recuperáveis do binário, e nada foi inferido no lugar); e os módulos de planejamento (contribuição, frequência, alíquota, IRRF, retorno). O programa também não atualiza sozinho toda regra ou índice oficial, não cobre todos os regimes e benefícios, não é sistema de tramitação judicial e não tem backend web público. A conferência online da Fábrica está validada para as espécies 41 e 42. Nos testes sintéticos, 31 e 32 retornaram sem RMI no provedor com o payload atual; o app mantém o resultado local e mostra a resposta sem inventar valor. PcD (LC 142) não é enviada à conferência. Consulte [limitações](docs/LIMITATIONS.md) e [roadmap](docs/ROADMAP.md).
 
 ## Baixar e executar
 
-1. Abra [Releases](https://github.com/ricarossetto/previdenciar.io/releases) e escolha a versão 0.14.0.
-2. Baixe o instalador `previdenciar.io_0.14.0_x64-setup.exe` (recomendado, cria atalhos e verifica atualizações) ou o executável portátil, junto com o `SHA256SUMS.txt`.
+1. Abra [Releases](https://github.com/ricarossetto/previdenciar.io/releases) e escolha a versão 0.15.0.
+2. Baixe o instalador `previdenciar.io_0.15.0_x64-setup.exe` (recomendado, cria atalhos e verifica atualizações) ou o executável portátil, junto com o `SHA256SUMS.txt`.
 3. Confira o SHA-256 antes de executar. A distribuição não possui assinatura digital de código; o instalador é assinado apenas para o atualizador do próprio aplicativo.
 4. Requer Windows 10/11 x64 com Microsoft Edge WebView2. Não desative proteções do Windows para ignorar alertas. Se não confiar no binário, compile a partir do código.
 5. Use primeiro dados fictícios e leia os avisos. Não compartilhe CNIS, PDFs ou arquivos da base em issues.
@@ -45,7 +46,7 @@ A versão pública usa **identidade textual provisória**. Logo e identidade fin
 
 ## Privacidade
 
-Importação, cálculo, PDFs e exportação ocorrem na máquina do operador. Os fluxos implementados não enviam documentos a servidor nenhum. A consulta opcional de índices e limites públicos envia apenas a competência pedida à Fábrica de Cálculos/TRF3, sem CNIS, identidade, salários ou dados de saúde. O aplicativo não recebe chave de API: usa as rotas públicas de índices e referenciais.
+Importação, cálculo, PDFs e exportação ocorrem na máquina do operador. Os fluxos implementados não enviam documentos a servidor nenhum. A consulta opcional de índices e limites públicos envia apenas a competência pedida à Fábrica de Cálculos/TRF3, sem CNIS, identidade, salários ou dados de saúde. A chave da API da Fábrica é opcional, fica na base local cifrada e só é usada no botão de conferência de RMI, que envia somente datas, sexo, espécie e salários revisados; nome, CPF, NIT, CNIS, PDF e anotações ficam fora. Sem a chave, o aplicativo usa apenas as rotas públicas e o motor local.
 
 A base protegida do Windows fica no caminho legado de compatibilidade, sem migração silenciosa. Exportar com identificação oculta **não garante anonimização**, porque datas e valores ainda permitem correlação. A página no GitHub Pages é apenas apresentação, documentação e download: não recebe CNIS nem executa o motor Rust. Leia [privacidade](docs/PRIVACY.md).
 
