@@ -76,12 +76,34 @@ fn forged_application_or_modified_manual_rows_fail_before_the_engine() {
     assert!(previus_rgps::calculate_case(&c).is_err());
 }
 #[test]
-fn especie_sem_motor_bloqueia_o_caso() {
+fn especie_especial_sem_motor_bloqueia_o_caso() {
     let mut c = reviewed();
-    c.especie = Some("31".into());
+    c.especie = Some("46".into());
     let result = previus_rgps::calculate_case(&c).unwrap();
     assert_eq!(result["status"], "blocked", "{result}");
-    assert!(result["blockers"].as_array().unwrap().iter().any(|b| b["code"] == "especie_unsupported"), "{result}");
+    assert!(
+        result["blockers"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|b| b["code"] == "especie_especial_requires_ppp"),
+        "{result}"
+    );
     c.especie = Some("42".into());
     assert!(previus_rgps::calculate_case(&c).is_ok());
+}
+
+#[test]
+fn especie_idade_chega_ao_motor_com_requisitos() {
+    let mut c = reviewed();
+    c.especie = Some("41".into());
+    let result = previus_rgps::calculate_case(&c).unwrap();
+    assert_eq!(result["status"], "experimental", "{result}");
+    assert_eq!(result["data"]["native_result"]["especie"]["codigo"], "41");
+    assert!(
+        !result["data"]["native_result"]["beneficio"]["regras"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
 }

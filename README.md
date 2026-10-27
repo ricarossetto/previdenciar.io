@@ -11,7 +11,7 @@
 - Entrevista em sete etapas que organiza a hipótese, guarda cada resposta e permite voltar a qualquer ponto. A conferência abre com as respostas da entrevista e, logo abaixo, o preparo a partir do CNIS em um clique: a fonte não entra no motor, a cópia revisada entra, e a referência da conferência fica registrada. O quadro de rastreabilidade mostra o que veio do CNIS, o que foi ajustado e o que o motor usou.
 - Importação de CNIS em PDF com texto extraível. Lê a tabela de vínculos, a de remunerações, a de contribuições (competência, data de pagamento, contribuição e salário), as linhas de cooperativa e a de valores consolidados por ano civil. A tabela que continua na página seguinte sem repetir o cabeçalho é lida com o contexto herdado.
 - Editor de períodos e livro de contribuições rastreável. Alterar um dado invalida o resultado e a revisão anterior.
-- Motor RGPS experimental com adaptador restritivo, avisos e memória de cálculo.
+- Motor RGPS experimental com espécies 42 (tempo de contribuição), 41 (idade), 32 (incapacidade permanente) e 31 (incapacidade temporária), requisitos e bases legais publicados em [docs/COVERAGE.md](docs/COVERAGE.md). A 46 (especial) e a 57 (professor) bloqueiam com motivo; nenhuma espécie é aproximada por outra.
 - Cenário PcD de grau constante pela LC 142/2013 com premissas declaradas. Consulta os índices e limites públicos da Fábrica de Cálculos/TRF3 e, quando a rede não responde, usa um snapshot local com as séries oficiais embutidas (INPC, IGP-DI e tetos), com a fonte declarada no arquivo.
 - Oito relatórios PDF gerados pelo renderer Rust: completo, resumo, tempo de contribuição, remunerações, memória da RMI, regras de transição, pendências e indicadores, e cálculo da qualidade de segurado.
 - Apuração da qualidade de segurado por vínculo, com a regra e a fonte impressas no documento: período de graça de 12 meses (art. 15, II, da Lei 8.213/1991), prorrogação para até 24 meses quando houve mais de 120 contribuições (art. 15, § 1º), carência de 180 contribuições (art. 25, II) ou a faixa da tabela do art. 142, contagem do contribuinte individual a partir do primeiro pagamento em dia (art. 27, II), tempo em gozo de benefício fora da carência (Decreto 3.048/1999, art. 19-C, § 1º) e competência contada uma única vez quando aparece em mais de um vínculo.
@@ -21,7 +21,7 @@
 
 ## O que foi conferido
 
-- 486 testes Rust, 108 testes de interface e 36 testes de navegador.
+- 495 testes Rust, 111 testes de interface e 36 testes de navegador.
 - Verificação nativa em perfil isolado: importação, cálculo, as oito prévias de PDF, gravação cifrada e reabertura, sem tocar na base normal.
 - Revisão de fonte pública sem achados.
 - Um CNIS real de 23 páginas, conferido fora do repositório, passou a ser lido com 610 lançamentos e nenhuma diferença de salário por competência contra o relatório de um software de referência.
@@ -31,12 +31,12 @@
 
 O livro de contribuições está implementado: edição de competência e valor, moeda e vínculo declarados, filtros, ações em lote, consolidação por competência, exclusão documentada sem apagar o CNIS, histórico, desfazer e aplicação explícita aos salários do cálculo. A validação em Rust recusa origem, histórico ou projeção inconsistentes. Isso não valida regime, CTC ou direito a benefício. Consulte [o guia do editor](docs/CONTRIBUTIONS.md).
 
-Não estão implementados: a carência legal por tabelas do RGPS, a desconsideração por afastamento como o software de referência a faz (as fórmulas dele não são recuperáveis do binário, e nada foi inferido no lugar) e os módulos de planejamento (contribuição, frequência, alíquota, IRRF, retorno). O programa também não atualiza sozinho toda regra ou índice oficial, não cobre todos os regimes e benefícios, não é sistema de tramitação judicial e não tem backend web público. Consulte [limitações](docs/LIMITATIONS.md) e [roadmap](docs/ROADMAP.md).
+Não estão implementados: as espécies 46 (especial), 57 (professor), pensão por morte, salário-maternidade e auxílio-acidente; a carência legal por tabelas do RGPS anterior a 1991; a desconsideração por afastamento como o software de referência a faz (as fórmulas dele não são recuperáveis do binário, e nada foi inferido no lugar); e os módulos de planejamento (contribuição, frequência, alíquota, IRRF, retorno). O programa também não atualiza sozinho toda regra ou índice oficial, não cobre todos os regimes e benefícios, não é sistema de tramitação judicial e não tem backend web público. Consulte [limitações](docs/LIMITATIONS.md) e [roadmap](docs/ROADMAP.md).
 
 ## Baixar e executar
 
-1. Abra [Releases](https://github.com/ricarossetto/previdenciar.io/releases) e escolha a versão 0.13.0.
-2. Baixe o instalador `previdenciar.io_0.13.0_x64-setup.exe` (recomendado, cria atalhos e verifica atualizações) ou o executável portátil, junto com o `SHA256SUMS.txt`.
+1. Abra [Releases](https://github.com/ricarossetto/previdenciar.io/releases) e escolha a versão 0.14.0.
+2. Baixe o instalador `previdenciar.io_0.14.0_x64-setup.exe` (recomendado, cria atalhos e verifica atualizações) ou o executável portátil, junto com o `SHA256SUMS.txt`.
 3. Confira o SHA-256 antes de executar. A distribuição não possui assinatura digital de código; o instalador é assinado apenas para o atualizador do próprio aplicativo.
 4. Requer Windows 10/11 x64 com Microsoft Edge WebView2. Não desative proteções do Windows para ignorar alertas. Se não confiar no binário, compile a partir do código.
 5. Use primeiro dados fictícios e leia os avisos. Não compartilhe CNIS, PDFs ou arquivos da base em issues.

@@ -54,8 +54,26 @@ pub fn calculate_case(case: &Calculation) -> Result<Value,String> {
         issue(&mut blockers,"case_kind_unsupported","kind","Este adaptador atende exclusivamente cÇ­lculos RGPS.");
     }
     if let Some(especie) = case.especie.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
-        if especie != "42" {
-            issue(&mut blockers,"especie_unsupported","especie","Este motor atende a espécie 42 (aposentadoria por tempo de contribuição); a espécie informada não tem fórmula própria aqui e não é aproximada.");
+        match especie {
+            "42" | "41" | "31" | "32" => {}
+            "46" => issue(
+                &mut blockers,
+                "especie_especial_requires_ppp",
+                "especie",
+                "A espécie 46 (aposentadoria especial) exige PPP, enquadramento por agente nocivo e comprovação de 15, 20 ou 25 anos de exposição. Não é aproximada pela regra comum.",
+            ),
+            "57" => issue(
+                &mut blockers,
+                "especie_professor_not_implemented",
+                "especie",
+                "A espécie 57 (aposentadoria de professor) exige comprovação exclusiva de magistério e regra própria; não é aproximada pela espécie 42.",
+            ),
+            outra => {
+                let mensagem = format!(
+                    "Espécie {outra} não tem fórmula implementada. Espécies atendidas: 42 (tempo de contribuição), 41 (idade), 32 (incapacidade permanente) e 31 (incapacidade temporária)."
+                );
+                issue(&mut blockers, "especie_unsupported", "especie", &mensagem);
+            }
         }
     }
     let policy: CasePolicy = if case.options.rule_policy.trim().starts_with('{') {

@@ -8,8 +8,11 @@ use serde_json::{json, Value};
 fn species_label(code: &str) -> String {
     match code.trim() {
         "42" => "42 - Aposentadoria Por Tempo de Contribuição ou Programada".into(),
+        "41" => "41 - Aposentadoria por Idade".into(),
         "32" => "32 - Invalidez ou Incapacidade Permanente Previdenciária".into(),
         "31" => "31 - Auxílio Doença Previdenciário ou Incapacidade Temporária".into(),
+        "46" => "46 - Aposentadoria Especial".into(),
+        "57" => "57 - Aposentadoria de Professor".into(),
         other if other.is_empty() => String::new(),
         other => other.to_string(),
     }
@@ -369,15 +372,27 @@ fn memory_report(case: &Calculation, outcome: Option<&Value>) -> Result<Value, S
     });
 
     let fmt = |v: Option<Decimal>| v.map(brl_decimal).unwrap_or_else(|| "Não apurado".into());
+    let especie_nome = n
+        .and_then(|v| v.pointer("/especie/nome"))
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
+    let especie_regra = n
+        .and_then(|v| v.pointer("/especie/regra_escolhida"))
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
     Ok(json!({
         "title": "Cálculo da R.M.I.",
-        "subtitle": "Cálculo da R.M.I. - Tempo de Contribuição",
+        "subtitle": "Cálculo da R.M.I. - regra e requisitos da espécie",
         "date": data_calculo,
         "identification": identification(case, &data_calculo),
         "headers": headers,
         "rows": rows,
         "resumo": [
             ["Idade na DIB", idade],
+            ["Espécie", if especie_nome.is_empty() { "Não informada".into() } else { especie_nome }],
+            ["Regra", if especie_regra.is_empty() { "Não apurada".into() } else { especie_regra }],
             ["Nº de Parcelas no PBC", parcelas.to_string()],
             ["Tempo de Contribuição", tempo],
             ["Soma dos Salários", fmt(soma)],

@@ -1,6 +1,7 @@
 use crate::atualizacao::teto_vigente;
 use crate::calendar::{Competencia, IsoDate};
 use crate::carencia::calcular_carencia;
+use crate::especie::{self, Especie};
 use crate::money::{add, div, money, mul, parse_money, Result, RgpsError};
 use crate::rmi::{
     calcular_pbc_com_correcao, divisor_usado, salario_beneficio_sem_correcao,
@@ -44,6 +45,9 @@ pub struct RgpsOpcoes {
     pub periodos_graca: Vec<(IsoDate, IsoDate)>,
     pub recolhimentos_atraso: Vec<Competencia>,
     pub regra_alvo: Option<String>,
+    /// Origem declarada da incapacidade (31/32): comum, acidente,
+    /// doenca_ocupacional, doenca_do_trabalho ou doenca_listada.
+    pub incapacidade_origem: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -56,6 +60,7 @@ pub struct MemoriaItem {
 #[derive(Debug, Serialize)]
 pub struct RgpsResultado {
     pub segurado: SeguradoView,
+    pub especie: EspecieView,
     pub primeira_competencia: String,
     pub ultima_competencia: String,
     pub parametros: ParametrosView,
@@ -65,7 +70,19 @@ pub struct RgpsResultado {
     pub correcao: Option<serde_json::Value>,
     pub memoria: Vec<MemoriaItem>,
     pub transicoes: Option<serde_json::Value>,
+    /// Requisitos e regras próprias das espécies 41, 32 e 31.
+    pub beneficio: Option<serde_json::Value>,
     pub avisos: Vec<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct EspecieView {
+    pub codigo: String,
+    pub nome: String,
+    pub regra_escolhida: Option<String>,
+    /// Nome legível da regra escolhida (41/32/31); a 42 usa o comparador de transições.
+    pub regra_nome: Option<String>,
+    pub elegivel: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -110,6 +127,38 @@ fn anos_base(sexo: &str) -> i64 {
         .unwrap_or(20)
 }
 
+/// Média dos últimos 12 salários de contribuição, corrigidos quando o PBC foi
+/// corrigido. Usada no limite do auxílio por incapacidade temporária
+/// (Lei 8.213/1991, art. 29, § 10); não substitui o salário de benefício.
+fn media_ultimos_12(
+    competencias: &[(Competencia, Decimal)],
+    correcao: Option<&crate::rmi::PbcResultado>,
+) -> Option<Decimal> {
+    let valores: Vec<Decimal> = match correcao {
+        Some(pbc) => {
+            let mut parcelas: Vec<&crate::rmi::ParcelaPbc> = pbc.parcelas.iter().collect();
+            parcelas.sort_by(|a, b| a.competencia.cmp(&b.competencia));
+            parcelas
+                .iter()
+                .rev()
+                .take(12)
+                .filter_map(|p| parse_money(&p.corrigido, "média dos últimos 12").ok())
+                .collect()
+        }
+        None => competencias
+            .iter()
+            .rev()
+            .take(12)
+            .map(|(_, valor)| *valor)
+            .collect(),
+    };
+    if valores.is_empty() {
+        return None;
+    }
+    let total = valores.iter().copied().fold(Decimal::ZERO, add);
+    div(total, Decimal::from(valores.len() as u64)).ok()
+}
+
 /// Valida a entrada (porta de validate() do previdenciario.mjs).
 pub fn validar(entrada: &RgpsEntrada) -> Result<()> {
     if !crate::SEXOS.contains(&entrada.sexo.as_str()) {
@@ -121,11 +170,7 @@ pub fn validar(entrada: &RgpsEntrada) -> Result<()> {
         ));
     }
     if let Some(especie) = entrada.especie.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
-        if especie != "42" {
-            return Err(RgpsError(format!(
-                "Espécie {especie} não é suportada por este motor; os cálculos cobrem a 42 (aposentadoria por tempo de contribuição)."
-            )));
-        }
+        Especie::parse(Some(especie))?;
     }
     let mut vistas: std::collections::BTreeSet<Competencia> = std::collections::BTreeSet::new();
     let primeira = Competencia::parse(crate::PRIMEIRA_COMPETENCIA, "primeira competência")?;
@@ -164,6 +209,7 @@ pub fn validar(entrada: &RgpsEntrada) -> Result<()> {
 /// RMI com limites, transições EC 103 com RMI por regra e vencedora.
 pub fn calcular(entrada: &RgpsEntrada) -> Result<RgpsResultado> {
     validar(entrada)?;
+    let especie = Especie::parse(entrada.especie.as_deref())?;
 
     let mut competencias = entrada.competencias.clone();
     competencias.sort_by_key(|(c, _)| *c);
@@ -177,6 +223,29 @@ pub fn calcular(entrada: &RgpsEntrada) -> Result<RgpsResultado> {
     } else {
         Some(calcular_tempo(&entrada.vinculos, entrada.data_referencia.as_ref())?)
     };
+    let tempo_meses = tempo
+        .as_ref()
+        .map(|t| (t.marcos.ate_ec103 + t.marcos.apos_ec103) / 30)
+        .unwrap_or(0);
+    let inicio_filiacao = entrada
+        .vinculos
+        .iter()
+        .map(|v| v.inicio)
+        .min()
+        .or_else(|| {
+            competencias.first().map(|(c, _)| IsoDate {
+                ano: c.ano as i32,
+                mes: c.mes,
+                dia: 1,
+            })
+        });
+    // Só trata como rural quando TODOS os vínculos são rural/especial; mistura
+    // exige análise própria e não é presumida.
+    let rural = !entrada.vinculos.is_empty()
+        && entrada
+            .vinculos
+            .iter()
+            .all(|v| matches!(v.tipo.as_str(), "rural" | "especial"));
 
     // Carência qualificada: salários ∪ vínculos ∪ graça ∪ atraso.
     let vinculos_ranges: Vec<(IsoDate, IsoDate)> = entrada
@@ -222,18 +291,48 @@ pub fn calcular(entrada: &RgpsEntrada) -> Result<RgpsResultado> {
         None => salario_beneficio_sem_correcao(&competencias, entrada.opcoes.divisor_minimo)?,
     };
 
-    // Coeficiente pela quantidade de competências (paridade com o ATRIUM).
+    // Coeficiente: a espécie 42 mantém a paridade por competências; 41, 32 e 31
+    // usam a regra própria (idade/incapacidade/91%), com requisitos explícitos.
+    let media_12 = media_ultimos_12(&competencias, correcao.as_ref());
+    let avaliacao = especie::avaliar(&especie::AvaliacaoEntrada {
+        especie,
+        sexo: &entrada.sexo,
+        data_nascimento: entrada.data_nascimento,
+        data_referencia: entrada.data_referencia,
+        carencia_meses: carencia.carencia_meses as i64,
+        tempo_meses,
+        competencias: quantidade as i64,
+        inicio_filiacao,
+        rural,
+        incapacidade_origem: entrada.opcoes.incapacidade_origem.as_deref(),
+        media_ultimos_12: media_12,
+    })?;
     let anos = (quantidade / 12) as i64;
     let meses_restantes = (quantidade % 12) as i64;
     let base = anos_base(&entrada.sexo);
     let excedente = (anos - base).max(0);
-    let coeficiente = Decimal::from(60) + Decimal::from(2) * Decimal::from(excedente);
+    let coeficiente = if especie == Especie::TempoContribuicao {
+        Decimal::from(60) + Decimal::from(2) * Decimal::from(excedente)
+    } else {
+        avaliacao.coeficiente
+    };
 
     let mut rmi_bruta = mul(
         salario_beneficio,
         div(coeficiente, Decimal::from(100))?,
     );
     let mut limite_aplicado: Option<&'static str> = None;
+
+    // Espécie 31: a RMI não pode exceder a média dos últimos 12 salários
+    // (Lei 8.213/1991, art. 29, § 10).
+    if avaliacao.limite_media_12 {
+        if let Some(media) = media_12 {
+            if rmi_bruta > media {
+                rmi_bruta = media;
+                limite_aplicado = Some("media_12");
+            }
+        }
+    }
 
     let teto_derivado = if entrada.opcoes.aplicar_teto_vigente_der {
         Some(teto_vigente(
@@ -313,9 +412,18 @@ pub fn calcular(entrada: &RgpsEntrada) -> Result<RgpsResultado> {
     }];
     memoria.push(MemoriaItem {
         tipo: "coeficiente",
-        descricao: format!(
-            "60% + 2% × {excedente} ano(s) excedente(s) a {base} (por competências informadas)"
-        ),
+        descricao: match especie {
+            Especie::TempoContribuicao => format!(
+                "60% + 2% × {excedente} ano(s) excedente(s) a {base} (por competências informadas)"
+            ),
+            Especie::Idade | Especie::IncapacidadePermanente => format!(
+                "Coeficiente da espécie {}: {coeficiente}% sobre a média",
+                especie.codigo()
+            ),
+            Especie::IncapacidadeTemporaria => {
+                "91% do salário de benefício (Lei 8.213/1991, art. 61)".into()
+            }
+        },
         valor: format!("{coeficiente}%"),
     });
     memoria.push(MemoriaItem {
@@ -323,13 +431,18 @@ pub fn calcular(entrada: &RgpsEntrada) -> Result<RgpsResultado> {
         descricao: "Salário de benefício × coeficiente".into(),
         valor: money(rmi_bruta),
     });
-    if limite_aplicado.is_some() {
+    if let Some(limite) = limite_aplicado {
         memoria.push(MemoriaItem {
             tipo: "limite",
-            descricao: format!(
-                "Limite de {} aplicado",
-                limite_aplicado.unwrap()
-            ),
+            descricao: match limite {
+                "teto" => "Teto aplicado".into(),
+                "piso" => "Piso aplicado".into(),
+                "media_12" => {
+                    "Limite da média dos últimos 12 salários (Lei 8.213/1991, art. 29, § 10)"
+                        .into()
+                }
+                outro => format!("Limite {outro} aplicado"),
+            },
             valor: money(rmi_bruta),
         });
     }
@@ -351,7 +464,7 @@ pub fn calcular(entrada: &RgpsEntrada) -> Result<RgpsResultado> {
             "Competências anteriores a 2001 podem divergir da tabela de transição oficial do INSS; o descarte dos 20% menores costuma absorver a diferença.".into(),
         );
     }
-    if anos < base {
+    if especie == Especie::TempoContribuicao && anos < base {
         avisos.push(format!(
             "Tempo informado ({anos} anos) abaixo do mínimo de {base} anos para o coeficiente cheio; o coeficiente permanece em 60%."
         ));
@@ -367,6 +480,49 @@ pub fn calcular(entrada: &RgpsEntrada) -> Result<RgpsResultado> {
             "Teto vigente do salário de contribuição aplicado automaticamente na competência de referência.".into(),
         );
     }
+    if especie != Especie::TempoContribuicao {
+        let regra_ref = avaliacao
+            .regras
+            .iter()
+            .find(|r| Some(r.id) == avaliacao.regra_escolhida)
+            .or_else(|| avaliacao.regras.iter().min_by_key(|r| r.faltas_meses));
+        memoria.push(MemoriaItem {
+            tipo: "especie",
+            descricao: format!("Espécie {} — {}", avaliacao.especie, avaliacao.nome),
+            valor: regra_ref
+                .map(|r| r.nome.clone())
+                .unwrap_or_else(|| "requisitos não cumpridos".into()),
+        });
+        if let Some(regra) = regra_ref {
+            for req in &regra.requisitos {
+                memoria.push(MemoriaItem {
+                    tipo: "requisito",
+                    descricao: format!(
+                        "{} — {}: {} (exigido: {}); {}",
+                        regra.nome,
+                        req.descricao,
+                        req.apurado,
+                        req.exigido,
+                        if req.cumprido { "cumprido" } else { "não cumprido" }
+                    ),
+                    valor: req
+                        .falta_meses
+                        .filter(|m| *m > 0)
+                        .map(|m| format!("faltam {m} meses"))
+                        .unwrap_or_default(),
+                });
+            }
+        }
+        for observacao in &avaliacao.observacoes {
+            avisos.push(observacao.clone());
+        }
+        if avaliacao.regra_escolhida.is_none() {
+            avisos.push(
+                "Requisitos da espécie não cumpridos na DER. O valor calculado é uma simulação condicional, não uma concessão."
+                    .into(),
+            );
+        }
+    }
 
     let coeficiente_str = format!("{coeficiente}");
     Ok(RgpsResultado {
@@ -374,6 +530,44 @@ pub fn calcular(entrada: &RgpsEntrada) -> Result<RgpsResultado> {
             nome: entrada.nome.clone(),
             sexo: entrada.sexo.clone(),
             data_nascimento: entrada.data_nascimento.map(|d| d.to_string()),
+        },
+        especie: EspecieView {
+            codigo: if especie == Especie::TempoContribuicao {
+                "42".into()
+            } else {
+                avaliacao.especie.to_string()
+            },
+            nome: if especie == Especie::TempoContribuicao {
+                "Aposentadoria por tempo de contribuição".into()
+            } else {
+                avaliacao.nome.to_string()
+            },
+            regra_escolhida: if especie == Especie::TempoContribuicao {
+                transicoes
+                    .as_ref()
+                    .and_then(|t| t.get("regra_escolhida"))
+                    .and_then(|v| v.as_str())
+                    .map(str::to_string)
+            } else {
+                avaliacao.regra_escolhida.map(str::to_string)
+            },
+            regra_nome: if especie == Especie::TempoContribuicao {
+                None
+            } else {
+                avaliacao
+                    .regras
+                    .iter()
+                    .find(|r| Some(r.id) == avaliacao.regra_escolhida)
+                    .map(|r| r.nome.clone())
+            },
+            elegivel: if especie == Especie::TempoContribuicao {
+                transicoes
+                    .as_ref()
+                    .and_then(|t| t.get("regra_escolhida"))
+                    .is_some()
+            } else {
+                avaliacao.regra_escolhida.is_some()
+            },
         },
         primeira_competencia: primeira.to_string(),
         ultima_competencia: ultima.to_string(),
@@ -413,6 +607,11 @@ pub fn calcular(entrada: &RgpsEntrada) -> Result<RgpsResultado> {
             .map(|pbc| serde_json::to_value(pbc).expect("serialização de PBC")),
         memoria,
         transicoes,
+        beneficio: if especie == Especie::TempoContribuicao {
+            None
+        } else {
+            Some(serde_json::to_value(&avaliacao).expect("serialização do benefício"))
+        },
         avisos,
     })
 }
@@ -455,7 +654,7 @@ mod tests {
         let mut entrada = entrada_feminina_300();
         entrada.especie = Some("80".into());
         let erro = calcular(&entrada).unwrap_err();
-        assert!(erro.0.contains("não é suportada"), "{erro}");
+        assert!(erro.0.contains("não tem fórmula"), "{erro}");
         entrada.especie = Some("42".into());
         assert!(calcular(&entrada).is_ok());
     }

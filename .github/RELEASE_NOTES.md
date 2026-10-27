@@ -1,32 +1,46 @@
-## previdenciar.io 0.13.0
+## previdenciar.io 0.14.0
 
-O fluxo guiado virou uma mesa de trabalho: papel, tinta, uma pergunta por tela e um único próximo passo. A base de cálculo e relatórios é a mesma da 0.12.1.
+O motor deixou de atender só a espécie 42. Aposentadoria por idade (41),
+incapacidade permanente (32) e auxílio por incapacidade temporária (31) agora
+têm fórmula, requisitos e base legal próprios. O que não tem regra implementada
+continua bloqueado, com motivo — nunca aproximado.
 
-### Nova direção no assistente
+### O que passou a funcionar
 
-- Superfície de papel, títulos em serifa e uma única cor de ação. Tokens documentados em `DESIGN.md`.
-- Uma pergunta por tela, opções em linhas e tipografia maior. "Passo X de 7" em linguagem simples, sem caixa alta.
-- Contraste corrigido em contexto do caso, pergunta, listas de etapas, campos e painéis.
-- A etapa abre no topo, sem herdar a rolagem da tela anterior.
+- **41 — Aposentadoria por idade**: 62/65 anos (60/55 rural), 180 contribuições,
+  regra permanente e regra do art. 18 da EC 103 para quem já era filiado em
+  13/11/2019. Coeficiente de 60% + 2% por ano acima de 15/20.
+- **32 — Incapacidade permanente**: carência de 12 ou isenção por acidente,
+  doença ocupacional ou doença da lista; 60% + 2% na regra comum e 100% na
+  origem acidentária. A DER anterior à reforma usa o art. 44 e avisa sobre a DII
+  e o Tema 1300 do STF.
+- **31 — Incapacidade temporária**: 91% do salário de benefício, limitado à
+  média dos últimos 12 salários (art. 29, § 10).
+- **Requisitos na tela e no PDF**: idade, carência, tempo, incapacidade e
+  origem aparecem com valor exigido, apurado, meses faltantes e a marca
+  "declarado, não verificado pelo motor" quando é o caso.
+- **Escolha da espécie** no editor e na entrevista guiada, com a origem da
+  incapacidade no editor de política.
 
-### Clareza no resultado
+### O que continua bloqueado, de propósito
 
-- Faixa de estado no topo: "Cálculo bloqueado", com o motivo em uma frase, ou "Resultado experimental", com o aviso de revisão.
-- Bloqueio da LC 142/2013 coloca "Abrir o cenário PcD no editor" como ação principal; reexecutar sai do caminho.
-- Ajuda curta em DIB, sexo e deficiência; finalidades secundárias recolhidas.
+- **46 — Especial**: exige PPP, enquadramento e 15/20/25 anos de exposição.
+- **57 — Professor**: exige comprovação exclusiva de magistério.
+- Pensão por morte, salário-maternidade, auxílio-acidente e demais prestações
+  não são aposentadorias e não têm fórmula neste motor.
+- A incapacidade é declarada. O programa calcula a renda; não faz perícia nem
+  certifica nexo, DII ou qualidade de segurado.
 
-### Correções da rodada anterior
+### Também nesta versão
 
-- Identificação pessoal oculta no PDF quando a opção está desmarcada.
-- Prévia do PDF traz o documento para a tela e o texto de estado acompanha o que existe.
-- "Pronto para o motor" deixa de aparecer quando a execução está bloqueada.
-
-### Verificação
-
-- 486 testes Rust, 108 de interface e 36 de navegador.
-- Capturas em 1440 e 390 do fluxo redesenhado.
+- A matriz completa está em `docs/COVERAGE.md`.
+- O resumo do PDF mostra a espécie e a regra escolhida; a memória mostra cada
+  requisito.
+- 495 testes Rust, 111 de interface e 36 de navegador.
 
 ### Limites
 
-- A direção nova cobre o assistente, a conferência e o resultado. As demais páginas mantêm a casca atual.
-- A LC 142/2013 continua como simulação com premissas declaradas.
+- O direito adquirido da espécie 42 continua sem recálculo da RMI antiga (80%
+  maiores e fator/85-95); ele aparece como elegível, sem valor.
+- O módulo PcD da LC 142/2013 continua separado e com premissas declaradas.
+- A distribuição não tem assinatura de código; confira o SHA-256.

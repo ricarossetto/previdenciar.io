@@ -71,6 +71,9 @@ pub struct OptionsInput {
     pub graca: Vec<GracePeriod>,
     pub recolhimentos_atraso: Vec<String>,
     pub regra_alvo: Option<String>,
+    /// Origem declarada da incapacidade (31/32): comum, acidente,
+    /// doenca_ocupacional, doenca_do_trabalho ou doenca_listada.
+    pub incapacidade_origem: Option<String>,
 }
 #[derive(Clone, Default, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]

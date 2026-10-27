@@ -174,3 +174,44 @@ O que continua fora do escopo desta rodada: a casca do aplicativo (menu lateral,
   aplicação do CNIS e apareçam confirmadas na conferência.
 - **CNIS → motor**: deixar explícito, na própria conferência, que o CNIS é
   conferido e a hipótese é montada a partir dele em um clique.
+
+## Rodada 2 — cobertura de espécies (0.14.0)
+
+Depois do teste PcD, o motor ainda só aceitava a espécie 42. A rodada de
+26/10/2026 atacou esse beco sem saída.
+
+### Fricções encontradas
+
+1. **Uma única espécie no seletor.** Quem tinha um caso de idade, invalidez ou
+   auxílio-doença não conseguia nem simular: o adaptador bloqueava com
+   "espécie não suportada". O seletor da entrevista também não perguntava a
+   espécie.
+2. **Resultado sem requisitos.** O número aparecia, mas não dizia idade,
+   carência, tempo, origem da incapacidade ou o que faltava. Para um advogado,
+   um valor sem requisito não serve para orientar o cliente.
+3. **Incapacidade confundida com deficiência.** O campo "Condição de
+   deficiência" parecia o lugar de declarar invalidez. Marcar "Grave" levava ao
+   bloqueio da LC 142, não ao cálculo da espécie 32.
+4. **Origem acidentária inacessível.** Sem um campo de origem, a regra de 100%
+   da incapacidade permanente acidentária nunca podia ser aplicada.
+5. **Regra técnica no resultado.** O identificador `idade-permanente` aparecia
+   no lugar do nome da regra.
+
+### O que mudou
+
+- Seletor com 42, 41, 32 e 31 na entrevista e no editor. A 46 e a 57 continuam
+  bloqueadas, mas com motivo específico (PPP/enquadramento e magistério).
+- Tabela de requisitos no resultado e no PDF, com exigido, apurado, meses
+  faltantes e a marca "declarado, não verificado pelo motor".
+- Aviso curto separando incapacidade (31/32) de deficiência (LC 142), e campo
+  "Origem da incapacidade" no editor de política.
+- Nome legível da regra no resultado; o identificador continua na trilha
+  técnica.
+- Nenhum dado real foi usado nesta rodada: os casos são sintéticos. O CNIS real
+  da rodada anterior continua fora do repositório.
+
+### O que continua em aberto
+
+- Direito adquirido da espécie 42 sem recálculo da RMI antiga.
+- 46 e 57 sem motor próprio.
+- A perícia, o nexo e a DII continuam declarados, não verificados.

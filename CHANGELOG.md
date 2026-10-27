@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.14.0 - 2026-10-27
+
+Motor RGPS por espécie: além da 42, a 41, a 32 e a 31 têm fórmula, requisitos e base legal próprios.
+
+### Added
+- **Aposentadoria por idade (41)**: idade de 62/65 (ou 60/55 rural), carência de 180 contribuições, regra permanente e regra do art. 18 da EC 103 para quem já era filiado em 13/11/2019. Coeficiente de 60% + 2% por ano acima de 15/20.
+- **Aposentadoria por incapacidade permanente (32)**: carência de 12 contribuições ou isenção por acidente/doença ocupacional/doença da lista; 60% + 2% na regra comum, 100% na origem acidentária; 100% na DER anterior à reforma, com aviso sobre DII e Tema 1300 do STF.
+- **Auxílio por incapacidade temporária (31)**: 91% do salário de benefício, com o limite da média dos últimos 12 salários (art. 29, § 10).
+- **Requisitos no resultado**: o motor devolve cada requisito com valor exigido, apurado, meses faltantes e se foi verificado. A tela e o PDF mostram a tabela.
+- **Origem da incapacidade** no editor de política: comum, acidente, doença ocupacional, doença do trabalho ou doença da lista.
+- **Seletor de espécie** no editor e na entrevista guiada; a entrevista não inventa a espécie.
+- **`docs/COVERAGE.md`** com a matriz de cobertura e as fontes.
+
+### Changed
+- A espécie 42 mantém o comparador de transições e a paridade de coeficiente por competências; as novas espécies usam o tempo apurado por vínculos, com fallback para competências.
+- A espécie 41 escolhe a regra elegível de menor idade (rural, art. 18 ou permanente) e informa a regra no resultado.
+- O PDF passa a exibir a espécie e a regra no resumo e a renderizar os requisitos e a origem declarada.
+- O aviso de coeficiente abaixo da base deixa de aparecer nas espécies 31/32/41.
+
+### Blocked by design
+- **46 (especial)** bloqueia por exigir PPP/enquadramento e 15/20/25 anos de exposição; **57 (professor)** bloqueia por exigir magistério exclusivo. Nenhuma das duas é aproximada pela regra comum.
+- **Pensão por morte, salário-maternidade, auxílio-acidente** e demais prestações seguem fora do motor, com bloqueio explícito.
+- A incapacidade é declarada: o motor calcula a renda, não a perícia, o nexo, a DII ou a qualidade de segurado.
+
+### Tests
+- 495 testes Rust, 111 de interface e 36 de navegador.
+
+### Notes
+- Nenhum dado pessoal, CNIS ou PDF real entrou no repositório. Os fixtures continuam sintéticos.
+
 ## 0.13.0 - 2026-10-26
 
 Redesign do fluxo guiado: da casca de painel para uma mesa de trabalho.
