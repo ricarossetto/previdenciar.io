@@ -252,3 +252,69 @@ dentro do sistema, lendo toda a documentação.
 - Descobrir o campo que falta para o provedor apurar 31/32.
 - Avaliar `por-fundamento` para recalcular a RMI antiga do direito adquirido.
 - A conferência não substitui o motor local, a perícia ou a revisão.
+
+## Rodada atual — 0.14.0/0.15.0 (27/10/2026)
+
+Caso: o mesmo CNIS real de cliente, mantido fora do repositório, com deficiência
+grave e aposentadoria por tempo de contribuição. Persona: advogado sênior,
+~70 anos, pouca familiaridade com computador. Método: binário 0.14.0 em perfil
+isolado, Playwright sobre o WebView2 real (CDP), 17 telas do assistente e, em
+seguida, o cenário PcD preenchido até a tentativa de execução, que revelou a
+trava descrita abaixo. Dados temporários apagados no fim;
+nenhum CNIS, nome, CPF ou print de cliente entrou no repositório.
+
+### Resultado por etapa
+
+- Abertura, escolha do caso, importação do CNIS e aplicação: **sem trava**.
+  O CNIS real foi lido (4 vínculos, 357 lançamentos, 331 competências, 7 avisos).
+- Sexo, deficiência grave, espécie, conferência e resultado: **sem trava**.
+  A conferência tem um único botão de preparo e o resultado bloqueado é
+  explicado; nenhum valor foi inventado.
+- O ponto de ruptura apareceu **depois** do resultado PcD, no editor.
+
+### Achados e correções desta rodada
+
+1. **Crítico — o cenário PcD não podia ser executado pelo caminho do assistente.**
+   O botão **Abrir o cenário PcD no editor** abria o editor, mas qualquer
+   alteração de premissa invalidava a revisão do assistente. O editor não tinha
+   onde reconfirmar; o botão **Executar motor RGPS** devolvia “Complete as
+   perguntas... confirme a revisão do assistente” e o usuário ficava sem saída.
+   **Corrigido**: a etapa **Revisão** do editor ganhou o checkbox de confirmação,
+   a etapa **Resultado** mostra a pendência e o atalho **Ir para revisão**, e um
+   teste de interface cobre o caminho.
+2. **Maior — aviso contraditório.** A etapa de parâmetros dizia que a LC 142
+   “ainda não tem motor neste adaptador”, embora o aplicativo tenha o módulo
+   PcD. **Corrigido**: o aviso agora diz que o motor RGPS não calcula PcD, que o
+   módulo é próprio e que o botão do resultado o abre.
+3. **Maior — labirinto do PcD.** O usuário precisa passar pela conferência do
+   RGPS (que prepara vínculos e salários), receber o bloqueio esperado e só então
+   abrir o PcD. Não é um cálculo RGPS válido; é a preparação. **Mitigado** com o
+   aviso que nomeia o botão e o motivo do bloqueio; o atalho para o PcD sem
+   preparar os dados produziria uma hipótese vazia, então não foi criado.
+4. **Menor — status e DIB do PcD.** A etapa mandava para uma “conferência” que
+   não existe no editor e a DIB apontava para uma tela com outro nome.
+   **Corrigido**: o status aponta **Revisão** e **Resultado**; a DIB aponta
+   **Segurado e cenário**.
+5. **Menor — data-base técnica em branco.** O campo “Data-base dos valores e da
+   projeção” exige um mês que o advogado pode não saber escolher.
+   **Corrigido**: botão **Usar o mês anterior à DIB**, com confirmação explícita
+   antes de consultar as tabelas.
+6. **Menor — menu denso.** A lateral reúne *Cálculo previdenciário*, *Cálculos
+   do RGPS*, *Assistente de cálculos* e *Editor de dados*. O caminho guiado é o
+   Assistente; os outros competem com ele. **Recomendação**: renomear para
+   *Assistente (passo a passo)* e *Editor avançado* em uma rodada com atualização
+   dos testes. Não foi alterado agora para não quebrar seletores e o histórico.
+7. **Menor — tabela de 331 competências.** Continua densa; o filtro e a
+   conferência por vínculo ajudam, mas não foi redesenhada nesta rodada.
+
+### O que foi verificado no código
+
+- O gate do backend exige respostas da entrevista e `review_confirmed`; não é
+  contornado por etapa ou por clique no editor.
+- O PcD continua usando as premissas declaradas, os 80% maiores salários e o
+  coeficiente de 100%; nenhum valor do RGPS é reaproveitado como PcD.
+- O PDF do resultado bloqueado não é tratado como resultado financeiro; o PDF
+  do PcD é gerado somente depois da execução do módulo.
+- A correção do PcD foi coberta por `pcd-editor-review.test.tsx`; a suíte de
+  interface fechou em 118 testes e os 36 testes de navegador continuam verdes.
+

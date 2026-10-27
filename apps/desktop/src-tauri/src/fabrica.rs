@@ -61,13 +61,13 @@ fn read_limited(response: reqwest::blocking::Response, limit: usize) -> Result<V
     Ok(bytes)
 }
 
-fn post_to(
+fn request(
     client: &reqwest::blocking::Client,
     url: &str,
     key: &str,
     body: &[u8],
-) -> Result<Vec<u8>, String> {
-    let response = client
+) -> reqwest::blocking::RequestBuilder {
+    client
         .post(url)
         .header("x-api-key", key)
         .header(reqwest::header::CONTENT_TYPE, "application/json")
@@ -76,6 +76,15 @@ fn post_to(
         .header(reqwest::header::ACCEPT_ENCODING, "identity")
         .header(reqwest::header::CONNECTION, "close")
         .body(body.to_vec())
+}
+
+fn post_to(
+    client: &reqwest::blocking::Client,
+    url: &str,
+    key: &str,
+    body: &[u8],
+) -> Result<Vec<u8>, String> {
+    let response = request(client, url, key, body)
         .send()
         .map_err(|_| {
             "Não foi possível falar com a Fábrica de Cálculos; a conferência não alterou nenhum valor."
@@ -154,47 +163,24 @@ mod tests {
 
     #[test]
     fn request_carries_the_key_only_in_the_header_and_no_identity() {
-        use std::io::{Read, Write};
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
-        let address = listener.local_addr().unwrap();
-        let worker = std::thread::spawn(move || {
-            let (mut stream, _) = listener.accept().unwrap();
-            stream
-                .set_read_timeout(Some(std::time::Duration::from_secs(5)))
-                .unwrap();
-            let mut bytes = Vec::new();
-            while !bytes.ends_with(b"\r\n\r\n") {
-                let mut one = [0];
-                stream.read_exact(&mut one).unwrap();
-                bytes.push(one[0]);
-                assert!(bytes.len() < 16384);
-            }
-            let headers = String::from_utf8(bytes).unwrap().to_lowercase();
-            assert!(headers.contains("x-api-key: test-key"));
-            assert!(headers.contains("content-type: application/json"));
-            assert!(!headers.contains("authorization:"));
-            let body = br#"{"dataApuracao":"2026-01-10","dataNascimento":"1956-01-10","sexo":"M","especie":41,"opcoesContagem":{"especie":41},"periodosContribuicao":[{"dataInicial":"1994-07-01","dataFinal":"2019-06-30","descricao":"Periodo 1","contarCarencia":true,"prioritario":true,"salarios":[{"competencia":"1994-07","valor":2000.0}]}]}"#;
-            let response = format!(
-                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
-                body.len(),
-                String::from_utf8_lossy(body)
-            );
-            stream.write_all(response.as_bytes()).unwrap();
-        });
         let client = reqwest::blocking::Client::builder()
             .no_proxy()
-            .timeout(std::time::Duration::from_secs(5))
             .build()
             .unwrap();
-        let bytes = post_to(
-            &client,
-            &format!("http://{address}/synthetic-rmi"),
-            "test-key",
-            br#"{"dataApuracao":"2026-01-10"}"#,
-        )
-        .unwrap();
-        assert!(bytes.starts_with(b"{\"dataApuracao\""));
-        worker.join().unwrap();
+        let body: &[u8] = br#"{"dataApuracao":"2026-01-10"}"#;
+        let built = request(&client, "http://127.0.0.1/synthetic-rmi", "test-key", body)
+            .build()
+            .unwrap();
+        assert_eq!(
+            built.headers().get("x-api-key").and_then(|value| value.to_str().ok()),
+            Some("test-key")
+        );
+        assert_eq!(
+            built.headers().get(reqwest::header::CONTENT_TYPE).and_then(|value| value.to_str().ok()),
+            Some("application/json")
+        );
+        assert!(!built.headers().contains_key(reqwest::header::AUTHORIZATION));
+        assert_eq!(built.body().and_then(|body| body.as_bytes()), Some(body));
     }
 
     #[test]

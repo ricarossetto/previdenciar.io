@@ -18,6 +18,16 @@ o resultado local continua sendo o resultado do aplicativo.
   local está ativa, o app compara os valores em centavos.
 - O PDF detalhado imprime a seção de conferência quando ela foi feita.
 
+### Cenário PcD
+
+- O aviso agora explica que a LC 142 tem um módulo próprio no editor; não diz
+  mais que a aposentadoria PcD "não tem motor".
+- Depois de alterar as premissas do PcD, a etapa **Revisão** do editor permite
+  confirmar a revisão do assistente; a execução deixa de falhar com
+  "Complete as perguntas..." e oferece o atalho **Ir para revisão**.
+- A conferência continua preparando vínculos e salários; o resultado bloqueado
+  do RGPS leva ao botão **Abrir o cenário PcD no editor**, sem valor inventado.
+
 ### O que foi validado
 
 - Documentação técnica da Fábrica lida por inteiro: 47 rotas na spec unificada
@@ -27,7 +37,7 @@ o resultado local continua sendo o resultado do aplicativo.
   RMI e regra. As espécies 31 e 32 retornaram HTTP 200 **sem RMI apurada** com
   o payload atual; o app mostra a resposta do provedor, mantém o motor local e
   não inventa valor.
-- 506 testes Rust, 117 de interface e 36 de navegador.
+- 506 testes Rust, 118 de interface e 36 de navegador.
 
 ### Limites
 

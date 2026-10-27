@@ -17,10 +17,15 @@ Conferência online opcional de RMI na Fábrica de Cálculos/TRF3, com chave pr�
 - Novo comando Tauri `conferir_fabrica_rmi`, com cliente HTTP dedicado, sem redirecionamentos, timeout de 90 s e limite de 8 MB. Erros 401/403/429 têm mensagens seguras.
 - A chave não aparece em PDF, logs ou mensagens de erro; a resposta bruta não é gravada.
 
+### Fixed
+- **Cenário PcD no editor**: o botão **Abrir o cenário PcD no editor** levava a uma hipótese em que qualquer alteração de premissa invalidava a revisão do assistente e não havia como reconfirmá-la; a execução terminava no gate "Complete as perguntas...". A etapa **Revisão** do editor agora tem o checkbox de confirmação, a execução explica a pendência e oferece **Ir para revisão**, e o teste de interface cobre o caminho.
+- **Aviso do PcD**: a etapa de parâmetros dizia que a LC 142 "ainda não tem motor", embora exista o módulo próprio; o texto agora explica que o motor RGPS não calcula PcD, que a conferência prepara vínculos/salários e que o botão do resultado abre o módulo.
+- **Status do PcD**: a etapa do editor manda para **Revisão** e **Resultado**, não para uma conferência inexistente; a DIB aponta para **Segurado e cenário**.
+
 ### Verified
 - Documentação técnica da Fábrica lida por inteiro: spec unificada v1.5.20 com 47 rotas, `calculos-rmi`, `fundamentos`, `marcos-temporais`, datas ISO e autenticação `x-api-key`.
 - Chamadas reais com caso sintético de 300 competências: 41 e 42 retornaram HTTP 200 com RMI e regra; 31 e 32 retornaram HTTP 200 sem RMI apurada com o payload atual. O app mostra a resposta e mantém o motor local.
-- 506 testes Rust, 117 de interface e 36 de navegador.
+- 506 testes Rust, 118 de interface e 36 de navegador.
 
 ### Limits
 - A conferência de 31/32 não apurou RMI no teste; PcD (LC 142) não é enviada. O motor local continua sendo o resultado do aplicativo.
