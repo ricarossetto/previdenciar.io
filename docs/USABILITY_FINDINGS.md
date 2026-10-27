@@ -120,6 +120,37 @@ As três pendências menores listadas acima continuam abertas, assim como `genpd
 como dependência sem uso na exportação e os relatórios `Summary`, `Salaries` e
 `Indicators` no template genérico.
 
+## Segunda rodada: 0.12.1 (teste completo como advogado sênior)
+
+Método: binário nativo publicado, perfil isolado (sem abrir a base do escritório), CNIS real do caso com deficiência grave, roteiro do início ao PDF com captura de tela e texto de cada etapa.
+
+### O que travava
+
+1. **Identificação pessoal vazando no PDF.** A opção "Incluir identificação pessoal" estava desmarcada e o texto prometia nome e identificadores ocultos, mas o PDF mostrava nome e CPF do segurado. O caminho Typst nunca recebia essa opção.
+2. **Cenário PcD sem saída.** O motor bloqueava com "LC 142/2013 ainda não está implementada neste motor local" e não havia botão, link ou instrução para o módulo LC 142, que existe no editor. Para o caso do teste, o programa terminava sem caminho.
+3. **Prévia do PDF sem resposta visível.** O botão gerava o documento abaixo da dobra e nada mudava na região do clique. O texto de estado ainda mandava "escolher um cálculo" mesmo com o cálculo já selecionado.
+4. **"Pronto para o motor" com execução bloqueada.** O painel de rastreabilidade dizia que a hipótese estava pronta enquanto o resultado dizia bloqueado.
+5. **Botão de executar depois de já ter executado.** Depois do preparo em um clique, a tela ainda oferecia "Executar cálculo da hipótese", sem dizer que a última execução já tinha ocorrido.
+6. **Etapa 3 com seis cartões e duas perguntas parecidas.** "O que este cálculo precisa resolver?" e "Qual cálculo deseja organizar?" pareciam a mesma pergunta, uma abaixo da outra.
+7. **Jargão nos campos.** DIB, "sexo cadastral" e "deficiência na DIB" não tinham explicação curta.
+
+### O que foi corrigido nesta versão
+
+- O renderer Typst recebe a opção de identificação e oculta nome, CPF e a origem do vínculo quando ela está desmarcada.
+- O resultado bloqueado pela LC 142 explica o motivo e oferece "Abrir o cenário PcD no editor", que cai na etapa "Cenário PcD (LC 142/2013)", com as premissas já abertas (antes o módulo ficava dentro de um acordeão fechado).
+- A prévia rola até o documento gerado e o texto de estado segue o que está na tela.
+- O selo virou "Revisado; execução bloqueada" e o botão virou "Executar novamente" quando já existe resultado.
+- Etapa 3 mostra três finalidades principais e deixa as outras em "Outras finalidades"; a segunda pergunta virou "O que você quer obter?".
+- DIB, sexo e deficiência ganharam ajuda curta.
+
+### O que continua aberto
+
+- O menu lateral tem 14 itens e três entradas parecidas (Cálculos, Cálculos do RGPS, Assistente de cálculos, Editor de dados).
+- A central de relatórios concentra lote, título e três opções de apresentação na mesma tela; o caminho principal está no topo, mas a densidade continua alta para um novato.
+- A tabela de remunerações lista 331 competências de uma vez.
+- O aviso flutuante pode cobrir conteúdo no canto inferior direito.
+- O módulo LC 142 pede várias declarações e evidências; é o preço de não inventar premissa, mas ainda é denso.
+
 ## Recomendações originais (implementadas nesta rodada)
 
 - **Etapa 5**: transformar as pendências num assistente passo a passo, com o

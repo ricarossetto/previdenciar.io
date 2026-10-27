@@ -398,7 +398,7 @@ fn iso_parts(iso: &str) -> Option<(i64, i64, i64)> {
     }
 }
 
-fn quality(case: &Calculation, _outcome: Option<&Value>) -> Result<Value, String> {
+fn quality(case: &Calculation, _outcome: Option<&Value>, personal: bool) -> Result<Value, String> {
     let data_calculo = br_date(&case.dib);
     let headers = vec!["Início", "Fim", "Filiação", "Carência", "Tempo Contribuição", "Origem do Vínculo"];
     let mut rows: Vec<Vec<String>> = Vec::new();
@@ -418,13 +418,14 @@ fn quality(case: &Calculation, _outcome: Option<&Value>) -> Result<Value, String
                 }
                 _ => String::new(),
             };
+            let origem = if personal { link.raw_employer.clone().unwrap_or_default() } else { "Origem oculta".to_string() };
             rows.push(vec![
                 inicio,
                 fim,
                 link.affiliation.clone().unwrap_or_default(),
                 format!("{meses} contribuições"),
                 tempo,
-                link.raw_employer.clone().unwrap_or_default(),
+                origem,
             ]);
         }
     }
@@ -684,16 +685,54 @@ fn generic_sections(case: &Calculation, outcome: Option<&Value>, kind: &str) -> 
 }
 
 /// Constrói os dados de um relatório a partir do caso e do resultado nativo.
-pub fn build(kind: &str, case: &Calculation, outcome: Option<&Value>) -> Result<Value, String> {
-    match kind {
+/// `personal = false` oculta nome e CPF do segurado, como no layout antigo.
+pub fn build(kind: &str, case: &Calculation, outcome: Option<&Value>, personal: bool) -> Result<Value, String> {
+    let mut data = match kind {
         "analysis" => analysis(case, outcome),
         "periods" => periods(case, outcome),
         "transitions" => transitions(case, outcome),
         "memory" => memory_report(case, outcome),
-        "quality" => quality(case, outcome),
+        "quality" => quality(case, outcome, personal),
         "roi" => roi(case, outcome),
         "regras" => regras(case, outcome),
         "summary" | "salaries" | "indicators" => generic_sections(case, outcome, kind),
         other => Err(format!("Relatório sem construtor de dados: {other}")),
+    }?;
+    if !personal {
+        mask_identification(&mut data);
+    }
+    Ok(data)
+}
+
+/// Substitui as células de identificação direta sem tocar em datas, sexo ou valores.
+fn mask_identification(data: &mut Value) {
+    let Some(rows) = data.get_mut("identification").and_then(|value| value.get_mut("rows")).and_then(Value::as_array_mut) else { return };
+    for row in rows.iter_mut().filter_map(Value::as_array_mut) {
+        for cell in row.iter_mut().filter_map(Value::as_array_mut) {
+            if cell.len() != 2 { continue; }
+            match cell[0].as_str().unwrap_or_default() {
+                "Nome do Segurado" => cell[1] = json!("Identificação oculta"),
+                "CPF" => cell[1] = json!("Oculto"),
+                _ => {}
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn identification_follows_the_personal_option() {
+        let mut case = Calculation::default();
+        case.identity.full_name = Some("PESSOA FICTICIA DE TESTE".into());
+        case.identity.cpf = Some("111.111.111-11".into());
+        let private = build("periods", &case, None, false).unwrap().to_string();
+        assert!(!private.contains("PESSOA FICTICIA DE TESTE"), "{private}");
+        assert!(!private.contains("111.111.111-11"), "{private}");
+        assert!(private.contains("Identificação oculta"), "{private}");
+        let identified = build("periods", &case, None, true).unwrap().to_string();
+        assert!(identified.contains("PESSOA FICTICIA DE TESTE"), "{identified}");
     }
 }

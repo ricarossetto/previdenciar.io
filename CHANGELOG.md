@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.12.1 - 2026-10-26
+
+Teste de usabilidade completo com o CNIS real do caso PcD, no binário nativo, em perfil isolado.
+
+### Fixed
+- **Identificação pessoal no PDF**: com a opção de identificação desmarcada, nome e CPF ainda apareciam nos relatórios Typst. O renderer passou a receber a opção e oculta nome, CPF e a origem do vínculo.
+- **Beco sem saída do cenário PcD**: o resultado bloqueado pela LC 142 agora explica o motivo e oferece o botão que abre o cenário PcD no editor, na etapa correta.
+- **Prévia do PDF sem resposta visível**: ao gerar a prévia, o documento é trazido para a tela. O texto de estado não manda mais escolher um cálculo que já está escolhido.
+- **"Pronto para o motor" com execução bloqueada** passou a "Revisado; execução bloqueada".
+- **Reexecução**: com resultado na tela, o botão passa a "Executar novamente" e o subtítulo avisa que o resultado é da última execução.
+
+### Changed
+- Etapa 3 mostra três finalidades principais e deixa as outras três em "Outras finalidades". A segunda pergunta virou "O que você quer obter?".
+- Etapa 4 ganhou ajuda curta em DIB, sexo e deficiência, em linguagem de quem não usa o programa todos os dias.
+- No cenário PcD, a etapa do editor se chama "Cenário PcD (LC 142/2013)" e não oferece o preparo genérico do CNIS, que apagaria a política declarada.
+
+### Tests
+- Teste Rust garante que a identificação é ocultada no dado do relatório.
+- Teste de interface garante o caminho do bloqueio PcD para o módulo LC 142 e o rótulo de reexecução.
+
 ## 0.12.0 - 2026-10-26
 
 ### Changed

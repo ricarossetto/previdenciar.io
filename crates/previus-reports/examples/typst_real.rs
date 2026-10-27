@@ -7,7 +7,7 @@ fn main() {
         .nth(1)
         .unwrap_or_else(|| "typst-real.pdf".into());
     let (case, _workspace, outcome) = common::calculated_case(); let ws = previus_workspace::Workspace::default();
-    match previus_reports::render_report(&case, &kind, Some(&outcome), &ws) {
+    match previus_reports::render_report(&case, &kind, Some(&outcome), &ws, true) {
         Ok(pdf) => {
             std::fs::write(&out, &pdf).expect("write");
             println!("{{\"status\":\"ok\",\"kind\":\"{kind}\",\"bytes\":{}}}", pdf.len());

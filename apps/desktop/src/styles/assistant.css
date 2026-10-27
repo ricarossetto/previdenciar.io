@@ -64,4 +64,5 @@
 .conference-prepare__steps{margin:0 0 16px;padding-left:20px;display:grid;gap:7px;font-size:13px;line-height:1.6;color:var(--fg-2)}
 .conference-prepare__steps strong{color:var(--fg)}
 .conference-prepare .field{margin-bottom:10px}
+.field-hint{display:block;margin-top:4px;font-size:11px;line-height:1.5;color:var(--muted)}
 

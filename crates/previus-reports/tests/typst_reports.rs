@@ -10,7 +10,7 @@ fn every_typst_report_renders_a_valid_pdf() {
         "analysis", "periods", "transitions", "memory", "quality", "roi", "regras", "summary",
         "salaries", "indicators",
     ] {
-        let pdf = previus_reports::render_report(&case, kind, Some(&outcome), &_workspace)
+        let pdf = previus_reports::render_report(&case, kind, Some(&outcome), &_workspace, true)
             .unwrap_or_else(|e| panic!("{kind} falhou: {e}"));
         assert!(pdf.starts_with(b"%PDF-"), "{kind} nao produziu PDF");
         assert!(pdf.len() > 1000, "{kind} produziu PDF vazio");
@@ -20,7 +20,7 @@ fn every_typst_report_renders_a_valid_pdf() {
 #[test]
 fn consolidated_merges_all_parts() {
     let (case, _workspace, outcome) = common::calculated_case();
-    let pdf = previus_reports::render_report(&case, "detailed", Some(&outcome), &_workspace).unwrap();
+    let pdf = previus_reports::render_report(&case, "detailed", Some(&outcome), &_workspace, true).unwrap();
     assert!(pdf.starts_with(b"%PDF-"));
     let doc = lopdf::Document::load_mem(&pdf).unwrap();
     assert!(doc.get_pages().len() > 6, "consolidado deve ter mais de 6 paginas");

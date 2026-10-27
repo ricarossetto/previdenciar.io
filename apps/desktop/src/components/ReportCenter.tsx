@@ -35,7 +35,7 @@ export function ReportCenter({workspace,selected,onSelect,onNotify,draftCase,onC
   const[batchResult,setBatchResult]=useState<BatchExport|null>(null);
   const[title,setTitle]=useState('');
   const[presentation,setPresentation]=useState<Presentation>({includeAppendix:true,includeQuality:true,includePlanning:true});
-  const generation=useRef(0),urlRef=useRef(''),lastCase=useRef<number|null>(null);
+  const generation=useRef(0),urlRef=useRef(''),lastCase=useRef<number|null>(null),paper=useRef<HTMLDivElement>(null);
   const calculation=draftCase??workspace.calculations.find(c=>c.id===selected)??null;
   const choices=draftCase?[draftCase]:workspace.calculations;
   const description=FORMATS.find(f=>f.id===format);
@@ -67,6 +67,9 @@ export function ReportCenter({workspace,selected,onSelect,onNotify,draftCase,onC
       const blob=pdfBlob(encoded),url=URL.createObjectURL(blob);
       if(urlRef.current)URL.revokeObjectURL(urlRef.current);
       urlRef.current=url;setPdfUrl(url);setPdfBytes(blob.size);
+      // A prévia aparece no painel do documento, abaixo do botão. Sem rolar até
+      // ela, quem clicou pode achar que nada aconteceu.
+      requestAnimationFrame(()=>{const node=paper.current;if(node&&typeof node.scrollIntoView==='function')node.scrollIntoView({block:'start',behavior:'smooth'});});
     }catch(e){if(request===generation.current)setError(errorMessage(e));}
     finally{if(request===generation.current)setBusy(null);}
   }
@@ -125,8 +128,8 @@ export function ReportCenter({workspace,selected,onSelect,onNotify,draftCase,onC
         <p className="report-help">As opções de apresentação mudam apenas o que é impresso. Cada seção continua disponível nos outros tipos de relatório.</p>
       </fieldset>
       <div className="report-document-status"><Badge tone={pdfUrl?'good':'neutral'}>{pdfUrl?'PDF gerado':busy==='preview'?'Gerando documento':'Prévia não gerada'}</Badge><span>{pdfUrl?((pdfBytes/1024).toFixed(0)+' KB · documento pronto para conferir'):'A prévia usa os dados atuais do cálculo.'}</span></div>
-      <div className="report-paper-workspace" aria-busy={busy==='preview'}>
-        {pdfUrl?<><iframe className="report-pdf-frame" title="Prévia do relatório PDF" src={pdfUrl}/><p className="report-preview-fallback">Se o visualizador não abrir neste computador, <a href={pdfUrl} download="previus-previa.pdf">baixar esta prévia em PDF</a>.</p></>:<div className="report-empty-document"><Icon name="file" size={38}/><h3>{busy==='preview'?'Preparando o documento...':isPdf?'Confira o documento antes de exportar':'Formato de dados selecionado'}</h3><p>{busy==='preview'?'O motor está gerando as páginas da hipótese selecionada.':isPdf?'Escolha um cálculo e gere a prévia. Você verá o PDF de verdade, com páginas e tabelas, não uma lista de dados técnicos.':'HTML, CSV e JSON continuam disponíveis para exportação. A prévia paginada é exclusiva dos formatos PDF.'}</p></div>}
+      <div className="report-paper-workspace" aria-busy={busy==='preview'} ref={paper}>
+        {pdfUrl?<><iframe className="report-pdf-frame" title="Prévia do relatório PDF" src={pdfUrl}/><p className="report-preview-fallback">Se o visualizador não abrir neste computador, <a href={pdfUrl} download="previus-previa.pdf">baixar esta prévia em PDF</a>.</p></>:<div className="report-empty-document"><Icon name="file" size={38}/><h3>{busy==='preview'?'Preparando o documento...':isPdf?'Confira o documento antes de exportar':'Formato de dados selecionado'}</h3><p>{busy==='preview'?'O motor está gerando as páginas da hipótese selecionada.':isPdf?(calculation?'Clique em Pré-visualizar PDF para ver o documento antes de exportar.':'Escolha um cálculo e gere a prévia. Você verá o PDF de verdade, com páginas e tabelas, não uma lista de dados técnicos.'):'HTML, CSV e JSON continuam disponíveis para exportação. A prévia paginada é exclusiva dos formatos PDF.'}</p></div>}
       </div>
       <p className="report-footer-note">Resultados experimentais e pendências permanecem identificados. Nenhuma ausência é convertida em benefício concedido ou valor zero.</p>
     </div>

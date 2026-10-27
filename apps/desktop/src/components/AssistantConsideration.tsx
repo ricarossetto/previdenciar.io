@@ -13,7 +13,7 @@ export function AssistantConsiderationPanel({consideration, onFix}:{consideratio
   return <section className="consideration-panel" aria-label="Dados importados, ajustados e usados no cálculo">
     <header className="consideration-panel__heading">
       <div><span className="eyebrow">Rastreabilidade</span><h3>O que entra no cálculo</h3></div>
-      <Badge tone={ready?'good':'review'}>{ready?'Pronto para o motor':decisive.length+' pendência(s) decisiva(s)'}</Badge>
+      <Badge tone={execution==='blocked'?'review':ready?'good':'review'}>{execution==='blocked'?'Revisado; execução bloqueada':ready?'Pronto para o motor':decisive.length+' pendência(s) decisiva(s)'}</Badge>
     </header>
     <div className="consideration-flow">
       <div className="consideration-card">

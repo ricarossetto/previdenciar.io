@@ -197,7 +197,7 @@ fn render_pdf_kind(calculation: &Calculation, workspace: &Workspace, kind: previ
     include_personal: bool, outcome: &Value, presentation: previus_reports::Presentation) -> Result<Vec<u8>, String> {
     // Novo motor Typst para os tipos já migrados; demais seguem no genpdf.
     let bytes = if kind.has_typst_template() {
-        previus_reports::render_report(calculation, kind.slug(), Some(outcome), workspace)?
+        previus_reports::render_report(calculation, kind.slug(), Some(outcome), workspace, include_personal)?
     } else {
         previus_reports::render_pdf(calculation, workspace,
             previus_reports::ReportOptions { kind, include_personal, presentation }, Some(outcome))?

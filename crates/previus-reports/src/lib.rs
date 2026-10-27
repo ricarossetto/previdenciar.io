@@ -120,16 +120,17 @@ pub fn render_report(
     kind: &str,
     outcome: Option<&Value>,
     workspace: &Workspace,
+    include_personal: bool,
 ) -> Result<Vec<u8>, String> {
     let logo = decode_logo_data_url(&workspace.settings.logo_data_url);
     if kind == "detailed" {
         let mut parts = Vec::new();
         for part in ["periods", "quality", "transitions", "memory", "analysis", "roi"] {
-            parts.push(render_report(case, part, outcome, workspace)?);
+            parts.push(render_report(case, part, outcome, workspace, include_personal)?);
         }
         return merge_pdfs(&parts);
     }
-    let data = report_data::build(kind, case, outcome)?;
+    let data = report_data::build(kind, case, outcome, include_personal)?;
     typst_engine::render(kind, &data, logo.as_deref())
 }
 
