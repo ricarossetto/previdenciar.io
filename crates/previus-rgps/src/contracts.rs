@@ -74,6 +74,18 @@ pub struct OptionsInput {
     /// Origem declarada da incapacidade (31/32): comum, acidente,
     /// doenca_ocupacional, doenca_do_trabalho ou doenca_listada.
     pub incapacidade_origem: Option<String>,
+    /// 46: grau/agente declarado — "15", "20" ou "25" anos.
+    pub grau_especial: Option<String>,
+    /// 46: tempo de efetiva exposição declarado, em meses.
+    pub tempo_especial_meses: Option<i64>,
+    /// 46: tempo especial completo até 13/11/2019.
+    pub especial_antes_reforma: Option<bool>,
+    /// 57: tempo de efetivo magistério declarado, em meses.
+    pub magisterio_meses: Option<i64>,
+    /// 57: magistério exclusivo.
+    pub magisterio_exclusivo: Option<bool>,
+    /// 57: tempo de magistério completo até 13/11/2019.
+    pub magisterio_antes_reforma: Option<bool>,
 }
 #[derive(Clone, Default, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]

@@ -48,6 +48,18 @@ pub struct RgpsOpcoes {
     /// Origem declarada da incapacidade (31/32): comum, acidente,
     /// doenca_ocupacional, doenca_do_trabalho ou doenca_listada.
     pub incapacidade_origem: Option<String>,
+    /// 46: grau/agente declarado — "15", "20" ou "25" anos.
+    pub especial_grau: Option<String>,
+    /// 46: tempo de efetiva exposição declarado, em meses.
+    pub tempo_especial_meses: Option<i64>,
+    /// 46: tempo especial completo até 13/11/2019.
+    pub especial_antes_reforma: Option<bool>,
+    /// 57: tempo de efetivo magistério declarado, em meses.
+    pub magisterio_meses: Option<i64>,
+    /// 57: magistério exclusivo.
+    pub magisterio_exclusivo: Option<bool>,
+    /// 57: tempo de magistério completo até 13/11/2019.
+    pub magisterio_antes_reforma: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -306,6 +318,16 @@ pub fn calcular(entrada: &RgpsEntrada) -> Result<RgpsResultado> {
         rural,
         incapacidade_origem: entrada.opcoes.incapacidade_origem.as_deref(),
         media_ultimos_12: media_12,
+        especial_grau: entrada.opcoes.especial_grau.as_deref(),
+        especial_meses: entrada.opcoes.tempo_especial_meses,
+        especial_antes_reforma: entrada.opcoes.especial_antes_reforma,
+        magisterio_meses: entrada.opcoes.magisterio_meses,
+        magisterio_exclusivo: entrada.opcoes.magisterio_exclusivo,
+        magisterio_antes_reforma: entrada.opcoes.magisterio_antes_reforma,
+        tempo_ate_reforma_meses: tempo
+            .as_ref()
+            .map(|t| t.marcos.ate_ec103 / 30)
+            .unwrap_or(0),
     })?;
     let anos = (quantidade / 12) as i64;
     let meses_restantes = (quantidade % 12) as i64;
@@ -360,7 +382,7 @@ pub fn calcular(entrada: &RgpsEntrada) -> Result<RgpsResultado> {
     // Transições EC 103 (quando há nascimento).
     let mut avisos = Vec::new();
     let mut transicoes = None;
-    if let Some(nascimento) = entrada.data_nascimento {
+    if let Some(nascimento) = entrada.data_nascimento.filter(|_| especie == Especie::TempoContribuicao) {
         let data_referencia = entrada.data_referencia.ok_or_else(|| {
             RgpsError(
                 "Informe a data de referência (DER) para comparar as regras de transição.".into(),
@@ -416,7 +438,7 @@ pub fn calcular(entrada: &RgpsEntrada) -> Result<RgpsResultado> {
             Especie::TempoContribuicao => format!(
                 "60% + 2% × {excedente} ano(s) excedente(s) a {base} (por competências informadas)"
             ),
-            Especie::Idade | Especie::IncapacidadePermanente => format!(
+            Especie::Idade | Especie::IncapacidadePermanente | Especie::Especial | Especie::Professor => format!(
                 "Coeficiente da espécie {}: {coeficiente}% sobre a média",
                 especie.codigo()
             ),

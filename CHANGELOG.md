@@ -1,5 +1,26 @@
 # Changelog
 ## 0.15.2 - 2026-10-27
+## 0.16.0 - 2026-10-27
+
+As seis aposentadorias do RGPS: 46 (especial) e 57 (professor) com regra própria.
+
+### Added
+- **46 — aposentadoria especial**: grau/agente declarado (15/20/25 anos), tempo especial, PPP/enquadramento declarados e conclusão até 13/11/2019. Regras: direito adquirido **100%**; permanente **55/58/60 + 15/20/25 + 60% + 2%**; transição por **pontos 66/76/86**.
+- **57 — aposentadoria de professor**: tempo de magistério e exclusividade declarados (25/30), conclusão até 13/11/2019. Regras: **pedágio 100%** (52/55 + 25/30); **pontos 81/91**; permanente **62/65 + 25/30 + 60% + 2%**; direito adquirido **80% × fator não calculado**.
+- O seletor e o editor oferecem as seis espécies; os campos de 46/57 são declarados e os requisitos aparecem na tela e no PDF.
+
+### Changed
+- O motor deixa de bloquear 46/57 com `especie_...`; agora devolve as regras e os requisitos. Sem os dados declarados, as regras não ficam elegíveis.
+
+### Limits
+- PPP/enquadramento e magistério exclusivo são declarados; o motor não os verifica. Nenhuma atividade comum vira especial.
+- O direito adquirido do professor (80% × fator) não é calculado; nenhum valor é inventado.
+- 46/57 não são enviados à Fábrica; a conferência online cobre as espécies comuns.
+
+### Tests
+- 509 testes Rust, 120 de interface e 36 de navegador.
+
+
 
 PcD com o CNIS importado, sem exigir a conferência manual dos 331 lançamentos.
 

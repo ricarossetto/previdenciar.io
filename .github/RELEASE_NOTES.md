@@ -1,3 +1,33 @@
+## previdenciar.io 0.16.0
+
+As seis aposentadorias do RGPS agora têm motor: 42, 41, 32, 31, 46 e 57.
+
+### O que passou a funcionar
+
+- **46 — especial**: informe o grau/agente (15, 20 ou 25 anos), o tempo especial,
+  a referência do PPP e se o tempo foi completo até 13/11/2019. O motor devolve
+  direito adquirido de 100%, regra permanente de 55/58/60 + 60% + 2% e transição
+  por pontos 66/76/86.
+- **57 — professor**: informe o tempo de magistério, a exclusividade e se o tempo
+  foi completo até 13/11/2019. O motor devolve pedágio de 100% (52/55 + 25/30),
+  pontos 81/91 e regra permanente de 62/65 + 25/30 + 60% + 2%.
+- O editor e o seletor mostram as seis espécies; a tabela de requisitos aparece na
+  tela e no PDF.
+
+### O que continua declarado
+
+- PPP, enquadramento e magistério exclusivo **não** são verificados pelo app; sem
+  o dado declarado, a regra não fica elegível. Nenhuma atividade comum é
+  transformada em especial.
+- O direito adquirido do professor (80% × fator) não é calculado; o app explica e
+  não inventa valor.
+- 46/57 não são enviados à conferência online.
+
+### Validação
+
+- 509 testes Rust, 120 de interface e 36 de navegador.
+- Nenhum CNIS, nome, CPF, PDF ou chave entra no repositório ou no pacote.
+
 ## previdenciar.io 0.15.2
 
 O cenário PcD com o CNIS importado deixou de exigir a conferência manual de 331

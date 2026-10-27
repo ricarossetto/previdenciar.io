@@ -21,6 +21,8 @@ pub enum Especie {
     Idade,
     IncapacidadePermanente,
     IncapacidadeTemporaria,
+    Especial,
+    Professor,
 }
 
 impl Especie {
@@ -32,16 +34,10 @@ impl Especie {
             "41" => Ok(Self::Idade),
             "32" => Ok(Self::IncapacidadePermanente),
             "31" => Ok(Self::IncapacidadeTemporaria),
-            "46" => Err(RgpsError(
-                "Espécie 46 (aposentadoria especial) exige PPP, enquadramento por agente nocivo e comprovação de 15, 20 ou 25 anos de exposição. Este motor não aproxima a regra especial pela regra comum."
-                    .into(),
-            )),
-            "57" => Err(RgpsError(
-                "Espécie 57 (aposentadoria de professor) exige comprovação exclusiva de magistério e regra própria; não é aproximada pela espécie 42."
-                    .into(),
-            )),
+            "46" => Ok(Self::Especial),
+            "57" => Ok(Self::Professor),
             outro => Err(RgpsError(format!(
-                "Espécie {outro} não tem fórmula implementada neste motor. Espécies atendidas: 42 (tempo de contribuição), 41 (idade), 32 (incapacidade permanente) e 31 (incapacidade temporária)."
+                "Espécie {outro} não tem fórmula implementada neste motor. Espécies atendidas: 42 (tempo de contribuição), 41 (idade), 32 (incapacidade permanente), 31 (incapacidade temporária), 46 (especial) e 57 (professor)."
             ))),
         }
     }
@@ -52,6 +48,8 @@ impl Especie {
             Self::Idade => "41",
             Self::IncapacidadePermanente => "32",
             Self::IncapacidadeTemporaria => "31",
+            Self::Especial => "46",
+            Self::Professor => "57",
         }
     }
 
@@ -61,6 +59,8 @@ impl Especie {
             Self::Idade => "Aposentadoria por idade",
             Self::IncapacidadePermanente => "Aposentadoria por incapacidade permanente",
             Self::IncapacidadeTemporaria => "Auxílio por incapacidade temporária",
+            Self::Especial => "Aposentadoria especial",
+            Self::Professor => "Aposentadoria de professor",
         }
     }
 }
@@ -118,6 +118,20 @@ pub struct AvaliacaoEntrada<'a> {
     /// comum | acidente | doenca_ocupacional | doenca_do_trabalho | doenca_listada
     pub incapacidade_origem: Option<&'a str>,
     pub media_ultimos_12: Option<Decimal>,
+    /// 46: grau/agente declarado — "15", "20" ou "25" anos de exposição.
+    pub especial_grau: Option<&'a str>,
+    /// 46: tempo de efetiva exposição declarado, em meses.
+    pub especial_meses: Option<i64>,
+    /// 46: o tempo especial foi completado até 13/11/2019 (direito adquirido)?
+    pub especial_antes_reforma: Option<bool>,
+    /// 57: tempo de efetivo magistério declarado, em meses.
+    pub magisterio_meses: Option<i64>,
+    /// 57: magistério exclusivo na educação infantil/fundamental/médio.
+    pub magisterio_exclusivo: Option<bool>,
+    /// 57: o tempo de magistério foi completado até 13/11/2019?
+    pub magisterio_antes_reforma: Option<bool>,
+    /// Meses de contribuição até 13/11/2019, para pontos e pedágio.
+    pub tempo_ate_reforma_meses: i64,
 }
 
 fn requisito(
@@ -274,6 +288,8 @@ pub fn avaliar(e: &AvaliacaoEntrada<'_>) -> Result<BeneficioApurado> {
         Especie::Idade => avaliar_idade(e),
         Especie::IncapacidadePermanente => avaliar_incapacidade_permanente(e),
         Especie::IncapacidadeTemporaria => avaliar_incapacidade_temporaria(e),
+        Especie::Especial => avaliar_especial(e),
+        Especie::Professor => avaliar_professor(e),
     }
 }
 fn avaliar_idade(e: &AvaliacaoEntrada<'_>) -> Result<BeneficioApurado> {
@@ -597,6 +613,386 @@ fn avaliar_incapacidade_temporaria(e: &AvaliacaoEntrada<'_>) -> Result<Beneficio
     })
 }
 
+fn declarado(
+    id: &'static str,
+    descricao: &str,
+    exigido: impl Into<String>,
+    apurado: String,
+    cumprido: bool,
+    falta_meses: Option<i64>,
+) -> Requisito {
+    requisito(id, descricao, exigido, apurado, cumprido, falta_meses, false)
+}
+
+fn compor_regra(
+    id: &'static str,
+    nome: &str,
+    fundamento: &'static str,
+    coeficiente: Decimal,
+    requisitos: Vec<Requisito>,
+    observacao: Option<String>,
+) -> RegraAvaliada {
+    let elegivel = requisitos.iter().all(|r| r.cumprido);
+    let faltas_meses = requisitos.iter().filter_map(|r| r.falta_meses).sum();
+    RegraAvaliada {
+        id,
+        nome: nome.into(),
+        fundamento,
+        elegivel,
+        requisitos,
+        faltas_meses,
+        coeficiente,
+        observacao,
+    }
+}
+
+fn com_requisitos(mut regra: RegraAvaliada, extras: Vec<Requisito>) -> RegraAvaliada {
+    regra.requisitos.extend(extras);
+    regra.elegivel = regra.requisitos.iter().all(|r| r.cumprido);
+    regra.faltas_meses = regra.requisitos.iter().filter_map(|r| r.falta_meses).sum();
+    regra
+}
+
+fn avaliar_especial(e: &AvaliacaoEntrada<'_>) -> Result<BeneficioApurado> {
+    let grau = e.especial_grau.unwrap_or("").trim();
+    let (min_anos, idade_min) = match grau {
+        "15" => (15_i64, 55_i64),
+        "20" => (20, 58),
+        "25" => (25, 60),
+        _ => (0, 0),
+    };
+    let tempo = e.especial_meses.unwrap_or(0).max(0);
+    let min_meses = min_anos * 12;
+    let tempo_ok = min_anos > 0 && tempo >= min_meses;
+    let falta_tempo = (min_meses - tempo).max(0);
+    let carencia = e.carencia_meses.max(0);
+    let carencia_ok = carencia >= 180;
+    let idade_meses = idade(e).unwrap_or(0);
+    let idade_anos = idade_meses / 12;
+    let tempo_anos = e.tempo_meses.max(0) / 12;
+    let especial_anos = tempo / 12;
+    let pontos = idade_anos + tempo_anos + especial_anos;
+    let pontos_min = match min_anos {
+        15 => 66,
+        20 => 76,
+        25 => 86,
+        _ => 86,
+    };
+    let inicio_antes = filiado_antes_reforma(e).unwrap_or(false);
+    let grau_req = declarado(
+        "grau_especial",
+        "Grau/agente declarado (15, 20 ou 25 anos)",
+        "15, 20 ou 25 anos",
+        if min_anos > 0 {
+            format!("{min_anos} anos")
+        } else {
+            "não informado".into()
+        },
+        min_anos > 0,
+        None,
+    );
+    let especial_req = declarado(
+        "tempo_especial",
+        "Tempo de efetiva exposição declarado",
+        format!("{min_anos} anos"),
+        anos_meses(tempo),
+        tempo_ok,
+        if tempo_ok { None } else { Some(falta_tempo) },
+    );
+    let carencia_req = requisito(
+        "carencia",
+        "Carência",
+        "180 contribuições",
+        format!("{carencia} meses"),
+        carencia_ok,
+        if carencia_ok {
+            None
+        } else {
+            Some((180 - carencia).max(0))
+        },
+        true,
+    );
+
+    let antes_req = declarado(
+        "especial_antes_reforma",
+        "Tempo especial completo até 13/11/2019",
+        "sim",
+        if e.especial_antes_reforma == Some(true) {
+            "sim".into()
+        } else {
+            "não informado".into()
+        },
+        e.especial_antes_reforma == Some(true),
+        None,
+    );
+    let coeficiente = coeficiente_progressivo(e.sexo, e.tempo_meses.max(0) as u32);
+    let direito = compor_regra(
+        "especial-direito-adquirido",
+        "Direito adquirido — exposição completa até 13/11/2019",
+        "Lei 8.213/1991, art. 57, § 1º; EC 103/2019",
+        Decimal::from(100),
+        vec![
+            grau_req.clone(),
+            especial_req.clone(),
+            carencia_req.clone(),
+            antes_req,
+        ],
+        Some("RMI de 100% do salário de benefício; PPP e enquadramento são declarados, não verificados pelo motor.".into()),
+    );
+    let permanente_base = regra_idade(
+        "especial-permanente",
+        "Regra permanente — idade + tempo especial",
+        "EC 103/2019, arts. 19 e 26, §§ 2º, IV, e 5º",
+        idade_min * 12,
+        idade(e),
+        format!("{idade_min} anos"),
+        carencia_req.clone(),
+        coeficiente,
+        None,
+    );
+    let permanente = com_requisitos(permanente_base, vec![grau_req.clone(), especial_req.clone()]);
+    let pontos_req = requisito(
+        "pontos_especial",
+        "Pontos (idade + tempo de contribuição + tempo especial)",
+        format!("{pontos_min} pontos"),
+        format!("{pontos} pontos"),
+        pontos >= pontos_min && inicio_antes,
+        if pontos >= pontos_min && inicio_antes {
+            None
+        } else {
+            Some((pontos_min - pontos).max(0) * 12)
+        },
+        false,
+    );
+    let transicao = compor_regra(
+        "especial-transicao",
+        "Transição por pontos",
+        "EC 103/2019, arts. 21 e 26, §§ 2º, IV, e 5º",
+        coeficiente,
+        vec![grau_req, especial_req, carencia_req, pontos_req],
+        Some("Só para quem começou a exposição antes de 13/11/2019; a soma é declarada.".into()),
+    );
+    let regras = vec![direito, permanente, transicao];
+    let escolhida = regras
+        .iter()
+        .filter(|r| r.elegivel)
+        .max_by_key(|r| r.coeficiente);
+    let coeficiente_escolhido = escolhida.map(|r| r.coeficiente).unwrap_or(coeficiente);
+    let regra_escolhida = escolhida.map(|r| r.id);
+    let mut observacoes = vec![
+        "A exposição especial é declarada; o PPP, o enquadramento e a efetiva exposição não são verificados pelo motor. O CNIS não basta.".to_string(),
+        "O direito adquirido usa 100% da média; a regra permanente e a transição usam 60% + 2% por ano acima de 20 (homem) ou 15 (mulher).".to_string(),
+    ];
+    if min_anos == 0 {
+        observacoes.push(
+            "Informe o grau/agente (15, 20 ou 25 anos) e o tempo especial para o motor avaliar."
+                .into(),
+        );
+    }
+    Ok(BeneficioApurado {
+        especie: e.especie.codigo(),
+        nome: e.especie.nome(),
+        coeficiente: coeficiente_escolhido,
+        regra_escolhida,
+        regras,
+        base_legal: vec![
+            "Lei 8.213/1991, arts. 25, II, 57 e 58",
+            "EC 103/2019, arts. 19, 21 e 26",
+        ],
+        limite_media_12: false,
+        observacoes,
+    })
+}
+
+fn avaliar_professor(e: &AvaliacaoEntrada<'_>) -> Result<BeneficioApurado> {
+    let min_anos = if e.sexo == "feminino" { 25_i64 } else { 30_i64 };
+    let min_meses = min_anos * 12;
+    let mag = e.magisterio_meses.unwrap_or(0).max(0);
+    let mag_ok = mag >= min_meses;
+    let falta_mag = (min_meses - mag).max(0);
+    let carencia = e.carencia_meses.max(0);
+    let carencia_ok = carencia >= 180;
+    let idade_meses = idade(e).unwrap_or(0);
+    let idade_anos = idade_meses / 12;
+    let tempo_anos = e.tempo_meses.max(0) / 12;
+    let pontos = idade_anos + tempo_anos;
+    let pontos_min = if e.sexo == "feminino" { 81 } else { 91 };
+    let inicio_antes = filiado_antes_reforma(e).unwrap_or(false);
+    let idade_min = if e.sexo == "feminino" { 62_i64 } else { 65_i64 };
+    let idade_ped = if e.sexo == "feminino" { 52_i64 } else { 55_i64 };
+    let mag_req = declarado(
+        "tempo_magisterio",
+        "Tempo de efetivo magistério declarado",
+        format!("{min_anos} anos"),
+        anos_meses(mag),
+        mag_ok,
+        if mag_ok { None } else { Some(falta_mag) },
+    );
+    let exclusivo_req = declarado(
+        "magisterio_exclusivo",
+        "Magistério exclusivo na educação infantil, fundamental ou médio",
+        "sim",
+        if e.magisterio_exclusivo == Some(true) {
+            "sim".into()
+        } else {
+            "não informado".into()
+        },
+        e.magisterio_exclusivo == Some(true),
+        None,
+    );
+    let carencia_req = requisito(
+        "carencia",
+        "Carência",
+        "180 contribuições",
+        format!("{carencia} meses"),
+        carencia_ok,
+        if carencia_ok {
+            None
+        } else {
+            Some((180 - carencia).max(0))
+        },
+        true,
+    );
+    let antes_req = declarado(
+        "magisterio_antes_reforma",
+        "Tempo de magistério completo até 13/11/2019",
+        "sim",
+        if e.magisterio_antes_reforma == Some(true) {
+            "sim".into()
+        } else {
+            "não informado".into()
+        },
+        e.magisterio_antes_reforma == Some(true),
+        None,
+    );
+
+    let coeficiente = coeficiente_progressivo(e.sexo, e.tempo_meses.max(0) as u32);
+    let direito = compor_regra(
+        "professor-direito-adquirido",
+        "Direito adquirido — magistério completo até 13/11/2019",
+        "Lei 8.213/1991, art. 56; EC 103/2019",
+        Decimal::ZERO,
+        vec![
+            mag_req.clone(),
+            exclusivo_req.clone(),
+            carencia_req.clone(),
+            antes_req,
+        ],
+        Some("A RMI antiga de 80% × fator não é calculada neste motor; nenhum valor é inventado.".into()),
+    );
+    let permanente_base = regra_idade(
+        "professor-permanente",
+        "Regra permanente — idade + magistério",
+        "EC 103/2019, arts. 18 e 26, §§ 2º, I, e 5º",
+        idade_min * 12,
+        idade(e),
+        format!("{idade_min} anos"),
+        carencia_req.clone(),
+        coeficiente,
+        None,
+    );
+    let permanente = com_requisitos(
+        permanente_base,
+        vec![mag_req.clone(), exclusivo_req.clone()],
+    );
+    let pontos_req = requisito(
+        "pontos_professor",
+        "Pontos (idade + tempo de contribuição)",
+        format!("{pontos_min} pontos"),
+        format!("{pontos} pontos"),
+        pontos >= pontos_min && inicio_antes,
+        if pontos >= pontos_min && inicio_antes {
+            None
+        } else {
+            Some((pontos_min - pontos).max(0) * 12)
+        },
+        false,
+    );
+    let transicao = compor_regra(
+        "professor-pontos",
+        "Transição por pontos",
+        "EC 103/2019, arts. 15 e 26, §§ 2º, I, e 5º",
+        coeficiente,
+        vec![
+            mag_req.clone(),
+            exclusivo_req.clone(),
+            carencia_req.clone(),
+            pontos_req,
+        ],
+        Some("Só para quem tinha filiação antes de 13/11/2019; a soma é declarada.".into()),
+    );
+    let mag_ate_reforma = mag.min(e.tempo_ate_reforma_meses.max(0));
+    let pedagio_meses = (min_meses - mag_ate_reforma).max(0);
+    let total_exigido = min_meses + pedagio_meses;
+    let pedagio_req = requisito(
+        "pedagio_professor",
+        "Pedágio de 100% do tempo que faltava em 13/11/2019",
+        format!("{total_exigido} meses de tempo total"),
+        anos_meses(e.tempo_meses.max(0)),
+        e.tempo_meses.max(0) >= total_exigido,
+        if e.tempo_meses.max(0) >= total_exigido {
+            None
+        } else {
+            Some(total_exigido - e.tempo_meses.max(0))
+        },
+        false,
+    );
+    let idade_req = requisito(
+        "idade_pedagio",
+        "Idade mínima no pedágio",
+        format!("{idade_ped} anos"),
+        idade(e)
+            .map(anos_meses)
+            .unwrap_or_else(|| "não informada".into()),
+        idade_anos >= idade_ped,
+        if idade_anos >= idade_ped {
+            None
+        } else {
+            Some((idade_ped - idade_anos).max(0) * 12)
+        },
+        true,
+    );
+    let pedagogio = compor_regra(
+        "professor-pedagio",
+        "Transição por pedágio de 100%",
+        "EC 103/2019, arts. 20 e 26, § 3º, I",
+        Decimal::from(100),
+        vec![
+            mag_req,
+            exclusivo_req,
+            carencia_req,
+            pedagio_req,
+            idade_req,
+        ],
+        Some("RMI de 100% da média; o pedágio é o tempo que faltava em 13/11/2019.".into()),
+    );
+    let regras = vec![direito, permanente, transicao, pedagogio];
+    let escolhida = regras
+        .iter()
+        .filter(|r| r.elegivel)
+        .max_by_key(|r| r.coeficiente);
+    let coeficiente_escolhido = escolhida.map(|r| r.coeficiente).unwrap_or(coeficiente);
+    let regra_escolhida = escolhida.map(|r| r.id);
+    let observacoes = vec![
+        "O tempo de magistério e a exclusividade são declarados; a prova não é verificada pelo motor.".to_string(),
+        "O direito adquirido do professor (80% × fator) não é calculado; nenhum valor é inventado.".to_string(),
+        "A transição do pedágio usa 100% da média; a regra permanente e a de pontos usam 60% + 2%.".to_string(),
+    ];
+    Ok(BeneficioApurado {
+        especie: e.especie.codigo(),
+        nome: e.especie.nome(),
+        coeficiente: coeficiente_escolhido,
+        regra_escolhida,
+        regras,
+        base_legal: vec![
+            "Lei 8.213/1991, arts. 25, II, 29 e 56",
+            "EC 103/2019, arts. 15, 18, 20 e 26",
+        ],
+        limite_media_12: false,
+        observacoes,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -618,6 +1014,13 @@ mod tests {
             rural: false,
             incapacidade_origem: Some("comum"),
             media_ultimos_12: Some(Decimal::from(3000)),
+            especial_grau: None,
+            especial_meses: None,
+            especial_antes_reforma: None,
+            magisterio_meses: None,
+            magisterio_exclusivo: None,
+            magisterio_antes_reforma: None,
+            tempo_ate_reforma_meses: 240,
         }
     }
 
@@ -726,17 +1129,91 @@ mod tests {
     }
 
     #[test]
-    fn especial_e_professor_nao_sao_aproximados() {
-        assert!(Especie::parse(Some("46")).unwrap_err().0.contains("PPP"));
-        assert!(Especie::parse(Some("57"))
-            .unwrap_err()
-            .0
-            .contains("magistério"));
+    fn especial_e_professor_sao_especies_proprias() {
+        assert_eq!(Especie::parse(Some("46")).unwrap(), Especie::Especial);
+        assert_eq!(Especie::parse(Some("57")).unwrap(), Especie::Professor);
         assert_eq!(
             Especie::parse(Some("42")).unwrap(),
             Especie::TempoContribuicao
         );
         assert_eq!(Especie::parse(None).unwrap(), Especie::TempoContribuicao);
+    }
+
+    #[test]
+    fn especial_com_direito_adquirido_usa_100() {
+        let mut e = base(Especie::Especial);
+        e.especial_grau = Some("25");
+        e.especial_meses = Some(300);
+        e.especial_antes_reforma = Some(true);
+        let avaliado = avaliar(&e).unwrap();
+        assert_eq!(avaliado.coeficiente, Decimal::from(100));
+        assert_eq!(
+            avaliado.regra_escolhida,
+            Some("especial-direito-adquirido")
+        );
+        let regra = avaliado
+            .regras
+            .iter()
+            .find(|r| r.id == "especial-direito-adquirido")
+            .unwrap();
+        assert!(regra.elegivel, "{regra:?}");
+        assert!(regra
+            .requisitos
+            .iter()
+            .any(|r| r.id == "tempo_especial" && !r.verificado_pelo_motor));
+    }
+
+    #[test]
+    fn especial_permanente_60_2() {
+        let mut e = base(Especie::Especial);
+        e.especial_grau = Some("25");
+        e.especial_meses = Some(300);
+        e.especial_antes_reforma = Some(false);
+        e.data_nascimento = Some(data("1960-01-10"));
+        e.data_referencia = Some(data("2020-06-10"));
+        e.tempo_meses = 360;
+        let avaliado = avaliar(&e).unwrap();
+        assert_eq!(avaliado.coeficiente, Decimal::from(80));
+        let permanente = avaliado
+            .regras
+            .iter()
+            .find(|r| r.id == "especial-permanente")
+            .unwrap();
+        assert!(permanente.elegivel, "{permanente:?}");
+        let especial = permanente
+            .requisitos
+            .iter()
+            .find(|r| r.id == "tempo_especial")
+            .unwrap();
+        assert!(!especial.verificado_pelo_motor);
+    }
+
+    #[test]
+    fn professor_pedagio_100() {
+        let mut e = base(Especie::Professor);
+        e.magisterio_meses = Some(360);
+        e.magisterio_exclusivo = Some(true);
+        e.magisterio_antes_reforma = Some(false);
+        e.data_nascimento = Some(data("1965-01-10"));
+        e.data_referencia = Some(data("2020-06-10"));
+        e.tempo_meses = 480;
+        e.tempo_ate_reforma_meses = 240;
+        let avaliado = avaliar(&e).unwrap();
+        assert_eq!(avaliado.coeficiente, Decimal::from(100));
+        assert_eq!(
+            avaliado.regra_escolhida,
+            Some("professor-pedagio")
+        );
+        let pedagio = avaliado
+            .regras
+            .iter()
+            .find(|r| r.id == "professor-pedagio")
+            .unwrap();
+        assert!(pedagio.elegivel, "{pedagio:?}");
+        assert!(pedagio
+            .requisitos
+            .iter()
+            .any(|r| r.id == "magisterio_exclusivo" && !r.verificado_pelo_motor));
     }
 }
 

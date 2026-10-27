@@ -34,6 +34,12 @@ O diálogo Novo cálculo tem áreas de leitura medidas, e os testes axe-core ver
 
 Testes de navegador usam IPC sintético. Mesmo com testes verdes, o diálogo nativo de salvar PDF, revisão visual humana e validação jurídica não estão automaticamente certificados.
 
-## PcD de grau constante
+## Aposentadorias 46 e 57
+
+- **46 (especial)**: o PPP, o enquadramento por agente nocivo e a efetiva exposição são **declarados**. O motor calcula a renda com o grau (15/20/25) e o tempo informados e marca o requisito como "declarado, não verificado". Sem o dado, a regra não fica elegível. Nenhuma atividade comum é convertida em especial.
+- **57 (professor)**: o tempo de magistério e a exclusividade são **declarados**; a prova não é verificada pelo motor. Sem magistério exclusivo, a regra do professor não se aplica.
+- **Direito adquirido do professor (80% × fator)**: não é calculado nesta versão. Quando for a única regra aplicável, o app explica e não inventa valor. O pedágio de 100%, a regra permanente e os pontos são calculados quando os requisitos declarados são cumpridos.
+- **Fábrica de Cálculos**: 46/57 não são enviados à conferência online; ela cobre as espécies comuns. O motor local continua sendo o resultado do aplicativo.
+
 
 Existe um caminho experimental de simulação com premissas explícitas, descrito em [Cenários LC 142](LC142_SCENARIOS.md). Não cobre graus mistos, conversões, fator previdenciário ou certificação de carência/deficiência. Coincidência matemática com um relatório não comprova continuidade contributiva, laudo, regime, atualização normativa ou direito a benefício. A divisão inteira dos 80% e a convenção 30/360 são escolhas declaradas do perfil comparativo, não uma recomendação automática para todos os casos.

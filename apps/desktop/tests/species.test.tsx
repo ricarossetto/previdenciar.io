@@ -16,15 +16,17 @@ function completeCase() {
 }
 
 describe('espécies do motor', () => {
-  it('oferece apenas as quatro espécies implementadas', () => {
-    expect(ESPECIES).toEqual(['42', '41', '32', '31']);
+  it('oferece as seis espécies implementadas', () => {
+    expect(ESPECIES).toEqual(['42', '41', '32', '31', '46', '57']);
   });
 
   it('exige espécie conhecida nos parâmetros', () => {
     expect(robotParameterIssues(completeCase())).toEqual([]);
-    expect(robotParameterIssues({...completeCase(), especie: '46'})).toContain(
+    expect(robotParameterIssues({...completeCase(), especie: '99'})).toContain(
       'Espécie do benefício',
     );
+    expect(robotParameterIssues({...completeCase(), especie: '46'})).toEqual([]);
+    expect(robotParameterIssues({...completeCase(), especie: '57'})).toEqual([]);
   });
 
   it('mostra a espécie, a regra e os requisitos no resultado', () => {

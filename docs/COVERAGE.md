@@ -1,6 +1,6 @@
 # Cobertura do motor RGPS
 
-Atualizado em 26/10/2026 (versão 0.15.0). Este documento diz o que o motor
+Atualizado em 27/10/2026 (versão 0.16.0). Este documento diz o que o motor
 calcula, com qual fundamento e o que ele recusa calcular. A regra do projeto é
 simples: **nenhuma espécie é aproximada por outra** para produzir um número.
 
@@ -12,6 +12,8 @@ simples: **nenhuma espécie é aproximada por outra** para produzir um número.
 | 41 | Aposentadoria por idade | idade (62 mulher / 65 homem; 60/55 rural) e carência de 180 contribuições; regra do art. 18 para quem já era filiado em 13/11/2019 | 60% + 2% por ano acima de 15 (mulher) / 20 (homem) | CF art. 201, § 7º, I e II; EC 103/2019, arts. 18 e 26, §§ 2º e 5º; Lei 8.213/1991, arts. 25, II, 48 e 50 |
 | 32 | Aposentadoria por incapacidade permanente | carência de 12 contribuições (isenta em acidente, doença ocupacional ou doença da lista) e incapacidade **declarada** | 60% + 2% (regra comum), 100% se acidente/doença ocupacional; 100% na DER anterior à reforma | Lei 8.213/1991, arts. 25, I, 26, II, e 44; EC 103/2019, art. 26, §§ 2º, III, 3º, II, e 5º |
 | 31 | Auxílio por incapacidade temporária | carência de 12 contribuições (mesmas isenções) e incapacidade **declarada** | 91% do salário de benefício, limitado à média dos últimos 12 salários | Lei 8.213/1991, arts. 25, I, 26, II, 29, § 10, e 61 |
+| 46 | Aposentadoria especial | tempo especial **declarado** (15/20/25 anos) com PPP/enquadramento declarados; carência 180; idade 55/58/60 ou pontos 66/76/86 | 100% no direito adquirido; 60% + 2% na regra permanente e na transição por pontos | Lei 8.213/1991, arts. 25, II, 57 e 58; EC 103/2019, arts. 19, 21 e 26 |
+| 57 | Aposentadoria de professor | magistério exclusivo **declarado** (25 mulher/30 homem); carência 180; idade 62/65, pontos 81/91 ou pedágio 100% | 100% no pedágio; 60% + 2% na permanente e nos pontos; direito adquirido 80% × fator não calculado | Lei 8.213/1991, arts. 25, II, 29 e 56; EC 103/2019, arts. 15, 18, 20 e 26 |
 | LC 142 | Aposentadoria da pessoa com deficiência | módulo próprio, com grau, data de início da deficiência, projeções e premissas declaradas | 100% da média (grau constante) | LC 142/2013; cenário descrito em [LC142_SCENARIOS.md](LC142_SCENARIOS.md) |
 
 ## O que o motor não decide
@@ -22,12 +24,14 @@ simples: **nenhuma espécie é aproximada por outra** para produzir um número.
   como "declarado, não verificado pelo motor".
 - **Deficiência (LC 142)**: o grau e a data são premissas declaradas. O motor
   não certifica laudo nem continuidade da deficiência.
-- **Tempo especial (46)**: exige PPP, enquadramento por agente nocivo e
-  comprovação de 15, 20 ou 25 anos de exposição. O adaptador **bloqueia** com o
-  código `especie_especial_requires_ppp`; não usa a regra comum como se fosse
-  especial.
-- **Professor (57)**: exige comprovação exclusiva de magistério e regra própria.
-  O adaptador bloqueia com `especie_professor_not_implemented`.
+- **Tempo especial (46)**: o PPP, o enquadramento e a efetiva exposição são
+  **declarados**; o motor calcula a renda e marca o requisito como "declarado, não
+  verificado". Sem grau/tempo especial, a regra não fica elegível; nenhuma
+  atividade comum é transformada em especial.
+- **Professor (57)**: o tempo de magistério e a exclusividade são **declarados**;
+  o motor calcula a renda e marca o requisito como "declarado, não verificado".
+  O direito adquirido de 80% × fator não é calculado; quando essa é a única regra
+  aplicável, o valor não é inventado e o relatório explica a pendência.
 - **Pensão por morte (21), salário-maternidade (80), auxílio-acidente (36/94)**
   e demais prestações não são aposentadorias e não têm fórmula neste motor.
   O adaptador bloqueia com `especie_unsupported`.

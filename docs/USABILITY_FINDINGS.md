@@ -333,3 +333,15 @@ nenhum CNIS, nome, CPF ou print de cliente entrou no repositório.
 - A correção do PcD foi coberta por `pcd-editor-review.test.tsx`; a suíte de
   interface fechou em 120 testes e os 36 testes de navegador continuam verdes.
 
+### Validação final no binário 0.15.2
+
+- O PcD real, com o CNIS importado e deficiência grave, executou usando
+  **Usar os salários do CNIS no PcD**: RMI de **R$ 6.987,37**, sem livro manual e
+  sem conferir os 331 lançamentos. O resultado continua marcado como simulação.
+- O caminho do livro revisado permanece disponível, mas deixou de ser obrigatório
+  para quem quer usar a fonte importada.
+- A prévia do PDF do PcD não aparece no editor manual; o relatório fica na página
+  **Relatórios**. Para o usuário idoso, isso ainda é um desvio: o próximo ajuste
+  é levar a prévia/exportação para o próprio resultado do PcD.
+
+
