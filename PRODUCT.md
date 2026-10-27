@@ -22,7 +22,7 @@ Receber um CNIS real, conferir o que o documento diz, decidir parâmetros com ho
 
 ## Restrições
 
-- O motor RGPS cobre hoje a espécie 42.
+- O motor RGPS cobre as espécies 42 (tempo de contribuição), 41 (idade), 32 (incapacidade permanente) e 31 (incapacidade temporária); a 46 (especial) e a 57 (professor) bloqueiam com motivo.
 - A LC 142/2013 existe como simulação com premissas declaradas em módulo próprio.
 - O aplicativo não tem backend web, conta ou telemetria.
 
