@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.15.1 - 2026-10-27
+
+Fecha o caminho PcD do assistente, incluindo o livro de contribuições.
+
+### Fixed
+- **Livro de contribuições no PcD**: quando a hipótese PcD tem salários manuais e o livro ainda não foi aplicado, a etapa **Parâmetros** avisa, explica que o motor não usa salários sem revisão e oferece **Abrir o livro de contribuições**. O usuário confere o livro e clica em **Aplicar revisão ao cálculo**; antes, a execução bloqueava em "Salários manuais exigem um livro...".
+- **Fluxo do PcD**: resultado bloqueado → editor PcD → livro de contribuições → revisão → execução fica completo, com o atalho e a confirmação já incluídos na 0.15.0.
+
+### Tests
+- 506 testes Rust, 119 de interface e 36 de navegador.
+
+
+
 ## 0.15.0 - 2026-10-27
 
 Conferência online opcional de RMI na Fábrica de Cálculos/TRF3, com chave própria e envio mínimo.

@@ -23,3 +23,10 @@ it('PcD editor lets the operator confirm the assistant review after changing the
   expect(call).toHaveBeenCalledTimes(1);
   call.mockRestore();
 });
+
+it('PcD editor points to the contribution book when manual salaries are not applied',()=>{
+  const draft={...blankCase(),name:'PcD fictício',disability:'Grave',manual_salaries:[{id:1,competence:'2020-01',amount:'1000.00',indicators:'',confirmed:true}],contribution_review:null};
+  render(<CaseWorkbench draft={draft} setDraft={()=>{}} workspace={blankWorkspace()} onSave={async()=>{}} onNotify={()=>{}} initialStep={5}/>);
+  expect(screen.getByText(/O PcD usa o livro de contribuições revisado/)).toBeInTheDocument();
+  expect(screen.getByRole('button',{name:'Abrir o livro de contribuições'})).toBeInTheDocument();
+});

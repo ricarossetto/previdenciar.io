@@ -270,7 +270,8 @@ nenhum CNIS, nome, CPF ou print de cliente entrou no repositório.
 - Sexo, deficiência grave, espécie, conferência e resultado: **sem trava**.
   A conferência tem um único botão de preparo e o resultado bloqueado é
   explicado; nenhum valor foi inventado.
-- O ponto de ruptura apareceu **depois** do resultado PcD, no editor.
+- O ponto de ruptura apareceu **depois** do resultado PcD, no editor: a revisão
+  do assistente e o livro de contribuições.
 
 ### Achados e correções desta rodada
 
@@ -306,6 +307,13 @@ nenhum CNIS, nome, CPF ou print de cliente entrou no repositório.
    dos testes. Não foi alterado agora para não quebrar seletores e o histórico.
 7. **Menor — tabela de 331 competências.** Continua densa; o filtro e a
    conferência por vínculo ajudam, mas não foi redesenhada nesta rodada.
+8. **Crítico — livro de contribuições no PcD.** O preparo do assistente cria
+   salários manuais; o motor PcD exige o livro revisado e bloqueia com
+   "Salários manuais exigem um livro de contribuições aplicado e rastreável".
+   **Corrigido**: a etapa Parâmetros avisa, explica que os salários não são
+   usados sem revisão e abre o livro; o usuário confere e aplica a revisão antes
+   de executar. O caminho resultado bloqueado → editor PcD → livro → revisão →
+   execução foi coberto por teste de interface.
 
 ### O que foi verificado no código
 
@@ -316,5 +324,5 @@ nenhum CNIS, nome, CPF ou print de cliente entrou no repositório.
 - O PDF do resultado bloqueado não é tratado como resultado financeiro; o PDF
   do PcD é gerado somente depois da execução do módulo.
 - A correção do PcD foi coberta por `pcd-editor-review.test.tsx`; a suíte de
-  interface fechou em 118 testes e os 36 testes de navegador continuam verdes.
+  interface fechou em 119 testes e os 36 testes de navegador continuam verdes.
 

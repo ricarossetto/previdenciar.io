@@ -1,3 +1,23 @@
+## previdenciar.io 0.15.1
+
+O caminho PcD do assistente agora termina no cálculo. O editor avisa quando os
+salários manuais ainda não têm o livro de contribuições aplicado e leva ao livro;
+sem essa revisão o motor não usa os salários, por desenho.
+
+### O que mudou
+
+- A etapa **Parâmetros** do PcD mostra o aviso e o botão **Abrir o livro de
+  contribuições** quando há salários manuais sem livro aplicado.
+- O usuário confere o livro e clica em **Aplicar revisão ao cálculo**; o aviso
+  desaparece e a execução do PcD fica disponível.
+- O fluxo resultado bloqueado → editor PcD → livro → revisão → execução foi
+  coberto por teste de interface.
+
+### Validação
+
+- 506 testes Rust, 119 de interface e 36 de navegador.
+- Nenhum CNIS, nome, CPF, PDF ou chave entra no repositório ou no pacote.
+
 ## previdenciar.io 0.15.0
 
 Agora o aplicativo pode comparar a RMI do motor local com o cálculo da Fábrica
