@@ -1,4 +1,18 @@
 # Changelog
+## 0.16.1 - 2026-10-27
+
+Correções do teste de menu com advogado idoso.
+
+### Fixed
+- **Assistente**: o resultado agora tem **Novo cálculo** e não fica preso ao último caso.
+- **Navegação**: **Meus cálculos**, **Assistente (passo a passo)**, **Editor avançado**, **Ferramentas** e **Cobertura e validação**, em vez de quatro nomes parecidos.
+- **Cobertura**: a página foi atualizada para as seis espécies (42/41/32/31/46/57); 46/57 com tempo especial/magistério declarados; não diz mais "apenas 42 tem motor".
+- **UI**: tema do assistente, botões 44/32/48, inputs 44, espaçamento de texto e rolagem do menu lateral.
+
+### Tests
+- 509 testes Rust, 120 de interface e 36 de navegador.
+
+
 ## 0.15.2 - 2026-10-27
 ## 0.16.0 - 2026-10-27
 

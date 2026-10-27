@@ -1,3 +1,23 @@
+## previdenciar.io 0.16.1
+
+Correções do teste de menu com advogado idoso.
+
+### O que mudou
+
+- O resultado do assistente agora tem **Novo cálculo**; ele não fica preso ao
+  último caso.
+- A navegação fala a língua do escritório: **Meus cálculos**, **Assistente
+  (passo a passo)**, **Editor avançado**, **Ferramentas** e **Cobertura e
+  validação**.
+- A cobertura foi atualizada para as seis espécies; 46/57 usam tempo
+  especial/magistério declarados e as demais continuam bloqueadas com motivo.
+- Tema, botões, inputs, textos e rolagem do menu lateral foram normalizados.
+
+### Validação
+
+- 509 testes Rust, 120 de interface e 36 de navegador.
+- Nenhum CNIS, nome, CPF, PDF ou chave no repositório/pacote.
+
 ## previdenciar.io 0.16.0
 
 As seis aposentadorias do RGPS agora têm motor: 42, 41, 32, 31, 46 e 57.

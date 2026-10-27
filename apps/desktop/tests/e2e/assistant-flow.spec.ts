@@ -20,8 +20,8 @@ async function start(page:import('@playwright/test').Page){
 }
 async function openAssistant(page:import('@playwright/test').Page,width:number,testInfo:import('@playwright/test').TestInfo){
   await page.setViewportSize({width,height:900});await start(page);
-  if(width<1024){await page.getByRole('button',{name:'Todas as páginas',exact:true}).click();await page.getByRole('dialog').getByRole('button',{name:'Cálculos do RGPS',exact:true}).click();}
-  else await page.getByRole('button',{name:'Cálculos do RGPS',exact:true}).click();
+  if(width<1024){await page.getByRole('button',{name:'Todas as páginas',exact:true}).click();await page.getByRole('dialog').getByRole('button',{name:'Meus cálculos',exact:true}).click();}
+  else await page.getByRole('button',{name:'Meus cálculos',exact:true}).click();
   await page.getByRole('button',{name:'Abrir',exact:true}).click();
   await expect(page.getByText('O que entra no cálculo')).toBeVisible();
   await expect(page.getByText('Pronto para o motor')).toBeVisible();
