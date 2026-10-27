@@ -1,3 +1,25 @@
+## previdenciar.io 0.16.2
+
+Rodada 46/57 no binário 0.16.1.
+
+### O que mudou
+
+- Os campos de tempo especial (46) e magistério (57) abrem por padrão, com
+  título próprio, em vez de ficarem escondidos em "Ajustar manualmente".
+- Se a identidade revisada divergir do CNIS (por exemplo, data de nascimento
+  corrigida), existe uma confirmação explícita; antes o cálculo bloqueava sem
+  saída.
+- O resultado do editor passou a ter a prévia e a exportação do PDF; antes só
+  apareciam na página Relatórios.
+- Mensagem de bloqueio de módulo corrigida.
+
+### Validação
+
+- Caso 46 com CNIS sintético: R$ 6.835,73, direito adquirido, requisitos
+  declarados e carência de 332 meses.
+- 64 testes da ponte + 5 de contribuições; interface compilada.
+
+
 ## previdenciar.io 0.16.1
 
 Correções do teste de menu com advogado idoso.

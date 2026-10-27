@@ -278,6 +278,32 @@ nenhum CNIS, nome, CPF ou print de cliente entrou no repositório.
 1. **Crítico — o cenário PcD não podia ser executado pelo caminho do assistente.**
    O botão **Abrir o cenário PcD no editor** abria o editor, mas qualquer
    alteração de premissa invalidava a revisão do assistente. O editor não tinha
+
+## Rodada 46/57 (0.16.1 → 0.16.2)
+
+- **46**: com o CNIS sintético, grau 25, 300 meses de exposição e direito
+  adquirido, a RMI foi **R$ 6.835,73**, com a tabela de requisitos (carência
+  332 meses, grau 25 anos, tempo 25a 0m, todos "cumprido (declarado)"). O motor
+  não verifica PPP nem perícia.
+- **Achado**: os campos 46/57 ficavam dentro do bloco recolhido "Ajustar
+  manualmente a política e a correção". Quem não sabe o que é "política" não
+  abre. Corrigido: abrem por padrão e o título diz "Tempo especial (46)" /
+  "Magistério (57)".
+- **Achado**: corrigir a data de nascimento em relação ao CNIS gerava o bloqueio
+  "identidade diverge da importação; confirmar sem sobrescrever", mas não existia
+  botão de confirmação. Corrigido: confirmação explícita no painel, sem alterar o
+  CNIS.
+- **Achado**: o resultado do editor não tinha prévia/exportação de PDF; era
+  preciso ir a Relatórios. Corrigido: o centro de relatórios aparece no próprio
+  resultado.
+- **57**: o CNIS de teste é de uma pessoa nascida em 1975; com ela nenhuma regra
+  de professor fica elegível. O caso 57 precisa de um CNIS sintético de
+  professora mais velha ou da confirmação de identidade (agora disponível). O
+  direito adquirido do professor (80% × fator) continua deliberadamente não
+  calculado.
+- **Fábrica**: 46/57 continuam não enviados; a tela avisa que a conferência
+  online cobre 31/32/41/42.
+
    onde reconfirmar; o botão **Executar motor RGPS** devolvia “Complete as
    perguntas... confirme a revisão do assistente” e o usuário ficava sem saída.
    **Corrigido**: a etapa **Revisão** do editor ganhou o checkbox de confirmação,

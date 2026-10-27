@@ -104,6 +104,10 @@ pub struct CasePolicy {
     pub native_options: OptionsInput,
     pub exclude_imported_source: bool,
     pub source_exclusion_evidence: Option<String>,
+    /// Declared by the operator when the reviewed identity intentionally differs
+    /// from the imported CNIS (e.g. birth date correction). It does not rewrite
+    /// the source; it records that the divergence was confirmed.
+    pub identity_confirmed: bool,
 }
 
 #[derive(Clone, Serialize)]

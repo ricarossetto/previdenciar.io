@@ -4323,7 +4323,7 @@ dependencies = [
 
 [[package]]
 name = "previus-next-desktop"
-version = "0.16.1"
+version = "0.16.2"
 dependencies = [
  "base64 0.21.7",
  "chrono",
@@ -5696,7 +5696,7 @@ checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 
 [[package]]
 name = "svgtypes"
-version = "0.16.1"
+version = "0.16.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "695b5790b3131dafa99b3bbfd25a216edb3d216dad9ca208d4657bfb8f2abc3d"
 dependencies = [
