@@ -1,3 +1,23 @@
+## previdenciar.io 0.15.2
+
+O cenário PcD com o CNIS importado deixou de exigir a conferência manual de 331
+lançamentos. A hipótese pode usar a fonte importada diretamente, que continua
+traceável, ou o livro revisado para quem quiser ajustar os salários.
+
+### O que mudou
+
+- A etapa **Parâmetros** do PcD mostra **Usar os salários do CNIS no PcD** quando
+  há salários manuais sem livro aplicado.
+- O motor usa a fonte importada; nenhum salário é inventado e o resultado
+  continua marcado como simulação.
+- O caminho do livro revisado permanece disponível, com a justificativa e a
+  aplicação explícitas.
+
+### Validação
+
+- 506 testes Rust, 120 de interface e 36 de navegador.
+- Nenhum CNIS, nome, CPF, PDF ou chave entra no repositório ou no pacote.
+
 ## previdenciar.io 0.15.1
 
 O caminho PcD do assistente agora termina no cálculo. O editor avisa quando os

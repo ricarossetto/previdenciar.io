@@ -314,6 +314,13 @@ nenhum CNIS, nome, CPF ou print de cliente entrou no repositório.
    usados sem revisão e abre o livro; o usuário confere e aplica a revisão antes
    de executar. O caminho resultado bloqueado → editor PcD → livro → revisão →
    execução foi coberto por teste de interface.
+9. **Crítico — 331 lançamentos para conferir no livro.** A conferência manual do
+   livro exigia confirmar, justificar e declarar BRL em cada um dos 331
+   lançamentos antes de o PcD executar. Para o advogado de 70 anos isso é um
+   labirinto inviável. **Corrigido**: a etapa Parâmetros passou a oferecer
+   **Usar os salários do CNIS no PcD**; o motor usa a fonte importada, que é
+   traceável, e o livro fica disponível apenas para quem quiser ajustar os
+   salários manualmente.
 
 ### O que foi verificado no código
 
@@ -324,5 +331,5 @@ nenhum CNIS, nome, CPF ou print de cliente entrou no repositório.
 - O PDF do resultado bloqueado não é tratado como resultado financeiro; o PDF
   do PcD é gerado somente depois da execução do módulo.
 - A correção do PcD foi coberta por `pcd-editor-review.test.tsx`; a suíte de
-  interface fechou em 119 testes e os 36 testes de navegador continuam verdes.
+  interface fechou em 120 testes e os 36 testes de navegador continuam verdes.
 

@@ -1,4 +1,16 @@
 # Changelog
+## 0.15.2 - 2026-10-27
+
+PcD com o CNIS importado, sem exigir a conferência manual dos 331 lançamentos.
+
+### Fixed
+- **PcD**: quando o preparo do assistente cria salários manuais sem livro aplicado, a etapa **Parâmetros** oferece **Usar os salários do CNIS no PcD**. O motor passa a usar a fonte importada, que é traceável, e o usuário não precisa conferir 331 lançamentos um a um para chegar ao resultado.
+- O caminho do livro continua disponível para quem quiser revisar os salários manualmente; o motor recusa salários manuais sem livro, como antes.
+
+### Tests
+- 506 testes Rust, 120 de interface e 36 de navegador.
+
+
 
 ## 0.15.1 - 2026-10-27
 
