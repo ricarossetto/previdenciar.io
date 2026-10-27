@@ -71,6 +71,8 @@ jobs:
           $updaterAsset = ''
           if ($installer) {
             Copy-Item -LiteralPath $installer.FullName -Destination "release/$($installer.Name)"
+            $installerHash = (Get-FileHash -LiteralPath "release/$($installer.Name)" -Algorithm SHA256).Hash.ToLowerInvariant()
+            "$installerHash  $($installer.Name)" | Add-Content -LiteralPath release/SHA256SUMS.txt -Encoding ascii
             $sigFile = "$($installer.FullName).sig"
             if (Test-Path $sigFile) {
               $signature = (Get-Content -LiteralPath $sigFile -Raw).Trim()

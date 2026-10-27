@@ -108,6 +108,12 @@ que segue foi verificado, não presumido.
   PcD pela LC 142/2013 ainda não tem motor neste adaptador. A execução bloqueia
   com motivo explícito, e a conferência e os relatórios continuam disponíveis.
 
+### Verificação nativa com o binário publicado
+
+- O executável publicado da 0.12.0, com SHA-256 conferido contra `SHA256SUMS.txt`, repetiu o fluxo com o CNIS real em perfil isolado (sem tocar na base do escritório): entrevista, importação, conferência, preparo e cálculo. O resultado foi experimental, com valor financeiro gerado para sexo masculino e sem deficiência declarada, e os avisos do motor apareceram sem corrupção de acentuação.
+- O mesmo fluxo com deficiência grave bloqueia com o motivo da LC 142/2013, já avisado na etapa de dados.
+- O instalador NSIS foi gerado a partir do mesmo commit e assinado pela chave do projeto; o `latest.json` publicado aponta para ele.
+
 ### Menores ainda abertas
 
 As três pendências menores listadas acima continuam abertas, assim como `genpdf`
