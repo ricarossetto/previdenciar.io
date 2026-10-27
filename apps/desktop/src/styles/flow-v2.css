@@ -1,0 +1,155 @@
+/* flow-v2: mesa de trabalho. Tokens declarados neste bloco; nenhuma cor literal fora dele. */
+.flow-v2{
+  --paper:#F7F4EC;--paper-2:#FFFDF8;--ink:#1C1A17;--ink-2:#4A453D;--rule:#D9D2C4;
+  --action:#1E4B39;--action-hover:#173C2E;--action-ink:#F7F4EC;--alert:#7A3B12;--alert-soft:#F3E7DA;--ok-soft:#EAF0E9;--paper-3:#FFFFFF;
+  background:var(--paper);color:var(--ink);border:1px solid var(--rule);border-radius:16px;
+  padding:26px 30px 30px;font-size:16px;line-height:1.6;
+}
+.flow-v2 .eyebrow{font-size:12px;letter-spacing:0;text-transform:none;color:var(--ink-2)}
+.flow-v2 h2,.flow-v2 h3{color:var(--ink)}
+.flow-v2 .form-note,.flow-v2 .secondary-line,.flow-v2 small{color:var(--ink-2)}
+.flow-v2 .field>span{color:var(--ink);font-size:14px;font-weight:600}
+.flow-v2 .input{background:var(--paper-2);border:1px solid var(--rule);color:var(--ink);border-radius:10px;min-height:46px;font-size:16px}
+.flow-v2 .input:focus-visible,.flow-v2 button:focus-visible,.flow-v2 summary:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.flow-v2 .field-hint{color:var(--ink-2);font-size:13px}
+
+/* trilho de progresso */
+.flow-v2 .assistant-stepbar{align-items:flex-end;gap:18px;border:0;background:transparent;padding:0 0 14px;border-bottom:1px solid var(--rule);border-radius:0}
+.flow-v2 .assistant-stepbar strong{font:500 15px/1.4 Inter,sans-serif;letter-spacing:0;text-transform:none;color:var(--ink-2)}
+.flow-v2 .assistant-stepbar p{font:500 clamp(22px,2.4vw,30px)/1.2 Lora,serif;color:var(--ink);margin:2px 0 10px}
+.flow-v2 .assistant-stepbar progress{width:100%;max-width:320px;height:4px;appearance:none;border:0;background:var(--rule);border-radius:999px;overflow:hidden}
+.flow-v2 .assistant-stepbar progress::-webkit-progress-bar{background:var(--rule)}
+.flow-v2 .assistant-stepbar progress::-webkit-progress-value{background:var(--action)}
+.flow-v2 .assistant-stepbar .status-tag{background:transparent;color:var(--ink-2);border:1px solid var(--rule)}
+
+/* pergunta: uma por tela */
+.flow-v2 .robot-question{background:transparent;border:0;box-shadow:none;padding:22px 0 6px;border-radius:0;align-items:flex-start}
+.flow-v2 .robot-question .robot-face{display:none}
+.flow-v2 .robot-question h3{font:500 clamp(26px,3.2vw,36px)/1.22 Lora,serif;letter-spacing:-.01em;max-width:26ch;margin:0}
+.flow-v2 .robot-question p{font-size:15px;color:var(--ink-2);max-width:60ch}
+
+/* opções como linhas, não cartões */
+.flow-v2 .robot-choices{gap:10px;margin-top:8px}
+.flow-v2 .robot-choice{background:var(--paper-2);border:1px solid var(--rule);border-radius:12px;padding:16px 18px;min-height:66px;box-shadow:none;transition:border-color .16s ease-out,transform .16s ease-out}
+.flow-v2 .robot-choice:hover{border-color:var(--ink-2);transform:translateY(-1px)}
+.flow-v2 .robot-choice.selected{border:2px solid var(--ink);background:var(--paper-3);padding:15px 17px}
+.flow-v2 .robot-choice strong{font-size:18px;font-weight:600;color:var(--ink);line-height:1.35}
+.flow-v2 .robot-choice small{font-size:14px;color:var(--ink-2);line-height:1.5}
+.flow-v2 .robot-choice .ic{color:var(--ink-2)}
+
+/* ações */
+.flow-v2 .form-actions{gap:12px;align-items:center;margin-top:18px}
+.flow-v2 .btn{min-height:46px;border-radius:10px;font-size:15px}
+.flow-v2 .btn-primary{background:var(--action);color:var(--action-ink);border-color:var(--action)}
+.flow-v2 .btn-primary:hover{background:var(--action-hover)}
+.flow-v2 .robot-footer{border-top:1px solid var(--rule);margin-top:26px;padding-top:16px;background:transparent}
+.flow-v2 .robot-footer .btn{background:transparent;border-color:transparent;color:var(--ink-2);text-decoration:underline;text-underline-offset:4px;min-height:40px}
+.flow-v2 .robot-footer .btn:hover{color:var(--ink)}
+
+/* seções sem cartão */
+.flow-v2 .panel{background:transparent;border:0;border-top:1px solid var(--rule);border-radius:0;box-shadow:none;padding:22px 0 6px}
+.flow-v2 .panel:first-of-type{border-top:0}
+.flow-v2 .conference-interview,.flow-v2 .conference-prepare{background:transparent;border:0;border-top:1px solid var(--rule);border-radius:0;padding:22px 0 8px;margin:0}
+.flow-v2 .conference-interview .eyebrow,.flow-v2 .conference-prepare .eyebrow{display:none}
+.flow-v2 .conference-interview__head h3,.flow-v2 .conference-prepare__head h3{font:500 26px/1.25 Lora,serif;margin:0}
+.flow-v2 .conference-interview__answers>div{background:var(--paper-2);border:1px solid var(--rule);border-radius:10px}
+.flow-v2 .conference-interview__answers dt,.flow-v2 .conference-interview__answers dd{color:var(--ink)}
+.flow-v2 .conference-prepare__steps{color:var(--ink-2)}
+.flow-v2 .consideration-panel{background:transparent;border:0;border-top:1px solid var(--rule);border-radius:0;padding:22px 0 8px}
+.flow-v2 .consideration-card{background:var(--paper-2);border:1px solid var(--rule)}
+.flow-v2 .conference-tabs{border-bottom:1px solid var(--rule)}
+.flow-v2 .conference-tabs button{color:var(--ink-2);font-size:14px}
+.flow-v2 .conference-tabs button[aria-pressed="true"]{color:var(--ink);border-bottom-color:var(--action)}
+
+/* status do resultado */
+.flow-status{display:grid;gap:6px;padding:18px 20px;border:1px solid var(--rule);border-left:3px solid var(--alert);border-radius:10px;background:var(--alert-soft);margin:0 0 18px}
+.flow-status strong{font:600 20px/1.3 Lora,serif;color:var(--alert)}
+.flow-status p{margin:0;color:var(--ink);max-width:70ch}
+.flow-status.is-ok{border-left-color:var(--ok);background:var(--ok-soft)}
+.flow-status.is-ok strong{color:var(--ok)}
+
+/* aviso honesto sem ícone */
+.flow-v2 .notice{border-left:3px solid var(--alert);border-radius:0 8px 8px 0;background:var(--alert-soft);color:var(--ink);padding:14px 16px}
+.flow-v2 .notice.ok{border-left-color:var(--ok);background:var(--ok-soft)}
+
+@media (max-width:640px){
+  .flow-v2{padding:18px 16px 22px;border-radius:12px}
+  .flow-v2 .assistant-stepbar{flex-direction:column;align-items:flex-start}
+  .flow-v2 .robot-question h3{font-size:26px}
+}
+@media (prefers-reduced-motion:reduce){
+  .flow-v2 .robot-choice{transition:none}
+  .flow-v2 .robot-choice:hover{transform:none}
+}
+
+/* Correção de superfícies internas: a casca do app é escura e estes blocos herdavam --surface/--inset. */
+.previus-app .flow-v2 .assistant-case-context{background:var(--paper-2);border-color:var(--rule);color:var(--ink)}
+.previus-app .flow-v2 .assistant-case-context span{color:var(--ink-2)}
+.previus-app .flow-v2 .assistant-case-context strong{color:var(--ink)}
+.previus-app .flow-v2 .robot-question{background:var(--paper);border:0;box-shadow:none;color:var(--ink)}
+.previus-app .flow-v2 .robot-question h3{color:var(--ink)}
+.previus-app .flow-v2 .robot-question p{color:var(--ink-2)}
+.previus-app .flow-v2 .details,.previus-app .flow-v2 details.details{background:var(--paper-2);border:1px solid var(--rule);border-radius:10px;color:var(--ink);padding:0 14px;margin:16px 0}
+.previus-app .flow-v2 .details>summary,.previus-app .flow-v2 details.details>summary{color:var(--ink);font-size:14px;padding:12px 0}
+.previus-app .flow-v2 .details p,.previus-app .flow-v2 .details li{color:var(--ink-2)}
+.previus-app .flow-v2 .robot-progress{background:var(--paper-2);border:1px solid var(--rule);box-shadow:none;border-radius:10px;padding:8px}
+.previus-app .flow-v2 .robot-progress button{color:var(--ink-2);border-radius:8px}
+.previus-app .flow-v2 .robot-progress button.active{background:var(--paper-3);color:var(--ink);border:1px solid var(--rule)}
+.previus-app .flow-v2 .robot-progress button small{color:var(--ink-2)}
+.previus-app .flow-v2 .status-tag{background:var(--paper-2);border:1px solid var(--rule);color:var(--ink-2)}
+.previus-app .flow-v2 .status-tag.good{background:var(--ok-soft);border-color:var(--ok);color:var(--ok)}
+.previus-app .flow-v2 .panel,.previus-app .flow-v2 .panel>*{color:var(--ink)}
+.previus-app .flow-v2 .panel h2,.previus-app .flow-v2 .panel h3{color:var(--ink)}
+.previus-app .flow-v2 .field,.previus-app .flow-v2 .field span{color:var(--ink)}
+.previus-app .flow-v2 .checkline{color:var(--ink)}
+.previus-app .flow-v2 .robot-footer{justify-content:flex-start;gap:18px;flex-wrap:wrap}
+.previus-app .flow-v2 .robot-footer>div{display:flex;gap:8px;flex-wrap:wrap}
+.previus-app .flow-v2 .robot-footer .btn{background:transparent;border-color:transparent;color:var(--ink-2);text-decoration:underline;text-underline-offset:4px;min-height:40px}
+.previus-app .flow-v2 .robot-footer .btn:hover{color:var(--ink)}
+/* Overrides finais: componentes globais carregam depois e têm especificidade própria. */
+.previus-app .flow-v2 .panel{background:var(--paper);border:0;border-top:1px solid var(--rule);border-radius:0;box-shadow:none;padding:22px 0 8px}
+.previus-app .flow-v2 .panel:first-of-type{border-top:0;padding-top:0}
+.previus-app .flow-v2 .panel h2,.previus-app .flow-v2 .panel h3,.previus-app .flow-v2 .panel p,.previus-app .flow-v2 .panel span,.previus-app .flow-v2 .panel label{color:var(--ink)}
+.previus-app .flow-v2 .panel .form-note,.previus-app .flow-v2 .panel small{color:var(--ink-2)}
+.previus-app .flow-v2 .input{background:var(--paper-2);border:1px solid var(--rule);color:var(--ink)}
+.previus-app .flow-v2 .input::placeholder{color:var(--ink-2)}
+.previus-app .flow-v2 .btn-ghost{background:var(--paper-2);border-color:var(--rule);color:var(--ink)}
+.previus-app .flow-v2 .btn-ghost:hover{border-color:var(--ink-2)}
+.previus-app .flow-v2 .robot-choice{background:var(--paper-2);border:1px solid var(--rule);color:var(--ink)}
+.previus-app .flow-v2 .robot-choice:hover{background:var(--paper-3);border-color:var(--ink-2);color:var(--ink)}
+.previus-app .flow-v2 .robot-choice.selected,.previus-app .flow-v2 .robot-choice.selected:hover{background:var(--paper-3);border:2px solid var(--ink);color:var(--ink)}
+.previus-app .flow-v2 .robot-choice strong{color:var(--ink)}
+.previus-app .flow-v2 .robot-choice small{color:var(--ink-2)}
+.previus-app .flow-v2 .checkline{color:var(--ink)}
+.previus-app .flow-v2 .notice{background:var(--alert-soft);color:var(--ink);border-left:3px solid var(--alert)}
+.previus-app .flow-v2 .notice.ok{background:var(--ok-soft);border-left-color:var(--ok)}
+.previus-app .flow-v2 .status-tag{background:var(--paper-2);border:1px solid var(--rule);color:var(--ink-2)}
+.previus-app .flow-v2 .status-tag.good{background:var(--ok-soft);border-color:var(--ok);color:var(--ok)}
+.previus-app .flow-v2 .status-tag.review{background:var(--alert-soft);border-color:var(--alert);color:var(--alert)}
+.previus-app .flow-v2 table.data-table th,.previus-app .flow-v2 table.data-table td{color:var(--ink);border-color:var(--rule)}
+.previus-app .flow-v2 table.data-table th{background:var(--paper-2)}
+.previus-app .flow-v2 .robot-footer{border-top:1px solid var(--rule)}
+.previus-app .flow-v2 .robot-footer .btn{background:transparent;border-color:transparent;color:var(--ink-2)}
+.previus-app .flow-v2 .robot-footer .btn:hover{color:var(--ink);background:var(--paper-2)}
+.previus-app .flow-v2{scroll-margin-top:12px}
+/* Panel = .card no design system atual. */
+.previus-app .flow-v2 .card{background:var(--paper);border:0;border-top:1px solid var(--rule);border-radius:0;box-shadow:none;padding:22px 0 8px}
+.previus-app .flow-v2 .card:first-of-type{border-top:0;padding-top:0}
+.previus-app .flow-v2 .card__head{padding:0 0 10px}
+.previus-app .flow-v2 .card__title{color:var(--ink);font:500 24px/1.3 Lora,serif}
+.previus-app .flow-v2 .card__hint{color:var(--ink-2)}
+.previus-app .flow-v2 .card__body{padding:0}
+.previus-app .flow-v2 .assistant-domain-nav{border-bottom:1px solid var(--rule)}
+.previus-app .flow-v2 .assistant-domain-nav button{background:var(--paper-2);border:1px solid var(--rule);color:var(--ink)}
+.previus-app .flow-v2 .assistant-domain-nav button strong{color:var(--ink)}
+.previus-app .flow-v2 .assistant-domain-nav button small{color:var(--ink-2)}
+.previus-app .flow-v2 .assistant-domain-nav button[aria-current="page"]{background:var(--paper-3);border-color:var(--ink)}
+.previus-app .flow-v2{padding-bottom:64px}
+.previus-app .flow-v2 .status-tag.neutral{background:var(--paper-2);border:1px solid var(--rule);color:var(--ink)}
+.previus-app .flow-v2 .field .status-tag{display:inline-flex;width:auto;margin-top:6px}
+.previus-app .flow-v2 .conference-interview__answers dt{text-transform:none;letter-spacing:0;font-size:12px;font-weight:600;color:var(--ink-2)}
+.previus-app .flow-v2 .conference-interview__answers dd{color:var(--ink)}
+
+
+
+

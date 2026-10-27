@@ -3,7 +3,7 @@
 <p align="center">Ferramenta desktop gratuita e open source para organizar CNIS, hipóteses de cálculo e relatórios locais.</p>
 <p align="center"><a href="https://github.com/ricarossetto/previdenciar.io/releases">Baixar para Windows</a> · <a href="https://ricarossetto.github.io/previdenciar.io/">Apresentação</a> · <a href="docs/GETTING_STARTED.md">Começar</a> · <a href="docs/LIMITATIONS.md">Limitações</a></p>
 
-> **Versão 0.12.1.** O motor continua experimental. O programa não é serviço oficial do INSS, não certifica direito a benefício e não substitui revisão profissional. Hipótese bloqueada continua bloqueada, e dado ausente não vira zero.
+> **Versão 0.13.0.** O motor continua experimental. O programa não é serviço oficial do INSS, não certifica direito a benefício e não substitui revisão profissional. Hipótese bloqueada continua bloqueada, e dado ausente não vira zero.
 
 ## O que já existe
 
@@ -35,8 +35,8 @@ Não estão implementados: a carência legal por tabelas do RGPS, a desconsidera
 
 ## Baixar e executar
 
-1. Abra [Releases](https://github.com/ricarossetto/previdenciar.io/releases) e escolha a versão 0.12.1.
-2. Baixe o instalador `previdenciar.io_0.12.1_x64-setup.exe` (recomendado, cria atalhos e verifica atualizações) ou o executável portátil, junto com o `SHA256SUMS.txt`.
+1. Abra [Releases](https://github.com/ricarossetto/previdenciar.io/releases) e escolha a versão 0.13.0.
+2. Baixe o instalador `previdenciar.io_0.13.0_x64-setup.exe` (recomendado, cria atalhos e verifica atualizações) ou o executável portátil, junto com o `SHA256SUMS.txt`.
 3. Confira o SHA-256 antes de executar. A distribuição não possui assinatura digital de código; o instalador é assinado apenas para o atualizador do próprio aplicativo.
 4. Requer Windows 10/11 x64 com Microsoft Edge WebView2. Não desative proteções do Windows para ignorar alertas. Se não confiar no binário, compile a partir do código.
 5. Use primeiro dados fictícios e leia os avisos. Não compartilhe CNIS, PDFs ou arquivos da base em issues.

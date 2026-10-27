@@ -151,6 +151,20 @@ Método: binário nativo publicado, perfil isolado (sem abrir a base do escritó
 - O aviso flutuante pode cobrir conteúdo no canto inferior direito.
 - O módulo LC 142 pede várias declarações e evidências; é o preço de não inventar premissa, mas ainda é denso.
 
+## Terceira rodada: 0.13.0 (redesign do fluxo)
+
+O diagnóstico de UI era justo: a tela era um painel escuro com cartões, rótulos em caixa alta e blocos herdados que quebravam o contraste. A direção nova chama-se "mesa de trabalho": papel, tinta, uma pergunta por tela, opções em linhas e um único próximo passo.
+
+O que mudou:
+
+- Superfície de papel com tokens próprios (`flow-v2`), títulos em serifa e uma cor de ação. `PRODUCT.md` e `DESIGN.md` registram a verdade do produto e a direção.
+- Passo a passo em linguagem simples, com progresso visível e sem caixa alta.
+- Contexto do caso, pergunta, listas e painéis perderam o fundo escuro herdado; contraste e foco visível corrigidos.
+- Resultado com faixa de estado e motivo em uma frase; bloqueio PcD traz a ação certa como principal.
+- A troca de etapa começa no topo da tela.
+
+O que continua fora do escopo desta rodada: a casca do aplicativo (menu lateral, cabeçalho, demais páginas), a tabela de 331 competências e a densidade da central de relatórios.
+
 ## Recomendações originais (implementadas nesta rodada)
 
 - **Etapa 5**: transformar as pendências num assistente passo a passo, com o

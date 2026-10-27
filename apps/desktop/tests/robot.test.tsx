@@ -37,7 +37,7 @@ it('routes a blocked PcD case to the LC 142 module and offers a re-run',async()=
  const c:Calculation={...blankCase(),name:'PcD sintético',sex:'Feminino',disability:'Grave',dib:'2024-01-01',identity:{...blankCase().identity,full_name:'Pessoa Fictícia',birth_date:'1960-01-01'},assistant:{...blankInterview(),current_benefit_received:false,import_requested:false,process_kind:'Simulação do benefício',goal:'Calcular um novo benefício',review_confirmed:true,completed_steps:['periods','salaries','policy','review']},result:{status:'blocked',data:null,blockers:[{code:'pcd_lc142_not_implemented',message:'LC 142 não implementada neste motor.'}]}};
  const manualAt=vi.fn();
  render(<RobotAssistant draft={c} setDraft={vi.fn()} workspace={blankWorkspace()} onSave={vi.fn()} onNotify={vi.fn()} onManual={vi.fn()} onManualAt={manualAt}/>);
- expect(screen.getByRole('button',{name:/Executar novamente/})).toBeInTheDocument();
+ expect(screen.queryByRole('button',{name:/Executar novamente/})).not.toBeInTheDocument();
  await userEvent.setup().click(screen.getByRole('button',{name:'Abrir o cenário PcD no editor'}));
  expect(manualAt).toHaveBeenCalledWith(5);
 });

@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.13.0 - 2026-10-26
+
+Redesign do fluxo guiado: da casca de painel para uma mesa de trabalho.
+
+### Changed
+- Nova direção visual no assistente: superfície de papel, tinta escura, títulos em serifa e uma única cor de ação. Tokens declarados em `flow-v2`, documentados em `DESIGN.md`.
+- Uma pergunta por tela, com tipografia maior, opções em linhas e um único caminho de saída. "Passo X de 7" em linguagem simples, sem caixa alta e sem rótulos técnicos.
+- O contexto do caso, o bloco da pergunta, as listas de etapas e os painéis perderam o fundo escuro herdado da casca; contraste corrigido em todos os campos e cartões.
+- Resultado abre com uma faixa de estado: "Cálculo bloqueado" com o motivo em uma frase, ou "Resultado experimental" com o aviso de revisão.
+- Quando o bloqueio é a LC 142/2013, a ação primária passa a ser "Abrir o cenário PcD no editor"; o botão de reexecutar sai do caminho.
+- A etapa troca de tela já no topo, sem rolar para o meio do conteúdo anterior.
+
+### Added
+- `PRODUCT.md` com a verdade do produto e `DESIGN.md` com a direção, tokens e regras de acessibilidade.
+- Ajuda curta nos campos de DIB, sexo e deficiência, e finalidades secundárias recolhidas em "Outras finalidades".
+
+### Tests
+- 486 testes Rust, 108 de interface e 36 de navegador.
+
 ## 0.12.1 - 2026-10-26
 
 Teste de usabilidade completo com o CNIS real do caso PcD, no binário nativo, em perfil isolado.
