@@ -1,4 +1,4 @@
-use crate::atualizacao::{corrigir_salario, fontes_atualizacao};
+use crate::atualizacao::{corrigir_salario, fontes_atualizacao, ParcelaCorrigida};
 use crate::calendar::Competencia;
 use crate::money::{add, div, fixed, money, to_cents, Result};
 use rust_decimal::Decimal;
@@ -25,12 +25,60 @@ pub struct PbcResultado {
     pub descartadas: usize,
     pub parcelas: Vec<ParcelaPbc>,
     pub parcelas_descartadas: Vec<String>,
+    pub cenarios: Vec<CenarioPbc>,
     pub soma_considerada: String,
     pub media: String,
     pub salario_beneficio: String,
     pub descarte_aplicado: bool,
     pub fontes_tetos: &'static str,
     pub fontes_inpc: &'static str,
+}
+
+/// Comparação descritiva de médias, sem escolher regra nem recalcular tempo.
+/// Não representa, por si só, uma RMI: coeficiente, fator e requisitos ficam fora.
+#[derive(Debug, Clone, Serialize)]
+pub struct CenarioPbc {
+    pub rotulo: &'static str,
+    pub consideradas: usize,
+    pub descartadas: usize,
+    pub media: String,
+}
+
+fn cenarios_de_media(parcelas: &[ParcelaCorrigida]) -> Result<Vec<CenarioPbc>> {
+    let pbc = parcelas.len();
+    let corte10 = pbc * 10 / 100;
+    let corte20 = pbc * 20 / 100;
+    let mut cortes = vec![0usize, corte10, corte20];
+    cortes.sort_unstable();
+    cortes.dedup();
+    let mut ordenadas = parcelas.to_vec();
+    ordenadas.sort_by(|a, b| {
+        a.corrigido_full
+            .partial_cmp(&b.corrigido_full)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+    let mut cenarios = Vec::new();
+    for corte in cortes {
+        if corte >= pbc {
+            continue;
+        }
+        let usadas = &ordenadas[corte..];
+        let soma = usadas
+            .iter()
+            .fold(Decimal::ZERO, |acc, parcela| add(acc, to_cents(parcela.corrigido_full)));
+        let media = div(soma, Decimal::from(usadas.len() as i64))?;
+        cenarios.push(CenarioPbc {
+            rotulo: match corte {
+                0 => "Sem corte",
+                _ if corte == corte10 => "Corte de 10%",
+                _ => "Corte de 20%",
+            },
+            consideradas: usadas.len(),
+            descartadas: corte,
+            media: money(to_cents(media)),
+        });
+    }
+    Ok(cenarios)
 }
 
 /// Porta de calcularRmiComCorrecao: teto da época antes, INPC acumulado,
@@ -92,6 +140,7 @@ pub fn calcular_pbc_com_correcao(
         consideradas,
         descartadas: descartadas.len(),
         parcelas_descartadas: descartadas.iter().map(|p| p.competencia.to_string()).collect(),
+        cenarios: cenarios_de_media(&parcelas)?,
         soma_considerada: money(soma),
         media: money(salario_beneficio),
         salario_beneficio: money(salario_beneficio),
@@ -159,6 +208,7 @@ pub fn calcular_pbc_com_descarte_minimo(
         consideradas: minimo,
         descartadas: corte,
         parcelas_descartadas: descartadas.iter().map(|p| p.competencia.to_string()).collect(),
+        cenarios: cenarios_de_media(&parcelas)?,
         soma_considerada: money(soma),
         media: money(salario_beneficio),
         salario_beneficio: money(salario_beneficio),
@@ -238,5 +288,28 @@ mod tests {
             .collect();
         let sb = salario_beneficio_sem_correcao(&comps, false).unwrap();
         assert_eq!(money(sb), "1000.00");
+    }
+
+    #[test]
+    fn cenarios_de_media_nao_sao_rmi_nem_alteram_tempo() {
+        let comps: Vec<(Competencia, Decimal)> = (1..=12)
+            .map(|m| {
+                (
+                    Competencia::parse(&format!("2020-{m:02}"), "t").unwrap(),
+                    parse_money("1000.00", "s").unwrap(),
+                )
+            })
+            .collect();
+        let pbc = calcular_pbc_com_correcao(
+            &comps,
+            &Competencia::parse("2021-01", "t").unwrap(),
+            false,
+        )
+        .unwrap();
+        assert_eq!(pbc.cenarios.len(), 3);
+        assert_eq!(pbc.cenarios[0].consideradas, 12);
+        assert_eq!(pbc.cenarios[0].descartadas, 0);
+        assert!(pbc.cenarios.iter().any(|c| c.descartadas > 0));
+        assert!(pbc.cenarios.iter().all(|c| !c.media.is_empty()));
     }
 }

@@ -1,7 +1,7 @@
 import{CnisReview}from'./CnisReview';import{AssistantConsiderationPanel}from'./AssistantConsideration';import'../styles/assistant.css';
 import{useState,useRef,useEffect}from'react';
 import type{AssistantInterview,Calculation,Cnis,Workspace,Json}from'../model';
-import{invalidateRmiAssumptions,interviewOf,withInterviewAnswer,robotParameterIssues,brDate,isoDate,hasFinancialResult}from'../model';
+import{invalidateRmiAssumptions,interviewOf,withInterviewAnswer,robotParameterIssues,brDate,isoDate,hasFinancialResult,cnisSourceAudit}from'../model';
 import{assistantConsideration}from'../assistantReview';
 import type{ConsiderationFix}from'../assistantReview';
 import{api,errorMessage}from'../api';
@@ -50,6 +50,10 @@ function initialScreen(c:Calculation):Screen{
   if(!a.review_confirmed)return'review';
   return'result';
 }
+export function assistantResume(c:Calculation){
+  const screen=initialScreen(c);
+  return{screen,label:LABEL[screen],step:SCREENS.indexOf(screen)+1,total:SCREENS.length,completed:SCREENS.filter(item=>assistantStepState(c,item)==='confirmed').length};
+}
 function withSteps(c:Calculation,answer:Partial<AssistantInterview>,steps:string[]):Calculation{
   let next=withInterviewAnswer(c,answer);
   for(const step of steps)next=withInterviewAnswer(next,{},step);
@@ -66,12 +70,25 @@ function choiceLabel(process:string){
 export function RobotFace({large=false}:{large?:boolean}){return <span className={'robot-face '+(large?'large':'')} aria-hidden="true"><svg viewBox="0 0 64 64" fill="none"><path d="M32 7v7" stroke="currentColor" strokeWidth="3"/><circle cx="32" cy="5" r="3" fill="currentColor"/><rect x="12" y="15" width="40" height="34" rx="12" stroke="currentColor" strokeWidth="2.5"/><rect x="6" y="25" width="6" height="14" rx="3" fill="currentColor"/><rect x="52" y="25" width="6" height="14" rx="3" fill="currentColor"/><circle cx="25" cy="29" r="3.5" fill="currentColor"/><circle cx="39" cy="29" r="3.5" fill="currentColor"/><path d="M24 40c5 4 11 4 16 0M22 49v7M42 49v7" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/></svg></span>}
 function Choice({title,text,onClick,selected=false}:{title:string;text:string;onClick:()=>void;selected?:boolean}){return <button type="button" className={'robot-choice '+(selected?'selected':'')} onClick={onClick}><span><strong>{title}</strong><small>{text}</small></span><Icon name="arrow" size={18}/></button>}
 
-export function RobotAssistant({draft,setDraft,workspace,onSave,onNotify,onManual}:{draft:Calculation;setDraft:(c:Calculation)=>void;workspace:Workspace;onSave:(c:Calculation)=>Promise<void>;onNotify:(s:string,error?:boolean)=>void;onManual:()=>void}){
+export function RobotAssistant({draft,setDraft,workspace,onSave,onNotify,onManual}:{draft:Calculation;setDraft:(c:Calculation)=>void;workspace:Workspace;onSave:(c:Calculation,options?:{quiet?:boolean})=>Promise<void>;onNotify:(s:string,error?:boolean)=>void;onManual:()=>void}){
   const[screen,setScreen]=useState<Screen>(()=>initialScreen(draft));
   const[tab,setTab]=useState<ConferenceTab>('periods');
   const[busy,setBusy]=useState(false),[pending,setPending]=useState<Cnis|null>(null),[path,setPath]=useState(''),[error,setError]=useState('');
   const generation=useRef(0),latestDraft=useRef(draft);latestDraft.current=draft;
+  const autosaveSnapshot=useRef(draft.id>0?JSON.stringify(draft):''),onSaveRef=useRef(onSave);onSaveRef.current=onSave;
+  const[autosave,setAutosave]=useState<'idle'|'saving'|'saved'|'error'>(()=>draft.id>0?'saved':'idle');
   useEffect(()=>()=>{generation.current+=1},[]);
+  useEffect(()=>{
+    if(draft.id<=0||busy||!draft.name.trim())return;
+    const snapshot=JSON.stringify(draft);
+    if(snapshot===autosaveSnapshot.current)return;
+    setAutosave('idle');
+    const timer=window.setTimeout(()=>{
+      autosaveSnapshot.current=snapshot;setAutosave('saving');
+      Promise.resolve(onSaveRef.current(draft,{quiet:true})).then(()=>setAutosave('saved')).catch(()=>{autosaveSnapshot.current='';setAutosave('error')});
+    },700);
+    return()=>window.clearTimeout(timer);
+  },[draft,busy]);
   const a=interviewOf(draft),issues=robotParameterIssues(draft),consideration=assistantConsideration(draft,a);
   const current=SCREENS.indexOf(screen);
   const confirmedSteps=SCREENS.filter(item=>assistantStepState(draft,item)==='confirmed').length;
@@ -133,7 +150,7 @@ export function RobotAssistant({draft,setDraft,workspace,onSave,onNotify,onManua
   const unsupportedProcess=a.process_kind&&!['Simulação do benefício','Processo administrativo'].includes(a.process_kind)?'A finalidade "'+a.process_kind+'" não tem motor próprio neste adaptador. A conferência e os relatórios continuam disponíveis, mas a execução de RMI fica bloqueada.':'';
   const unsupported=a.current_benefit_received===true?'O motor de novo benefício não executa revisão de benefício recebido.':a.goal&&a.goal!=='Calcular um novo benefício'?'Este objetivo pode ser registrado, mas ainda não tem cálculo automático neste assistente.':unsupportedProcess;
   return <div className="robot-workspace">
-    {screen!=='intro'&&<><div className="assistant-stepbar"><div><strong>Etapa {current+1} de {SCREENS.length} · {LABEL[screen]}</strong><p>{draft.name||'Novo cálculo RGPS'}</p><progress aria-label="Progresso da entrevista" value={confirmedSteps} max={SCREENS.length}/></div><Badge tone={hasFinancialResult(draft)?'good':'review'}>{draft.result?(hasFinancialResult(draft)?'Resultado disponível':'Pendências do motor'):consideration.ready?'Dados revisados':'Entrevista em andamento'}</Badge></div><details className="assistant-steps"><summary>Ver etapas e revisar respostas</summary><div className="robot-progress" role="group" aria-label="Etapas do assistente">{SCREENS.map((item,index)=><button key={item} type="button" disabled={busy||(index>current&&!reachable(item))} aria-current={screen===item?'step':undefined} className={screen===item?'active':assistantStepState(draft,item)==='confirmed'?'done':''} data-step-state={assistantStepState(draft,item)} onClick={()=>{setScreen(item);setError('')}}>{assistantStepState(draft,item)==='confirmed'?<Icon name="check" size={13}/>:<span>{index+1}</span>}{LABEL[item]}<small>{assistantStepState(draft,item)==='confirmed'?'Confirmada':assistantStepState(draft,item)==='visited'?'Conferência pendente':'Pendente'}</small></button>)}</div></details></>}
+    {screen!=='intro'&&<><div className="assistant-stepbar"><div><strong>Etapa {current+1} de {SCREENS.length} · {LABEL[screen]}</strong><p>{draft.name||'Novo cálculo RGPS'}</p><progress aria-label="Progresso da entrevista" value={confirmedSteps} max={SCREENS.length}/></div><Badge tone={hasFinancialResult(draft)?'good':'review'}>{draft.result?(hasFinancialResult(draft)?'Resultado disponível':'Pendências do motor'):consideration.ready?'Dados revisados':'Entrevista em andamento'}</Badge>{autosave!=='idle'&&<Badge tone={autosave==='error'?'error':autosave==='saved'?'good':'review'}>{autosave==='saving'?'Salvando rascunho...':autosave==='saved'?'Rascunho salvo automaticamente':'Rascunho não salvo'}</Badge>}</div><details className="assistant-steps"><summary>Ver etapas e revisar respostas</summary><div className="robot-progress" role="group" aria-label="Etapas do assistente">{SCREENS.map((item,index)=><button key={item} type="button" disabled={busy||(index>current&&!reachable(item))} aria-current={screen===item?'step':undefined} className={screen===item?'active':assistantStepState(draft,item)==='confirmed'?'done':''} data-step-state={assistantStepState(draft,item)} onClick={()=>{setScreen(item);setError('')}}>{assistantStepState(draft,item)==='confirmed'?<Icon name="check" size={13}/>:<span>{index+1}</span>}{LABEL[item]}<small>{assistantStepState(draft,item)==='confirmed'?'Confirmada':assistantStepState(draft,item)==='visited'?'Conferência pendente':'Pendente'}</small></button>)}</div></details></>}
     {screen!=='intro'&&<section className="assistant-case-context" aria-label="Resumo do cenário"><div><span>Segurado</span><strong>{draft.identity.full_name||'Identificação pendente'}</strong></div><div><span>Nascimento</span><strong>{draft.identity.birth_date?brDate(draft.identity.birth_date):'Não informado'}</strong></div><div><span>DIB / simulação</span><strong>{draft.dib?brDate(draft.dib):'Não informada'}</strong></div><div><span>Objetivo</span><strong>{a.goal||'A definir'}</strong></div><Button disabled={busy||!reachable('parameters')} onClick={()=>setScreen('parameters')}>Editar dados do segurado</Button></section>}
     {(['conference','review','result']as Screen[]).includes(screen)&&<nav className="assistant-domain-nav" aria-label="Painel do cálculo">
       {TABS.map(item=><button key={item.id} type="button" disabled={busy} aria-current={screen==='conference'&&tab===item.id?'page':undefined} onClick={()=>{setTab(item.id);setScreen('conference');setError('')}}><strong>{item.id==='periods'?'Abrir períodos':item.id==='salaries'?'Abrir remunerações':'Abrir opções da RMI'}</strong><small>{item.id==='periods'?consideration.adjusted.selectedLinks+(consideration.adjusted.selectedLinks===1?' período declarado':' períodos declarados'):item.id==='salaries'?consideration.adjusted.salaries+(consideration.adjusted.salaries===1?' remuneração declarada':' remunerações declaradas'):consideration.issues.filter(issue=>issue.decisive&&['policy','source'].includes(issue.fix)).length+' pendências de opções'}</small></button>)}
@@ -162,7 +179,7 @@ export function RobotAssistant({draft,setDraft,workspace,onSave,onNotify,onManua
           <div className="robot-import-toolbar"><RobotFace/><div><strong>Vamos conferir a origem.</strong><p>Selecione o documento ou informe seu caminho local.</p></div><Button primary disabled={busy} onClick={()=>void importCnis()}>{busy?<><span className="spinner"/>Lendo CNIS...</>:<>Selecionar CNIS PDF<Icon name="upload" size={16}/></>}</Button></div>
           <details className="details"><summary>Informar caminho do arquivo</summary><div className="robot-path-input"><Field label="Caminho local do CNIS PDF" value={path} onChange={setPath} placeholder="C:\pasta\CNIS.pdf"/><Button disabled={busy||!path.trim()} onClick={()=>void importCnis(true)}>Ler arquivo local</Button></div></details>
           <Button disabled={busy} onClick={()=>{setDraft(withInterviewAnswer(draft,{import_requested:null}));setPending(null)}}>Mudar a resposta de importação</Button>
-          {pending&&<><CnisReview cnis={pending}/><div className="import-summary"><div><strong>{pending.salary_entries.length}</strong><span>Lançamentos lidos</span></div><div><strong>{Object.keys(pending.salary_months).length}</strong><span>Competências distintas</span></div><div><strong>{pending.links.length}</strong><span>Vínculos</span></div></div><Notice>Sexo e deficiência continuam não informados. Regime próprio, indicadores e datas finais ausentes não foram validados automaticamente.</Notice><div className="form-actions" data-ui-actions><Button onClick={()=>setPending(null)}>Descartar leitura</Button><Button primary onClick={apply}>Aplicar CNIS e continuar<Icon name="check" size={16}/></Button></div></>}
+          {pending&&<><CnisReview cnis={pending}/><div className="import-summary"><div><strong>{pending.salary_entries.length}</strong><span>Lançamentos lidos</span></div><div><strong>{Object.keys(pending.salary_months).length}</strong><span>Competências distintas</span></div><div><strong>{pending.links.length}</strong><span>Vínculos</span></div></div><p className="form-note">Leitura separada: {cnisSourceAudit(pending).pre1994} lançamento(s) anterior(es) a 07/1994, {cnisSourceAudit(pending).benefits} benefício(s) e {cnisSourceAudit(pending).unassigned} lançamento(s) sem vínculo. Pré-07/1994 fica fora do PBC; benefício não é vínculo.</p><Notice>Sexo e deficiência continuam não informados. Regime próprio, indicadores e datas finais ausentes não foram validados automaticamente.</Notice><div className="form-actions" data-ui-actions><Button onClick={()=>setPending(null)}>Descartar leitura</Button><Button primary onClick={apply}>Aplicar CNIS e continuar<Icon name="check" size={16}/></Button></div></>}
         </>}
       </Panel>}
     </>}

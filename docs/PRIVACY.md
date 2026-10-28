@@ -8,7 +8,7 @@ Não há sincronização em nuvem, envio de CNIS ou modelo de linguagem remoto n
 
 ## Importação e exportação
 
-Importar não grava automaticamente a fonte na base nem confirma sua validade jurídica. Salvar é explícito. Relatórios e backups são arquivos sensíveis, mesmo quando a identificação direta é ocultada. Datas, remunerações e vínculos podem permitir correlação. O modo privado não é garantia de anonimização.
+Importar não grava automaticamente a fonte na base nem confirma sua validade jurídica. Um caso novo só entra na base por ação explícita de salvar; depois disso, a entrevista assistida de um rascunho já salvo é autossalva localmente enquanto é editada, para permitir retomada. Relatórios e backups são arquivos sensíveis, mesmo quando a identificação direta é ocultada. Datas, remunerações e vínculos podem permitir correlação. O modo privado não é garantia de anonimização.
 
 ## Repositório público
 

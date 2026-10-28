@@ -1,5 +1,7 @@
 # previdenciar.io contributor instructions
 
+Work autonomously on reversible, reviewable tasks: make reasonable decisions, carry out the work, verify it, and present the result so the user can course-correct. Do not pause to ask permission for routine implementation choices. When a dependency is unavailable, continue independent work and report the concrete blocker. The user decides product direction; respect mandatory approvals, irreversible actions, privacy and security boundaries.
+
 Read README.md, docs/ARCHITECTURE.md and docs/PRIVACY.md before changing the application.
 
 Preserve exact money, source provenance, pending states and experimental-result labels. Never manufacture missing data or turn a blocked calculation into a financial result. All fixtures must be synthetic.

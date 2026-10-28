@@ -32,8 +32,8 @@ pub struct RgpsOpcoes {
     pub corrigir_salarios: bool,
     pub descarte: bool,
     pub divisor_minimo: bool,
-    /// Descarte dos menores salários (EC 103/2019, art. 26, § 6º) mantendo o
-    /// mínimo de competências declarado como necessário para o direito.
+    /// Reservado para o descarte da EC 103/2019; bloqueado até o recálculo
+    /// do tempo, dos requisitos e do coeficiente ser implementado.
     pub descartar_menores_minimo: Option<u32>,
     pub referencia_correcao: Option<Competencia>,
     pub teto: Option<Decimal>,
@@ -112,6 +112,9 @@ fn anos_base(sexo: &str) -> i64 {
 
 /// Valida a entrada (porta de validate() do previdenciario.mjs).
 pub fn validar(entrada: &RgpsEntrada) -> Result<()> {
+    if entrada.opcoes.descartar_menores_minimo.is_some() {
+        return Err(RgpsError("Descarte da EC 103/2019 bloqueado: falta recalcular o tempo, o coeficiente e os requisitos após a exclusão.".into()));
+    }
     if !crate::SEXOS.contains(&entrada.sexo.as_str()) {
         return Err(RgpsError(format!("Sexo inválido: {}.", entrada.sexo)));
     }
@@ -344,9 +347,11 @@ pub fn calcular(entrada: &RgpsEntrada) -> Result<RgpsResultado> {
         "Tempo especial, rural e concomitância exigem análise própria; confira o CNIS e a carta de concessão antes de usar o resultado.".into(),
     );
     if correcao_ativa {
-        avisos.push(
-            "O descarte aplicado é o dos 20% menores salários corrigidos (regra pré-reforma); o descarte do art. 26, § 6º, da EC 103 não é aplicado.".into(),
-        );
+        avisos.push(if entrada.opcoes.descarte {
+            "Descarte fixo dos 20% menores salários corrigidos selecionado; o descarte do art. 26, § 6º, da EC 103 está bloqueado.".into()
+        } else {
+            "Nenhum descarte de salários selecionado; o descarte do art. 26, § 6º, da EC 103 está bloqueado.".into()
+        });
         avisos.push(
             "Competências anteriores a 2001 podem divergir da tabela de transição oficial do INSS; o descarte dos 20% menores costuma absorver a diferença.".into(),
         );
@@ -461,7 +466,7 @@ mod tests {
     }
 
     #[test]
-    fn descarte_ec103_remove_os_menores_ate_o_minimo() {
+    fn descarte_ec103_nao_produz_rmi_sem_recalculo_do_tempo() {
         let mut entrada = entrada_feminina_300();
         entrada.competencias = (0..10)
             .map(|i| {
@@ -474,13 +479,8 @@ mod tests {
         entrada.opcoes.corrigir_salarios = true;
         entrada.opcoes.referencia_correcao = Some(Competencia { ano: 2024, mes: 10 });
         entrada.opcoes.descartar_menores_minimo = Some(8);
-        let resultado = calcular(&entrada).unwrap();
-        let correcao = resultado.correcao.as_ref().unwrap();
-        assert_eq!(correcao["pbc"], 10);
-        assert_eq!(correcao["consideradas"], 8);
-        assert_eq!(correcao["descartadas"], 2);
-        assert_eq!(correcao["descarte_aplicado"], true);
-        assert_eq!(correcao["parcelas_descartadas"], serde_json::json!(["2024-01", "2024-02"]));
+        let erro = calcular(&entrada).unwrap_err();
+        assert!(erro.0.contains("Descarte da EC 103/2019 bloqueado"));
     }
     #[test]
     fn reform_split_usa_tempo_apurado_e_nao_competencias() {

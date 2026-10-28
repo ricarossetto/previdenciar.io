@@ -17,7 +17,9 @@
 
 Valores monetários não devem depender de ponto flutuante arbitrário. Origem importada é preservada. Dados ausentes não viram zero. Respostas desconhecidas não são inferidas de outros campos. Resultado bloqueado não é uma RMI válida. O backend recompõe a hipótese para gerar PDF; JSON de resultado salvo não substitui cálculo e renderer.
 
-Alterações de dados invalidam o resultado. Gravação requer workspace completo e revisão correta. A leitura não autoriza sobrescrever um armazenamento inválido. Preview e exportação usam a mesma fronteira do renderer.
+Alterações de dados invalidam o resultado. A criação de um caso exige gravação explícita; uma entrevista assistida já salva tem autosave local com debounce para preservar a retomada. Gravação requer workspace completo e revisão correta. A leitura não autoriza sobrescrever um armazenamento inválido. Preview e exportação usam a mesma fronteira do renderer.
+
+A PBC é reconciliada em quatro camadas distintas: lançamentos lidos do CNIS, entrada revisada enviada ao motor, competências excluídas antes de 07/1994 ou abaixo do mínimo e competências efetivamente usadas. A tabela de cenários de corte é descritiva e não escolhe regra, coeficiente, fator, tempo ou carência.
 
 ## Compatibilidade
 

@@ -241,7 +241,7 @@ static RX: LazyLock<Patterns> = LazyLock::new(|| Patterns {
     mother: Regex::new(r"(?im)Nome\s+d[ae]\s+m[ãa]e\s*:\s*([^\n]+)").unwrap(),
     company_code: Regex::new(r"^\s*\d{2}\.\d{3}\.\d{3}(?:[/.-]\d{4}[-.]?\d{2})?\s*").unwrap(),
     nit_anywhere: Regex::new(r"\b\d{3}\.\d{5}\.\d{2}[-.]?\d\b").unwrap(),
-    affiliation: Regex::new(r"(?i)Empregado\s+ou\s+Agente\s+P[úu]blico|Contribuinte\s+Individual|Facultativo|Trabalhador\s+Avulso").unwrap(),
+    affiliation: Regex::new(r"(?i)Empregado\s+ou\s+Agente\s+P[úu]blico|Aut[ôo]nomo|Contribuinte\s+Individual|Contribuinte\s+em\s+Dobro|Facultativo|Trabalhador\s+Avulso|Recolhimento|Agrupamento\s+de\s+Contratantes\s*/?\s*Cooperativas|Segurado\s+Especial|Empregado\s+Dom[ée]stico").unwrap(),
     species: Regex::new(r"\b(\d{1,3})\s*-\s*[A-Za-zÁÉÍÓÚÂÊÔÃÕÇ]").unwrap(),
     currency: Regex::new(r"[\d.]+,\d{2}").unwrap(),
 });
@@ -370,7 +370,7 @@ fn parse_relation(block: &str, src: SourceRef, affiliation_hint: Option<&str>) -
     }
     let affiliation = RX.affiliation.find(body);
     let affiliation_text = affiliation.as_ref().map(|m| clean(m.as_str()))
-        .or_else(|| affiliation_hint.map(str::to_owned))?;
+        .or_else(|| affiliation_hint.map(str::to_owned));
     let first_date = RX.date.find(body).map(|d| d.start()).unwrap_or(body.len());
     let employer_end = affiliation.as_ref().map(|m| m.start()).unwrap_or(first_date).min(first_date);
     let employer = RX.nit_anywhere.replace_all(&body[..employer_end], "");
@@ -390,7 +390,7 @@ fn parse_relation(block: &str, src: SourceRef, affiliation_hint: Option<&str>) -
     let prpps = indicators.iter().any(|i| i == "PRPPS");
     Some(Ok(EmploymentLink {
         sequence, raw_employer: if employer.is_empty() { None } else { Some(employer) },
-        affiliation: Some(affiliation_text), start_date, end_date, reported_last_salary_month,
+        affiliation: affiliation_text, start_date, end_date, reported_last_salary_month,
         inferred_last_salary_end: None, indicators, prpps,
         validation_status: if prpps { ValidationStatus::UnresolvedPrpps } else { ValidationStatus::Unvalidated },
         excluded_from_validated_domain: prpps, source: src,
@@ -588,13 +588,17 @@ fn parse_pages(pages: &[String]) -> Result<ImportResult, ImportError> {
     for mut candidate in consolidated_candidates {
         if covered.contains(&candidate.competence) { consolidated_skipped += 1; continue; }
         let month_start = format!("{}-01", candidate.competence);
-        let month_end = format!("{}-28", candidate.competence);
-        let covering: Vec<u32> = result.links.iter().filter(|link| {
-            link.start_date.as_deref().is_some_and(|start| start <= month_end.as_str())
-                && link.end_date.as_deref().is_some_and(|end| end >= month_start.as_str())
-        }).map(|link| link.sequence).collect();
-        match covering.as_slice() {
-            [only] => { candidate.link_sequence = Some(*only); consolidated_attributed += 1; }
+        let month_end = month_end(&candidate.competence).expect("parsed consolidated competence is valid");
+        // Datas ausentes não demonstram que um vínculo está fora do mês.
+        // Considere-o possível para impedir atribuição falsa a outro vínculo.
+        let possible: Vec<&EmploymentLink> = result.links.iter().filter(|link| {
+            link.start_date.as_deref().is_none_or(|start| start <= month_end.as_str())
+                && link.end_date.as_deref().is_none_or(|end| end >= month_start.as_str())
+        }).collect();
+        match possible.as_slice() {
+            [only] if only.start_date.is_some() && only.end_date.is_some() => {
+                candidate.link_sequence = Some(only.sequence); consolidated_attributed += 1;
+            }
             _ => { consolidated_ambiguous += 1; }
         }
         // O índice de origem é a posição global (1-based) em salary_entries,
@@ -628,6 +632,12 @@ fn parse_pages(pages: &[String]) -> Result<ImportResult, ImportError> {
                 }
             }
         }
+    }
+    let unknown_affiliations = result.links.iter().filter(|link| link.affiliation.is_none()).count();
+    if unknown_affiliations > 0 {
+        result.warnings.push(finding("unknown_affiliation", Severity::Warning,
+            "Relações sem tipo de filiação reconhecido; o vínculo foi preservado, mas a categoria exige conferência.",
+            unknown_affiliations, None));
     }
     result.findings.push(finding("local_extraction", Severity::Info,
         "Input processed in memory locally; no backend, Python process or OCR was used.", pages.len(), None));

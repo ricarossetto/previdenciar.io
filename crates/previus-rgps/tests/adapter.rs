@@ -18,6 +18,10 @@ fn blocker(v:Value,code:&str) {
     assert!(r["data"]["native_result"]["transicoes"]["regras"].is_array());
     assert_eq!(r["legal_validation_performed"],false);
     assert!(r["data"]["native_result"]["segurado"]["nome"].is_null());
+    assert_eq!(r["data"]["source_reconciliation"]["input_wages"],300);
+    assert_eq!(r["data"]["source_reconciliation"]["pre_1994_excluded"],0);
+    assert_eq!(r["data"]["source_reconciliation"]["below_minimum_excluded"],0);
+    assert_eq!(r["data"]["source_reconciliation"]["pbc_wages"],300);
 }
 #[test] fn positive_corrected_fixture_uses_native_tables() {
     let v=serde_json::from_str(include_str!("fixtures/synthetic-corrected.json")).unwrap();
@@ -99,8 +103,9 @@ fn imported_case()->Calculation {
 #[test] fn source_exclusion_needs_explicit_document_and_uses_only_manual_rows() {let mut c=imported_case();let mut p:Value=serde_json::from_str(&c.options.rule_policy).unwrap();p["exclude_imported_source"]=json!(true);p["source_exclusion_evidence"]=json!("synthetic-source-review-v1");c.options.rule_policy=p.to_string();let before=serde_json::to_vec(&c).unwrap();let r=calculate_case(&c).unwrap();assert_eq!(r["status"],"experimental","{r}");assert_eq!(r["data"]["native_result"]["resumo"]["competencias"],300);assert_eq!(before,serde_json::to_vec(&c).unwrap());assert!(c.cnis.as_ref().unwrap().links[0].prpps);assert!(c.cnis.as_ref().unwrap().links[0].end_date.is_none());}
 #[test] fn missing_expected_survival_does_not_manufacture_ibge_number() {let r=evaluate(fixture());assert!(r["warnings"].as_array().unwrap().iter().any(|w|w.as_str().unwrap().contains("IBGE")));}
 #[test] fn correction_reference_cannot_differ_from_dib() {let mut v=fixture();v["opcoes"]["corrigirSalarios"]=json!(true);v["opcoes"]["referenciaCorrecao"]=json!("2024-12");blocker(v,"correction_reference_mismatch");}
-#[test] fn below_minimum_wage_is_excluded_from_pbc_with_warning() {let mut v=fixture();v["competencias"][0]["salario"]=json!("10.00");let r=evaluate(v);assert_eq!(r["status"],"experimental","{r}");let warnings=r["warnings"].as_array().unwrap();assert!(warnings.iter().any(|w|w.as_str().unwrap_or("").contains("abaixo do salário mínimo")),"{r}");assert!(warnings.iter().any(|w|w.as_str().unwrap_or("").contains("1994-07")),"{r}");}
+#[test] fn below_minimum_wage_is_excluded_from_pbc_with_warning() {let mut v=fixture();v["competencias"][0]["salario"]=json!("10.00");let r=evaluate(v);assert_eq!(r["status"],"experimental","{r}");let warnings=r["warnings"].as_array().unwrap();assert!(warnings.iter().any(|w|w.as_str().unwrap_or("").contains("abaixo do salário mínimo")),"{r}");assert!(warnings.iter().any(|w|w.as_str().unwrap_or("").contains("1994-07")),"{r}");assert_eq!(r["data"]["source_reconciliation"]["below_minimum_excluded"],1);assert_eq!(r["data"]["source_reconciliation"]["pbc_wages"],299);}
 #[test] fn ec103_discard_requires_correction() {let mut v=fixture();v["opcoes"]["descartarMenoresMinimo"]=json!(8);blocker(v,"descartar_menores_requires_correction");}
+#[test] fn ec103_discard_never_returns_financial_result_before_time_is_recalculated() {let mut v:Value=serde_json::from_str(include_str!("fixtures/synthetic-corrected.json")).unwrap();v["opcoes"]["descartarMenoresMinimo"]=json!(8);blocker(v,"ec103_discard_unsupported");}
 #[test] fn wage_without_link_blocks() {let mut v=fixture();v["vinculos"][0]["inicio"]=json!("1994-08-01");blocker(v,"wage_outside_confirmed_links");}
 
 #[test] fn native_fator_path_runs_with_corrected_formula() {let mut v=fixture();v["opcoes"]["expectativaSobrevida"]=json!("20.00");let r=evaluate(v);assert_eq!(r["status"],"experimental","{r}");assert!(r["data"]["native_result"]["transicoes"]["regras"].is_array());}

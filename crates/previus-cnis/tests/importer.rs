@@ -4,6 +4,21 @@ fn tiny(rows: &str) -> String { format!("CNIS\nCompetência Remuneração Indica
 fn parsed() -> ImportResult { import_text(SYNTHETIC).unwrap() }
 
 #[test]
+fn unknown_affiliation_keeps_relation_and_salary_assignment() {
+    let text = SYNTHETIC.replace("Empregado ou Agente P", "CONTRIBUINTE EM DOBRO");
+    let r = import_text(&text).unwrap();
+    assert!(r.links.iter().any(|link| link.affiliation.as_deref() == Some("CONTRIBUINTE EM DOBRO")));
+    assert!(r.salary_entries.iter().any(|entry| entry.link_sequence.is_some()));
+}
+
+#[test]
+fn recolhimento_relation_is_not_dropped_when_affiliation_is_not_standard() {
+    let text = SYNTHETIC.replace("Empregado ou Agente P", "RECOLHIMENTO");
+    let r = import_text(&text).unwrap();
+    assert!(r.links.iter().any(|link| link.affiliation.as_deref() == Some("RECOLHIMENTO")));
+}
+
+#[test]
 fn synthetic_grouping_is_integer_and_preserves_duplicate_months() {
     let r = parsed();
     assert_eq!(r.salary_entries.len(), 6);
@@ -239,6 +254,23 @@ fn consolidated_entries_keep_global_source_indices_and_resolve_months() {
             assert_eq!(&entry.competence, competence);
         }
     }
+}
+
+#[test]
+fn consolidated_value_includes_the_full_month_when_resolving_links() {
+    let text = format!("CNIS\nCódigo Emp. Origem do Vínculo\n1 EMPREGADOR FICTICIO Empregado ou Agente Público 29/02/2024 29/02/2024\nCompetência Remuneração\nValores Consolidados por Ano Civil\n{}", consolidated_table(2024, &["", "100,00"]));
+    let result = import_text(&text).unwrap();
+    let entry = result.salary_entries.iter().find(|entry| entry.competence == "2024-02").unwrap();
+    assert_eq!(entry.link_sequence, Some(1));
+}
+
+#[test]
+fn consolidated_value_is_not_attributed_when_an_open_link_could_overlap() {
+    let text = format!("CNIS\nCódigo Emp. Origem do Vínculo\n1 EMPREGADOR FICTICIO Empregado ou Agente Público 01/01/2024 31/12/2024\nCompetência Remuneração\nCódigo Emp. Origem do Vínculo\n2 OUTRO EMPREGADOR FICTICIO Empregado ou Agente Público 01/01/2023\nCompetência Remuneração\nValores Consolidados por Ano Civil\n{}", consolidated_table(2024, &["100,00"]));
+    let result = import_text(&text).unwrap();
+    let entry = result.salary_entries.iter().find(|entry| entry.competence == "2024-01").unwrap();
+    assert_eq!(entry.link_sequence, None);
+    assert!(result.warnings.iter().any(|warning| warning.code == "consolidated_annual_value_unassigned"));
 }
 #[test]
 fn hyphen_wrapped_indicator_rejoins_without_stealing_next_entry() {

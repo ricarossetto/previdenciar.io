@@ -244,13 +244,14 @@ mod tests {
         assert!(!csp.contains("unsafe-eval")); assert!(!csp.contains("https:"));
         assert!(!csp.contains("localhost:1427")); assert!(csp.contains("frame-src blob:")); assert!(csp.contains("object-src 'none'")); assert_eq!(capability["windows"], json!(["main"]));
         assert!(capability.get("remote").is_none());
-        for permission in capability["permissions"].as_array().unwrap() {
-            let permission = permission.as_str().unwrap();
-            assert!(permission.starts_with("allow-")); assert!(!permission.contains(':'));
-        }
         let permissions = capability["permissions"].as_array().unwrap();
+        let plugin_permissions = ["updater:default", "process:allow-restart", "process:allow-exit"];
+        for permission in permissions {
+            let permission = permission.as_str().unwrap();
+            assert!(permission.starts_with("allow-") || plugin_permissions.contains(&permission));
+        }
         assert!(permissions.iter().any(|value| value == "allow-export-reports-batch"));
-        assert_eq!(permissions.len(), 16);
+        assert_eq!(permissions.len(), 19);
     }
     #[test]
     fn direct_rgps_json_rejects_invalid_schema_without_false_result() {

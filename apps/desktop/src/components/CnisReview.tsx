@@ -4,7 +4,7 @@ import {brDate, centavosMoney} from '../model';
 import {linkQuality} from '../assistantReview';
 import {Button, Notice} from './ui';
 
-const VIEWS = ['Dados pessoais', 'Qualidade', 'Períodos', 'Remunerações'] as const;
+const VIEWS = ['Dados pessoais', 'Qualidade', 'Períodos', 'Remunerações', 'Benefícios'] as const;
 const PAGE_SIZE = 20;
 
 /** A preview of source records. Adjustments belong to the review overlay after applying. */
@@ -12,7 +12,7 @@ export function CnisReview({cnis}: {cnis:Cnis}) {
   const id = useId();
   const [view, setView] = useState(0);
   const [page, setPage] = useState(0);
-  const rows = view === 2 ? cnis.links : view === 3 ? cnis.salary_entries : [];
+  const rows = view === 2 ? cnis.links : view === 3 ? cnis.salary_entries : view === 4 ? cnis.benefits : [];
   const pageCount = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount - 1);
   function choose(index:number) { setView(index); setPage(0); }
@@ -22,7 +22,7 @@ export function CnisReview({cnis}: {cnis:Cnis}) {
       key={label} type="button" role="tab" id={`${id}-tab-${index}`} aria-controls={`${id}-panel`}
       aria-selected={view===index} tabIndex={view===index?0:-1} onClick={()=>choose(index)}
       onKeyDown={event=>{let next=index;if(event.key==='ArrowRight')next=(index+1)%VIEWS.length;else if(event.key==='ArrowLeft')next=(index+VIEWS.length-1)%VIEWS.length;else if(event.key==='Home')next=0;else if(event.key==='End')next=VIEWS.length-1;else return;event.preventDefault();choose(next);document.getElementById(`${id}-tab-${next}`)?.focus();}}
-    >{label}{index>0&&<span>{index===3?cnis.salary_entries.length:cnis.links.length}</span>}</button>)}</div>
+    >{label}{index>0&&<span>{index===3?cnis.salary_entries.length:index===4?cnis.benefits.length:cnis.links.length}</span>}</button>)}</div>
     <div id={`${id}-panel`} role="tabpanel" aria-labelledby={`${id}-tab-${view}`} tabIndex={0}>
       {view===0?<dl className="cnis-review__identity">{[
         ['Nome',cnis.identity.full_name],['Nascimento',brDate(cnis.identity.birth_date)],
@@ -43,6 +43,17 @@ export function CnisReview({cnis}: {cnis:Cnis}) {
           </tr>})}</tbody></table></div>
         {!quality.length&&<p className="form-note">Nenhum vínculo foi extraído do documento.</p>}
         <p className="form-note">Período de graça, prorrogações e enquadramento não são calculados nesta versão. A tabela reúne filiação, primeiro e último lançamento, contribuições desconsideradas e pendências para conferência por vínculo. Ausência de lançamento não prova ausência de filiação.</p>
+      </>
+      :view===4?<>
+        <div className="table-wrap"><table className="data-table"><caption>Benefícios e pedidos separados dos vínculos de contribuição</caption>
+          <thead><tr>{['Sequência','Espécie','Situação'].map(label=><th key={label} scope="col">{label}</th>)}</tr></thead>
+          <tbody>{cnis.benefits.slice(currentPage*PAGE_SIZE,(currentPage+1)*PAGE_SIZE).map(benefit=><tr key={benefit.sequence}>
+            <td><strong>Benefício {benefit.sequence}</strong></td>
+            <td>{benefit.species??'Espécie não informada'}</td>
+            <td>{benefit.status||'Situação não informada'}</td>
+          </tr>)}</tbody></table></div>
+        {!cnis.benefits.length&&<p className="form-note">Nenhum benefício ou pedido foi extraído. Isso não prova ausência de benefício.</p>}
+        <p className="form-note">Benefícios não são vínculos empregatícios e não entram na contagem de tempo como se fossem contribuições. A situação exibida é a da origem e exige conferência.</p>
       </>
       :<>
         <div className="table-wrap"><table className="data-table"><caption>{view===2?'Períodos informados no documento':'Remunerações nominais do documento: lançamentos separados, sem conversão presumida'}</caption>

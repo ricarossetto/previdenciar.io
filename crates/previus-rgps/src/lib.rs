@@ -212,6 +212,7 @@ fn calculate_input(r: CalculationInput) -> Result<Value, String> {
     if nonempty(&o.regra_alvo) { issue(&mut b,"rule_target_unsupported","opcoes.regraAlvo","calcular não aplica seleção de regra-alvo; projeção existe somente na API tipada original."); }
     let reference = if o.referencia_correcao.is_some() { month(&o.referencia_correcao,"opcoes.referenciaCorrecao",&mut b) } else { None };
     if let Some(minimo) = o.descartar_menores_minimo {
+        issue(&mut b,"ec103_discard_unsupported","opcoes.descartarMenoresMinimo","Descarte da EC 103 bloqueado: o recálculo do tempo, do coeficiente e dos requisitos após a exclusão ainda não está implementado.");
         if minimo < 1 || minimo > 600 { issue(&mut b,"descartar_menores_minimo_invalid","opcoes.descartarMenoresMinimo","Mínimo de competências deve ficar entre 1 e 600."); }
         if o.corrigir_salarios != Some(true) { issue(&mut b,"descartar_menores_requires_correction","opcoes.descartarMenoresMinimo","O descarte da EC 103 é definido sobre o PBC corrigido; ative corrigirSalarios."); }
         if o.descarte == Some(true) { issue(&mut b,"descartar_menores_conflict","opcoes.descartarMenoresMinimo","Use o descarte dos menores (EC 103) ou o descarte fixo de 20%, não ambos."); }
@@ -247,6 +248,13 @@ fn calculate_input(r: CalculationInput) -> Result<Value, String> {
     if expectation.is_some() { warnings.push("Expectativa de sobrevida declarada: o fator usa a fórmula da Lei 9.876/1999 (alíquotas 0,31/0,30, sem piso artificial). Conferir a fonte antes de uso judicial.".into()); }
     if expectation.is_none() { warnings.push("Sem expectativa declarada: o pedágio de 50% usa a tábua de expectativa embutida (vigência mais recente até a DER); conferir com a publicação IBGE.".into()); }
     if !b.is_empty() { return Ok(blocked(b,warnings)); }
+    let source_reconciliation = json!({
+        "input_wages": r.competencias.len(),
+        "pre_1994_excluded": pre94,
+        "below_minimum_excluded": abaixo_do_minimo.len(),
+        "pbc_wages": wages.len(),
+        "confirmed_links": links.len()
+    });
     let dib = dib.expect("validated DIB");
     let native = RgpsEntrada {
         nome:None, especie:r.segurado.especie.clone(), sexo:sex, data_nascimento:birth, data_referencia:Some(dib), vinculos:links, competencias:wages,
@@ -258,6 +266,6 @@ fn calculate_input(r: CalculationInput) -> Result<Value, String> {
         .map_err(|e| format!("native_engine_error: {}",e.0))?;
     Ok(json!({"status":"experimental", "rule_review_status":"unvalidated", "policy_version":POLICY_VERSION,
         "legal_validation_performed":false, "missing":[], "blockers":[],
-        "data":{"native_result":result,"pre_1994_wages_excluded":pre94},
+        "data":{"native_result":result,"pre_1994_wages_excluded":pre94,"source_reconciliation":source_reconciliation},
         "warnings":warnings,"known_model_risks":model_risks(),"capabilities":capabilities()}))
 }
