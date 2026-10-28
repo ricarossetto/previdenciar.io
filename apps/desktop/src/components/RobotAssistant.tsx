@@ -1,7 +1,8 @@
 import{CnisReview}from'./CnisReview';import{AssistantConsiderationPanel}from'./AssistantConsideration';import'../styles/assistant.css';
 import{useState,useRef,useEffect}from'react';
 import type{AssistantInterview,Calculation,Cnis,Workspace,Json}from'../model';
-import{invalidateRmiAssumptions,interviewOf,withInterviewAnswer,robotParameterIssues,brDate,isoDate,hasFinancialResult,cnisSourceAudit}from'../model';
+import{invalidateRmiAssumptions,interviewOf,withInterviewAnswer,robotParameterIssues,brDate,isoDate,hasFinancialResult,cnisSourceAudit,PARAMETER_KEYS,missingParameterKeys,parameterComplete}from'../model';
+import type{ParameterKey}from'../model';
 import{assistantConsideration}from'../assistantReview';
 import type{ConsiderationFix}from'../assistantReview';
 import{api,errorMessage}from'../api';
@@ -27,6 +28,27 @@ const TABS:{id:ConferenceTab;label:string;detail:string;step:number}[]=[
   {id:'salaries',label:'Conferir remunerações',detail:'Competências, valores e revisão',step:4},
   {id:'policy',label:'Conferir opções da RMI',detail:'Correção, descarte e limites',step:5},
 ];
+const PARAMETER_QUESTION:Record<ParameterKey,string>={
+  name:'Qual é o nome completo do segurado?',
+  birth:'Qual é a data de nascimento do segurado?',
+  dib:'Qual é a DIB desta simulação?',
+  sex:'Qual é o sexo cadastral do segurado?',
+  disability:'Há deficiência na DIB?',
+};
+const PARAMETER_DETAIL:Record<ParameterKey,string>={
+  name:'O nome identifica a hipótese, mas não confirma identidade nem direito.',
+  birth:'O CNIS pode preencher a data, mas ela só entra no cálculo depois da sua confirmação.',
+  dib:'A DIB fixa a data de referência do cálculo e das regras comparadas.',
+  sex:'O sexo não é inferido pelo nome nem pelo CNIS. Escolha o dado cadastral confirmado.',
+  disability:'A ausência de deficiência também precisa ser declarada; o CNIS não a comprova.',
+};
+const PARAMETER_LABEL:Record<ParameterKey,string>={
+  name:'Nome do segurado',
+  birth:'Nascimento do segurado',
+  dib:'DIB / data da simulação',
+  sex:'Sexo cadastral do segurado',
+  disability:'Deficiência na DIB',
+};
 
 export function assistantStepState(c:Calculation,screen:Screen):'confirmed'|'visited'|'pending'{
   const a=interviewOf(c);
@@ -73,6 +95,8 @@ function Choice({title,text,onClick,selected=false}:{title:string;text:string;on
 export function RobotAssistant({draft,setDraft,workspace,onSave,onNotify,onManual}:{draft:Calculation;setDraft:(c:Calculation)=>void;workspace:Workspace;onSave:(c:Calculation,options?:{quiet?:boolean})=>Promise<void>;onNotify:(s:string,error?:boolean)=>void;onManual:()=>void}){
   const[screen,setScreen]=useState<Screen>(()=>initialScreen(draft));
   const[tab,setTab]=useState<ConferenceTab>('periods');
+  const[parameterKey,setParameterKey]=useState<ParameterKey|null>(null);
+  useEffect(()=>{if(screen!=='parameters')return;setParameterKey(current=>{const missing=missingParameterKeys(draft);return current&&missing.includes(current)?current:missing[0]??null})},[screen]);
   const[busy,setBusy]=useState(false),[pending,setPending]=useState<Cnis|null>(null),[path,setPath]=useState(''),[error,setError]=useState('');
   const generation=useRef(0),latestDraft=useRef(draft);latestDraft.current=draft;
   const autosaveSnapshot=useRef(draft.id>0?JSON.stringify(draft):''),onSaveRef=useRef(onSave);onSaveRef.current=onSave;
@@ -90,6 +114,7 @@ export function RobotAssistant({draft,setDraft,workspace,onSave,onNotify,onManua
     return()=>window.clearTimeout(timer);
   },[draft,busy]);
   const a=interviewOf(draft),issues=robotParameterIssues(draft),consideration=assistantConsideration(draft,a);
+  const missingParameters=missingParameterKeys(draft),activeParameter=parameterKey??missingParameters[0]??null;
   const current=SCREENS.indexOf(screen);
   const confirmedSteps=SCREENS.filter(item=>assistantStepState(draft,item)==='confirmed').length;
   const conferenceVisited=(['periods','salaries','policy']as ConferenceTab[]).every(item=>a.completed_steps.includes(item));
@@ -131,6 +156,10 @@ export function RobotAssistant({draft,setDraft,workspace,onSave,onNotify,onManua
     }catch(e){if(token===generation.current)setError(errorMessage(e))}
     finally{if(token===generation.current)setBusy(false)}
   }
+  function finishParameters(){setParameterKey(null);next('conference',['parameters','periods'])}
+  function advanceParameter(){if(!activeParameter||!parameterComplete(draft,activeParameter))return;const next=missingParameters.find(key=>key!==activeParameter);if(next){setParameterKey(next);return}finishParameters()}
+  function backParameter(){const index=activeParameter?PARAMETER_KEYS.indexOf(activeParameter):-1;if(index>0){setParameterKey(PARAMETER_KEYS[index-1]);return}setScreen('objective')}
+  function editParameter(key:ParameterKey){setParameterKey(key)}
   function fix(where:ConsiderationFix){
     if(where==='parameters'){setScreen('parameters');return}
     if(where==='interview'){setScreen(a.current_benefit_received===null?'situation':'objective');return}
@@ -157,7 +186,7 @@ export function RobotAssistant({draft,setDraft,workspace,onSave,onNotify,onManua
       <button type="button" disabled={busy||!conferenceVisited} aria-current={screen==='review'?'page':undefined} onClick={()=>{setScreen('review');setError('')}}><strong>Abrir revisão</strong><small>{consideration.issues.filter(issue=>issue.decisive).length} pendências decisivas</small></button>
       <button type="button" disabled={busy||!reachable('result')} aria-current={screen==='result'?'page':undefined} onClick={()=>{setScreen('result');setError('')}}><strong>Abrir resultado</strong><small>{hasFinancialResult(draft)?'Resultado experimental':draft.result?'Execução bloqueada':'Ainda não executado'}</small></button>
     </nav>}
-    <section className="robot-question"><RobotFace/><div><h3>{question[screen]}</h3>{screen==='intro'?<p><strong>Uma etapa de cada vez.</strong> Como numa entrevista curta, vou perguntar apenas o que muda o cálculo e depois abrir a conferência dos dados, sem inventar informação ou direito a benefício.</p>:<p>{draft.name||'Novo cálculo RGPS'} · {LABEL[screen]}</p>}</div></section>
+    <section className="robot-question"><RobotFace/><div><h3>{screen==='parameters'&&activeParameter?PARAMETER_QUESTION[activeParameter]:screen==='parameters'?'Confira os dados já confirmados.':question[screen]}</h3>{screen==='intro'?<p><strong>Uma etapa de cada vez.</strong> Como numa entrevista curta, vou perguntar apenas o que muda o cálculo e depois abrir a conferência dos dados, sem inventar informação ou direito a benefício.</p>:<p>{draft.name||'Novo cálculo RGPS'} · {LABEL[screen]}</p>}</div></section>
     {error&&<Notice tone="error">{error}</Notice>}
     {unsupported&&<Notice><div className="assistant-scope-notice"><p><strong>Confira o objetivo antes de continuar.</strong> {unsupported} Você pode salvar a entrevista e conferir os documentos.</p><Button onClick={()=>setScreen(a.current_benefit_received===true?'situation':'objective')}>Rever resposta</Button></div></Notice>}
 
@@ -189,7 +218,19 @@ export function RobotAssistant({draft,setDraft,workspace,onSave,onNotify,onManua
       {a.process_kind&&<Panel title="Qual cálculo deseja organizar?" subtitle="Somente o novo benefício tem execução automática nesta versão."><div className="robot-choices" data-ui-stack>{['Calcular um novo benefício','Calcular somente o tempo de contribuição','Restabelecer um benefício'].map(goal=><Choice key={goal} title={goal} text={goal==='Calcular um novo benefício'?'Conferir dados, períodos, salários, política e memória.':'Sem cálculo automático nesta versão. Você pode registrar o objetivo e conferir os documentos.'} selected={a.goal===goal} onClick={()=>answer({goal},['goal'],'parameters')}/>)}</div></Panel>}
     </>}
 
-    {screen==='parameters'&&<Panel title="Dados iniciais para o benefício" subtitle="Somente os campos que alteram o cálculo."><div className="form-grid" data-ui-stack><Field label="Nome do segurado" required value={draft.identity.full_name??''} onChange={s=>update({identity:{...draft.identity,full_name:s}})}/><Field label="Nascimento do segurado" required value={draft.identity.birth_date?brDate(draft.identity.birth_date):''} onChange={s=>update({identity:{...draft.identity,birth_date:isoDate(s)??s}})} placeholder="DD/MM/AAAA"/><Field label="DIB / data da simulação" required value={draft.dib} onChange={dib=>update({dib})} placeholder="DD/MM/AAAA"/><Select label="Sexo cadastral do segurado" value={draft.sex??''} onChange={sex=>update({sex:sex||null})} items={['','Feminino','Masculino','A confirmar']}/><Select label="Deficiência na DIB" value={draft.disability??''} onChange={disability=>update({disability:disability||null})} items={['','Sem deficiência declarada','Leve','Moderada','Grave','A apurar']}/><div className="field"><span>Objetivo informado</span><Badge>{a.goal??'Não informado'}</Badge></div></div><p className="form-note">O CNIS não fornece sexo ou confirmação de deficiência. Não preencher pela aparência do nome. Cenários de teste devem ser registrados como hipóteses, não dados pessoais confirmados.</p>{issues.length>0&&<Notice>Falta confirmar: {issues.join('; ')}.</Notice>}<div className="form-actions" data-ui-actions><Button onClick={()=>setScreen('objective')}>Voltar ao objetivo</Button><Button primary disabled={issues.length>0} onClick={()=>next('conference',['parameters','periods'])}>Prosseguir para a conferência<Icon name="arrow" size={16}/></Button></div></Panel>}
+    {screen==='parameters'&&<Panel title={activeParameter?'Uma confirmação por tela':'Dados confirmados'} subtitle={activeParameter?'Responda apenas o dado abaixo; o próximo aparece depois.':'Confira o que já foi confirmado. Nenhum campo é inferido.'}>
+  {activeParameter?<div className="form-grid" data-ui-stack>
+    {activeParameter==='name'&&<Field label="Nome do segurado" required value={draft.identity.full_name??''} onChange={s=>update({identity:{...draft.identity,full_name:s}})}/>}
+    {activeParameter==='birth'&&<Field label="Nascimento do segurado" required value={draft.identity.birth_date?brDate(draft.identity.birth_date):''} onChange={s=>update({identity:{...draft.identity,birth_date:isoDate(s)??s}})} placeholder="DD/MM/AAAA"/>}
+    {activeParameter==='dib'&&<Field label="DIB / data da simulação" required value={draft.dib} onChange={dib=>update({dib})} placeholder="DD/MM/AAAA"/>}
+    {activeParameter==='sex'&&<Select label="Sexo cadastral do segurado" value={draft.sex??''} onChange={sex=>update({sex:sex||null})} items={['','Feminino','Masculino','A confirmar']}/>}
+    {activeParameter==='disability'&&<Select label="Deficiência na DIB" value={draft.disability??''} onChange={disability=>update({disability:disability||null})} items={['','Sem deficiência declarada','Leve','Moderada','Grave','A apurar']}/>}
+  </div>:<div className="robot-answer-summary">
+    {PARAMETER_KEYS.map(key=><div key={key}><span>{PARAMETER_LABEL[key]}</span><strong>{key==='name'?draft.identity.full_name||'Não informado':key==='birth'?brDate(draft.identity.birth_date):key==='dib'?draft.dib:key==='sex'?draft.sex||'Não informado':draft.disability||'Não informada'}</strong><Button onClick={()=>editParameter(key)}>Editar</Button></div>)}
+  </div>}
+  {activeParameter?<p className="form-note">{PARAMETER_DETAIL[activeParameter]}</p>:<p className="form-note">Você pode editar um dado individualmente; a conferência completa continua separada.</p>}
+  <div className="form-actions" data-ui-actions><Button onClick={backParameter}>{activeParameter?'Dado anterior':'Voltar ao objetivo'}</Button>{activeParameter?<Button primary disabled={!parameterComplete(draft,activeParameter)} onClick={advanceParameter}>{missingParameters.filter(key=>key!==activeParameter).length>0?'Confirmar e avançar':'Ir para a conferência'}<Icon name="arrow" size={16}/></Button>:<Button primary onClick={finishParameters}>Ir para a conferência<Icon name="arrow" size={16}/></Button>}</div>
+</Panel>}
 
   {screen==='conference'&&<>
   <PrepareFromCnis draft={draft} onResult={(prepared)=>{setDraft(prepared);setScreen('result')}} onNotify={onNotify}/>
