@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/previus-core", "crates/previus-cnis", "crates/previus-workspace", "crates/rgps-core", "crates/previus-rgps", "apps/desktop/src-tauri", "crates/previus-reports"]
+members = ["crates/previus-core", "crates/previus-cnis", "crates/previus-workspace", "crates/rgps-core", "crates/previus-rgps", "apps/desktop/src-tauri", "crates/previus-reports", "crates/previus-wasm"]
 resolver = "2"
 
 [profile.release]

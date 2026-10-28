@@ -4378,6 +4378,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "previus-wasm"
+version = "0.1.0"
+dependencies = [
+ "rgps-core",
+ "rust_decimal",
+ "serde_json",
+]
+
+[[package]]
 name = "previus-workspace"
 version = "0.1.0"
 dependencies = [
