@@ -90,7 +90,7 @@
   --lg-shadow-ink: oklch(8% 0.02623 263.658 / .28);
   --lg-shadow: 0 12px 30px -20px var(--lg-shadow-ink), inset 0 1px 0 var(--lg-highlight);
   --lg-depth: 0 24px 60px -20px var(--lg-shadow-ink), inset 0 1px 0 var(--lg-highlight);
-  --lg-muted: color-mix(in oklch, var(--fg) 72%, var(--surface));
+  --lg-muted: var(--v2-color-muted-foreground);
   --muted: var(--lg-muted);
   --gold: var(--v2-color-gold-text);
   --lg-on-primary: var(--v2-color-on-primary);
@@ -106,7 +106,7 @@
 :root[data-theme="light"] {
   --lg-highlight: color-mix(in oklch, var(--surface) 85%, transparent);
   --lg-shadow-ink: color-mix(in oklch, var(--fg) 12%, transparent);
-  --lg-muted: color-mix(in oklch, var(--fg) 75%, var(--surface));
+  --lg-muted: var(--v2-color-muted-foreground);
   --lg-border-glass: color-mix(in oklch, var(--border) 90%, var(--fg) 10%);
   --lg-primary-hover: color-mix(in oklch, var(--accent) 85%, var(--fg));
 }
@@ -281,7 +281,7 @@ input, textarea { caret-color: var(--accent); }
 .previus-app .robot-heading h2 { font-family: var(--font-editorial); font-size: clamp(24px, 2vw, 24px); }
 .previus-app .robot-heading p { font-size: 14px; color: var(--muted); }
 .previus-app .robot-question { padding: 24px; gap: 20px; border-radius: 20px; background: var(--surface); }
-.previus-app .robot-question h3 { font-family: var(--font-editorial); font-size: 24px; text-wrap: balance; }
+.previus-app .robot-question h2 { font-family: var(--font-editorial); font-size: 24px; text-wrap: balance; }
 .previus-app .robot-question p { color: var(--muted); font-size: 14px; text-wrap: pretty; }
 .previus-app .robot-choice, .previus-app .new-calculation-choice { padding: 22px; border-radius: 18px; min-height: 44px; color: var(--fg); }
 .previus-app .robot-choice small, .previus-app .new-calculation-choice p { color: var(--muted); font-size: 14px; }
@@ -405,7 +405,7 @@ input, textarea { caret-color: var(--accent); }
   .previus-app .new-calculation-choice h3 { font-size: 24px; }
   .previus-app .robot-heading { flex-direction: column; }
   .previus-app .robot-question { padding: 18px; flex-direction: column; gap: 14px; }
-  .previus-app .robot-question h3 { font-size: 20px; }
+  .previus-app .robot-question h2 { font-size: 20px; }
   .previus-app .robot-choice { gap: 14px; padding: 18px; }
   .previus-app .robot-path-input { flex-direction: column; align-items: stretch; }
   .previus-app .robot-import-toolbar { padding: 16px; flex-wrap: wrap; }
@@ -443,3 +443,63 @@ input, textarea { caret-color: var(--accent); }
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
   .previus-app .btn:active, .previus-app .dialog { transform: none !important; }
 }
+
+:root { --lg-border-control: #5b6b82; }
+:root[data-theme="light"] { --lg-border-control: #798a9e; }
+.previus-app .searchbox { border: 1px solid var(--lg-border-control); }
+.previus-app .input, .previus-app .field input, .previus-app .field select,
+.previus-app .report-controls select, .previus-app .inline-input, .previus-app .text-area { border-color: var(--lg-border-control); }
+.previus-app .status-tag.good { color: var(--fg); background: var(--success-soft); border-color: color-mix(in srgb, var(--success) 42%, transparent); }
+.previus-app .notice.ok { color: var(--fg); border-color: color-mix(in srgb, var(--success) 42%, transparent); background: var(--success-soft); }
+.previus-app :is(.form-note,.report-help,.report-footer-note,.report-preview-fallback) { max-width: 74ch; }
+.previus-app .data-table caption { text-align: left; font-size: var(--fs-xs); color: var(--muted); padding: 0 0 10px; }
+.previus-app .assistant-stepbar progress { appearance: none; width: 160px; height: 6px; border: 1px solid var(--border); border-radius: 999px; background: var(--inset); overflow: hidden; }
+.previus-app .assistant-stepbar progress::-webkit-progress-bar { background: var(--inset); }
+.previus-app .assistant-stepbar progress::-webkit-progress-value { background: var(--accent); border-radius: 999px; }
+.previus-app .assistant-stepbar progress::-moz-progress-bar { background: var(--accent); border-radius: 999px; }
+.previus-app .robot-question h2:focus { outline: none; }
+@media (min-width: 601px) { .previus-app .toolbar .input { width: auto; max-width: 240px; } }
+@media (min-width: 1024px) { .previus-app .toast { top: 92px; bottom: auto; left: 50%; right: auto; transform: translateX(-50%); max-width: min(420px, calc(100vw - 48px)); } }
+@media (min-width: 601px) and (max-width: 900px) { .previus-app .page-head { flex-direction: column; align-items: flex-start; gap: 16px; } }
+@media (max-height: 940px) {
+  .previus-app .side-nav { min-height: 0; padding-bottom: 8px; scrollbar-gutter: stable; scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+  .previus-app .side-foot { padding-top: 10px; }
+}
+@media (max-width: 600px) {
+  .previus-app .robot-workspace { display: flex; flex-direction: column; }
+  .previus-app .assistant-case-context { order: 3; }
+  .previus-app .robot-footer { order: 4; }
+  .previus-app .robot-question h2 { font-size: 20px; }
+  .previus-app .assistant-stepbar progress { width: 120px; }
+}
+
+:root { --lg-border-button: #66788f; }
+:root[data-theme="light"] { --lg-border-button: #798a9e; }
+.previus-app .btn:not(.btn-primary) { border-color: var(--lg-border-button); }
+.previus-app .btn:disabled { opacity: 1; color: var(--muted); background: var(--surface-2); border-color: var(--lg-border-button); box-shadow: none; transform: none; }
+.previus-app .btn-primary:disabled { color: var(--muted); background: var(--surface-2); border-color: var(--lg-border-button); }
+.previus-app .robot-choice.selected small, .previus-app .report-template.is-selected small { color: var(--fg-2); }
+.previus-app .report-empty-document { background: transparent; border: 0; box-shadow: none; }
+.previus-app .report-paper-workspace:has(.report-empty-document) { min-height: 420px; padding: 12px; }
+.previus-app .data-table td { font-size: var(--fs-sm); line-height: 1.5; }
+.previus-app :is(.form-note,.report-help,.report-footer-note,.report-preview-fallback,.notice) { font-size: var(--fs-sm); }
+.previus-app .amicro-overview h2 { font-size: var(--fs-title) !important; }
+.previus-app .cockpit-stack { display: flex; flex-direction: column; gap: 24px; }
+.previus-app .cockpit-stack > .card { flex: 1; display: flex; flex-direction: column; }
+.previus-app .cockpit-stack > .card > .card__body { flex: 1; display: flex; flex-direction: column; }
+.previus-app .cockpit-stack .card__body > .btn { margin-top: auto; align-self: flex-start; }
+.previus-app .panel--answer .card__title { font-size: var(--fs-sm) !important; font-weight: 500; color: var(--fg-2); }
+.previus-app .panel--answer .card__head { padding-bottom: 12px; }
+.previus-app .new-calculation-choice:hover { background: var(--surface); border-color: var(--border); }
+.previus-app .new-calculation-choice.recommended:hover { background: var(--accent-soft); border-color: var(--accent-line); }
+.previus-app :is(.assistant-case-context strong,.assistant-scope-notice p,.cnis-review__tabs button,.conference-tabs button) { font-size: var(--fs-sm); }
+.previus-app .field > span { font-size: var(--fs-xs); }
+.previus-app input[type="checkbox"] { appearance: none; width: 16px; height: 16px; border: 1px solid var(--lg-border-control); border-radius: 4px; background: var(--inset); display: inline-grid; place-content: center; padding: 0; min-height: 0; }
+.previus-app input[type="checkbox"]::before { content: ""; width: 9px; height: 9px; transform: scale(0); transition: transform 120ms; clip-path: polygon(14% 44%,0 65%,50% 100%,100% 16%,80% 0%,43% 62%); background: var(--lg-on-primary); }
+.previus-app input[type="checkbox"]:checked { background: var(--accent); border-color: var(--accent); }
+.previus-app input[type="checkbox"]:checked::before { transform: scale(1); }
+.previus-app input[type="checkbox"]:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+html[data-theme-switching] * { transition: none !important; animation: none !important; }
+@media (max-width: 600px) { .previus-app .page-head p { font-size: var(--fs-sm); } }
+
+.previus-app .toast-inline { position: static; inset: auto; transform: none; width: auto; max-width: 760px; margin: 0 0 18px; border-left: 3px solid var(--success); box-shadow: none; justify-content: flex-start; } .previus-app .toast-inline .iconbtn { margin-left: auto; }

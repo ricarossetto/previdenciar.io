@@ -45,6 +45,8 @@ export function PrepareFromCnis({ draft, onResult, onNotify }: {
     }
   }
 
+  if (!draft.cnis) return null;
+
   return (
     <div className="pcd-section">
       <h3>Preparar a partir do CNIS</h3>

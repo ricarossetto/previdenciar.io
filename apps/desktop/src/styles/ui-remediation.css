@@ -6,7 +6,7 @@ html { background-color:var(--bg); }
 .previus-app .page-head h1 { font-size:32px; }
 .previus-app h2 { font-size:20px !important; }
 .previus-app .assistant-report-center>h2 { font-size:24px !important; }
-.previus-app h3 { font-size:20px !important; }
+.previus-app h3 { font-size:18px !important; }
 .previus-app .field>span { font-size:12px; }
 .previus-app .main-number { font-size:40px; }
 .previus-app :is(.mini-stat strong,.main-number) { font-variant-numeric:tabular-nums; }

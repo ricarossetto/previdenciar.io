@@ -31,21 +31,21 @@ const TABS:{id:ConferenceTab;label:string;detail:string;step:number}[]=[
 const PARAMETER_QUESTION:Record<ParameterKey,string>={
   name:'Qual é o nome completo do segurado?',
   birth:'Qual é a data de nascimento do segurado?',
-  dib:'Qual é a DIB desta simulação?',
+  dib:'Qual é a DIB (data de início do benefício)?',
   sex:'Qual é o sexo cadastral do segurado?',
   disability:'Há deficiência na DIB?',
 };
 const PARAMETER_DETAIL:Record<ParameterKey,string>={
   name:'O nome identifica a hipótese, mas não confirma identidade nem direito.',
   birth:'O CNIS pode preencher a data, mas ela só entra no cálculo depois da sua confirmação.',
-  dib:'A DIB fixa a data de referência do cálculo e das regras comparadas.',
-  sex:'O sexo não é inferido pelo nome nem pelo CNIS. Escolha o dado cadastral confirmado.',
-  disability:'A ausência de deficiência também precisa ser declarada; o CNIS não a comprova.',
+  dib:'Data hipotética de início do benefício; não é a data em que a simulação é feita.',
+  sex:'O sexo não é inferido pelo nome nem pelo CNIS. Escolha o dado cadastral confirmado; se ainda não souber, salve o rascunho.',
+  disability:'A ausência de deficiência também precisa ser declarada; o CNIS não a comprova. Se ainda não souber, salve o rascunho.',
 };
 const PARAMETER_LABEL:Record<ParameterKey,string>={
   name:'Nome do segurado',
   birth:'Nascimento do segurado',
-  dib:'DIB / data da simulação',
+  dib:'DIB (data de início do benefício)',
   sex:'Sexo cadastral do segurado',
   disability:'Deficiência na DIB',
 };
@@ -90,12 +90,13 @@ function choiceLabel(process:string){
 }
 
 export function RobotFace({large=false}:{large?:boolean}){return <span className={'robot-face '+(large?'large':'')} aria-hidden="true"><svg viewBox="0 0 64 64" fill="none"><path d="M32 7v7" stroke="currentColor" strokeWidth="3"/><circle cx="32" cy="5" r="3" fill="currentColor"/><rect x="12" y="15" width="40" height="34" rx="12" stroke="currentColor" strokeWidth="2.5"/><rect x="6" y="25" width="6" height="14" rx="3" fill="currentColor"/><rect x="52" y="25" width="6" height="14" rx="3" fill="currentColor"/><circle cx="25" cy="29" r="3.5" fill="currentColor"/><circle cx="39" cy="29" r="3.5" fill="currentColor"/><path d="M24 40c5 4 11 4 16 0M22 49v7M42 49v7" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/></svg></span>}
-function Choice({title,text,onClick,selected=false}:{title:string;text:string;onClick:()=>void;selected?:boolean}){return <button type="button" className={'robot-choice '+(selected?'selected':'')} onClick={onClick}><span><strong>{title}</strong><small>{text}</small></span><Icon name="arrow" size={18}/></button>}
+function Choice({title,text,onClick,selected=false}:{title:string;text:string;onClick:()=>void;selected?:boolean}){return <button type="button" aria-pressed={selected} className={'robot-choice '+(selected?'selected':'')} onClick={onClick}><span><strong>{title}</strong><small>{text}</small></span><Icon name={selected?'check':'arrow'} size={18}/></button>}
 
 export function RobotAssistant({draft,setDraft,workspace,onSave,onNotify,onManual}:{draft:Calculation;setDraft:(c:Calculation)=>void;workspace:Workspace;onSave:(c:Calculation,options?:{quiet?:boolean})=>Promise<void>;onNotify:(s:string,error?:boolean)=>void;onManual:()=>void}){
   const[screen,setScreen]=useState<Screen>(()=>initialScreen(draft));
   const[tab,setTab]=useState<ConferenceTab>('periods');
   const[parameterKey,setParameterKey]=useState<ParameterKey|null>(null);
+  const[benefitEditing,setBenefitEditing]=useState(false);
   useEffect(()=>{if(screen!=='parameters')return;setParameterKey(current=>{const missing=missingParameterKeys(draft);return current&&missing.includes(current)?current:missing[0]??null})},[screen]);
   const[busy,setBusy]=useState(false),[pending,setPending]=useState<Cnis|null>(null),[path,setPath]=useState(''),[error,setError]=useState('');
   const generation=useRef(0),latestDraft=useRef(draft);latestDraft.current=draft;
@@ -115,7 +116,15 @@ export function RobotAssistant({draft,setDraft,workspace,onSave,onNotify,onManua
   },[draft,busy]);
   const a=interviewOf(draft),issues=robotParameterIssues(draft),consideration=assistantConsideration(draft,a);
   const missingParameters=missingParameterKeys(draft),activeParameter=parameterKey??missingParameters[0]??null;
-  const current=SCREENS.indexOf(screen);
+  const firstRender=useRef(true),questionRef=useRef<HTMLHeadingElement>(null),parameterRef=useRef<HTMLDivElement>(null);
+  useEffect(()=>{
+    if(firstRender.current){firstRender.current=false;return}
+    document.getElementById('main-content')?.scrollTo?.({top:0});
+    const field=parameterRef.current?.querySelector<HTMLElement>('input,select');
+    if(screen==='parameters'&&activeParameter&&field){field.focus({preventScroll:true});return}
+    questionRef.current?.focus({preventScroll:true});
+  },[screen,activeParameter]);
+  const current=SCREENS.indexOf(screen),showResultButton=screen!=='result';
   const confirmedSteps=SCREENS.filter(item=>assistantStepState(draft,item)==='confirmed').length;
   const conferenceVisited=(['periods','salaries','policy']as ConferenceTab[]).every(item=>a.completed_steps.includes(item));
   useEffect(()=>{
@@ -151,8 +160,7 @@ export function RobotAssistant({draft,setDraft,workspace,onSave,onNotify,onManua
       if(latestDraft.current!==snapshot){setError('Hipótese alterada durante a execução; resultado antigo descartado. Revise e execute novamente.');return}
       const c={...draft,result,status:(result as Record<string,Json>)?.status==='blocked'?'Execução bloqueada; revisar dados':'Simulação técnica calculada',assistant:{...a,completed_steps:[...new Set([...a.completed_steps,'result'])]}};
       setDraft(c);
-      if((result as Record<string,Json>)?.status==='blocked')onNotify('O motor identificou pendências. Nenhum valor fictício foi gerado.',true);
-      else onNotify('Cálculo executado. Confira resultado, memória e avisos.');
+      if((result as Record<string,Json>)?.status!=='blocked')onNotify('Cálculo executado. Confira resultado, memória e avisos.');
     }catch(e){if(token===generation.current)setError(errorMessage(e))}
     finally{if(token===generation.current)setBusy(false)}
   }
@@ -179,25 +187,25 @@ export function RobotAssistant({draft,setDraft,workspace,onSave,onNotify,onManua
   const unsupportedProcess=a.process_kind&&!['Simulação do benefício','Processo administrativo'].includes(a.process_kind)?'A finalidade "'+a.process_kind+'" não tem motor próprio neste adaptador. A conferência e os relatórios continuam disponíveis, mas a execução de RMI fica bloqueada.':'';
   const unsupported=a.current_benefit_received===true?'O motor de novo benefício não executa revisão de benefício recebido.':a.goal&&a.goal!=='Calcular um novo benefício'?'Este objetivo pode ser registrado, mas ainda não tem cálculo automático neste assistente.':unsupportedProcess;
   return <div className="robot-workspace">
-    {screen!=='intro'&&<><div className="assistant-stepbar"><div><strong>Etapa {current+1} de {SCREENS.length} · {LABEL[screen]}</strong><p>{draft.name||'Novo cálculo RGPS'}</p><progress aria-label="Progresso da entrevista" value={confirmedSteps} max={SCREENS.length}/>{autosave!=='idle'&&<small className="secondary-line" role="status">{autosave==='saving'?'Salvando rascunho...':autosave==='saved'?'Rascunho salvo automaticamente':'Rascunho não salvo'}</small>}</div><Badge tone={hasFinancialResult(draft)?'good':'review'}>{draft.result?(hasFinancialResult(draft)?'Resultado disponível':'Pendências do motor'):consideration.ready?'Dados revisados':'Entrevista em andamento'}</Badge></div><details className="assistant-steps"><summary>Ver etapas e revisar respostas</summary><div className="robot-progress" role="group" aria-label="Etapas do assistente">{SCREENS.map((item,index)=><button key={item} type="button" disabled={busy||(index>current&&!reachable(item))} aria-current={screen===item?'step':undefined} className={screen===item?'active':assistantStepState(draft,item)==='confirmed'?'done':''} data-step-state={assistantStepState(draft,item)} onClick={()=>{setScreen(item);setError('')}}>{assistantStepState(draft,item)==='confirmed'?<Icon name="check" size={13}/>:<span>{index+1}</span>}{LABEL[item]}<small>{assistantStepState(draft,item)==='confirmed'?'Confirmada':assistantStepState(draft,item)==='visited'?'Conferência pendente':'Pendente'}</small></button>)}</div></details></>}
-    {screen!=='intro'&&<section className="assistant-case-context" aria-label="Resumo do cenário"><div><span>Segurado</span><strong>{draft.identity.full_name||'Identificação pendente'}</strong></div><div><span>Nascimento</span><strong>{draft.identity.birth_date?brDate(draft.identity.birth_date):'Não informado'}</strong></div><div><span>DIB / simulação</span><strong>{draft.dib?brDate(draft.dib):'Não informada'}</strong></div><div><span>Objetivo</span><strong>{a.goal||'A definir'}</strong></div><Button disabled={busy||!reachable('parameters')} onClick={()=>setScreen('parameters')}>Editar dados do segurado</Button></section>}
+    {screen!=='intro'&&<><div className="assistant-stepbar"><div><strong>Etapa {current+1} de {SCREENS.length} · {LABEL[screen]}</strong><p>{draft.name||'Novo cálculo RGPS'}</p><progress aria-label="Progresso da entrevista" value={confirmedSteps} max={SCREENS.length}/>{autosave!=='idle'&&<small className="secondary-line" role="status">{autosave==='saving'?'Salvando rascunho...':autosave==='saved'?'Rascunho salvo automaticamente':'Rascunho não salvo'}</small>}</div><Badge tone={hasFinancialResult(draft)?'good':(draft.result as {status?:string}|null)?.status==='blocked'?'error':consideration.ready?'good':'neutral'}>{draft.result?(hasFinancialResult(draft)?'Resultado disponível':'Pendências do motor'):consideration.ready?'Dados revisados':'Entrevista em andamento'}</Badge></div><details className="assistant-steps"><summary>Ver etapas e revisar respostas</summary><div className="robot-progress" role="group" aria-label="Etapas do assistente">{SCREENS.map((item,index)=><button key={item} type="button" disabled={busy||(index>current&&!reachable(item))} aria-current={screen===item?'step':undefined} className={screen===item?'active':assistantStepState(draft,item)==='confirmed'?'done':''} data-step-state={assistantStepState(draft,item)} onClick={()=>{setScreen(item);setError('')}}>{assistantStepState(draft,item)==='confirmed'?<Icon name="check" size={13}/>:<span>{index+1}</span>}{LABEL[item]}<small>{assistantStepState(draft,item)==='confirmed'?'Confirmada':assistantStepState(draft,item)==='visited'?'Conferência pendente':'Pendente'}</small></button>)}</div></details></>}
+    {screen!=='intro'&&<section className="assistant-case-context" aria-label="Resumo do cenário"><div><span>Segurado</span><strong>{draft.identity.full_name||'Identificação pendente'}</strong></div><div><span>Nascimento</span><strong>{draft.identity.birth_date?brDate(draft.identity.birth_date):'Não informado'}</strong></div><div><span>DIB</span><strong>{draft.dib?brDate(draft.dib):'Não informada'}</strong></div><div><span>Objetivo</span><strong>{a.goal||'A definir'}</strong></div><Button disabled={busy||!reachable('parameters')} onClick={()=>setScreen('parameters')}>Editar dados do segurado</Button></section>}
     {(['conference','review','result']as Screen[]).includes(screen)&&<nav className="assistant-domain-nav" aria-label="Painel do cálculo">
-      {TABS.map(item=><button key={item.id} type="button" disabled={busy} aria-current={screen==='conference'&&tab===item.id?'page':undefined} onClick={()=>{setTab(item.id);setScreen('conference');setError('')}}><strong>{item.id==='periods'?'Abrir períodos':item.id==='salaries'?'Abrir remunerações':'Abrir opções da RMI'}</strong><small>{item.id==='periods'?consideration.adjusted.selectedLinks+(consideration.adjusted.selectedLinks===1?' período declarado':' períodos declarados'):item.id==='salaries'?consideration.adjusted.salaries+(consideration.adjusted.salaries===1?' remuneração declarada':' remunerações declaradas'):consideration.issues.filter(issue=>issue.decisive&&['policy','source'].includes(issue.fix)).length+' pendências de opções'}</small></button>)}
+      {screen!=='conference'&&TABS.map(item=><button key={item.id} type="button" disabled={busy} onClick={()=>{setTab(item.id);setScreen('conference');setError('')}}><strong>{item.id==='periods'?'Abrir períodos':item.id==='salaries'?'Abrir remunerações':'Abrir opções da RMI'}</strong><small>{item.id==='periods'?consideration.adjusted.selectedLinks+(consideration.adjusted.selectedLinks===1?' período declarado':' períodos declarados'):item.id==='salaries'?consideration.adjusted.salaries+(consideration.adjusted.salaries===1?' remuneração declarada':' remunerações declaradas'):consideration.issues.filter(issue=>issue.decisive&&['policy','source'].includes(issue.fix)).length+' pendências de opções'}</small></button>)}
       <button type="button" disabled={busy||!conferenceVisited} aria-current={screen==='review'?'page':undefined} onClick={()=>{setScreen('review');setError('')}}><strong>Abrir revisão</strong><small>{consideration.issues.filter(issue=>issue.decisive).length} pendências decisivas</small></button>
-      <button type="button" disabled={busy||!reachable('result')} aria-current={screen==='result'?'page':undefined} onClick={()=>{setScreen('result');setError('')}}><strong>Abrir resultado</strong><small>{hasFinancialResult(draft)?'Resultado experimental':draft.result?'Execução bloqueada':'Ainda não executado'}</small></button>
+      {showResultButton&&<button type="button" disabled={busy||!reachable('result')} onClick={()=>{setScreen('result');setError('')}}><strong>Abrir resultado</strong><small>{hasFinancialResult(draft)?'Resultado experimental':draft.result?'Execução bloqueada':'Ainda não executado'}</small></button>}
     </nav>}
-    <section className="robot-question"><RobotFace/><div><h3>{screen==='parameters'&&activeParameter?PARAMETER_QUESTION[activeParameter]:screen==='parameters'?'Confira os dados já confirmados.':question[screen]}</h3>{screen==='intro'?<p><strong>Uma etapa de cada vez.</strong> Como numa entrevista curta, vou perguntar apenas o que muda o cálculo e depois abrir a conferência dos dados, sem inventar informação ou direito a benefício.</p>:<p>{draft.name||'Novo cálculo RGPS'} · {LABEL[screen]}</p>}</div></section>
+    <section className="robot-question"><RobotFace/><div><h2 ref={questionRef} tabIndex={-1}>{screen==='parameters'&&activeParameter?PARAMETER_QUESTION[activeParameter]:screen==='parameters'?'Confira os dados já confirmados.':screen==='situation'&&a.completed_steps.includes('benefit')?'Como deseja preencher os dados?':question[screen]}</h2>{screen==='intro'?<p><strong>Uma etapa de cada vez.</strong> Como numa entrevista curta, vou perguntar apenas o que muda o cálculo e depois abrir a conferência dos dados, sem inventar informação ou direito a benefício.</p>:screen!=='parameters'?<p>{draft.name||'Novo cálculo RGPS'} · {LABEL[screen]}</p>:null}</div></section>
     {error&&<Notice tone="error">{error}</Notice>}
     {unsupported&&<Notice><div className="assistant-scope-notice"><p><strong>Confira o objetivo antes de continuar.</strong> {unsupported} Você pode salvar a entrevista e conferir os documentos.</p><Button onClick={()=>setScreen(a.current_benefit_received===true?'situation':'objective')}>Rever resposta</Button></div></Notice>}
 
     {screen==='intro'&&<Panel title="Identifique o cálculo" subtitle="Um nome para localizar este trabalho depois."><Field required label="Nome do cálculo" value={draft.name} onChange={name=>update({name})} placeholder="Ex.: Simulação CNIS, revisão de origem"/><p className="form-note">A entrevista pode ser salva como rascunho. Nenhum cálculo existente é substituído automaticamente.</p><div className="form-actions" data-ui-actions><Button onClick={onManual}>Preencher sem assistente</Button><Button primary disabled={!draft.name.trim()} onClick={()=>next('situation')}>Prosseguir<Icon name="arrow" size={16}/></Button></div></Panel>}
 
     {screen==='situation'&&<>
-      <div className="robot-choices" data-ui-stack>
-        <Choice title="Não, o segurado não está recebendo benefício" text="Hipótese de novo benefício ou simulação, conforme informação confirmada pelo operador." selected={a.current_benefit_received===false} onClick={()=>answer({current_benefit_received:false},['benefit'])}/>
-        <Choice title="Sim, o segurado está recebendo benefício" text="Investigar revisão, restabelecimento ou outro cenário. O motor disponível pode bloquear modalidades não suportadas." selected={a.current_benefit_received===true} onClick={()=>answer({current_benefit_received:true},['benefit'])}/>
-        <Choice title="Ainda não tenho a confirmação sobre benefício atual" text="Conferir o CNIS agora e manter essa resposta pendente. A execução continuará bloqueada enquanto faltar confirmação." selected={a.current_benefit_received===null&&a.completed_steps.includes('benefit')} onClick={()=>answer({current_benefit_received:null},['benefit'])}/>
-      </div>
+      {(!a.completed_steps.includes('benefit')||benefitEditing)?<div className="robot-choices" data-ui-stack>
+        <Choice title="Não, o segurado não está recebendo benefício" text="Hipótese de novo benefício ou simulação, conforme informação confirmada pelo operador." selected={a.current_benefit_received===false} onClick={()=>{answer({current_benefit_received:false},['benefit']);setBenefitEditing(false)}}/>
+        <Choice title="Sim, o segurado está recebendo benefício" text="Investigar revisão, restabelecimento ou outro cenário. O motor disponível pode bloquear modalidades não suportadas." selected={a.current_benefit_received===true} onClick={()=>{answer({current_benefit_received:true},['benefit']);setBenefitEditing(false)}}/>
+        <Choice title="Ainda não tenho a confirmação sobre benefício atual" text="Conferir o CNIS agora e manter essa resposta pendente. A execução continuará bloqueada enquanto faltar confirmação." selected={a.current_benefit_received===null&&a.completed_steps.includes('benefit')} onClick={()=>{answer({current_benefit_received:null},['benefit']);setBenefitEditing(false)}}/>
+      </div>:<div className="robot-answer-summary"><div><span>Benefício atual</span><strong>{a.current_benefit_received===false?'Não, declarado pelo operador':a.current_benefit_received===true?'Sim, declarado pelo operador':'Ainda não confirmado'}</strong><Button onClick={()=>setBenefitEditing(true)}>Alterar</Button></div></div>}
       <Notice>Um pedido indeferido no extrato não confirma o recebimento atual. Esta resposta precisa ser declarada por quem conhece o caso.</Notice>
       {a.completed_steps.includes('benefit')&&<Panel title="Deseja importar os dados do INSS?" subtitle="A importação é uma leitura local; ela não confirma os dados nem grava o PDF.">
         {a.import_requested!==true&&<div className="robot-choices" data-ui-stack>
@@ -218,27 +226,27 @@ export function RobotAssistant({draft,setDraft,workspace,onSave,onNotify,onManua
       {a.process_kind&&<Panel title="Qual cálculo deseja organizar?" subtitle="Somente o novo benefício tem execução automática nesta versão."><div className="robot-choices" data-ui-stack>{['Calcular um novo benefício','Calcular somente o tempo de contribuição','Restabelecer um benefício'].map(goal=><Choice key={goal} title={goal} text={goal==='Calcular um novo benefício'?'Conferir dados, períodos, salários, política e memória.':'Sem cálculo automático nesta versão. Você pode registrar o objetivo e conferir os documentos.'} selected={a.goal===goal} onClick={()=>answer({goal},['goal'],'parameters')}/>)}</div></Panel>}
     </>}
 
-    {screen==='parameters'&&<Panel title={activeParameter?'Uma confirmação por tela':'Dados confirmados'} subtitle={activeParameter?'Responda apenas o dado abaixo; o próximo aparece depois.':'Confira o que já foi confirmado. Nenhum campo é inferido.'}>
-  {activeParameter?<div className="form-grid" data-ui-stack>
+    {screen==='parameters'&&<Panel className={activeParameter?'panel--answer':''} title={activeParameter?'Dados do segurado':'Dados confirmados'} subtitle={activeParameter?undefined:'Confira o que já foi confirmado. Nenhum campo é inferido.'}>
+  {activeParameter?<div ref={parameterRef} className="form-grid" data-ui-stack>
     {activeParameter==='name'&&<Field label="Nome do segurado" required value={draft.identity.full_name??''} onChange={s=>update({identity:{...draft.identity,full_name:s}})}/>}
     {activeParameter==='birth'&&<Field label="Nascimento do segurado" required value={draft.identity.birth_date?brDate(draft.identity.birth_date):''} onChange={s=>update({identity:{...draft.identity,birth_date:isoDate(s)??s}})} placeholder="DD/MM/AAAA"/>}
-    {activeParameter==='dib'&&<Field label="DIB / data da simulação" required value={draft.dib} onChange={dib=>update({dib})} placeholder="DD/MM/AAAA"/>}
-    {activeParameter==='sex'&&<Select label="Sexo cadastral do segurado" value={draft.sex??''} onChange={sex=>update({sex:sex||null})} items={['','Feminino','Masculino','A confirmar']}/>}
-    {activeParameter==='disability'&&<Select label="Deficiência na DIB" value={draft.disability??''} onChange={disability=>update({disability:disability||null})} items={['','Sem deficiência declarada','Leve','Moderada','Grave','A apurar']}/>}
+    {activeParameter==='dib'&&<Field label="DIB (data de início do benefício)" required value={draft.dib} onChange={dib=>update({dib})} placeholder="DD/MM/AAAA"/>}
+    {activeParameter==='sex'&&<Select required label="Sexo cadastral do segurado" value={draft.sex??''} onChange={sex=>update({sex:sex||null})} items={['','Feminino','Masculino']}/>}
+    {activeParameter==='disability'&&<Select required label="Deficiência na DIB" value={draft.disability??''} onChange={disability=>update({disability:disability||null})} items={['','Sem deficiência declarada','Leve','Moderada','Grave']}/>}
   </div>:<div className="robot-answer-summary">
     {PARAMETER_KEYS.map(key=><div key={key}><span>{PARAMETER_LABEL[key]}</span><strong>{key==='name'?draft.identity.full_name||'Não informado':key==='birth'?brDate(draft.identity.birth_date):key==='dib'?draft.dib:key==='sex'?draft.sex||'Não informado':draft.disability||'Não informada'}</strong><Button onClick={()=>editParameter(key)}>Editar</Button></div>)}
   </div>}
   {activeParameter?<p className="form-note">{PARAMETER_DETAIL[activeParameter]}</p>:<p className="form-note">Você pode editar um dado individualmente; a conferência completa continua separada.</p>}
-  <div className="form-actions" data-ui-actions><Button onClick={backParameter}>{activeParameter?'Dado anterior':'Voltar ao objetivo'}</Button>{activeParameter?<Button primary disabled={!parameterComplete(draft,activeParameter)} onClick={advanceParameter}>{missingParameters.filter(key=>key!==activeParameter).length>0?'Confirmar e avançar':'Ir para a conferência'}<Icon name="arrow" size={16}/></Button>:<Button primary onClick={finishParameters}>Ir para a conferência<Icon name="arrow" size={16}/></Button>}</div>
+  <div className="form-actions" data-ui-actions><Button onClick={backParameter}>{activeParameter?'Dado anterior':'Voltar ao objetivo'}</Button>{activeParameter&&<Button disabled={busy||!draft.name.trim()} onClick={()=>void onSave(draft)}>Salvar rascunho</Button>}{activeParameter?<Button primary disabled={!parameterComplete(draft,activeParameter)} onClick={advanceParameter}>{missingParameters.filter(key=>key!==activeParameter).length>0?'Confirmar e avançar':'Ir para a conferência'}<Icon name="arrow" size={16}/></Button>:<Button primary onClick={finishParameters}>Ir para a conferência<Icon name="arrow" size={16}/></Button>}</div>
 </Panel>}
 
   {screen==='conference'&&<>
-  <PrepareFromCnis draft={draft} onResult={(prepared)=>{setDraft(prepared);setScreen('result')}} onNotify={onNotify}/>
   <AssistantConsiderationPanel consideration={consideration} onFix={fix}/>
       <div className="conference-tabs" role="group" aria-label="Módulos de conferência">{TABS.map(item=><button key={item.id} type="button" aria-label={item.label} aria-pressed={tab===item.id} aria-controls="conference-panel" onClick={()=>{setTab(item.id);setError('')}}><span>{item.label}</span><small>{item.detail}</small></button>)}</div>
       <div id="conference-panel" role="region" aria-label={TABS.find(item=>item.id===tab)?.label}>
         <CaseWorkbench key={tab} draft={draft} setDraft={setDraft} workspace={workspace} onSave={onSave} onNotify={onNotify} initialStep={TABS.find(item=>item.id===tab)?.step??3} embedded/>
       </div>
+  <PrepareFromCnis draft={draft} onResult={(prepared)=>{setDraft(prepared);setScreen('result')}} onNotify={onNotify}/>
       <Notice>Conferir um módulo registra a visita; não valida automaticamente cada vínculo, remuneração ou parâmetro. Cada ajuste invalida o resultado anterior.</Notice>
       <div className="form-actions assistant-conference-note" data-ui-actions><Button onClick={()=>setScreen('parameters')}>Voltar aos dados do segurado</Button><div className="assistant-conference-progress"><span className="form-note">{(['periods','salaries','policy']as ConferenceTab[]).filter(item=>a.completed_steps.includes(item)).length} de 3 módulos abertos. Abra os três para registrar a conferência.</span><Button disabled={!conferenceVisited} title={!conferenceVisited?'Abra os três módulos de conferência para liberar a revisão.':undefined} onClick={()=>setScreen('review')}>Revisar entrevista<Icon name="arrow" size={16}/></Button></div></div>
     </>}
@@ -249,12 +257,12 @@ export function RobotAssistant({draft,setDraft,workspace,onSave,onNotify,onManua
     </div>}
 
     {screen==='result'&&<>
-      <Panel title="Executar com as respostas revisadas" subtitle="O robô envia uma entrada tipada ao motor Rust; nenhum resultado é inventado."><div className="head-actions" data-ui-actions><Button primary disabled={busy||!a.review_confirmed||!!unsupported} onClick={()=>void calculate()}>{busy?<><span className="spinner"/>Executando...</>:<>Executar cálculo da hipótese<Icon name="calc" size={16}/></>}</Button><Button disabled={busy} onClick={()=>void onSave(draft)}>Salvar cálculo e entrevista</Button><Button onClick={()=>setScreen('review')}>Voltar à revisão</Button></div>{!a.review_confirmed&&<Notice>Complete e confirme a revisão da entrevista antes de executar.</Notice>}{a.review_confirmed&&!consideration.ready&&!hasFinancialResult(draft)&&<Notice>A execução será bloqueada pelas pendências decisivas. Nenhum valor será inventado para fazer o fluxo passar.</Notice>}</Panel>
+      <Panel title="Executar com as respostas revisadas" subtitle="O robô envia uma entrada tipada ao motor Rust; nenhum resultado é inventado."><div className="head-actions" data-ui-actions><Button primary disabled={busy||!a.review_confirmed||!!unsupported} onClick={()=>void calculate()}>{busy?<><span className="spinner"/>Executando...</>:<>{consideration.ready?'Executar cálculo da hipótese':'Executar e registrar bloqueio'}<Icon name="calc" size={16}/></>}</Button><Button disabled={busy} onClick={()=>void onSave(draft)}>Salvar cálculo e entrevista</Button><Button onClick={()=>setScreen('review')}>Voltar à revisão</Button></div>{!a.review_confirmed&&<Notice>Complete e confirme a revisão da entrevista antes de executar.</Notice>}{a.review_confirmed&&!consideration.ready&&!hasFinancialResult(draft)&&<Notice>A execução será registrada como bloqueada pelas pendências decisivas. Nenhum valor será inventado para fazer o fluxo passar.</Notice>}</Panel>
       {draft.result&&<ResultView result={draft.result}/>}
       {draft.result&&!hasFinancialResult(draft)&&<AssistantConsiderationPanel consideration={consideration} onFix={fix}/>}
       <section className="assistant-report-center"><h2>Relatórios detalhados em PDF</h2><ReportCenter workspace={workspace} draftCase={draft} selected={draft.id} onSelect={()=>{}} onNotify={onNotify} onChangeCase={c=>setDraft({...c,result:draft.result,assistant:draft.assistant})}/></section>
     </>}
 
-    <footer className="robot-footer"><Button disabled={busy||current===0} onClick={()=>{setScreen(SCREENS[Math.max(0,current-1)]);setError('')}}>Voltar uma etapa</Button><div><Button disabled={busy||!draft.name.trim()} onClick={()=>void onSave(draft)}>Salvar rascunho</Button><Button disabled={busy} onClick={onManual}>Abrir editor de dados</Button></div></footer>
+    {!(screen==='parameters'&&activeParameter)&&<footer className="robot-footer"><Button disabled={busy||current===0} onClick={()=>{setScreen(SCREENS[Math.max(0,current-1)]);setError('')}}>Voltar uma etapa</Button><div><Button disabled={busy||!draft.name.trim()} onClick={()=>void onSave(draft)}>Salvar rascunho</Button><Button disabled={busy} onClick={onManual}>Abrir editor de dados</Button></div></footer>}
   </div>;
 }

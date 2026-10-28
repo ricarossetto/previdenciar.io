@@ -42,7 +42,7 @@ export function CnisReview({cnis}: {cnis:Cnis}) {
             <td>{item.prpps?'PRPPS / CTC pendente':item.indicators.length?'Indicadores pendentes':'Conferência pendente'}</td>
           </tr>})}</tbody></table></div>
         {!quality.length&&<p className="form-note">Nenhum vínculo foi extraído do documento.</p>}
-        <p className="form-note">Período de graça, prorrogações e enquadramento não são calculados nesta versão. A tabela reúne filiação, primeiro e último lançamento, contribuições desconsideradas e pendências para conferência por vínculo. Ausência de lançamento não prova ausência de filiação.</p>
+        <p className="form-note">Esta leitura não calcula período de graça, prorrogação nem enquadramento. O relatório Qualidade de segurado apura período de graça e carência por vínculo. A tabela reúne filiação, primeiro e último lançamento, contribuições desconsideradas e pendências para conferência.</p>
       </>
       :view===4?<>
         <div className="table-wrap"><table className="data-table"><caption>Benefícios e pedidos separados dos vínculos de contribuição</caption>

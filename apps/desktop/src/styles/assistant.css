@@ -11,7 +11,7 @@
 .assistant-stepbar progress{display:block;width:160px;height:4px;margin-top:12px;accent-color:var(--accent)}
 .previus-app .assistant-steps{max-width:100%}.assistant-steps summary{font-size:12px;color:var(--fg-2);cursor:pointer;padding:9px 0}.assistant-steps[open] summary{margin-bottom:8px}
 .previus-app .assistant-steps .robot-progress{box-shadow:none;border-radius:8px}.previus-app .robot-question{padding:18px 20px;gap:14px;box-shadow:none;border-radius:10px}
-.previus-app .robot-question h3{font-size:clamp(20px,2vw,24px);line-height:1.4}.previus-app .robot-question p{font-size:12px}
+.previus-app .robot-question h2{font-size:clamp(20px,2vw,24px);line-height:1.4}.previus-app .robot-question p{font-size:12px}
 .previus-app .robot-question .robot-face{width:42px;height:42px;border-radius:10px}.previus-app .robot-question .robot-face svg{width:30px;height:30px}
 .previus-app .robot-choice{padding:17px 20px;box-shadow:none}.previus-app .robot-choice small{margin-top:5px}.previus-app .robot-footer{padding-top:14px}
 .assistant-scope-notice{display:flex;align-items:center;justify-content:space-between;gap:18px}.assistant-scope-notice p{margin:0;font-size:13px;line-height:1.6}
@@ -106,3 +106,7 @@
   .previus-app .time-audit .data-table td::before,.previus-app .transition-audit .data-table td::before{content:attr(data-label);color:var(--muted);font-size:9px;letter-spacing:.04em;text-transform:uppercase}
   .previus-app .time-audit .data-table td:last-child:nth-child(odd),.previus-app .transition-audit .data-table td:last-child:nth-child(odd){grid-column:1/-1}
 }
+
+.assistant-steps .robot-progress button small, .assistant-case-context span, .assistant-domain-nav button small, .conference-tabs button small, .cnis-review__tabs button span, .cnis-review td small, .consideration-card>span, .consideration-card>small { font-size: var(--fs-xs); }
+.assistant-case-context strong { font-size: 13px; }
+@media(max-width:600px){.previus-app .pbc-audit .pbc-scenarios td::before,.previus-app .time-audit .data-table td::before,.previus-app .transition-audit .data-table td::before{font-size:var(--fs-xs)}}

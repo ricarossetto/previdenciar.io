@@ -298,3 +298,5 @@
 @media(max-width:600px){.source-period-card{flex-direction:column;align-items:stretch}.source-edit-table{max-height:430px}}
 
 .pcd-section{border-top:1px solid var(--border);padding-top:20px;margin-top:20px}.pcd-setup .checkline{margin:16px 0}.pcd-setup .form-note{overflow-wrap:anywhere}
+
+.previus-app .amicro-overview h2 { font-size: var(--fs-title) !important; line-height: 1.23 !important; letter-spacing: -.035em !important; }
