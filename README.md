@@ -22,7 +22,7 @@
 
 ## O que foi conferido
 
-- 493 testes Rust, 108 testes de interface e 36 testes de navegador.
+- 493 testes Rust, 108 testes de interface e 37 testes de navegador.
 - Verificação nativa em perfil isolado: importação, cálculo, as oito prévias de PDF, gravação cifrada e reabertura, sem tocar na base normal.
 - Revisão de fonte pública sem achados.
 - Um CNIS real de 23 páginas, conferido fora do repositório, passou a ser lido com 610 lançamentos e nenhuma diferença de salário por competência contra o relatório de um software de referência.

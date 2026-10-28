@@ -503,3 +503,13 @@ html[data-theme-switching] * { transition: none !important; animation: none !imp
 @media (max-width: 600px) { .previus-app .page-head p { font-size: var(--fs-sm); } }
 
 .previus-app .toast-inline { position: static; inset: auto; transform: none; width: auto; max-width: 760px; margin: 0 0 18px; border-left: 3px solid var(--success); box-shadow: none; justify-content: flex-start; } .previus-app .toast-inline .iconbtn { margin-left: auto; }
+
+.previus-app .field-error { color: var(--danger); font-size: var(--fs-xs); line-height: 1.5; } .previus-app .field-error[role="alert"] { margin-top: 2px; } .previus-app .field:has(.field-error) .input, .previus-app .field:has(.field-error) .text-area { border-color: var(--danger); }
+
+@media (max-width: 600px) {
+  .previus-app:has(.robot-workspace) .page-head p { display: none; }
+  .previus-app .robot-question { padding: 14px 16px; gap: 12px; }
+  .previus-app .robot-question .robot-face { width: 34px; height: 34px; border-radius: 9px; }
+  .previus-app .robot-question .robot-face svg { width: 24px; height: 24px; }
+  .previus-app .robot-question h2 { font-size: 18px; line-height: 1.35; }
+}
