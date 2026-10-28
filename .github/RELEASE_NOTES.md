@@ -1,3 +1,22 @@
+## previdenciar.io 0.16.3
+
+Identidade visual e README.
+
+### O que mudou
+
+- A marca quadrada virou o ícone do aplicativo e a aba; a logo horizontal entrou
+  no menu lateral, no cabeçalho móvel e na abertura.
+- O README ganhou a identidade, badges, tabelas de recursos e espécies, captura
+  da tela inicial e uma lista honesta de limites.
+- O item de menu virou **Assistente guiado**; antes o texto quebrava em duas
+  linhas.
+
+### Validação
+
+- Interface compilada; testes de interface e navegador executados.
+- Nenhum dado de cliente, CNIS ou chave no repositório.
+
+
 ## previdenciar.io 0.16.2
 
 Rodada 46/57 no binário 0.16.1.

@@ -1,4 +1,16 @@
 # Changelog
+## 0.16.3 - 2026-10-28
+
+Identidade visual e README.
+
+### Added
+- Marca quadrada no ícone do aplicativo e na aba/favicon; logo horizontal no menu lateral, no cabeçalho móvel e na abertura.
+- README visual: identidade, badges, tabelas de recursos e espécies, captura da tela inicial e links de documentação.
+
+### Fixed
+- Rótulo **Assistente guiado** no menu, no lugar de "Assistente (passo a passo)", que quebrava em duas linhas.
+
+
 ## 0.16.2 - 2026-10-27
 
 Rodada 46/57 no binário 0.16.1.
