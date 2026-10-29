@@ -23,7 +23,7 @@ for (const width of [1440, 1152, 768, 390, 320]) {
   test('Amicro routes remain readable at ' + width + 'px', async ({ page }) => {
     await page.setViewportSize({ width, height: 1000 });
     await start(page);
-    const routes = ['Início', 'Clientes', 'Cálculos', 'Cálculos do RGPS', 'Assistente de cálculos', 'Editor de dados', 'Tabelas e índices', 'Módulos de apoio', 'Documentos', 'Relatórios', 'Agenda', 'Configurações', 'REA e validação'];
+    const routes = ['Início', 'Clientes', 'Cálculos', 'Meus cálculos', 'Assistente guiado', 'Editor avançado', 'Tabelas e índices', 'Ferramentas', 'Documentos', 'Relatórios', 'Agenda', 'Configurações', 'Cobertura'];
     for (const route of routes) {
       if (width < 1024) {
         await page.getByRole('button', { name: 'Todas as páginas', exact: true }).click();

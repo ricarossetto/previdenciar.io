@@ -26,7 +26,7 @@ Esta distribuição é uma pré-release experimental. Não use a existência de 
 - Finalidades sem motor próprio (revisão de valor, planejamento futuro, execução judicial e contribuições em atraso) são registradas e bloqueiam a execução de RMI; elas não produzem valor estimando.
 - A versão inicial é focada no Windows e não possui assinatura digital de código.
 - O site publicado não executa o aplicativo desktop e não recebe documentos.
-- A identidade visual definitiva está pendente do OpenDesign; o ícone atual é provisório.
+- A identidade visual (marca e logo horizontal) foi entregue e integrada ao aplicativo, ao ícone e ao README; o antigo ícone provisório foi substituído.
 
 ## Validação conhecida
 

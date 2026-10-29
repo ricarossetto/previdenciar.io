@@ -1,96 +1,185 @@
-<p align="center"><strong>previdenciar.io</strong></p>
+<p align="center">
+  <img src="docs/assets/logo-hero.png" alt="previdenciar.io" width="620">
+</p>
+
 <h1 align="center">Cálculos previdenciários, às claras.</h1>
-<p align="center">Ferramenta desktop gratuita e open source para organizar CNIS, hipóteses de cálculo e relatórios locais.</p>
-<p align="center"><a href="https://github.com/ricarossetto/previdenciar.io/releases">Baixar para Windows</a> · <a href="https://ricarossetto.github.io/previdenciar.io/">Apresentação</a> · <a href="docs/GETTING_STARTED.md">Começar</a> · <a href="docs/LIMITATIONS.md">Limitações</a></p>
 
-> **Versão 0.13.0.** O motor continua experimental. O programa não é serviço oficial do INSS, não certifica direito a benefício e não substitui revisão profissional. Hipótese bloqueada continua bloqueada, e dado ausente não vira zero.
+<p align="center">
+  <strong>CNIS, hipóteses, requisitos e PDF na sua máquina — com a memória do cálculo à vista.</strong>
+</p>
 
-## O que já existe
+<p align="center">
+  <a href="https://github.com/ricarossetto/previdenciar.io/releases"><img alt="Versão" src="https://img.shields.io/badge/vers%C3%A3o-0.16.3-0E2A3A?style=for-the-badge"></a>
+  <img alt="Rust" src="https://img.shields.io/badge/Rust-est%C3%A1vel-B7410E?style=for-the-badge&logo=rust&logoColor=white">
+  <img alt="Tauri" src="https://img.shields.io/badge/Tauri-2-24C8DB?style=for-the-badge&logo=tauri&logoColor=white">
+  <img alt="Testes" src="https://img.shields.io/badge/testes-Rust%20%2B%20UI%20%2B%20E2E-2E6B4F?style=for-the-badge">
+  <a href="LICENSE"><img alt="Licença MIT" src="https://img.shields.io/badge/licen%C3%A7a-MIT-2E6B4F?style=for-the-badge"></a>
+</p>
 
-- Cadastro local de clientes, cálculos, agenda e modelos de texto.
-- Entrevista em sete etapas que organiza a hipótese, guarda cada resposta e permite voltar a qualquer ponto. A conferência abre com as respostas da entrevista e, logo abaixo, o preparo a partir do CNIS em um clique: a fonte não entra no motor, a cópia revisada entra, e a referência da conferência fica registrada. O quadro de rastreabilidade mostra o que veio do CNIS, o que foi ajustado e o que o motor usou.
-- Importação de CNIS em PDF com texto extraível. Lê a tabela de vínculos, a de remunerações, a de contribuições (competência, data de pagamento, contribuição e salário), as linhas de cooperativa e a de valores consolidados por ano civil. A tabela que continua na página seguinte sem repetir o cabeçalho é lida com o contexto herdado.
-- Editor de períodos e livro de contribuições rastreável. Alterar um dado invalida o resultado e a revisão anterior.
-- Motor RGPS experimental com espécies 42 (tempo de contribuição), 41 (idade), 32 (incapacidade permanente) e 31 (incapacidade temporária), requisitos e bases legais publicados em [docs/COVERAGE.md](docs/COVERAGE.md). A 46 (especial) e a 57 (professor) bloqueiam com motivo; nenhuma espécie é aproximada por outra.
-- Conferência online opcional da RMI na Fábrica de Cálculos/TRF3, com chave própria e confirmação por envio: só datas, sexo, espécie e salários revisados; sem nome, CPF, NIT, CNIS ou PDF. O resultado do provedor fica ao lado do motor local, com fonte, horário e hash; o PDF detalhado imprime a conferência quando ela foi feita.
-- Cenário PcD de grau constante pela LC 142/2013 com premissas declaradas. Consulta os índices e limites públicos da Fábrica de Cálculos/TRF3 e, quando a rede não responde, usa um snapshot local com as séries oficiais embutidas (INPC, IGP-DI e tetos), com a fonte declarada no arquivo.
-- Oito relatórios PDF gerados pelo renderer Rust: completo, resumo, tempo de contribuição, remunerações, memória da RMI, regras de transição, pendências e indicadores, e cálculo da qualidade de segurado.
-- Apuração da qualidade de segurado por vínculo, com a regra e a fonte impressas no documento: período de graça de 12 meses (art. 15, II, da Lei 8.213/1991), prorrogação para até 24 meses quando houve mais de 120 contribuições (art. 15, § 1º), carência de 180 contribuições (art. 25, II) ou a faixa da tabela do art. 142, contagem do contribuinte individual a partir do primeiro pagamento em dia (art. 27, II), tempo em gozo de benefício fora da carência (Decreto 3.048/1999, art. 19-C, § 1º) e competência contada uma única vez quando aparece em mais de um vínculo.
-- Central de relatórios com título editável, opções de apresentação (anexo técnico, conferência de qualidade, premissas de planejamento) e exportação em lote para uma pasta, sem sobrescrever arquivo existente.
-- Persistência local cifrada no Windows, gravação explícita e proteção contra sobrescrita depois de erro ou corrupção.
-- Interface React/Tauri com temas claro e escuro, navegação móvel e opção de movimento reduzido.
+<p align="center">
+  <a href="https://github.com/ricarossetto/previdenciar.io/releases"><strong>Baixar para Windows</strong></a>
+  ·
+  <a href="docs/GETTING_STARTED.md">Primeiros passos</a>
+  ·
+  <a href="docs/COVERAGE.md">O que o motor cobre</a>
+  ·
+  <a href="docs/LIMITATIONS.md">Limitações</a>
+</p>
 
-## O que foi conferido
+> **Ferramenta experimental, independente e de código aberto.** Não é serviço do INSS, não certifica direito a benefício e não substitui a revisão profissional. Hipótese bloqueada continua bloqueada; dado ausente não vira zero.
 
-- 506 testes Rust, 117 testes de interface e 36 testes de navegador.
-- Verificação nativa em perfil isolado: importação, cálculo, as oito prévias de PDF, gravação cifrada e reabertura, sem tocar na base normal.
-- Revisão de fonte pública sem achados.
-- Um CNIS real de 23 páginas, conferido fora do repositório, passou a ser lido com 610 lançamentos e nenhuma diferença de salário por competência contra o relatório de um software de referência.
-- Com o snapshot público da Fábrica de Cálculos, o mesmo caso chegou a R$ 5.161,10 contra R$ 5.200,89 do software de referência, uma diferença de 0,77%. Ela vem de sete competências que o CNIS lista apenas na visão "Contribuições" e que este programa mantém no período básico de cálculo. A escolha entre as duas leituras é profissional e está documentada.
+---
 
-## O que ainda não está pronto
+<table>
+<tr>
+<td width="33%" valign="top">
 
-O livro de contribuições está implementado: edição de competência e valor, moeda e vínculo declarados, filtros, ações em lote, consolidação por competência, exclusão documentada sem apagar o CNIS, histórico, desfazer e aplicação explícita aos salários do cálculo. A validação em Rust recusa origem, histórico ou projeção inconsistentes. Isso não valida regime, CTC ou direito a benefício. Consulte [o guia do editor](docs/CONTRIBUTIONS.md).
+### O problema
 
-Não estão implementados: as espécies 46 (especial), 57 (professor), pensão por morte, salário-maternidade e auxílio-acidente; a carência legal por tabelas do RGPS anterior a 1991; a desconsideração por afastamento como o software de referência a faz (as fórmulas dele não são recuperáveis do binário, e nada foi inferido no lugar); e os módulos de planejamento (contribuição, frequência, alíquota, IRRF, retorno). O programa também não atualiza sozinho toda regra ou índice oficial, não cobre todos os regimes e benefícios, não é sistema de tramitação judicial e não tem backend web público. A conferência online da Fábrica está validada para as espécies 41 e 42. Nos testes sintéticos, 31 e 32 retornaram sem RMI no provedor com o payload atual; o app mantém o resultado local e mostra a resposta sem inventar valor. PcD (LC 142) não é enviada à conferência. Consulte [limitações](docs/LIMITATIONS.md) e [roadmap](docs/ROADMAP.md).
+Planilha por aqui, PDF por ali, uma regra que ninguém sabe de onde veio. No fim, o número aparece, mas a conta não.
 
-## Baixar e executar
+</td>
+<td width="33%" valign="top">
 
-1. Abra [Releases](https://github.com/ricarossetto/previdenciar.io/releases) e escolha a versão 0.16.0.
-2. Baixe o instalador `previdenciar.io_0.16.0_x64-setup.exe` (recomendado, cria atalhos e verifica atualizações) ou o executável portátil, junto com o `SHA256SUMS.txt`.
-3. Confira o SHA-256 antes de executar. A distribuição não possui assinatura digital de código; o instalador é assinado apenas para o atualizador do próprio aplicativo.
-4. Requer Windows 10/11 x64 com Microsoft Edge WebView2. Não desative proteções do Windows para ignorar alertas. Se não confiar no binário, compile a partir do código.
-5. Use primeiro dados fictícios e leia os avisos. Não compartilhe CNIS, PDFs ou arquivos da base em issues.
+### A resposta
 
-A versão pública usa **identidade textual provisória**. Logo e identidade final serão produzidas no OpenDesign e integradas depois.
+O app organiza o CNIS, mostra o que entrou no cálculo, quais requisitos foram cumpridos e o que ficou pendente — com fonte e memória.
+
+</td>
+<td width="33%" valign="top">
+
+### O limite
+
+O que o motor não sabe, ele **bloqueia com motivo**. Nada é aproximado por outra espécie, por outra regra ou por um valor inventado.
+
+</td>
+</tr>
+</table>
+
+## O que já está pronto
+
+| Área | O que faz |
+| --- | --- |
+| **CNIS** | Lê o PDF com texto extraível: vínculos, remunerações, contribuições, cooperativa e valores consolidados por ano civil. |
+| **Entrevista** | Sete etapas guiadas que guardam cada resposta e permitem voltar. A conferência abre com o que foi respondido. |
+| **Motor RGPS** | 42, 41, 32, 31, **46 (especial)** e **57 (professor)**, com requisitos e bases publicados em [COVERAGE](docs/COVERAGE.md). |
+| **PcD** | Cenário LC 142/2013 de grau constante, com premissas declaradas e índices públicos. |
+| **Relatórios** | Oito PDFs gerados pelo renderer Rust, com prévia e exportação em lote sem sobrescrever arquivo. |
+| **Qualidade** | Apuração por vínculo, com a regra e a fonte impressas no documento. |
+| **Privacidade** | Base local cifrada no Windows. Importação, cálculo e PDF não saem da máquina. |
+
+## Como o cálculo acontece
+
+| | Etapa | O que você vê |
+| :--: | --- | --- |
+| 1 | **Identificação** | Nome do cálculo, cliente e módulo. |
+| 2 | **CNIS** | Importação local e conferência por registro. |
+| 3 | **Cenário** | Sexo, deficiência, espécie e DIB — sem inferência pelo nome. |
+| 4 | **Vínculos** | Períodos editáveis, com a origem preservada. |
+| 5 | **Salários** | Competências, valores e ajustes com justificativa. |
+| 6 | **Parâmetros** | Correção, descarte, teto e as premissas da espécie. |
+| 7 | **Revisão** | Confirmação explícita do que será calculado. |
+| 8 | **Resultado** | RMI, requisitos, avisos, memória e PDF. |
+
+<p align="center">
+  <img src="docs/assets/app-home.png" alt="Tela inicial do previdenciar.io" width="860">
+</p>
+<p align="center"><sub>A base começa vazia: nenhum cliente, cálculo ou número é inventado para a tela ficar bonita.</sub></p>
+
+## Espécies com motor próprio
+
+| Espécie | Regra | Observação |
+| --- | --- | --- |
+| **42** | Tempo de contribuição | Regras de transição da EC 103 quando aplicáveis. |
+| **41** | Idade | 65/60 anos por sexo. |
+| **32 / 31** | Incapacidade permanente / temporária | A incapacidade é declarada; o motor calcula a renda. |
+| **46** | Aposentadoria especial | PPP, agente e exposição **declarados**; requisito marcado como não verificado. |
+| **57** | Professor | Magistério e exclusividade **declarados**. Direito adquirido do professor (80% × fator) não é calculado. |
+
+Nenhuma espécie é aproximada por outra. As demais prestações bloqueiam com `especie_unsupported` e explicam o motivo.
+
+## Baixar e instalar
+
+1. Abra [Releases](https://github.com/ricarossetto/previdenciar.io/releases) e escolha a versão 0.16.3.
+2. Baixe `previdenciar.io_0.16.3_x64-setup.exe` (recomendado) ou o portátil, junto com o `SHA256SUMS.txt`.
+3. Confira o SHA-256 antes de executar. A distribuição não tem assinatura digital de código; o instalador é assinado apenas para o atualizador do próprio aplicativo.
+4. Requer Windows 10/11 x64 com Microsoft Edge WebView2.
+5. Use primeiro dados fictícios e leia os avisos. Não compartilhe CNIS, PDFs ou base em issues.
+
+> O site publicado é apenas apresentação, documentação e download: não recebe documentos nem executa o motor.
 
 ## Privacidade
 
-Importação, cálculo, PDFs e exportação ocorrem na máquina do operador. Os fluxos implementados não enviam documentos a servidor nenhum. A consulta opcional de índices e limites públicos envia apenas a competência pedida à Fábrica de Cálculos/TRF3, sem CNIS, identidade, salários ou dados de saúde. A chave da API da Fábrica é opcional, fica na base local cifrada e só é usada no botão de conferência de RMI, que envia somente datas, sexo, espécie e salários revisados; nome, CPF, NIT, CNIS, PDF e anotações ficam fora. Sem a chave, o aplicativo usa apenas as rotas públicas e o motor local.
+Importação, cálculo, PDFs e exportação acontecem na máquina do operador. A consulta opcional de índices e limites públicos envia apenas a competência pedida à Fábrica de Cálculos/TRF3, sem CNIS, identidade, salários ou dados de saúde. A chave da API é opcional, fica na base local cifrada e só é usada no botão de conferência de RMI, que envia somente datas, sexo, espécie e salários revisados.
 
-A base protegida do Windows fica no caminho legado de compatibilidade, sem migração silenciosa. Exportar com identificação oculta **não garante anonimização**, porque datas e valores ainda permitem correlação. A página no GitHub Pages é apenas apresentação, documentação e download: não recebe CNIS nem executa o motor Rust. Leia [privacidade](docs/PRIVACY.md).
+Exportar com identificação oculta **não garante anonimização**: datas e valores ainda permitem correlação. Leia [privacidade](docs/PRIVACY.md).
 
 ## Compilar
 
-Pré-requisitos: Rust estável, Microsoft C++ Build Tools, WebView2 e Node.js 24 com npm. O desktop desta distribuição tem foco no Windows.
+Pré-requisitos: Rust estável, Microsoft C++ Build Tools, WebView2 e Node.js 24.
 
-~~~powershell
+```powershell
 cd apps/desktop
 npm ci
 npm run build
 npm test
-cd ../..
+
+cd ..\..
 cargo test --workspace --locked
 cargo build --release --locked -p previus-next-desktop --bin previus-next-desktop
-~~~
+```
 
-O binário é gerado em target/release/previus-next-desktop.exe. Os nomes internos dos crates e o identificador Tauri ficam como estão por compatibilidade. A marca exibida é previdenciar.io.
+O binário sai em `target/release/previus-next-desktop.exe`. Os nomes internos dos crates e o identificador Tauri ficam por compatibilidade de armazenamento; a marca exibida é **previdenciar.io**.
 
-Para os testes de navegador, dentro de apps/desktop:
+Testes de navegador, dentro de `apps/desktop`:
 
-~~~powershell
+```powershell
 npx playwright install chromium
 npm run test:e2e
-~~~
+```
 
-Esses testes usam IPC sintético em memória e não cobrem o transporte nativo do Tauri, o diálogo de exportação ou a conformidade jurídica. A suíte Rust cobre separadamente o parsing, o armazenamento, as guardas, o cálculo e a geração dos PDFs sintéticos.
+<details>
+<summary><strong>Testes: o que cada suíte cobre — e o que não cobre</strong></summary>
+
+- **Rust**: parsing do CNIS, armazenamento, guardas, motor, PcD, PDFs e ponte tipada.
+- **Interface**: fluxos com IPC sintético em memória.
+- **Navegador (Playwright)**: navegação, acessibilidade e estados visuais.
+
+Os testes de navegador **não** cobrem o transporte nativo do Tauri, o diálogo de exportação nem conformidade jurídica. Teste verde não é certificação de direito.
+
+</details>
+
+## Limites que não escondemos
+
+- O motor não cobre todos os benefícios, regimes, datas históricas ou hipóteses especiais.
+- Concomitâncias, PRPPS, CTC, datas abertas e moedas históricas exigem análise e confirmação.
+- O livro de contribuições é um overlay documental; não altera o CNIS.
+- PDF de imagem não tem OCR completo integrado.
+- 46/57 não são enviados à conferência online da Fábrica.
+- O direito adquirido do professor (80% × fator) não é calculado nesta versão.
+- A distribuição é focada no Windows e não tem assinatura digital de código.
+- Relatório é memória e revisão, não concessão, parecer ou reprodução certificada de outro software.
+
+A lista completa, com a base de cada regra, está em [LIMITATIONS](docs/LIMITATIONS.md).
 
 ## Documentação
 
-- [Primeiros passos](docs/GETTING_STARTED.md)
-- [Arquitetura e contratos](docs/ARCHITECTURE.md)
-- [Privacidade](docs/PRIVACY.md)
-- [Limitações](docs/LIMITATIONS.md)
-- [Editor de contribuições](docs/CONTRIBUTIONS.md)
-- [Cenários PcD da LC 142](docs/LC142_SCENARIOS.md)
-- [Roadmap](docs/ROADMAP.md)
-- [Build, release e deploy](docs/RELEASING.md)
-- [Origem do código](docs/PROVENANCE.md) e [atribuições](NOTICE.md)
-- [Prompt para logo e identidade no OpenDesign](brand/OPENDESIGN_PROMPT.md)
-- [Contribuir](CONTRIBUTING.md) · [segurança](SECURITY.md)
+| Documento | Para quê |
+| --- | --- |
+| [Primeiros passos](docs/GETTING_STARTED.md) | Instalar, abrir e fazer o primeiro cálculo. |
+| [Arquitetura](docs/ARCHITECTURE.md) | Contratos, camadas e por que o Rust é o motor. |
+| [Cobertura](docs/COVERAGE.md) | Espécies, requisitos e bases legais. |
+| [Limitações](docs/LIMITATIONS.md) | O que o app não faz — e por quê. |
+| [Privacidade](docs/PRIVACY.md) | Onde os dados ficam e o que sai da máquina. |
+| [Contribuições](docs/CONTRIBUTIONS.md) | Livro de revisão e rastreabilidade. |
+| [LC 142](docs/LC142_SCENARIOS.md) | Cenário PcD com premissas declaradas. |
+| [Build e release](docs/RELEASING.md) | Como gerar e publicar. |
+| [Origem do código](docs/PROVENANCE.md) | Proveniência e atribuições. |
 
 ## Licença e independência
 
-Código autoral sob [MIT](LICENSE). As licenças dos componentes e das fontes de terceiros continuam válidas. O uso é gratuito, sem assinatura exigida pelo aplicativo, e a licença MIT também permite uso comercial por terceiros, preservadas as condições.
+Código autoral sob [MIT](LICENSE). Projeto independente, sem vínculo oficial com o INSS nem com aplicações proprietárias usadas como referência de comportamento. Não distribuímos software proprietário, dumps, bases, documentos de clientes nem o histórico privado de desenvolvimento.
 
-Projeto independente, sem vínculo oficial com o INSS nem com aplicações proprietárias usadas como referência de comportamento. O nome não comprova registro de domínio ou de marca. Não distribuímos software proprietário, dumps, bases, documentos de clientes nem o histórico privado de desenvolvimento.
+<p align="center"><sub>Feito para revisão profissional. O número só vale com a conta à vista.</sub></p>
+
+

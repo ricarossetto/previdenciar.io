@@ -51,7 +51,7 @@ pub fn calculate_case(case: &Calculation) -> Result<Value,String> {
         }
     }
     if case.kind.trim().to_lowercase() != "rgps" {
-        issue(&mut blockers,"case_kind_unsupported","kind","Este adaptador atende exclusivamente cÇ­lculos RGPS.");
+        issue(&mut blockers,"case_kind_unsupported","kind","Este adaptador atende exclusivamente cálculos RGPS.");
     }
     if let Some(especie) = case.especie.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
         match especie {
@@ -78,7 +78,7 @@ pub fn calculate_case(case: &Calculation) -> Result<Value,String> {
     let mut warnings = Vec::new();
     if let Some(cnis)=&case.cnis {
         let identity_pairs=[(&case.identity.birth_date,&cnis.identity.birth_date),(&case.identity.cpf,&cnis.identity.cpf),(&case.identity.full_name,&cnis.identity.full_name)];
-        if identity_pairs.iter().any(|(a,b)|a.is_some() && b.is_some() && a!=b) {
+        if identity_pairs.iter().any(|(a,b)|a.is_some() && b.is_some() && a!=b) && !policy.identity_confirmed {
             issue(&mut blockers,"identity_conflict","identity","Identidade diverge da importação; confirmar sem sobrescrever.");
         }
         if !excluded {

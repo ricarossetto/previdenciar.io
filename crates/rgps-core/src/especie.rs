@@ -668,10 +668,10 @@ fn avaliar_especial(e: &AvaliacaoEntrada<'_>) -> Result<BeneficioApurado> {
     let carencia = e.carencia_meses.max(0);
     let carencia_ok = carencia >= 180;
     let idade_meses = idade(e).unwrap_or(0);
-    let idade_anos = idade_meses / 12;
-    let tempo_anos = e.tempo_meses.max(0) / 12;
-    let especial_anos = tempo / 12;
-    let pontos = idade_anos + tempo_anos + especial_anos;
+    // Art. 21 da EC 103/2019: pontos = idade + tempo TOTAL de contribuicao.
+    // O tempo de efetiva exposicao e um requisito separado, nao uma parcela
+    // adicional da soma. Comparar meses preserva fracoes de ano.
+    let pontos_meses = idade_meses + e.tempo_meses.max(0);
     let pontos_min = match min_anos {
         15 => 66,
         20 => 76,
@@ -753,14 +753,14 @@ fn avaliar_especial(e: &AvaliacaoEntrada<'_>) -> Result<BeneficioApurado> {
     let permanente = com_requisitos(permanente_base, vec![grau_req.clone(), especial_req.clone()]);
     let pontos_req = requisito(
         "pontos_especial",
-        "Pontos (idade + tempo de contribuição + tempo especial)",
+        "Pontos (idade + tempo de contribuição)",
         format!("{pontos_min} pontos"),
-        format!("{pontos} pontos"),
-        pontos >= pontos_min && inicio_antes,
-        if pontos >= pontos_min && inicio_antes {
+        format!("{} pontos e {} meses na soma", pontos_meses / 12, pontos_meses % 12),
+        pontos_meses >= pontos_min * 12 && inicio_antes,
+        if pontos_meses >= pontos_min * 12 && inicio_antes {
             None
         } else {
-            Some((pontos_min - pontos).max(0) * 12)
+            Some((pontos_min * 12 - pontos_meses).max(0))
         },
         false,
     );
@@ -814,11 +814,19 @@ fn avaliar_professor(e: &AvaliacaoEntrada<'_>) -> Result<BeneficioApurado> {
     let carencia_ok = carencia >= 180;
     let idade_meses = idade(e).unwrap_or(0);
     let idade_anos = idade_meses / 12;
-    let tempo_anos = e.tempo_meses.max(0) / 12;
-    let pontos = idade_anos + tempo_anos;
-    let pontos_min = if e.sexo == "feminino" { 81 } else { 91 };
+    // Art. 15, § 3º: desde 2020 soma-se 1 ponto por ano, com teto 92/100.
+    // O requisito e o somatorio de idade e contribuicao, sem duplicar magisterio.
+    let pontos_meses = idade_meses + e.tempo_meses.max(0);
+    let ano_der = e.data_referencia.map(|date| date.ano).unwrap_or(2019);
+    let incremento = i64::from((ano_der - 2019).max(0));
+    let pontos_min = if e.sexo == "feminino" {
+        (81_i64 + incremento).min(92)
+    } else {
+        (91_i64 + incremento).min(100)
+    };
     let inicio_antes = filiado_antes_reforma(e).unwrap_or(false);
-    let idade_min = if e.sexo == "feminino" { 62_i64 } else { 65_i64 };
+    // Art. 19, § 1º, II: RGPS, 57/60 anos e 25 anos de magisterio.
+    let idade_min = if e.sexo == "feminino" { 57_i64 } else { 60_i64 };
     let idade_ped = if e.sexo == "feminino" { 52_i64 } else { 55_i64 };
     let mag_req = declarado(
         "tempo_magisterio",
@@ -880,10 +888,20 @@ fn avaliar_professor(e: &AvaliacaoEntrada<'_>) -> Result<BeneficioApurado> {
         ],
         Some("A RMI antiga de 80% × fator não é calculada neste motor; nenhum valor é inventado.".into()),
     );
+    // A regra permanente exige 25 anos para ambos os sexos; nas transicoes
+    // e no direito adquirido conservam-se 25 anos (mulher) / 30 (homem).
+    let mag_permanente_req = declarado(
+        "tempo_magisterio_permanente",
+        "Tempo de efetivo magistério — regra permanente",
+        "25 anos",
+        anos_meses(mag),
+        mag >= 25 * 12,
+        if mag >= 25 * 12 { None } else { Some(25 * 12 - mag) },
+    );
     let permanente_base = regra_idade(
         "professor-permanente",
         "Regra permanente — idade + magistério",
-        "EC 103/2019, arts. 18 e 26, §§ 2º, I, e 5º",
+        "EC 103/2019, art. 19, § 1º, II; art. 26, §§ 2º, I, e 5º",
         idade_min * 12,
         idade(e),
         format!("{idade_min} anos"),
@@ -893,18 +911,18 @@ fn avaliar_professor(e: &AvaliacaoEntrada<'_>) -> Result<BeneficioApurado> {
     );
     let permanente = com_requisitos(
         permanente_base,
-        vec![mag_req.clone(), exclusivo_req.clone()],
+        vec![mag_permanente_req, exclusivo_req.clone()],
     );
     let pontos_req = requisito(
         "pontos_professor",
         "Pontos (idade + tempo de contribuição)",
         format!("{pontos_min} pontos"),
-        format!("{pontos} pontos"),
-        pontos >= pontos_min && inicio_antes,
-        if pontos >= pontos_min && inicio_antes {
+        format!("{} pontos e {} meses na soma", pontos_meses / 12, pontos_meses % 12),
+        pontos_meses >= pontos_min * 12 && inicio_antes,
+        if pontos_meses >= pontos_min * 12 && inicio_antes {
             None
         } else {
-            Some((pontos_min - pontos).max(0) * 12)
+            Some((pontos_min * 12 - pontos_meses).max(0))
         },
         false,
     );
@@ -967,9 +985,12 @@ fn avaliar_professor(e: &AvaliacaoEntrada<'_>) -> Result<BeneficioApurado> {
         Some("RMI de 100% da média; o pedágio é o tempo que faltava em 13/11/2019.".into()),
     );
     let regras = vec![direito, permanente, transicao, pedagogio];
+    // Direito adquirido e registrado para conferência, mas seu coeficiente
+    // não é implementado neste motor. Jamais escolher uma regra com zero
+    // como se houvesse RMI calculável ou benefício automaticamente elegível.
     let escolhida = regras
         .iter()
-        .filter(|r| r.elegivel)
+        .filter(|r| r.elegivel && r.coeficiente > Decimal::ZERO)
         .max_by_key(|r| r.coeficiente);
     let coeficiente_escolhido = escolhida.map(|r| r.coeficiente).unwrap_or(coeficiente);
     let regra_escolhida = escolhida.map(|r| r.id);
@@ -1186,6 +1207,92 @@ mod tests {
             .find(|r| r.id == "tempo_especial")
             .unwrap();
         assert!(!especial.verificado_pelo_motor);
+    }
+
+    #[test]
+    fn especial_pontos_nao_soma_exposicao_duas_vezes() {
+        let mut e = base(Especie::Especial);
+        e.especial_grau = Some("25");
+        e.especial_meses = Some(300);
+        e.especial_antes_reforma = Some(false);
+        e.tempo_meses = 300;
+        e.data_nascimento = Some(data("1971-01-10")); // 55 + 25 = 80, abaixo de 86.
+        let avaliado = avaliar(&e).unwrap();
+        let transicao = avaliado.regras.iter().find(|r| r.id == "especial-transicao").unwrap();
+        let pontos = transicao.requisitos.iter().find(|r| r.id == "pontos_especial").unwrap();
+        assert!(!pontos.cumprido);
+        assert_eq!(pontos.falta_meses, Some(72));
+        assert!(!transicao.elegivel);
+        e.data_nascimento = Some(data("1965-02-10")); // 60 anos e 11 meses.
+        e.tempo_meses = 301; // +25 anos e 1 mes = 86 pontos.
+        let avaliado = avaliar(&e).unwrap();
+        let transicao = avaliado.regras.iter().find(|r| r.id == "especial-transicao").unwrap();
+        let pontos = transicao.requisitos.iter().find(|r| r.id == "pontos_especial").unwrap();
+        assert!(pontos.cumprido);
+        assert!(transicao.elegivel);
+    }
+
+    #[test]
+    fn professor_permanente_exige_57_60_e_25_anos_de_magisterio() {
+        let mut e = base(Especie::Professor);
+        e.magisterio_meses = Some(300);
+        e.magisterio_exclusivo = Some(true);
+        e.tempo_meses = 300;
+        e.inicio_filiacao = Some(data("2020-01-01"));
+        e.data_nascimento = Some(data("1966-01-10")); // 60 anos.
+        let avaliado = avaliar(&e).unwrap();
+        let regra = avaliado.regras.iter().find(|r| r.id == "professor-permanente").unwrap();
+        assert!(regra.elegivel, "{regra:?}");
+        assert!(regra.requisitos.iter().any(|r| r.id == "tempo_magisterio_permanente" && r.cumprido));
+        e.sexo = "feminino";
+        e.data_nascimento = Some(data("1969-01-10")); // 57 anos.
+        let avaliado = avaliar(&e).unwrap();
+        let regra = avaliado.regras.iter().find(|r| r.id == "professor-permanente").unwrap();
+        assert!(regra.elegivel, "{regra:?}");
+    }
+
+    #[test]
+    fn professor_pontos_progridem_por_ano_ate_o_teto() {
+        let mut e = base(Especie::Professor);
+        e.sexo = "feminino";
+        e.magisterio_meses = Some(300);
+        e.magisterio_exclusivo = Some(true);
+        e.tempo_meses = 300;
+        e.data_nascimento = Some(data("1969-01-10")); // 57 + 25 = 82.
+        let avaliado = avaliar(&e).unwrap();
+        let regra = avaliado.regras.iter().find(|r| r.id == "professor-pontos").unwrap();
+        let pontos = regra.requisitos.iter().find(|r| r.id == "pontos_professor").unwrap();
+        assert_eq!(pontos.exigido, "88 pontos"); // 2026: 81 + 7.
+        assert!(!pontos.cumprido);
+        e.data_referencia = Some(data("2035-01-10"));
+        let avaliado = avaliar(&e).unwrap();
+        let regra = avaliado.regras.iter().find(|r| r.id == "professor-pontos").unwrap();
+        let pontos = regra.requisitos.iter().find(|r| r.id == "pontos_professor").unwrap();
+        assert_eq!(pontos.exigido, "92 pontos"); // teto feminino.
+        e.sexo = "masculino";
+        let avaliado = avaliar(&e).unwrap();
+        let regra = avaliado.regras.iter().find(|r| r.id == "professor-pontos").unwrap();
+        let pontos = regra.requisitos.iter().find(|r| r.id == "pontos_professor").unwrap();
+        assert_eq!(pontos.exigido, "100 pontos"); // teto masculino.
+    }
+
+    #[test]
+    fn professor_direito_adquirido_sem_formula_nao_eh_rmi_calculada() {
+        let mut e = base(Especie::Professor);
+        e.magisterio_meses = Some(360);
+        e.magisterio_exclusivo = Some(true);
+        e.magisterio_antes_reforma = Some(true);
+        e.tempo_meses = 360;
+        e.tempo_ate_reforma_meses = 360;
+        e.data_nascimento = Some(data("1972-01-10")); // 54 anos na DER.
+        let avaliado = avaliar(&e).unwrap();
+        let adquirido = avaliado.regras.iter()
+            .find(|r| r.id == "professor-direito-adquirido").unwrap();
+        assert!(adquirido.elegivel);
+        assert_eq!(adquirido.coeficiente, Decimal::ZERO);
+        assert!(avaliado.regra_escolhida.is_none(),
+            "Nao pode marcar calculo automatico quando falta formula para a RMI.");
+        assert!(avaliado.coeficiente > Decimal::ZERO);
     }
 
     #[test]
