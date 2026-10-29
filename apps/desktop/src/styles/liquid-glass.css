@@ -521,3 +521,14 @@ html[data-theme-switching] * { transition: none !important; animation: none !imp
 .previus-app .brand-emblem { background: #eef5f3; border-color: #d6e4df; padding: 6px; }
 .previus-app .brand-emblem img { display: block; width: 26px; height: 26px; object-fit: contain; }
 @media (max-width: 1200px) { :root[data-theme="light"] .previus-app .brand-logo-full { width: 174px; } }
+
+.previus-app .brand-logo { display: none; width: 190px; max-width: 100%; height: auto; }
+.previus-app .brand-logo-dark { display: block; }
+:root[data-theme="light"] .previus-app .brand-logo-dark { display: none; }
+:root[data-theme="light"] .previus-app .brand-logo-light { display: block; mix-blend-mode: multiply; }
+.previus-app .chrome-mobile-brand { display: none; align-items: center; gap: 8px; }
+@media (max-width: 1023px) { .previus-app .chrome-mobile-brand { display: flex; } }
+.previus-app .chrome-mobile-brand img { width: 26px; height: 26px; border-radius: 7px; object-fit: cover; }
+@media (max-width: 1200px) { .previus-app .brand-logo { width: 174px; } }
+
+@media (max-width: 359px) { .previus-app .chrome-mobile-brand span { display: none; } .previus-app .chrome-mobile-brand img { width: 24px; height: 24px; } }
