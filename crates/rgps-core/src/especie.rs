@@ -985,9 +985,12 @@ fn avaliar_professor(e: &AvaliacaoEntrada<'_>) -> Result<BeneficioApurado> {
         Some("RMI de 100% da média; o pedágio é o tempo que faltava em 13/11/2019.".into()),
     );
     let regras = vec![direito, permanente, transicao, pedagogio];
+    // Direito adquirido e registrado para conferência, mas seu coeficiente
+    // não é implementado neste motor. Jamais escolher uma regra com zero
+    // como se houvesse RMI calculável ou benefício automaticamente elegível.
     let escolhida = regras
         .iter()
-        .filter(|r| r.elegivel)
+        .filter(|r| r.elegivel && r.coeficiente > Decimal::ZERO)
         .max_by_key(|r| r.coeficiente);
     let coeficiente_escolhido = escolhida.map(|r| r.coeficiente).unwrap_or(coeficiente);
     let regra_escolhida = escolhida.map(|r| r.id);
@@ -1271,6 +1274,25 @@ mod tests {
         let regra = avaliado.regras.iter().find(|r| r.id == "professor-pontos").unwrap();
         let pontos = regra.requisitos.iter().find(|r| r.id == "pontos_professor").unwrap();
         assert_eq!(pontos.exigido, "100 pontos"); // teto masculino.
+    }
+
+    #[test]
+    fn professor_direito_adquirido_sem_formula_nao_eh_rmi_calculada() {
+        let mut e = base(Especie::Professor);
+        e.magisterio_meses = Some(360);
+        e.magisterio_exclusivo = Some(true);
+        e.magisterio_antes_reforma = Some(true);
+        e.tempo_meses = 360;
+        e.tempo_ate_reforma_meses = 360;
+        e.data_nascimento = Some(data("1972-01-10")); // 54 anos na DER.
+        let avaliado = avaliar(&e).unwrap();
+        let adquirido = avaliado.regras.iter()
+            .find(|r| r.id == "professor-direito-adquirido").unwrap();
+        assert!(adquirido.elegivel);
+        assert_eq!(adquirido.coeficiente, Decimal::ZERO);
+        assert!(avaliado.regra_escolhida.is_none(),
+            "Nao pode marcar calculo automatico quando falta formula para a RMI.");
+        assert!(avaliado.coeficiente > Decimal::ZERO);
     }
 
     #[test]
