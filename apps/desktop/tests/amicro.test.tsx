@@ -38,7 +38,7 @@ describe('Amicro integration', () => {
     expect(screen.getByRole('button')).toHaveAttribute('aria-pressed', 'false');
     await userEvent.setup().click(screen.getByRole('button'));
     expect(screen.getByRole('button')).toHaveAttribute('aria-pressed', 'true');
-    expect(localStorage.getItem('previus.amicro.reduce-motion')).toBe('true');
+    expect(localStorage.getItem('previdenciar.amicro.reduce-motion')).toBe('true');
     expect(document.documentElement.dataset.amicroMotion).toBe('off');
     cleanup();
     render(<MotionProvider><Control /></MotionProvider>);

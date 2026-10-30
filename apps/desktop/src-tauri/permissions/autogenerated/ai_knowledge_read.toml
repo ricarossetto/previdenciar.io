@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-ai-knowledge-read"
+description = "Enables the ai_knowledge_read command without any pre-configured scope."
+commands.allow = ["ai_knowledge_read"]
+
+[[permission]]
+identifier = "deny-ai-knowledge-read"
+description = "Denies the ai_knowledge_read command without any pre-configured scope."
+commands.deny = ["ai_knowledge_read"]

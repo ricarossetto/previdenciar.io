@@ -3,7 +3,7 @@
 <p align="center">Ferramenta desktop gratuita e open source para organizar CNIS, hipóteses de cálculo e relatórios locais.</p>
 <p align="center"><a href="https://github.com/ricarossetto/previdenciar.io/releases">Baixar para Windows</a> · <a href="https://ricarossetto.github.io/previdenciar.io/">Apresentação</a> · <a href="docs/GETTING_STARTED.md">Começar</a> · <a href="docs/LIMITATIONS.md">Limitações</a></p>
 
-> **Versão 0.10.5.** O motor continua experimental. O programa não é serviço oficial do INSS, não certifica direito a benefício e não substitui revisão profissional. Hipótese bloqueada continua bloqueada, e dado ausente não vira zero.
+> **Versão 0.11.1.** O motor continua experimental. O programa não é serviço oficial do INSS, não certifica direito a benefício e não substitui revisão profissional. Hipótese bloqueada continua bloqueada, e dado ausente não vira zero.
 
 ## O que já existe
 
@@ -18,13 +18,17 @@
 - Apuração da qualidade de segurado por vínculo, com a regra e a fonte impressas no documento: período de graça de 12 meses (art. 15, II, da Lei 8.213/1991), prorrogação para até 24 meses quando houve mais de 120 contribuições (art. 15, § 1º), carência de 180 contribuições (art. 25, II) ou a faixa da tabela do art. 142, contagem do contribuinte individual a partir do primeiro pagamento em dia (art. 27, II), tempo em gozo de benefício fora da carência (Decreto 3.048/1999, art. 19-C, § 1º) e competência contada uma única vez quando aparece em mais de um vínculo.
 - Central de relatórios com título editável, opções de apresentação (anexo técnico, conferência de qualidade, premissas de planejamento) e exportação em lote para uma pasta, sem sobrescrever arquivo existente.
 - Persistência local cifrada no Windows, gravação explícita para novos casos, autosave de rascunhos assistidos já salvos e proteção contra sobrescrita depois de erro ou corrupção.
+- Renda familiar per capita do BPC e prévia de qualidade de segurado com premissas declaradas, sem presumir composição do grupo ou prorrogação.
+- Copiloto IA opcional e desativado por padrão, com consentimento por sessão, chave em cofre DPAPI e ferramentas locais de habilidades, legislação, NatJus (com texto extraído dos PDFs) e jurisprudência. O Copiloto não recebe CNIS, clientes, cálculos ou PDFs automaticamente; um resumo estrutural de caso pode ser anexado manualmente, sem identificação direta, e o Copiloto não calcula benefício.
+- Página **Base de conhecimento** com busca local em quatro blocos: habilidades, legislação, NatJus e jurisprudência.
+- Página de **Minuta assistida** com roteiro, redação, revisão crítica e revisão adversarial, resumo/PDF textual ou OCR local opcional do caso, hash, página, leitura revisável e salvamento da leitura no caso, checagem local de pendências, seções vazias e citações, versões da sessão, exportação em texto/DOCX, impressão/PDF e salvamento como modelo local.
 - Interface React/Tauri com temas claro e escuro, navegação móvel e opção de movimento reduzido.
 
 ## O que foi conferido
 
-- 493 testes Rust, 108 testes de interface e 37 testes de navegador.
+- Mais de 500 testes Rust, 121 testes de interface e 37 testes de navegador.
 - Verificação nativa em perfil isolado: importação, cálculo, as oito prévias de PDF, gravação cifrada e reabertura, sem tocar na base normal.
-- Revisão de fonte pública sem achados.
+- Revisão de fonte pública com ressalvas registradas para exemplos e artefatos de desenvolvimento; o fluxo principal não depende deles.
 - Um CNIS real de 23 páginas, conferido fora do repositório, passou a ser lido com 610 lançamentos e nenhuma diferença de salário por competência contra o relatório de um software de referência.
 - Com o snapshot público da Fábrica de Cálculos, o mesmo caso chegou a R$ 5.161,10 contra R$ 5.200,89 do software de referência, uma diferença de 0,77%. Ela vem de sete competências que o CNIS lista apenas na visão "Contribuições" e que este programa mantém no período básico de cálculo. A escolha entre as duas leituras é profissional e está documentada.
 
@@ -36,21 +40,23 @@ Não estão implementados: a carência legal por tabelas do RGPS, a desconsidera
 
 ## Baixar e executar
 
-1. Abra [Releases](https://github.com/ricarossetto/previdenciar.io/releases) e escolha a versão 0.10.5.
+1. Abra [Releases](https://github.com/ricarossetto/previdenciar.io/releases) e escolha a versão 0.11.1.
 2. Baixe o executável Windows e o arquivo SHA256SUMS.txt.
 3. Confira o SHA-256 antes de executar. A distribuição não possui assinatura digital de código.
 4. Requer Windows 10/11 x64 com Microsoft Edge WebView2. Não desative proteções do Windows para ignorar alertas. Se não confiar no binário, compile a partir do código.
 5. Use primeiro dados fictícios e leia os avisos. Não compartilhe CNIS, PDFs ou arquivos da base em issues.
 
-A versão pública usa **identidade textual provisória**. Logo e identidade final serão produzidas no OpenDesign e integradas depois.
+A versão pública usa **identidade textual provisória**. Logo e identidade final serão produzidas em ferramenta de design e integradas depois.
 
 ## Demonstração web
 
-O diretório `web/` contém um mock navegável com a camada visual **ATRIUM ui-v2** e movimento do **GioMed IA**, o motor `rgps-core` compilado para WebAssembly e uma área **Fábrica de Cálculos** que usa a API pública do TRF3 por um proxy local. Para abrir o mock sozinho, use `web/index.html`. Para a Fábrica, copie `.env.example` para `.env`, preencha `FABRICA_API_KEY` e rode `node server/index.js`; abra `http://127.0.0.1:8787/`. A chave fica no servidor e não é enviada ao navegador. Instruções completas em [`web/README.md`](web/README.md) e [`server/README.md`](server/README.md). A demonstração web é separada do aplicativo desktop e não altera a base local.
+O diretório `web/` contém um mock navegável com a camada visual interna, o motor `rgps-core` compilado para WebAssembly e uma área **Fábrica de Cálculos** que usa a API pública do TRF3 por um proxy local. Para abrir o mock sozinho, use `web/index.html`. Para a Fábrica, copie `.env.example` para `.env`, preencha `FABRICA_API_KEY` e rode `node server/index.js`; abra `http://127.0.0.1:8787/`. A chave fica no servidor e não é enviada ao navegador. Instruções completas em [`web/README.md`](web/README.md) e [`server/README.md`](server/README.md). A demonstração web é separada do aplicativo desktop e não altera a base local.
 
 ## Privacidade
 
-Importação, cálculo, PDFs e exportação ocorrem na máquina do operador. Os fluxos implementados não enviam documentos a servidor nenhum. A consulta opcional de índices e limites públicos envia apenas a competência pedida à Fábrica de Cálculos/TRF3, sem CNIS, identidade, salários ou dados de saúde. O aplicativo não recebe chave de API: usa as rotas públicas de índices e referenciais.
+Importação, cálculo, PDFs e exportação ocorrem na máquina do operador. Os fluxos de cálculo e relatório não enviam documentos a servidor nenhum. A consulta opcional de índices e limites públicos envia apenas a competência pedida à Fábrica de Cálculos/TRF3, sem CNIS, identidade, salários ou dados de saúde.
+
+O Copiloto IA é a única integração com modelo externo e só envia dados depois de uma autorização explícita por sessão. Ele não anexa CNIS, clientes, cálculos ou PDFs automaticamente. As chaves de API ficam em `%LOCALAPPDATA%\Previdenciar\ai-keys.pvai`, protegidas por DPAPI; a interface recebe apenas o estado da chave, nunca o valor. O histórico da conversa não é salvo no workspace. Veja [Copiloto IA](docs/AI.md) e [privacidade](docs/PRIVACY.md).
 
 A base protegida do Windows fica no caminho legado de compatibilidade, sem migração silenciosa. Exportar com identificação oculta **não garante anonimização**, porque datas e valores ainda permitem correlação. A página no GitHub Pages é apenas apresentação, documentação e download: não recebe CNIS nem executa o motor Rust. Leia [privacidade](docs/PRIVACY.md).
 
@@ -65,10 +71,10 @@ npm run build
 npm test
 cd ../..
 cargo test --workspace --locked
-cargo build --release --locked -p previus-next-desktop --bin previus-next-desktop
+cargo build --release --locked -p previdenciar-next-desktop --bin previdenciar-next-desktop
 ~~~
 
-O binário é gerado em target/release/previus-next-desktop.exe. Os nomes internos dos crates e o identificador Tauri ficam como estão por compatibilidade. A marca exibida é previdenciar.io.
+O binário é gerado em target/release/previdenciar-next-desktop.exe. Os nomes internos dos crates e o identificador Tauri usam a marca previdenciar; a marca exibida é previdenciar.io.
 
 Para os testes de navegador, dentro de apps/desktop:
 
@@ -83,6 +89,8 @@ Esses testes usam IPC sintético em memória e não cobrem o transporte nativo d
 
 - [Primeiros passos](docs/GETTING_STARTED.md)
 - [Arquitetura e contratos](docs/ARCHITECTURE.md)
+- [Contratos de evidência](docs/DOMAIN_CONTRACTS.md)
+- [Copiloto IA](docs/AI.md)
 - [Privacidade](docs/PRIVACY.md)
 - [Limitações](docs/LIMITATIONS.md)
 - [Editor de contribuições](docs/CONTRIBUTIONS.md)
@@ -91,7 +99,7 @@ Esses testes usam IPC sintético em memória e não cobrem o transporte nativo d
 - [Pesquisa IEPREV](docs/pesquisa-ieprev/README.md)
 - [Build, release e deploy](docs/RELEASING.md)
 - [Origem do código](docs/PROVENANCE.md) e [atribuições](NOTICE.md)
-- [Prompt para logo e identidade no OpenDesign](brand/OPENDESIGN_PROMPT.md)
+- [Prompt para logo e identidade](brand/DESIGN_PROMPT.md)
 - [Contribuir](CONTRIBUTING.md) · [segurança](SECURITY.md)
 
 ## Licença e independência

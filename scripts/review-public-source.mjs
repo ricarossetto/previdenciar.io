@@ -14,7 +14,7 @@ for (const file of files) {
   if (/\.(?:ttf|woff2|ico|png)$/.test(file)) continue;
   const text = bytes.toString('utf8');
   if (secret.test(text)) blocked.push({ file, reason: 'credential/private-key pattern' });
-  if (/C:\\Users\\|C:\/Users\/|OneDrive[\\/]|Downloads[\\/]previus[\\/]/i.test(text)) blocked.push({ file, reason: 'personal local path' });
+  if (/C:\\Users\\|C:\/Users\/|OneDrive[\\/]|Downloads[\\/]previdenciar[\\/]/i.test(text)) blocked.push({ file, reason: 'personal local path' });
 }
 console.log(JSON.stringify({ trackedFiles: files.length, findings: blocked, status: blocked.length ? 'blocked' : 'passed' }, null, 2));
 if (!files.length || blocked.length) process.exitCode = 1;

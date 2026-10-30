@@ -7,10 +7,10 @@ O `rgps-core` — o motor observacional de RGPS do repositório — compilado pa
 | Camada | No navegador? |
 | --- | --- |
 | `rgps-core` (`calcular`, `RgpsEntrada`, `RgpsOpcoes`) | Sim, via wasm |
-| `previus-rgps` (adaptador, políticas, `calculate_json`) | Não; depende de CNIS/workspace no desktop |
-| `previus-cnis` (importação de PDF) | Não |
-| `previus-workspace` (base cifrada/DPAPI) | Não |
-| `previus-reports` (PDF) | Não |
+| `previdenciar-rgps` (adaptador, políticas, `calculate_json`) | Não; depende de CNIS/workspace no desktop |
+| `previdenciar-cnis` (importação de PDF) | Não |
+| `previdenciar-workspace` (base cifrada/DPAPI) | Não |
+| `previdenciar-reports` (PDF) | Não |
 | Tauri / rede / filesystem | Não |
 
 O wasm não tem WASI, filesystem, rede ou relógio de sistema. A entrada e a saída ficam na memória da página.
@@ -37,7 +37,7 @@ Ou manualmente:
 
 ```powershell
 rustup target add wasm32-unknown-unknown
-cargo build -p previus-wasm --target wasm32-unknown-unknown --release
+cargo build -p previdenciar-wasm --target wasm32-unknown-unknown --release
 node scripts\embed-web-engine.js
 ```
 
@@ -45,7 +45,7 @@ O script copia o wasm, gera o base64, copia o fixture e regenera `engine.example
 
 ## ABI
 
-Exportações em `crates/previus-wasm/src/lib.rs`:
+Exportações em `crates/previdenciar-wasm/src/lib.rs`:
 
 | Export | Contrato |
 | --- | --- |
@@ -129,14 +129,14 @@ A página mostra status (`Pronto`, `Calculado`, `Bloqueado`, `Erro`), o resumo e
 
 ## Verificação
 
-- `cargo test -p previus-wasm`: 2 testes nativos (fixture 300 e entrada inválida).
+- `cargo test -p previdenciar-wasm`: 2 testes nativos (fixture 300 e entrada inválida).
 - Node com `WebAssembly.instantiate`: versão, cálculo e leitura da memória.
 - Chrome headless em `file://`: exemplo e caso executam, sem erro de console, sem requisição externa.
 - `impeccable detect web`: 0 achados; `axe-core` WCAG 2 A/AA, 2.1 e 2.2 AA: 0 violações (incluindo a página do motor); 20 views a 390 px sem overflow.
 
 ## Limites
 
-- É o `rgps-core`, não o adaptador `previus-rgps`; as políticas e bloqueios do adaptador (revisão confirmada, evidência, PcD, etc.) não são aplicados no wasm.
+- É o `rgps-core`, não o adaptador `previdenciar-rgps`; as políticas e bloqueios do adaptador (revisão confirmada, evidência, PcD, etc.) não são aplicados no wasm.
 - O descarte do art. 26, § 6º, da EC 103/2019 está bloqueado no próprio núcleo; não há resultado financeiro até que o tempo e os requisitos sejam recalculados e validados.
 - Não importa CNIS, não gera PDF, não lê a base cifrada e não substitui o aplicativo desktop.
 - O resultado é experimental, não certifica direito e exige revisão profissional.

@@ -83,14 +83,14 @@ O `rgps-core` 0.1.0 foi compilado para `wasm32-unknown-unknown` (453.273 bytes) 
 - **Exemplo sintético**: o fixture de 300 competências do repositório; saída atual R$ 1.600,00 de RMI, 300 competências.
 - **Dados do caso**: monta vínculos e competências a partir do workspace atual no módulo RGPS; no caso de demonstração são 12 competências e o motor devolve R$ 1.728,50 com os avisos de coeficiente e correção. PcD, pensão e outros módulos ficam no desktop.
 
-A ABI é JSON puro: `pio_alloc`, `pio_calculate`, `pio_free` e `pio_version`, com envelope `{ ok, engine, version, data | error }`. Não há WASI, filesystem, rede, Tauri ou CNIS no wasm. O adaptador `previus-rgps`, o workspace cifrado e o renderer de PDF continuam no desktop.
+A ABI é JSON puro: `pio_alloc`, `pio_calculate`, `pio_free` e `pio_version`, com envelope `{ ok, engine, version, data | error }`. Não há WASI, filesystem, rede, Tauri ou CNIS no wasm. O adaptador `previdenciar-rgps`, o workspace cifrado e o renderer de PDF continuam no desktop.
 
 Regerar:
 
 ```powershell
 scripts\build-web-engine.ps1
 # ou:
-cargo build -p previus-wasm --target wasm32-unknown-unknown --release
+cargo build -p previdenciar-wasm --target wasm32-unknown-unknown --release
 node scripts\embed-web-engine.js
 ```
 
@@ -105,7 +105,7 @@ O mock aceita um **workspace JSON v1** em Configurações → Dados do workspace
 - **Baixar exemplo**: baixa `workspace.example.json`, um arquivo mínimo e válido para editar à mão.
 - **Restaurar demonstração**: volta aos dados fictícios e remove o workspace salvo.
 
-O arquivo **não é cifrado** e não sai do navegador; trate-o como dado de cliente. O **`rgps-core` roda no navegador via WebAssembly** na página Motor local; o adaptador `previus-rgps`, o CNIS, o workspace cifrado e o PDF continuam no desktop. Campos ausentes aparecem como `—` ou estado vazio, nunca como número inventado. O app desktop ainda não exporta este formato; o próximo passo é um exportador no Tauri que gere o mesmo contrato.
+O arquivo **não é cifrado** e não sai do navegador; trate-o como dado de cliente. O **`rgps-core` roda no navegador via WebAssembly** na página Motor local; o adaptador `previdenciar-rgps`, o CNIS, o workspace cifrado e o PDF continuam no desktop. Campos ausentes aparecem como `—` ou estado vazio, nunca como número inventado. O app desktop ainda não exporta este formato; o próximo passo é um exportador no Tauri que gere o mesmo contrato.
 
 O contrato completo está em `OVERNIGHT.md` e o exemplo em `workspace.example.json`. Campos de caso opcionais incluem `cnisCount`, `adjustments`, `used`, `pending`, `cnisPages`, `importedAt`, `pendencies`, `disability`, `ctc`, `special` e `rural`.
 
@@ -142,7 +142,7 @@ O contrato completo está em `OVERNIGHT.md` e o exemplo em `workspace.example.js
 
 ## Limites desta demonstração
 
-- Executa o **`rgps-core`** via WebAssembly, mas não o adaptador `previus-rgps`, o CNIS, o workspace cifrado ou o renderer de PDF; esses continuam no desktop.
+- Executa o **`rgps-core`** via WebAssembly, mas não o adaptador `previdenciar-rgps`, o CNIS, o workspace cifrado ou o renderer de PDF; esses continuam no desktop.
 - A **Fábrica de Cálculos** depende do proxy local, da rede e da disponibilidade da API do TRF3; sem o proxy, o restante do mock continua funcionando offline.
 - A área **Documentos** envia o PDF ao proxy em memória para leitura; o proxy não grava o arquivo. Use somente dados sintéticos nesta demonstração.
 - O resultado do wasm é experimental e pode bloquear entrada incompleta; ele não certifica direito. O resultado da API é o retorno oficial do serviço, também sujeito a revisão profissional.

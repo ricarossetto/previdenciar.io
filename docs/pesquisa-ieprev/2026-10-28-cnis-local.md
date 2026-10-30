@@ -49,7 +49,7 @@ atribuídos por heurística.
 
 ## O que mudou no código
 
-- `crates/previus-cnis/src/lib.rs` passou a reconhecer `CONTRIBUINTE EM DOBRO`,
+- `crates/previdenciar-cnis/src/lib.rs` passou a reconhecer `CONTRIBUINTE EM DOBRO`,
   `RECOLHIMENTO`, `AGRUPAMENTO DE CONTRATANTES/COOPERATIVAS`, `AUTÔNOMO` e
   `SEGURADO ESPECIAL` como tipos de filiação observáveis.
 - Relações com tipo desconhecido não são mais descartadas: o vínculo é

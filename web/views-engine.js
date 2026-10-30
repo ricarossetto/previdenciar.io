@@ -154,8 +154,8 @@ function viewEngine() {
     '<div class="ledger-row"><dt>Entrada</dt><dd>JSON</dd></div>' +
     '<div class="ledger-row"><dt>Rede</dt><dd>nenhuma</dd></div>' +
     '<div class="ledger-row"><dt>CNIS / PDF</dt><dd>fora do wasm</dd></div>' +
-    '</dl><p class="form-note">O adaptador previus-rgps, o CNIS, o workspace cifrado e o renderer de PDF continuam no desktop.</p></div></section>' +
-    '<section class="folio"><div class="folio__head"><div class="folio__title">Reprodutibilidade</div></div><div class="folio__body"><div class="form-actions" style="justify-content:flex-start"><a class="btn btn--quiet" href="engine.wasm" download>Baixar wasm</a><a class="btn btn--ghost" href="engine.example.json" download>Baixar exemplo</a></div><p class="form-note">Regere com <span class="mono">scripts/build-web-engine.ps1</span> e <span class="mono">cargo build -p previus-wasm --target wasm32-unknown-unknown --release</span>.</p></div></section>' +
+    '</dl><p class="form-note">O adaptador previdenciar-rgps, o CNIS, o workspace cifrado e o renderer de PDF continuam no desktop.</p></div></section>' +
+    '<section class="folio"><div class="folio__head"><div class="folio__title">Reprodutibilidade</div></div><div class="folio__body"><div class="form-actions" style="justify-content:flex-start"><a class="btn btn--quiet" href="engine.wasm" download>Baixar wasm</a><a class="btn btn--ghost" href="engine.example.json" download>Baixar exemplo</a></div><p class="form-note">Regere com <span class="mono">scripts/build-web-engine.ps1</span> e <span class="mono">cargo build -p previdenciar-wasm --target wasm32-unknown-unknown --release</span>.</p></div></section>' +
     '<div class="notice">' + ico('lock', 16) + '<p><strong>Nenhum dado sai do navegador.</strong> A entrada e a saída ficam na memória da página; o wasm não faz requisições.</p></div>' +
     '</aside></div>';
 }

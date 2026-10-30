@@ -42,7 +42,7 @@ documento de origem privado (não o conteúdo).
 ## Verificação local desta sessão
 
 - `cargo test --workspace --locked`: exit 0, 493 testes aprovados.
-- `cargo test -p previus-cnis --locked`: 38 testes aprovados.
+- `cargo test -p previdenciar-cnis --locked`: 38 testes aprovados.
 - `npm test` em `apps/desktop`: 108 testes aprovados.
 - `npm run test:e2e` em `apps/desktop`: 36 testes aprovados.
 - O CNIS privado foi lido localmente e não foi incluído no repositório.

@@ -1,5 +1,5 @@
 //! Storage boundary: fixed path, explicit saves, sticky load failure and no user-data logging.
-use previus_workspace::{Calculation, Workspace, MAX_WORKSPACE_BYTES};
+use previdenciar_workspace::{Calculation, Workspace, MAX_WORKSPACE_BYTES};
 use serde::Serialize;
 use serde_json::Value;
 use std::{fs, path::{Path, PathBuf}, sync::{Arc, Mutex}};
@@ -23,8 +23,8 @@ impl NativeStore {
             .ok_or_else(|| "LOCALAPPDATA indisponível; gravação bloqueada.".to_owned())
             .and_then(|base| {
                 let base = PathBuf::from(base);
-                crate::files::validate_local_path(&base.join("PreviusRust").join("workspace.pvr"))?;
-                Ok(base.join("PreviusRust").join("workspace.pvr"))
+                crate::files::validate_local_path(&base.join("Previdenciar").join("workspace.pvr"))?;
+                Ok(base.join("Previdenciar").join("workspace.pvr"))
             });
         Self { path }
     }
@@ -128,7 +128,7 @@ impl Default for BackendState {
             // Debug-only, fixed application-owned test root. Never accepts an arbitrary path,
             // changes OS settings, weakens encryption or creates a production demo fallback.
             let path = if !profile.is_empty() && profile.len() <= 32 && profile.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-') {
-                let base = std::env::temp_dir().join("PreviusRust-native-validation");
+                let base = std::env::temp_dir().join("Previdenciar-native-validation");
                 let dir = base.join(profile);
                 match crate::files::check_ancestors(&dir, true) {
                     Ok(()) => match std::fs::create_dir_all(&dir) {
@@ -179,7 +179,8 @@ pub fn validate_workspace(workspace: &Workspace) -> Result<(), String> {
     }
     if workspace.clients.len() > 100_000 || workspace.calculations.len() > 100_000
         || workspace.reference_tables.len() > 10_000 || workspace.documents.len() > 100_000
-        || workspace.appointments.len() > 100_000 {
+        || workspace.appointments.len() > 100_000 || workspace.source_documents.len() > 1_000
+        || workspace.readings.len() > 5_000 || workspace.facts.len() > 20_000 {
         return Err("Quantidade de entidades excede o limite local.".into());
     }
     for calculation in &workspace.calculations { validate_calculation(calculation)?; }
@@ -200,10 +201,10 @@ pub fn validate_workspace(workspace: &Workspace) -> Result<(), String> {
 pub fn validate_calculation(calculation: &Calculation) -> Result<(), String> {
     if calculation.options.rule_policy.len()>2*1024*1024{return Err("Política/snapshot excede o limite de 2 MiB.".into());}
     if calculation.options.rule_policy.trim().starts_with('{'){
-        let policy:previus_rgps::contracts::CasePolicy=serde_json::from_str(&calculation.options.rule_policy).map_err(|_|"Política de cálculo inválida; não foi salva nem calculada.")?;
+        let policy:previdenciar_rgps::contracts::CasePolicy=serde_json::from_str(&calculation.options.rule_policy).map_err(|_|"Política de cálculo inválida; não foi salva nem calculada.")?;
         if let Some(pcd)=policy.lc142{if let Some(snapshot)=pcd.snapshot{snapshot.validate()?;}}
     }
-    previus_workspace::link_review::validate_source_links(calculation)?;
+    previdenciar_workspace::link_review::validate_source_links(calculation)?;
     if let Some(review) = &calculation.contribution_review { review.validate(calculation)?; }
     if let Some(assistant) = &calculation.assistant { assistant.validate()?; }
     if calculation.manual_links.len() > 100_000 || calculation.manual_salaries.len() > 100_000 {
@@ -276,7 +277,7 @@ pub fn validate_assistant_for_calculation(calculation: &Calculation) -> Result<(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use previus_workspace::{Client, ManualSalary};
+    use previdenciar_workspace::{Client, ManualSalary};
     use std::cell::{Cell, RefCell};
     struct FakeStore {
         disk: RefCell<Option<Workspace>>, corrupt: Cell<bool>, writes: Cell<usize>, fail_write: Cell<bool>,
@@ -393,7 +394,7 @@ mod tests {
 
     #[test]
     fn synthetic_import_preserves_one_based_groups_and_rejects_zero_or_duplicates() {
-        let parsed = previus_cnis::import_text(include_str!("../../../../crates/previus-cnis/tests/fixtures/synthetic.cnis")).unwrap();
+        let parsed = previdenciar_cnis::import_text(include_str!("../../../../crates/previdenciar-cnis/tests/fixtures/synthetic.cnis")).unwrap();
         let case = Calculation { cnis: Some(parsed.clone()), ..Default::default() };
         validate_calculation(&case).unwrap();
         let mut bad = case.clone();
@@ -408,7 +409,7 @@ mod tests {
     }
 
     fn assistant_case() -> Calculation {
-        Calculation { assistant: Some(previus_workspace::AssistantInterview {
+        Calculation { assistant: Some(previdenciar_workspace::AssistantInterview {
             mode: "assisted".into(), current_benefit_received: Some(false), import_requested: Some(true),
             process_kind: Some("Simulação do benefício".into()), goal: Some("Calcular um novo benefício".into()),
             review_confirmed: true, completed_steps: vec!["intro".into(), "benefit".into(), "review".into()],
@@ -418,7 +419,7 @@ mod tests {
     fn assisted_draft_saves_unanswered_without_implicit_completion_or_guessed_parameters() {
         let mut guard = LoadGuard::new(FakeStore::empty()); let mut workspace = guard.bootstrap().workspace;
         let id = workspace.id(); workspace.calculations.push(Calculation { id,
-            assistant: Some(previus_workspace::AssistantInterview { mode: "assisted".into(), ..Default::default() }),
+            assistant: Some(previdenciar_workspace::AssistantInterview { mode: "assisted".into(), ..Default::default() }),
             ..Default::default() });
         let saved = guard.save(workspace).unwrap(); let case = &saved.calculations[0];
         let assistant = case.assistant.as_ref().unwrap();
@@ -508,7 +509,7 @@ mod tests {
     #[test]
     fn manual_and_legacy_paths_keep_existing_engine_review_gates() {
         validate_assistant_for_calculation(&Calculation::default()).unwrap();
-        let case = Calculation { assistant: Some(previus_workspace::AssistantInterview { mode: "manual".into(), ..Default::default() }), ..Default::default() };
+        let case = Calculation { assistant: Some(previdenciar_workspace::AssistantInterview { mode: "manual".into(), ..Default::default() }), ..Default::default() };
         validate_calculation(&case).unwrap(); validate_assistant_for_calculation(&case).unwrap();
         let result = tauri::async_runtime::block_on(crate::calculate_case(case)).unwrap();
         assert_eq!(result["status"], "blocked"); assert!(result["data"].is_null()); assert_eq!(result["legal_validation_performed"], false);
@@ -525,7 +526,7 @@ mod tests {
     }
     #[test]
     fn actual_async_case_command_accepts_completed_synthetic_assistant_without_legal_claim() {
-        let mut case: Calculation = serde_json::from_str(include_str!("../../../../crates/previus-rgps/tests/fixtures/calculation-synthetic.json")).unwrap();
+        let mut case: Calculation = serde_json::from_str(include_str!("../../../../crates/previdenciar-rgps/tests/fixtures/calculation-synthetic.json")).unwrap();
         case.assistant = assistant_case().assistant;
         let result = tauri::async_runtime::block_on(crate::calculate_case(case)).unwrap();
         assert_eq!(result["status"], "experimental"); assert_eq!(result["legal_validation_performed"], false);

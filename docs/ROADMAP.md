@@ -12,7 +12,7 @@ Ampliar smoke nativo e revisão profissional de cenários, aprofundar categoriza
 
 ## Identidade
 
-A logo definitiva continua aguardando os arquivos aprovados do OpenDesign. Não substituir pelo primeiro conceito sem aprovação.
+A logo definitiva continua aguardando os arquivos aprovados da identidade visual. Não substituir pelo primeiro conceito sem aprovação.
 
 ## Cobertura de regras
 

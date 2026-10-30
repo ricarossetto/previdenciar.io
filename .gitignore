@@ -28,6 +28,8 @@
 *.pdf
 *.pvr
 *.pvr.*
+*.pvai
+ai-keys*
 *.db
 *.db-*
 *.sqlite

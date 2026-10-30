@@ -3,12 +3,12 @@ const path = require('path');
 
 const repo = path.resolve(__dirname, '..');
 const web = path.join(repo, 'web');
-const wasm = path.join(repo, 'target', 'wasm32-unknown-unknown', 'release', 'previus_wasm.wasm');
-const fixture = path.join(repo, 'crates', 'previus-rgps', 'tests', 'fixtures', 'synthetic-300-months.json');
+const wasm = path.join(repo, 'target', 'wasm32-unknown-unknown', 'release', 'previdenciar_wasm.wasm');
+const fixture = path.join(repo, 'crates', 'previdenciar-rgps', 'tests', 'fixtures', 'synthetic-300-months.json');
 
 if (!fs.existsSync(wasm)) {
   console.error('wasm not found: ' + wasm);
-  console.error('run: cargo build -p previus-wasm --target wasm32-unknown-unknown --release');
+  console.error('run: cargo build -p previdenciar-wasm --target wasm32-unknown-unknown --release');
   process.exit(1);
 }
 if (!fs.existsSync(fixture)) {

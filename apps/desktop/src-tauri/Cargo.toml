@@ -1,5 +1,5 @@
 [package]
-name = "previus-next-desktop"
+name = "previdenciar-next-desktop"
 version = "0.11.1"
 edition = "2021"
 description = "previdenciar.io — desktop local, privado e orientado à revisão"
@@ -18,11 +18,12 @@ tauri-plugin-process = "2"
 rfd = "=0.15.4"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-previus-workspace = { path = "../../../crates/previus-workspace" }
-previus-cnis = { path = "../../../crates/previus-cnis" }
-previus-core = { path = "../../../crates/previus-core" }
-previus-rgps = { path = "../../../crates/previus-rgps" }
-previus-reports = { path = "../../../crates/previus-reports" }
+previdenciar-workspace = { path = "../../../crates/previdenciar-workspace" }
+previdenciar-cnis = { path = "../../../crates/previdenciar-cnis" }
+previdenciar-core = { path = "../../../crates/previdenciar-core" }
+previdenciar-rgps = { path = "../../../crates/previdenciar-rgps" }
+previdenciar-reports = { path = "../../../crates/previdenciar-reports" }
+previdenciar-ai = { path = "../../../crates/previdenciar-ai" }
 reqwest = { version = "0.13.5", default-features = false, features = ["blocking", "json", "native-tls"] }
 sha2 = "0.10"
 chrono = "0.4"
@@ -30,6 +31,3 @@ chrono = "0.4"
 [features]
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
-
-
-

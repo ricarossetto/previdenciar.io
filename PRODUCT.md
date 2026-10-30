@@ -31,7 +31,7 @@ O trabalho começa com um CNIS em PDF e termina em um relatório revisado. No me
 - Versão web navegável das 15 áreas do app: Início, Clientes, Cálculos, RGPS, Motor local (WASM), **Fábrica de Cálculos**, Assistente, Editor de dados, Tabelas e índices, Módulos de apoio, Documentos, Relatórios, Agenda, Configurações e REA/validação.
 - Dados do mock 100% fictícios, autorais e identificados como demonstração. O núcleo `rgps-core` roda no navegador via WebAssembly; a área Fábrica é a exceção explícita: envia somente o payload que o usuário preencher ao proxy local e à API pública do TRF3.
 - A aba **Referências** consulta BCB SGS e IBGE SIDRA por um proxy com cache e importa CSV do CJF/SICOM; não faz scraping de calculadoras. Conecta/INSS fica fora até haver credenciamento e base legal.
-- O adaptador `previus-rgps`, o CNIS, o workspace cifrado e o renderer de PDF continuam no desktop.
+- O adaptador `previdenciar-rgps`, o CNIS, o workspace cifrado e o renderer de PDF continuam no desktop.
 - Sem backend remoto, sem Tauri, sem PDF real no mock: exportações continuam simulações de interface. O proxy local da Fábrica é opcional e não persiste payloads, documentos ou resultados.
 - Não é ferramenta oficial do INSS, não certifica direito e não substitui revisão profissional. O retorno da Fábrica é o serviço público do TRF3, sujeito aos mesmos limites de revisão.
 - Interface em pt-BR, com tema claro/escuro, navegação por teclado e movimento reduzido.

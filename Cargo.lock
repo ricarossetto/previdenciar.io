@@ -4298,7 +4298,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "925383efa346730478fb4838dbe9137d2a47675ad789c546d150a6e1dd4ab31c"
 
 [[package]]
-name = "previus-cnis"
+name = "previdenciar-ai"
+version = "0.1.0"
+dependencies = [
+ "pdf-extract",
+ "previdenciar-workspace",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "unicode-normalization",
+]
+
+[[package]]
+name = "previdenciar-cnis"
 version = "0.1.0"
 dependencies = [
  "chrono",
@@ -4311,7 +4324,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "previus-core"
+name = "previdenciar-core"
 version = "0.1.0"
 dependencies = [
  "chrono",
@@ -4322,16 +4335,17 @@ dependencies = [
 ]
 
 [[package]]
-name = "previus-next-desktop"
+name = "previdenciar-next-desktop"
 version = "0.11.1"
 dependencies = [
  "base64 0.21.7",
  "chrono",
- "previus-cnis",
- "previus-core",
- "previus-reports",
- "previus-rgps",
- "previus-workspace",
+ "previdenciar-ai",
+ "previdenciar-cnis",
+ "previdenciar-core",
+ "previdenciar-reports",
+ "previdenciar-rgps",
+ "previdenciar-workspace",
  "reqwest",
  "rfd",
  "serde",
@@ -4344,16 +4358,16 @@ dependencies = [
 ]
 
 [[package]]
-name = "previus-reports"
+name = "previdenciar-reports"
 version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
  "genpdf",
  "lopdf 0.38.0",
- "previus-cnis",
- "previus-core",
- "previus-rgps",
- "previus-workspace",
+ "previdenciar-cnis",
+ "previdenciar-core",
+ "previdenciar-rgps",
+ "previdenciar-workspace",
  "rgps-core",
  "rust_decimal",
  "rusttype",
@@ -4364,12 +4378,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "previus-rgps"
+name = "previdenciar-rgps"
 version = "0.1.0"
 dependencies = [
  "chrono",
- "previus-cnis",
- "previus-workspace",
+ "previdenciar-cnis",
+ "previdenciar-workspace",
  "rgps-core",
  "rust_decimal",
  "serde",
@@ -4378,7 +4392,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "previus-wasm"
+name = "previdenciar-wasm"
 version = "0.1.0"
 dependencies = [
  "rgps-core",
@@ -4387,11 +4401,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "previus-workspace"
+name = "previdenciar-workspace"
 version = "0.1.0"
 dependencies = [
  "chrono",
- "previus-cnis",
+ "previdenciar-cnis",
  "serde",
  "serde_json",
  "windows-sys 0.61.2",

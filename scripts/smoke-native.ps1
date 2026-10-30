@@ -1,4 +1,4 @@
-param([string]$Executable = 'target/release/previus-next-desktop.exe')
+﻿param([string]$Executable = 'target/release/previdenciar-next-desktop.exe')
 $ErrorActionPreference = 'Stop'
 $exe = (Resolve-Path -LiteralPath $Executable).Path
 

@@ -133,51 +133,51 @@ input, textarea { caret-color: var(--accent); }
 }
 /* Suprime animações herdadas: somente a chegada da rota é orquestrada.
    Sem movimento de linhas ou números durante a leitura. */
-.previus-app *, .previus-app *::before, .previus-app *::after { animation: none; }
-.previus-app {
+.previdenciar-app *, .previdenciar-app *::before, .previdenciar-app *::after { animation: none; }
+.previdenciar-app {
   isolation: isolate; height: 100dvh; min-width: 0;
   display: grid; grid-template-columns: var(--lg-sidebar) minmax(0, 1fr);
   grid-template-rows: 76px minmax(0, 1fr);
   background: radial-gradient(ellipse at 90% 0%, color-mix(in oklch, var(--accent) 5.5%, transparent), transparent 55%), var(--bg);
 }
-.previus-app > * { min-width: 0; }
-.previus-app .app-side {
+.previdenciar-app > * { min-width: 0; }
+.previdenciar-app .app-side {
   grid-column: 1; grid-row: 1 / -1; min-height: 0; margin: 16px 0 16px 16px;
   padding: 22px 12px 12px; border: 1px solid var(--lg-border-glass); border-radius: var(--lg-radius);
   background: var(--lg-glass); backdrop-filter: blur(var(--lg-blur)) saturate(115%);
   box-shadow: var(--lg-shadow); position: relative;
 }
-.previus-app .brand-link { padding: 0 12px 24px; gap: 12px; }
-.previus-app .brand-emblem { background: var(--surface-2); color: var(--gold); border-color: var(--border); width: 40px; height: 40px; border-radius: 13px; }
-.previus-app .brand-name { font-family: var(--font-editorial); font-size: 24px; letter-spacing: -.035em; font-weight: 500; }
-.previus-app .brand-sub { text-transform: none; letter-spacing: .015em; font-size: 12px; color: var(--muted); }
-.previus-app .side-nav { gap: 4px; padding: 3px 3px 16px; flex: 1; }
-.previus-app .nav-group { padding: 18px 12px 8px; text-transform: none; letter-spacing: 0; font-size: 12px; font-weight: 500; color: var(--muted); }
-.previus-app .side-link { min-height: 44px; padding: 10px 12px; gap: 10px; font-size: 12px; color: var(--fg-2); border-radius: 13px; }
-.previus-app .side-link .ic { width: 18px; height: 18px; }
-.previus-app .side-link.active { background: var(--accent-soft); border-color: var(--accent-line); color: var(--fg); box-shadow: inset 0 1px 0 var(--lg-highlight); }
-.previus-app .side-link.active .ic { color: var(--focus); }
-.previus-app .side-foot { margin: 0 8px; padding: 18px 0 4px; font-size: 12px; color: var(--muted); }
-.previus-app .top-chrome {
+.previdenciar-app .brand-link { padding: 0 12px 24px; gap: 12px; }
+.previdenciar-app .brand-emblem { background: var(--surface-2); color: var(--gold); border-color: var(--border); width: 40px; height: 40px; border-radius: 13px; }
+.previdenciar-app .brand-name { font-family: var(--font-editorial); font-size: 24px; letter-spacing: -.035em; font-weight: 500; }
+.previdenciar-app .brand-sub { text-transform: none; letter-spacing: .015em; font-size: 12px; color: var(--muted); }
+.previdenciar-app .side-nav { gap: 4px; padding: 3px 3px 16px; flex: 1; }
+.previdenciar-app .nav-group { padding: 18px 12px 8px; text-transform: none; letter-spacing: 0; font-size: 12px; font-weight: 500; color: var(--muted); }
+.previdenciar-app .side-link { min-height: 44px; padding: 10px 12px; gap: 10px; font-size: 12px; color: var(--fg-2); border-radius: 13px; }
+.previdenciar-app .side-link .ic { width: 18px; height: 18px; }
+.previdenciar-app .side-link.active { background: var(--accent-soft); border-color: var(--accent-line); color: var(--fg); box-shadow: inset 0 1px 0 var(--lg-highlight); }
+.previdenciar-app .side-link.active .ic { color: var(--focus); }
+.previdenciar-app .side-foot { margin: 0 8px; padding: 18px 0 4px; font-size: 12px; color: var(--muted); }
+.previdenciar-app .top-chrome {
   grid-column: 2; margin: 16px var(--lg-page-padding) 0; min-width: 0;
   padding: 0 16px; gap: 12px; background: var(--lg-glass); border: 1px solid var(--lg-border-glass);
   border-radius: 18px; backdrop-filter: blur(var(--lg-blur)); box-shadow: var(--lg-shadow); z-index: 2;
 }
-.previus-app .breadcrumb { font-size: 12px; min-width: 0; }
-.previus-app .breadcrumb strong { overflow-wrap: anywhere; }
-.previus-app .chrome-actions { gap: 8px; min-width: 0; flex-shrink: 0; }
-.previus-app .chrome-actions small { font-size: 12px; color: var(--muted); padding: 2px 5px; border: 1px solid var(--border); border-radius: 4px; }
+.previdenciar-app .breadcrumb { font-size: 12px; min-width: 0; }
+.previdenciar-app .breadcrumb strong { overflow-wrap: anywhere; }
+.previdenciar-app .chrome-actions { gap: 8px; min-width: 0; flex-shrink: 0; }
+.previdenciar-app .chrome-actions small { font-size: 12px; color: var(--muted); padding: 2px 5px; border: 1px solid var(--border); border-radius: 4px; }
 .chrome-mobile-brand, .mobile-dock { display: none; }
-.previus-app .app-content { padding: 36px var(--lg-page-padding) 44px; background: transparent; min-width: 0; overflow: auto; overscroll-behavior: contain; }
-.previus-app .page-wrap { width: 100%; max-width: 1440px; gap: 24px; min-width: 0; container-type: inline-size; }
-.previus-app .page-wrap[data-motion="pointer"] { animation: lg-page-in var(--v2-duration-base) var(--v2-ease-standard) both; }
-.previus-app .page-head { align-items: center; gap: 20px; padding: 0 0 4px; }
-.previus-app .page-head > div:first-child { min-width: 0; }
-.previus-app .page-head .eyebrow, .previus-app .robot-heading .eyebrow { display: none; }
-.previus-app .page-head h1 { font-family: var(--font-editorial); font-size: clamp(24px, 2.4vw, 32px); line-height: 1.23; font-weight: 500; letter-spacing: -.035em; text-wrap: balance; margin: 0 0 10px; }
-.previus-app .page-head p { max-width: 74ch; font-size: 14px; line-height: 1.7; color: var(--fg-2); text-wrap: pretty; }
-.previus-app .head-actions { gap: 8px; }
-.previus-app .btn {
+.previdenciar-app .app-content { padding: 36px var(--lg-page-padding) 44px; background: transparent; min-width: 0; overflow: auto; overscroll-behavior: contain; }
+.previdenciar-app .page-wrap { width: 100%; max-width: 1440px; gap: 24px; min-width: 0; container-type: inline-size; }
+.previdenciar-app .page-wrap[data-motion="pointer"] { animation: lg-page-in var(--v2-duration-base) var(--v2-ease-standard) both; }
+.previdenciar-app .page-head { align-items: center; gap: 20px; padding: 0 0 4px; }
+.previdenciar-app .page-head > div:first-child { min-width: 0; }
+.previdenciar-app .page-head .eyebrow, .previdenciar-app .robot-heading .eyebrow { display: none; }
+.previdenciar-app .page-head h1 { font-family: var(--font-editorial); font-size: clamp(24px, 2.4vw, 32px); line-height: 1.23; font-weight: 500; letter-spacing: -.035em; text-wrap: balance; margin: 0 0 10px; }
+.previdenciar-app .page-head p { max-width: 74ch; font-size: 14px; line-height: 1.7; color: var(--fg-2); text-wrap: pretty; }
+.previdenciar-app .head-actions { gap: 8px; }
+.previdenciar-app .btn {
   min-height: 44px; height: auto; max-width: 100%; padding: 10px 16px;
   font-family: var(--font-ui); font-size: 12px; line-height: 1.5; font-weight: 600;
   color: var(--fg); background: var(--surface-2); border: 1px solid var(--border);
@@ -185,350 +185,350 @@ input, textarea { caret-color: var(--accent); }
   transition: transform var(--v2-duration-fast) var(--v2-ease-standard), opacity var(--v2-duration-fast) var(--v2-ease-standard);
   transform: none; box-shadow: inset 0 1px 0 var(--lg-highlight);
 }
-.previus-app .btn-ghost { background: transparent; box-shadow: none; border-color: var(--border); }
-.previus-app .btn-primary { color: var(--lg-on-primary); background: var(--accent); border-color: var(--accent); box-shadow: 0 4px 12px -7px color-mix(in oklch, var(--accent) 55%, transparent), inset 0 1px 0 var(--lg-highlight); }
+.previdenciar-app .btn-ghost { background: transparent; box-shadow: none; border-color: var(--border); }
+.previdenciar-app .btn-primary { color: var(--lg-on-primary); background: var(--accent); border-color: var(--accent); box-shadow: 0 4px 12px -7px color-mix(in oklch, var(--accent) 55%, transparent), inset 0 1px 0 var(--lg-highlight); }
 /* Neutraliza hover herdado; feedback reservado ao ponteiro fino abaixo. */
-.previus-app .btn:hover { color: var(--fg); background: var(--surface-2); border-color: var(--border); transform: none; }
-.previus-app .btn-primary:hover { color: var(--lg-on-primary); background: var(--accent); border-color: var(--accent); }
-.previus-app .btn:active:not(:disabled) { transform: translateY(1px); transition-duration: 100ms; }
-:root[data-input="keyboard"] .previus-app .btn { transition: none; }
-:root[data-input="keyboard"] .previus-app .btn:active { transform: none; }
-.previus-app .btn:disabled { opacity: .5; box-shadow: none; transform: none; }
-.previus-app .card { border-radius: 20px; background: var(--surface); border: 1px solid var(--border); box-shadow: 0 4px 18px -16px var(--lg-shadow-ink); overflow: visible; min-width: 0; }
-.previus-app .card__head { padding: 22px 24px 18px; align-items: flex-start; gap: 16px; border-color: var(--border-subtle); flex-wrap: wrap; }
-.previus-app .card__head > div { min-width: 0; }
-.previus-app .card__title { font-size: 16px; font-weight: 600; line-height: 1.45; }
-.previus-app .card__hint { color: var(--muted); font-size: 12px; line-height: 1.6; text-wrap: pretty; overflow-wrap: anywhere; }
-.previus-app .card__body { padding: 22px 24px; min-width: 0; }
-.previus-app .cockpit { grid-template-columns: minmax(0, 1.65fr) minmax(270px, 1fr); gap: 24px; }
-.previus-app .work-item { gap: 14px; padding: 20px 0; min-width: 0; }
-.previus-app .work-copy strong { font-size: 14px; font-weight: 600; line-height: 1.55; overflow-wrap: anywhere; }
-.previus-app .work-copy p { color: var(--muted); font-size: 12px; line-height: 1.6; }
-.previus-app .work-icon { width: 42px; height: 42px; background: var(--surface-2); border-radius: 14px; color: var(--fg-2); flex-shrink: 0; }
-.previus-app .mini-stat { color: var(--fg-2); padding: 13px 0; gap: 12px; }
-.previus-app .mini-stat strong { font-size: 24px; font-weight: 500; font-variant-numeric: tabular-nums; }
-.previus-app .status-tag { min-height: 26px; padding: 4px 9px; font-size: 12px; line-height: 1.5; white-space: normal; overflow-wrap: anywhere; border-radius: 9px; color: var(--fg-2); background: var(--surface-2); }
-.previus-app .status-tag.good { color: var(--fg); background: var(--accent-soft); border-color: var(--accent-line); }
-.previus-app .status-tag.review { color: var(--gold-text); background: var(--gold-soft); border-color: var(--gold-line); }
-.previus-app .status-tag.error { color: var(--fg); background: var(--danger-soft); border-color: var(--danger); }
-.previus-app .quiet-banner { background: var(--surface-2); border-radius: 16px; padding: 18px 20px; border: 1px solid var(--border); color: var(--fg-2); font-size: 12px; line-height: 1.75; }
-.previus-app .quiet-banner p { text-wrap: pretty; }
-.previus-app .quiet-banner strong { color: var(--fg); }
-.previus-app .toolbar { padding: 12px; gap: 12px; background: var(--lg-glass); border: 1px solid var(--lg-border-glass); border-radius: 18px; box-shadow: var(--lg-shadow); backdrop-filter: blur(12px); min-width: 0; }
-.previus-app .searchbox { min-width: 180px; min-height: 44px; height: auto; padding: 10px 13px; border-radius: 12px; background: var(--surface); color: var(--muted); }
-.previus-app .searchbox input { font-size: 12px; min-width: 0; }
-.previus-app .searchbox:focus-within { outline: 3px solid var(--focus); outline-offset: 2px; }
-.previus-app .searchbox input:focus-visible { outline: none; }
-.previus-app input::placeholder, .previus-app textarea::placeholder { color: var(--muted); opacity: 1; }
-.previus-app .toolbar .count { font-size: 12px; color: var(--muted); }
-.previus-app .table-wrap { max-width: 100%; min-width: 0; border-radius: 16px; overflow: auto; background: var(--surface); overscroll-behavior-x: contain; }
-.previus-app .data-table { width: 100%; font-size: 12px; line-height: 1.6; background: var(--surface); table-layout: auto; }
-.previus-app .data-table th { text-transform: none; letter-spacing: .005em; color: var(--fg-2); font-size: 12px; font-weight: 600; background: var(--surface-2); padding: 14px 18px; white-space: nowrap; }
-.previus-app .data-table td { padding: 17px 18px; border-bottom: 1px solid var(--border-subtle); vertical-align: top; color: var(--fg); max-width: 32rem; overflow-wrap: anywhere; }
-.previus-app .data-table tr { transform: none; animation: none; transition: none; }
-.previus-app .data-table tbody tr:nth-child(even) { background: color-mix(in oklch, var(--surface) 76%, var(--surface-2)); }
-.previus-app .data-table tbody tr:hover { background: inherit; transform: none; }
-.previus-app .data-table td strong { font-weight: 600; }
-.previus-app .data-table .num { white-space: nowrap; font-variant-numeric: tabular-nums; }
-.previus-app .secondary-line { color: var(--muted); font-size: 12px; line-height: 1.7; margin-top: 4px; }
-.previus-app .row-actions { display: flex; gap: 6px; flex-wrap: wrap; min-width: 138px; }
-.previus-app .row-actions .btn { min-height: 44px; padding: 9px 11px; font-size: 12px; }
-.previus-app .form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 24px; }
-.previus-app .form-grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.previus-app .field { gap: 8px; font-size: 12px; color: var(--fg-2); }
-.previus-app .input, .previus-app .field input, .previus-app .field select,
-.previus-app .report-controls select, .previus-app .inline-input {
+.previdenciar-app .btn:hover { color: var(--fg); background: var(--surface-2); border-color: var(--border); transform: none; }
+.previdenciar-app .btn-primary:hover { color: var(--lg-on-primary); background: var(--accent); border-color: var(--accent); }
+.previdenciar-app .btn:active:not(:disabled) { transform: translateY(1px); transition-duration: 100ms; }
+:root[data-input="keyboard"] .previdenciar-app .btn { transition: none; }
+:root[data-input="keyboard"] .previdenciar-app .btn:active { transform: none; }
+.previdenciar-app .btn:disabled { opacity: .5; box-shadow: none; transform: none; }
+.previdenciar-app .card { border-radius: 20px; background: var(--surface); border: 1px solid var(--border); box-shadow: 0 4px 18px -16px var(--lg-shadow-ink); overflow: visible; min-width: 0; }
+.previdenciar-app .card__head { padding: 22px 24px 18px; align-items: flex-start; gap: 16px; border-color: var(--border-subtle); flex-wrap: wrap; }
+.previdenciar-app .card__head > div { min-width: 0; }
+.previdenciar-app .card__title { font-size: 16px; font-weight: 600; line-height: 1.45; }
+.previdenciar-app .card__hint { color: var(--muted); font-size: 12px; line-height: 1.6; text-wrap: pretty; overflow-wrap: anywhere; }
+.previdenciar-app .card__body { padding: 22px 24px; min-width: 0; }
+.previdenciar-app .cockpit { grid-template-columns: minmax(0, 1.65fr) minmax(270px, 1fr); gap: 24px; }
+.previdenciar-app .work-item { gap: 14px; padding: 20px 0; min-width: 0; }
+.previdenciar-app .work-copy strong { font-size: 14px; font-weight: 600; line-height: 1.55; overflow-wrap: anywhere; }
+.previdenciar-app .work-copy p { color: var(--muted); font-size: 12px; line-height: 1.6; }
+.previdenciar-app .work-icon { width: 42px; height: 42px; background: var(--surface-2); border-radius: 14px; color: var(--fg-2); flex-shrink: 0; }
+.previdenciar-app .mini-stat { color: var(--fg-2); padding: 13px 0; gap: 12px; }
+.previdenciar-app .mini-stat strong { font-size: 24px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.previdenciar-app .status-tag { min-height: 26px; padding: 4px 9px; font-size: 12px; line-height: 1.5; white-space: normal; overflow-wrap: anywhere; border-radius: 9px; color: var(--fg-2); background: var(--surface-2); }
+.previdenciar-app .status-tag.good { color: var(--fg); background: var(--accent-soft); border-color: var(--accent-line); }
+.previdenciar-app .status-tag.review { color: var(--gold-text); background: var(--gold-soft); border-color: var(--gold-line); }
+.previdenciar-app .status-tag.error { color: var(--fg); background: var(--danger-soft); border-color: var(--danger); }
+.previdenciar-app .quiet-banner { background: var(--surface-2); border-radius: 16px; padding: 18px 20px; border: 1px solid var(--border); color: var(--fg-2); font-size: 12px; line-height: 1.75; }
+.previdenciar-app .quiet-banner p { text-wrap: pretty; }
+.previdenciar-app .quiet-banner strong { color: var(--fg); }
+.previdenciar-app .toolbar { padding: 12px; gap: 12px; background: var(--lg-glass); border: 1px solid var(--lg-border-glass); border-radius: 18px; box-shadow: var(--lg-shadow); backdrop-filter: blur(12px); min-width: 0; }
+.previdenciar-app .searchbox { min-width: 180px; min-height: 44px; height: auto; padding: 10px 13px; border-radius: 12px; background: var(--surface); color: var(--muted); }
+.previdenciar-app .searchbox input { font-size: 12px; min-width: 0; }
+.previdenciar-app .searchbox:focus-within { outline: 3px solid var(--focus); outline-offset: 2px; }
+.previdenciar-app .searchbox input:focus-visible { outline: none; }
+.previdenciar-app input::placeholder, .previdenciar-app textarea::placeholder { color: var(--muted); opacity: 1; }
+.previdenciar-app .toolbar .count { font-size: 12px; color: var(--muted); }
+.previdenciar-app .table-wrap { max-width: 100%; min-width: 0; border-radius: 16px; overflow: auto; background: var(--surface); overscroll-behavior-x: contain; }
+.previdenciar-app .data-table { width: 100%; font-size: 12px; line-height: 1.6; background: var(--surface); table-layout: auto; }
+.previdenciar-app .data-table th { text-transform: none; letter-spacing: .005em; color: var(--fg-2); font-size: 12px; font-weight: 600; background: var(--surface-2); padding: 14px 18px; white-space: nowrap; }
+.previdenciar-app .data-table td { padding: 17px 18px; border-bottom: 1px solid var(--border-subtle); vertical-align: top; color: var(--fg); max-width: 32rem; overflow-wrap: anywhere; }
+.previdenciar-app .data-table tr { transform: none; animation: none; transition: none; }
+.previdenciar-app .data-table tbody tr:nth-child(even) { background: color-mix(in oklch, var(--surface) 76%, var(--surface-2)); }
+.previdenciar-app .data-table tbody tr:hover { background: inherit; transform: none; }
+.previdenciar-app .data-table td strong { font-weight: 600; }
+.previdenciar-app .data-table .num { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.previdenciar-app .secondary-line { color: var(--muted); font-size: 12px; line-height: 1.7; margin-top: 4px; }
+.previdenciar-app .row-actions { display: flex; gap: 6px; flex-wrap: wrap; min-width: 138px; }
+.previdenciar-app .row-actions .btn { min-height: 44px; padding: 9px 11px; font-size: 12px; }
+.previdenciar-app .form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 24px; }
+.previdenciar-app .form-grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.previdenciar-app .field { gap: 8px; font-size: 12px; color: var(--fg-2); }
+.previdenciar-app .input, .previdenciar-app .field input, .previdenciar-app .field select,
+.previdenciar-app .report-controls select, .previdenciar-app .inline-input {
   min-width: 0; max-width: 100%; min-height: 44px; height: auto; padding: 10px 12px;
   border: 1px solid var(--border-strong); border-radius: 10px; background: var(--inset);
   color: var(--fg); font-size: 14px; line-height: 1.5; box-shadow: inset 0 1px 2px color-mix(in oklch, var(--bg) 4%, transparent); transition: none;
 }
-.previus-app .text-area { padding: 14px; min-height: 112px; font-size: 14px; line-height: 1.75; border-color: var(--border-strong); border-radius: 12px; background: var(--inset); }
-.previus-app .inline-input { min-width: 88px; border-radius: 8px; padding: 8px; }
-.previus-app .field .input { font-size: 14px; }
-.previus-app .form-note { color: var(--muted); font-size: 12px; line-height: 1.75; text-wrap: pretty; }
-.previus-app .form-actions { gap: 10px; padding-top: 20px; flex-wrap: wrap; }
-.previus-app .checkline { min-height: 44px; color: var(--fg-2); font-size: 12px; cursor: pointer; }
-.previus-app .checkline input { width: 18px; height: 18px; min-height: 0; padding: 0; flex-shrink: 0; accent-color: var(--accent); }
-.previus-app .notice { display: block; border: 1px solid var(--gold-line); border-radius: 14px; background: var(--gold-soft); color: var(--fg); padding: 14px 18px; font-size: 12px; line-height: 1.75; }
-.previus-app .notice.error { color: var(--fg); border: 1px solid var(--danger); background: var(--danger-soft); }
-.previus-app .notice.ok { color: var(--fg); border: 1px solid var(--accent-line); background: var(--accent-soft); }
-.previus-app .empty-state { padding: 44px 20px; }
-.previus-app .empty-emblem { color: var(--fg-2); background: var(--surface-2); border-radius: 18px; }
-.previus-app .empty-state h3 { font-family: var(--font-editorial); font-size: 24px; line-height: 1.4; text-wrap: balance; }
-.previus-app .empty-state p { color: var(--muted); font-size: 14px; line-height: 1.75; text-wrap: pretty; }
-.previus-app .module-grid .btn-primary, .previus-app .empty-state .btn-primary { background: transparent; color: var(--fg); border-color: var(--border-strong); box-shadow: none; }
+.previdenciar-app .text-area { padding: 14px; min-height: 112px; font-size: 14px; line-height: 1.75; border-color: var(--border-strong); border-radius: 12px; background: var(--inset); }
+.previdenciar-app .inline-input { min-width: 88px; border-radius: 8px; padding: 8px; }
+.previdenciar-app .field .input { font-size: 14px; }
+.previdenciar-app .form-note { color: var(--muted); font-size: 12px; line-height: 1.75; text-wrap: pretty; }
+.previdenciar-app .form-actions { gap: 10px; padding-top: 20px; flex-wrap: wrap; }
+.previdenciar-app .checkline { min-height: 44px; color: var(--fg-2); font-size: 12px; cursor: pointer; }
+.previdenciar-app .checkline input { width: 18px; height: 18px; min-height: 0; padding: 0; flex-shrink: 0; accent-color: var(--accent); }
+.previdenciar-app .notice { display: block; border: 1px solid var(--gold-line); border-radius: 14px; background: var(--gold-soft); color: var(--fg); padding: 14px 18px; font-size: 12px; line-height: 1.75; }
+.previdenciar-app .notice.error { color: var(--fg); border: 1px solid var(--danger); background: var(--danger-soft); }
+.previdenciar-app .notice.ok { color: var(--fg); border: 1px solid var(--accent-line); background: var(--accent-soft); }
+.previdenciar-app .empty-state { padding: 44px 20px; }
+.previdenciar-app .empty-emblem { color: var(--fg-2); background: var(--surface-2); border-radius: 18px; }
+.previdenciar-app .empty-state h3 { font-family: var(--font-editorial); font-size: 24px; line-height: 1.4; text-wrap: balance; }
+.previdenciar-app .empty-state p { color: var(--muted); font-size: 14px; line-height: 1.75; text-wrap: pretty; }
+.previdenciar-app .module-grid .btn-primary, .previdenciar-app .empty-state .btn-primary { background: transparent; color: var(--fg); border-color: var(--border-strong); box-shadow: none; }
 /* Navegação das etapas: conteúdo completo e rolagem interna no celular. */
-.previus-app .wizard-bar, .previus-app .robot-progress, .previus-app .seg { padding: 8px; gap: 4px; border: 1px solid var(--lg-border-glass); background: var(--lg-glass); border-radius: 16px; box-shadow: var(--lg-shadow); }
-.previus-app .wizard-step, .previus-app .robot-progress button, .previus-app .seg button { min-height: 44px; padding: 9px 12px; font-size: 12px; border-radius: 10px; color: var(--fg-2); border: 1px solid transparent; background: transparent; }
-.previus-app .wizard-step span, .previus-app .robot-progress button span { width: 22px; height: 22px; flex-shrink: 0; color: var(--fg-2); font-size: 12px; }
-.previus-app .wizard-step.active, .previus-app .robot-progress button.active, .previus-app .seg button.active { color: var(--fg); background: var(--accent-soft); border-color: var(--accent-line); box-shadow: inset 0 1px 0 var(--lg-highlight); }
-.previus-app .wizard-step.active span { color: var(--lg-on-primary); background: var(--accent); }
-.previus-app .wizard-foot, .previus-app .robot-footer { padding-top: 22px; gap: 16px; }
-.previus-app .wizard-foot > div, .previus-app .robot-footer > div { flex-wrap: wrap; gap: 8px; }
-.previus-app .split-content { grid-template-columns: minmax(0, 1fr) minmax(220px, 280px); gap: 22px; }
-.previus-app .module-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
-.previus-app .module-card { padding: 0; display: block; }
-.previus-app .module-card .card__body p { font-size: 14px; line-height: 1.7; margin-bottom: 20px; }
-.previus-app .drop-area { padding: 28px; border-radius: 18px; border-color: var(--border-strong); background: var(--surface-2); }
-.previus-app .drop-area p { font-size: 14px; color: var(--muted); }
-.previus-app .import-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.previus-app .import-summary > div { border-radius: 14px; border: 1px solid var(--border); background: var(--surface-2); }
-.previus-app .import-summary strong { font-size: 26px; font-variant-numeric: tabular-nums; }
-.previus-app .import-summary span { color: var(--muted); font-size: 12px; }
-.previus-app .details { border-radius: 12px; }
-.previus-app .details summary, .previus-app .report-help summary { min-height: 44px; padding: 12px; color: var(--fg-2); }
-.previus-app .review-list li { font-size: 12px; color: var(--fg-2); }
-.previus-app .robot-heading h2 { font-family: var(--font-editorial); font-size: clamp(24px, 2vw, 24px); }
-.previus-app .robot-heading p { font-size: 14px; color: var(--muted); }
-.previus-app .robot-question { padding: 24px; gap: 20px; border-radius: 20px; background: var(--surface); }
-.previus-app .robot-question h2 { font-family: var(--font-editorial); font-size: 24px; text-wrap: balance; }
-.previus-app .robot-question p { color: var(--muted); font-size: 14px; text-wrap: pretty; }
-.previus-app .robot-choice, .previus-app .new-calculation-choice { padding: 22px; border-radius: 18px; min-height: 44px; color: var(--fg); }
-.previus-app .robot-choice small, .previus-app .new-calculation-choice p { color: var(--muted); font-size: 14px; }
-.previus-app .robot-choice:hover, .previus-app .new-calculation-choice:hover { transform: none; background: var(--surface); color: var(--fg); border-color: var(--border); }
-.previus-app .robot-choice.selected, .previus-app .new-calculation-choice.recommended { color: var(--fg); background: var(--accent-soft); border-color: var(--accent-line); }
-.previus-app .robot-face { color: var(--fg-2); background: var(--surface-2); border-color: var(--border); }
-.previus-app .robot-import-toolbar { border-radius: 16px; padding: 20px; gap: 16px; }
-.previus-app .robot-answer-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.previus-app .robot-answer-summary strong { overflow-wrap: anywhere; }
-.previus-app .result-hero { border-radius: 16px; padding: 24px; gap: 24px; background: var(--surface-2); border-color: var(--border); }
-.previus-app .result-hero .main-number { font-family: var(--font-editorial); font-size: clamp(24px, 3vw, 32px); font-variant-numeric: tabular-nums; }
-.previus-app .result-strip { gap: 20px 32px; }
-.previus-app .result-strip strong { font-size: 18px; overflow-wrap: anywhere; }
-.previus-app .result-strip span, .previus-app .result-hero small { color: var(--muted); font-size: 12px; }
+.previdenciar-app .wizard-bar, .previdenciar-app .robot-progress, .previdenciar-app .seg { padding: 8px; gap: 4px; border: 1px solid var(--lg-border-glass); background: var(--lg-glass); border-radius: 16px; box-shadow: var(--lg-shadow); }
+.previdenciar-app .wizard-step, .previdenciar-app .robot-progress button, .previdenciar-app .seg button { min-height: 44px; padding: 9px 12px; font-size: 12px; border-radius: 10px; color: var(--fg-2); border: 1px solid transparent; background: transparent; }
+.previdenciar-app .wizard-step span, .previdenciar-app .robot-progress button span { width: 22px; height: 22px; flex-shrink: 0; color: var(--fg-2); font-size: 12px; }
+.previdenciar-app .wizard-step.active, .previdenciar-app .robot-progress button.active, .previdenciar-app .seg button.active { color: var(--fg); background: var(--accent-soft); border-color: var(--accent-line); box-shadow: inset 0 1px 0 var(--lg-highlight); }
+.previdenciar-app .wizard-step.active span { color: var(--lg-on-primary); background: var(--accent); }
+.previdenciar-app .wizard-foot, .previdenciar-app .robot-footer { padding-top: 22px; gap: 16px; }
+.previdenciar-app .wizard-foot > div, .previdenciar-app .robot-footer > div { flex-wrap: wrap; gap: 8px; }
+.previdenciar-app .split-content { grid-template-columns: minmax(0, 1fr) minmax(220px, 280px); gap: 22px; }
+.previdenciar-app .module-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+.previdenciar-app .module-card { padding: 0; display: block; }
+.previdenciar-app .module-card .card__body p { font-size: 14px; line-height: 1.7; margin-bottom: 20px; }
+.previdenciar-app .drop-area { padding: 28px; border-radius: 18px; border-color: var(--border-strong); background: var(--surface-2); }
+.previdenciar-app .drop-area p { font-size: 14px; color: var(--muted); }
+.previdenciar-app .import-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.previdenciar-app .import-summary > div { border-radius: 14px; border: 1px solid var(--border); background: var(--surface-2); }
+.previdenciar-app .import-summary strong { font-size: 26px; font-variant-numeric: tabular-nums; }
+.previdenciar-app .import-summary span { color: var(--muted); font-size: 12px; }
+.previdenciar-app .details { border-radius: 12px; }
+.previdenciar-app .details summary, .previdenciar-app .report-help summary { min-height: 44px; padding: 12px; color: var(--fg-2); }
+.previdenciar-app .review-list li { font-size: 12px; color: var(--fg-2); }
+.previdenciar-app .robot-heading h2 { font-family: var(--font-editorial); font-size: clamp(24px, 2vw, 24px); }
+.previdenciar-app .robot-heading p { font-size: 14px; color: var(--muted); }
+.previdenciar-app .robot-question { padding: 24px; gap: 20px; border-radius: 20px; background: var(--surface); }
+.previdenciar-app .robot-question h2 { font-family: var(--font-editorial); font-size: 24px; text-wrap: balance; }
+.previdenciar-app .robot-question p { color: var(--muted); font-size: 14px; text-wrap: pretty; }
+.previdenciar-app .robot-choice, .previdenciar-app .new-calculation-choice { padding: 22px; border-radius: 18px; min-height: 44px; color: var(--fg); }
+.previdenciar-app .robot-choice small, .previdenciar-app .new-calculation-choice p { color: var(--muted); font-size: 14px; }
+.previdenciar-app .robot-choice:hover, .previdenciar-app .new-calculation-choice:hover { transform: none; background: var(--surface); color: var(--fg); border-color: var(--border); }
+.previdenciar-app .robot-choice.selected, .previdenciar-app .new-calculation-choice.recommended { color: var(--fg); background: var(--accent-soft); border-color: var(--accent-line); }
+.previdenciar-app .robot-face { color: var(--fg-2); background: var(--surface-2); border-color: var(--border); }
+.previdenciar-app .robot-import-toolbar { border-radius: 16px; padding: 20px; gap: 16px; }
+.previdenciar-app .robot-answer-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.previdenciar-app .robot-answer-summary strong { overflow-wrap: anywhere; }
+.previdenciar-app .result-hero { border-radius: 16px; padding: 24px; gap: 24px; background: var(--surface-2); border-color: var(--border); }
+.previdenciar-app .result-hero .main-number { font-family: var(--font-editorial); font-size: clamp(24px, 3vw, 32px); font-variant-numeric: tabular-nums; }
+.previdenciar-app .result-strip { gap: 20px 32px; }
+.previdenciar-app .result-strip strong { font-size: 18px; overflow-wrap: anywhere; }
+.previdenciar-app .result-strip span, .previdenciar-app .result-hero small { color: var(--muted); font-size: 12px; }
 /* O vidro envolve o papel, sem transformar os bytes ou a geometria PDF. */
-.previus-app .report-center { grid-template-columns: minmax(240px, 280px) minmax(0, 1fr); gap: 22px; }
-.previus-app .report-controls { padding: 22px 18px; border-radius: 20px; background: var(--surface); }
-.previus-app .report-template-list { gap: 6px; }
-.previus-app .report-template { padding: 14px 12px; min-height: 44px; border-radius: 12px; color: var(--fg); background: transparent; border: 1px solid transparent; transition: none; }
-.previus-app .report-template small { font-size: 12px; color: var(--muted); line-height: 1.6; }
-.previus-app .report-template.is-selected { background: var(--accent-soft); color: var(--fg); border-color: var(--accent-line); }
-.previus-app .report-template:hover { background: transparent; color: var(--fg); }
-.previus-app .report-template.is-selected:hover { background: var(--accent-soft); color: var(--fg); }
-.previus-app .report-workspace { min-width: 0; }
-.previus-app .report-toolbar { padding: 18px; gap: 16px; border: 1px solid var(--lg-border-glass); border-radius: 18px; background: var(--lg-glass); box-shadow: var(--lg-shadow); flex-wrap: wrap; }
-.previus-app .report-toolbar h2 { font-family: var(--font-editorial); font-size: 20px; }
-.previus-app .report-toolbar p { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
-.previus-app .report-toolbar__actions { flex-wrap: wrap; gap: 8px; }
-.previus-app .report-paper-workspace { padding: 24px; border-radius: 20px; background: var(--surface-2); border: 1px solid var(--border); min-width: 0; }
-.previus-app .report-empty-document { background: var(--surface); color: var(--fg); border-radius: 8px; border: 1px solid var(--border); box-shadow: var(--lg-shadow); }
-.previus-app .report-empty-document p { color: var(--muted); text-wrap: pretty; }
-.previus-app .report-document-status { font-size: 12px; line-height: 1.65; color: var(--muted); flex-wrap: wrap; }
-.previus-app .report-help, .previus-app .report-footer-note, .previus-app .report-preview-fallback { color: var(--muted); font-size: 12px; line-height: 1.7; }
-.previus-app .report-preview-fallback a { color: var(--fg); text-decoration: underline; text-underline-offset: 3px; }
-.previus-app .dialog-scrim { z-index: var(--v2-z-overlay); padding: 24px; background: oklch(8% 0.02623 263.658 / .55); backdrop-filter: blur(4px); }
-.previus-app .dialog { display: flex; flex-direction: column; min-width: 0; max-height: calc(100dvh - 48px); border: 1px solid var(--lg-border-glass); border-radius: 24px; background: var(--lg-glass); backdrop-filter: blur(18px); box-shadow: var(--lg-depth); transform-origin: center; transition: transform var(--v2-duration-slow) var(--v2-ease-standard), opacity var(--v2-duration-base) var(--v2-ease-standard); }
+.previdenciar-app .report-center { grid-template-columns: minmax(240px, 280px) minmax(0, 1fr); gap: 22px; }
+.previdenciar-app .report-controls { padding: 22px 18px; border-radius: 20px; background: var(--surface); }
+.previdenciar-app .report-template-list { gap: 6px; }
+.previdenciar-app .report-template { padding: 14px 12px; min-height: 44px; border-radius: 12px; color: var(--fg); background: transparent; border: 1px solid transparent; transition: none; }
+.previdenciar-app .report-template small { font-size: 12px; color: var(--muted); line-height: 1.6; }
+.previdenciar-app .report-template.is-selected { background: var(--accent-soft); color: var(--fg); border-color: var(--accent-line); }
+.previdenciar-app .report-template:hover { background: transparent; color: var(--fg); }
+.previdenciar-app .report-template.is-selected:hover { background: var(--accent-soft); color: var(--fg); }
+.previdenciar-app .report-workspace { min-width: 0; }
+.previdenciar-app .report-toolbar { padding: 18px; gap: 16px; border: 1px solid var(--lg-border-glass); border-radius: 18px; background: var(--lg-glass); box-shadow: var(--lg-shadow); flex-wrap: wrap; }
+.previdenciar-app .report-toolbar h2 { font-family: var(--font-editorial); font-size: 20px; }
+.previdenciar-app .report-toolbar p { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+.previdenciar-app .report-toolbar__actions { flex-wrap: wrap; gap: 8px; }
+.previdenciar-app .report-paper-workspace { padding: 24px; border-radius: 20px; background: var(--surface-2); border: 1px solid var(--border); min-width: 0; }
+.previdenciar-app .report-empty-document { background: var(--surface); color: var(--fg); border-radius: 8px; border: 1px solid var(--border); box-shadow: var(--lg-shadow); }
+.previdenciar-app .report-empty-document p { color: var(--muted); text-wrap: pretty; }
+.previdenciar-app .report-document-status { font-size: 12px; line-height: 1.65; color: var(--muted); flex-wrap: wrap; }
+.previdenciar-app .report-help, .previdenciar-app .report-footer-note, .previdenciar-app .report-preview-fallback { color: var(--muted); font-size: 12px; line-height: 1.7; }
+.previdenciar-app .report-preview-fallback a { color: var(--fg); text-decoration: underline; text-underline-offset: 3px; }
+.previdenciar-app .dialog-scrim { z-index: var(--v2-z-overlay); padding: 24px; background: oklch(8% 0.02623 263.658 / .55); backdrop-filter: blur(4px); }
+.previdenciar-app .dialog { display: flex; flex-direction: column; min-width: 0; max-height: calc(100dvh - 48px); border: 1px solid var(--lg-border-glass); border-radius: 24px; background: var(--lg-glass); backdrop-filter: blur(18px); box-shadow: var(--lg-depth); transform-origin: center; transition: transform var(--v2-duration-slow) var(--v2-ease-standard), opacity var(--v2-duration-base) var(--v2-ease-standard); }
 /* Dialog geometry is owned by Motion; never start readable text transparent. */
-.previus-app .dialog__head { flex: 0 0 auto; padding: 24px; gap: 16px; align-items: flex-start; }
-.previus-app .dialog__head h2 { font-family: var(--font-editorial); font-size: clamp(24px, 2.2vw, 24px); line-height: 1.3; text-wrap: balance; }
-.previus-app .dialog__head p { color: var(--muted); font-size: 12px; line-height: 1.7; }
-.previus-app .dialog__head .btn { padding: 10px 12px; flex-shrink: 0; }
-.previus-app .dialog__body { min-height: 0; flex: 1 1 auto; max-height: none; padding: 24px; background: var(--surface); overflow: auto; border-radius: 0 0 23px 23px; }
+.previdenciar-app .dialog__head { flex: 0 0 auto; padding: 24px; gap: 16px; align-items: flex-start; }
+.previdenciar-app .dialog__head h2 { font-family: var(--font-editorial); font-size: clamp(24px, 2.2vw, 24px); line-height: 1.3; text-wrap: balance; }
+.previdenciar-app .dialog__head p { color: var(--muted); font-size: 12px; line-height: 1.7; }
+.previdenciar-app .dialog__head .btn { padding: 10px 12px; flex-shrink: 0; }
+.previdenciar-app .dialog__body { min-height: 0; flex: 1 1 auto; max-height: none; padding: 24px; background: var(--surface); overflow: auto; border-radius: 0 0 23px 23px; }
 /* Pesquisa por teclado: sem animação de abertura. */
-.previus-app .dialog:has(.quick-search), :root[data-input="keyboard"] .previus-app .dialog { transition: none; opacity: 1; transform: none; }
-.previus-app .palette__item { border: 1px solid transparent; min-height: 48px; align-items: center; border-radius: 10px; color: var(--fg); font-size: 14px; }
-.previus-app .palette__item span:not(.status-tag) { flex: 1; min-width: 0; overflow-wrap: anywhere; }
-.previus-app .toast { z-index: var(--v2-z-toast); border: 1px solid var(--border-strong); border-radius: 16px; background: var(--surface); box-shadow: var(--lg-depth); color: var(--fg); padding: 18px; font-size: 14px; max-width: min(470px, calc(100vw - 32px)); animation: none; }
-.previus-app .toast.error { border-color: var(--danger); }
-.previus-app .toast .iconbtn { min-width: 44px; min-height: 44px; padding: 12px; color: var(--fg); background: transparent; border: 1px solid var(--border); border-radius: 10px; margin: -8px -8px -8px 0; }
+.previdenciar-app .dialog:has(.quick-search), :root[data-input="keyboard"] .previdenciar-app .dialog { transition: none; opacity: 1; transform: none; }
+.previdenciar-app .palette__item { border: 1px solid transparent; min-height: 48px; align-items: center; border-radius: 10px; color: var(--fg); font-size: 14px; }
+.previdenciar-app .palette__item span:not(.status-tag) { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.previdenciar-app .toast { z-index: var(--v2-z-toast); border: 1px solid var(--border-strong); border-radius: 16px; background: var(--surface); box-shadow: var(--lg-depth); color: var(--fg); padding: 18px; font-size: 14px; max-width: min(470px, calc(100vw - 32px)); animation: none; }
+.previdenciar-app .toast.error { border-color: var(--danger); }
+.previdenciar-app .toast .iconbtn { min-width: 44px; min-height: 44px; padding: 12px; color: var(--fg); background: transparent; border: 1px solid var(--border); border-radius: 10px; margin: -8px -8px -8px 0; }
 .loading-screen { background: var(--bg); color: var(--fg); }
 .loading-screen .brand-name { font-family: var(--font-editorial); }
-.previus-app .spinner { animation: spin .8s linear infinite; }
+.previdenciar-app .spinner { animation: spin .8s linear infinite; }
 .mobile-menu-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-.previus-app .mobile-menu-list button { min-height: 52px; display: flex; align-items: center; gap: 12px; padding: 12px; text-align: left; background: var(--surface-2); color: var(--fg); border: 1px solid var(--border); border-radius: 12px; font-size: 12px; }
-.previus-app .mobile-menu-list button[aria-current="page"] { background: var(--accent-soft); border-color: var(--accent-line); }
+.previdenciar-app .mobile-menu-list button { min-height: 52px; display: flex; align-items: center; gap: 12px; padding: 12px; text-align: left; background: var(--surface-2); color: var(--fg); border: 1px solid var(--border); border-radius: 12px; font-size: 12px; }
+.previdenciar-app .mobile-menu-list button[aria-current="page"] { background: var(--accent-soft); border-color: var(--accent-line); }
 @media (hover: hover) and (pointer: fine) {
-  .previus-app .btn:hover:not(:disabled) { color: var(--fg); background: var(--surface-2); border-color: var(--border-strong); }
-  .previus-app .btn-ghost:hover:not(:disabled) { color: var(--fg); background: transparent; border-color: var(--border-strong); }
-  .previus-app .btn-primary:hover:not(:disabled) { color: var(--lg-on-primary); background: var(--lg-primary-hover); border-color: var(--lg-primary-hover); }
-  .previus-app .module-grid .btn-primary:hover, .previus-app .empty-state .btn-primary:hover { background: transparent; color: var(--fg); border-color: var(--border-strong); }
-  .previus-app .side-link:hover { background: var(--surface-hover); color: var(--fg); border-color: var(--border-strong); }
-  .previus-app .palette__item:hover { background: transparent; color: var(--fg); border-color: var(--border-strong); }
-  .previus-app .mobile-menu-list button:hover { background: var(--surface-2); color: var(--fg); border-color: var(--border-strong); }
-  .previus-app .side-link.active:hover { background: var(--accent-soft); color: var(--fg); }
-  .previus-app .robot-choice:hover, .previus-app .new-calculation-choice:hover { border-color: var(--border-strong); background: var(--surface); color: var(--fg); }
-  .previus-app .robot-choice.selected:hover, .previus-app .new-calculation-choice.recommended:hover { background: var(--accent-soft); color: var(--fg); }
-  .previus-app .report-template:hover { background: transparent; color: var(--fg); border-color: var(--border-strong); }
-  .previus-app .report-template.is-selected:hover { background: var(--accent-soft); color: var(--fg); }
+  .previdenciar-app .btn:hover:not(:disabled) { color: var(--fg); background: var(--surface-2); border-color: var(--border-strong); }
+  .previdenciar-app .btn-ghost:hover:not(:disabled) { color: var(--fg); background: transparent; border-color: var(--border-strong); }
+  .previdenciar-app .btn-primary:hover:not(:disabled) { color: var(--lg-on-primary); background: var(--lg-primary-hover); border-color: var(--lg-primary-hover); }
+  .previdenciar-app .module-grid .btn-primary:hover, .previdenciar-app .empty-state .btn-primary:hover { background: transparent; color: var(--fg); border-color: var(--border-strong); }
+  .previdenciar-app .side-link:hover { background: var(--surface-hover); color: var(--fg); border-color: var(--border-strong); }
+  .previdenciar-app .palette__item:hover { background: transparent; color: var(--fg); border-color: var(--border-strong); }
+  .previdenciar-app .mobile-menu-list button:hover { background: var(--surface-2); color: var(--fg); border-color: var(--border-strong); }
+  .previdenciar-app .side-link.active:hover { background: var(--accent-soft); color: var(--fg); }
+  .previdenciar-app .robot-choice:hover, .previdenciar-app .new-calculation-choice:hover { border-color: var(--border-strong); background: var(--surface); color: var(--fg); }
+  .previdenciar-app .robot-choice.selected:hover, .previdenciar-app .new-calculation-choice.recommended:hover { background: var(--accent-soft); color: var(--fg); }
+  .previdenciar-app .report-template:hover { background: transparent; color: var(--fg); border-color: var(--border-strong); }
+  .previdenciar-app .report-template.is-selected:hover { background: var(--accent-soft); color: var(--fg); }
 }
 @keyframes lg-page-in { from { opacity: .5; transform: translateY(5px); } to { opacity: 1; transform: none; } }
 @container (max-width: 930px) {
-  .previus-app .cockpit, .previus-app .split-content { grid-template-columns: minmax(0, 1fr); }
-  .previus-app .module-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .previus-app .form-grid.three { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .previus-app .report-center { grid-template-columns: minmax(0, 1fr); }
-  .previus-app .report-template-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .previdenciar-app .cockpit, .previdenciar-app .split-content { grid-template-columns: minmax(0, 1fr); }
+  .previdenciar-app .module-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .previdenciar-app .form-grid.three { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .previdenciar-app .report-center { grid-template-columns: minmax(0, 1fr); }
+  .previdenciar-app .report-template-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 1200px) { :root { --lg-sidebar: 226px; --lg-page-padding: 24px; } }
 @media (max-width: 1023px) {
-  .previus-app { grid-template-columns: minmax(0, 1fr); grid-template-rows: 76px minmax(0, 1fr); }
-  .previus-app .app-side { display: none; }
-  .previus-app .top-chrome, .previus-app .app-content { grid-column: 1; }
-  .previus-app .app-content { padding-bottom: calc(112px + env(safe-area-inset-bottom)); }
-  .previus-app .chrome-mobile-brand { display: block; font-family: var(--font-editorial); font-size: 24px; letter-spacing: -.035em; }
-  .previus-app .breadcrumb { display: none; }
-  .previus-app .mobile-dock { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); position: fixed; bottom: calc(12px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); width: min(520px, calc(100% - 24px)); padding: 7px; gap: 4px; border-radius: 22px; border: 1px solid var(--lg-border-glass); background: var(--lg-glass); backdrop-filter: blur(var(--lg-blur)); box-shadow: var(--lg-depth); z-index: 30; }
-  .previus-app .mobile-dock button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-width: 0; min-height: 52px; padding: 5px 3px; color: var(--fg-2); border: 1px solid transparent; background: transparent; border-radius: 15px; font-size: 12px; line-height: 1.35; }
-  .previus-app .mobile-dock button[aria-current="page"], .previus-app .mobile-dock button[aria-expanded="true"] { background: var(--accent-soft); color: var(--fg); border-color: var(--accent-line); }
-  .previus-app .toast { bottom: calc(96px + env(safe-area-inset-bottom)); right: 16px; }
+  .previdenciar-app { grid-template-columns: minmax(0, 1fr); grid-template-rows: 76px minmax(0, 1fr); }
+  .previdenciar-app .app-side { display: none; }
+  .previdenciar-app .top-chrome, .previdenciar-app .app-content { grid-column: 1; }
+  .previdenciar-app .app-content { padding-bottom: calc(112px + env(safe-area-inset-bottom)); }
+  .previdenciar-app .chrome-mobile-brand { display: block; font-family: var(--font-editorial); font-size: 24px; letter-spacing: -.035em; }
+  .previdenciar-app .breadcrumb { display: none; }
+  .previdenciar-app .mobile-dock { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); position: fixed; bottom: calc(12px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); width: min(520px, calc(100% - 24px)); padding: 7px; gap: 4px; border-radius: 22px; border: 1px solid var(--lg-border-glass); background: var(--lg-glass); backdrop-filter: blur(var(--lg-blur)); box-shadow: var(--lg-depth); z-index: 30; }
+  .previdenciar-app .mobile-dock button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-width: 0; min-height: 52px; padding: 5px 3px; color: var(--fg-2); border: 1px solid transparent; background: transparent; border-radius: 15px; font-size: 12px; line-height: 1.35; }
+  .previdenciar-app .mobile-dock button[aria-current="page"], .previdenciar-app .mobile-dock button[aria-expanded="true"] { background: var(--accent-soft); color: var(--fg); border-color: var(--accent-line); }
+  .previdenciar-app .toast { bottom: calc(96px + env(safe-area-inset-bottom)); right: 16px; }
 }
 @media (max-width: 600px) {
   :root { --lg-page-padding: 16px; }
-  .previus-app { grid-template-rows: 68px minmax(0, 1fr); }
-  .previus-app .top-chrome { margin-top: 12px; padding: 0 10px; gap: 6px; border-radius: 17px; }
-  .previus-app .chrome-actions { gap: 6px; }
-  .previus-app .chrome-actions > .status-tag, .previus-app .chrome-actions small { display: none; }
-  .previus-app .chrome-actions .btn { padding: 10px; }
-  .previus-app .app-content { padding-top: 26px; }
-  .previus-app .page-wrap { gap: 20px; }
-  .previus-app .page-head { flex-direction: column; align-items: flex-start; gap: 16px; }
-  .previus-app .page-head p { font-size: 12px; line-height: 1.75; }
-  .previus-app .page-head .head-actions { width: 100%; }
-  .previus-app .card__head, .previus-app .card__body { padding: 18px; }
-  .previus-app .cockpit, .previus-app .module-grid, .previus-app .form-grid, .previus-app .form-grid.three, .previus-app .robot-answer-summary, .previus-app .split-content { grid-template-columns: minmax(0, 1fr); }
-  .previus-app .work-item { flex-wrap: wrap; gap: 10px; }
-  .previus-app .work-item .work-copy { flex: 1 1 calc(100% - 60px); }
-  .previus-app .work-item .status-tag { margin-left: 52px; }
-  .previus-app .work-item .btn { margin-left: auto; }
-  .previus-app .toolbar { gap: 10px; }
-  .previus-app .toolbar .searchbox { flex-basis: 100%; max-width: none; min-width: 0; }
-  .previus-app .toolbar .input { max-width: none; width: 100%; }
-  .previus-app .toolbar .count { margin-left: 0; }
-  .previus-app .data-table { min-width: 640px; }
-  .previus-app .wizard-bar, .previus-app .robot-progress, .previus-app .seg { flex-wrap: nowrap; overflow-x: auto; max-width: 100%; overscroll-behavior-x: contain; }
-  .previus-app .wizard-step, .previus-app .robot-progress button, .previus-app .seg button { flex-shrink: 0; white-space: nowrap; }
-  .previus-app .wizard-foot, .previus-app .robot-footer { flex-direction: column; align-items: stretch; }
-  .previus-app .wizard-foot > div, .previus-app .robot-footer > div { display: flex; }
-  .previus-app .wizard-foot .btn, .previus-app .robot-footer .btn { flex: 1 1 auto; }
-  .previus-app .new-calculation-choices { grid-template-columns: minmax(0, 1fr); }
-  .previus-app .new-calculation-choice { padding: 18px; gap: 14px; flex-direction: column; }
-  .previus-app .new-calculation-choice h3 { font-size: 24px; }
-  .previus-app .robot-heading { flex-direction: column; }
-  .previus-app .robot-question { padding: 18px; flex-direction: column; gap: 14px; }
-  .previus-app .robot-question h2 { font-size: 20px; }
-  .previus-app .robot-choice { gap: 14px; padding: 18px; }
-  .previus-app .robot-path-input { flex-direction: column; align-items: stretch; }
-  .previus-app .robot-import-toolbar { padding: 16px; flex-wrap: wrap; }
-  .previus-app .import-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .previus-app .result-hero { flex-direction: column; }
-  .previus-app .report-center, .previus-app .report-template-list { grid-template-columns: minmax(0, 1fr); }
-  .previus-app .report-toolbar { padding: 16px; }
-  .previus-app .report-toolbar__actions { width: 100%; }
-  .previus-app .report-toolbar__actions .btn { flex: 1 1 100%; }
-  .previus-app .report-paper-workspace { padding: 12px; }
-  .previus-app .report-empty-document { min-height: 340px; padding: 28px 18px; }
-  .previus-app .dialog-scrim { padding: 12px; }
-  .previus-app .dialog { max-height: calc(100dvh - 24px); border-radius: 22px; }
-  .previus-app .dialog__head, .previus-app .dialog__body { padding: 18px; }
-  .previus-app .mobile-menu-list { grid-template-columns: minmax(0, 1fr); }
-  .previus-app .form-actions .btn { flex: 1; }
-  .previus-app .quiet-banner { padding: 16px; }
+  .previdenciar-app { grid-template-rows: 68px minmax(0, 1fr); }
+  .previdenciar-app .top-chrome { margin-top: 12px; padding: 0 10px; gap: 6px; border-radius: 17px; }
+  .previdenciar-app .chrome-actions { gap: 6px; }
+  .previdenciar-app .chrome-actions > .status-tag, .previdenciar-app .chrome-actions small { display: none; }
+  .previdenciar-app .chrome-actions .btn { padding: 10px; }
+  .previdenciar-app .app-content { padding-top: 26px; }
+  .previdenciar-app .page-wrap { gap: 20px; }
+  .previdenciar-app .page-head { flex-direction: column; align-items: flex-start; gap: 16px; }
+  .previdenciar-app .page-head p { font-size: 12px; line-height: 1.75; }
+  .previdenciar-app .page-head .head-actions { width: 100%; }
+  .previdenciar-app .card__head, .previdenciar-app .card__body { padding: 18px; }
+  .previdenciar-app .cockpit, .previdenciar-app .module-grid, .previdenciar-app .form-grid, .previdenciar-app .form-grid.three, .previdenciar-app .robot-answer-summary, .previdenciar-app .split-content { grid-template-columns: minmax(0, 1fr); }
+  .previdenciar-app .work-item { flex-wrap: wrap; gap: 10px; }
+  .previdenciar-app .work-item .work-copy { flex: 1 1 calc(100% - 60px); }
+  .previdenciar-app .work-item .status-tag { margin-left: 52px; }
+  .previdenciar-app .work-item .btn { margin-left: auto; }
+  .previdenciar-app .toolbar { gap: 10px; }
+  .previdenciar-app .toolbar .searchbox { flex-basis: 100%; max-width: none; min-width: 0; }
+  .previdenciar-app .toolbar .input { max-width: none; width: 100%; }
+  .previdenciar-app .toolbar .count { margin-left: 0; }
+  .previdenciar-app .data-table { min-width: 640px; }
+  .previdenciar-app .wizard-bar, .previdenciar-app .robot-progress, .previdenciar-app .seg { flex-wrap: nowrap; overflow-x: auto; max-width: 100%; overscroll-behavior-x: contain; }
+  .previdenciar-app .wizard-step, .previdenciar-app .robot-progress button, .previdenciar-app .seg button { flex-shrink: 0; white-space: nowrap; }
+  .previdenciar-app .wizard-foot, .previdenciar-app .robot-footer { flex-direction: column; align-items: stretch; }
+  .previdenciar-app .wizard-foot > div, .previdenciar-app .robot-footer > div { display: flex; }
+  .previdenciar-app .wizard-foot .btn, .previdenciar-app .robot-footer .btn { flex: 1 1 auto; }
+  .previdenciar-app .new-calculation-choices { grid-template-columns: minmax(0, 1fr); }
+  .previdenciar-app .new-calculation-choice { padding: 18px; gap: 14px; flex-direction: column; }
+  .previdenciar-app .new-calculation-choice h3 { font-size: 24px; }
+  .previdenciar-app .robot-heading { flex-direction: column; }
+  .previdenciar-app .robot-question { padding: 18px; flex-direction: column; gap: 14px; }
+  .previdenciar-app .robot-question h2 { font-size: 20px; }
+  .previdenciar-app .robot-choice { gap: 14px; padding: 18px; }
+  .previdenciar-app .robot-path-input { flex-direction: column; align-items: stretch; }
+  .previdenciar-app .robot-import-toolbar { padding: 16px; flex-wrap: wrap; }
+  .previdenciar-app .import-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .previdenciar-app .result-hero { flex-direction: column; }
+  .previdenciar-app .report-center, .previdenciar-app .report-template-list { grid-template-columns: minmax(0, 1fr); }
+  .previdenciar-app .report-toolbar { padding: 16px; }
+  .previdenciar-app .report-toolbar__actions { width: 100%; }
+  .previdenciar-app .report-toolbar__actions .btn { flex: 1 1 100%; }
+  .previdenciar-app .report-paper-workspace { padding: 12px; }
+  .previdenciar-app .report-empty-document { min-height: 340px; padding: 28px 18px; }
+  .previdenciar-app .dialog-scrim { padding: 12px; }
+  .previdenciar-app .dialog { max-height: calc(100dvh - 24px); border-radius: 22px; }
+  .previdenciar-app .dialog__head, .previdenciar-app .dialog__body { padding: 18px; }
+  .previdenciar-app .mobile-menu-list { grid-template-columns: minmax(0, 1fr); }
+  .previdenciar-app .form-actions .btn { flex: 1; }
+  .previdenciar-app .quiet-banner { padding: 16px; }
 }
 @media (prefers-reduced-transparency: reduce) {
   :root { --lg-glass: var(--surface); --lg-blur: 0px; }
-  .previus-app { background: var(--bg); }
-  .previus-app :is(.app-side, .top-chrome, .toolbar, .dialog, .mobile-dock) { backdrop-filter: none; }
-  .previus-app .dialog-scrim { backdrop-filter: none; background: oklch(8% 0.02623 263.658 / .85); }
+  .previdenciar-app { background: var(--bg); }
+  .previdenciar-app :is(.app-side, .top-chrome, .toolbar, .dialog, .mobile-dock) { backdrop-filter: none; }
+  .previdenciar-app .dialog-scrim { backdrop-filter: none; background: oklch(8% 0.02623 263.658 / .85); }
 }
 @media (prefers-contrast: more) {
   :root { --lg-glass: var(--surface); --lg-muted: var(--fg); --fg-2: var(--fg); --border: var(--border-strong); --lg-border-glass: var(--fg-2); }
-  .previus-app :is(.app-side, .top-chrome, .toolbar, .dialog, .mobile-dock) { backdrop-filter: none; }
-  .previus-app .btn-ghost, .previus-app .input, .previus-app .text-area { border-color: var(--fg-2); }
+  .previdenciar-app :is(.app-side, .top-chrome, .toolbar, .dialog, .mobile-dock) { backdrop-filter: none; }
+  .previdenciar-app .btn-ghost, .previdenciar-app .input, .previdenciar-app .text-area { border-color: var(--fg-2); }
 }
 @media (forced-colors: active) {
-  .previus-app :is(.btn, .side-link, .dialog, .mobile-dock, .input, .text-area) { border: 1px solid ButtonText; }
-  .previus-app [aria-current="page"] { outline: 2px solid Highlight; outline-offset: -3px; }
+  .previdenciar-app :is(.btn, .side-link, .dialog, .mobile-dock, .input, .text-area) { border: 1px solid ButtonText; }
+  .previdenciar-app [aria-current="page"] { outline: 2px solid Highlight; outline-offset: -3px; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
-  .previus-app .btn:active, .previus-app .dialog { transform: none !important; }
+  .previdenciar-app .btn:active, .previdenciar-app .dialog { transform: none !important; }
 }
 
 :root { --lg-border-control: #5b6b82; }
 :root[data-theme="light"] { --lg-border-control: #798a9e; }
-.previus-app .searchbox { border: 1px solid var(--lg-border-control); }
-.previus-app .input, .previus-app .field input, .previus-app .field select,
-.previus-app .report-controls select, .previus-app .inline-input, .previus-app .text-area { border-color: var(--lg-border-control); }
-.previus-app .status-tag.good { color: var(--fg); background: var(--success-soft); border-color: color-mix(in srgb, var(--success) 42%, transparent); }
-.previus-app .notice.ok { color: var(--fg); border-color: color-mix(in srgb, var(--success) 42%, transparent); background: var(--success-soft); }
-.previus-app :is(.form-note,.report-help,.report-footer-note,.report-preview-fallback) { max-width: 74ch; }
-.previus-app .data-table caption { text-align: left; font-size: var(--fs-xs); color: var(--muted); padding: 0 0 10px; }
-.previus-app .assistant-stepbar progress { appearance: none; width: 160px; height: 6px; border: 1px solid var(--border); border-radius: 999px; background: var(--inset); overflow: hidden; }
-.previus-app .assistant-stepbar progress::-webkit-progress-bar { background: var(--inset); }
-.previus-app .assistant-stepbar progress::-webkit-progress-value { background: var(--accent); border-radius: 999px; }
-.previus-app .assistant-stepbar progress::-moz-progress-bar { background: var(--accent); border-radius: 999px; }
-.previus-app .robot-question h2:focus { outline: none; }
-@media (min-width: 601px) { .previus-app .toolbar .input { width: auto; max-width: 240px; } }
-@media (min-width: 1024px) { .previus-app .toast { top: 92px; bottom: auto; left: 50%; right: auto; transform: translateX(-50%); max-width: min(420px, calc(100vw - 48px)); } }
-@media (min-width: 601px) and (max-width: 900px) { .previus-app .page-head { flex-direction: column; align-items: flex-start; gap: 16px; } }
+.previdenciar-app .searchbox { border: 1px solid var(--lg-border-control); }
+.previdenciar-app .input, .previdenciar-app .field input, .previdenciar-app .field select,
+.previdenciar-app .report-controls select, .previdenciar-app .inline-input, .previdenciar-app .text-area { border-color: var(--lg-border-control); }
+.previdenciar-app .status-tag.good { color: var(--fg); background: var(--success-soft); border-color: color-mix(in srgb, var(--success) 42%, transparent); }
+.previdenciar-app .notice.ok { color: var(--fg); border-color: color-mix(in srgb, var(--success) 42%, transparent); background: var(--success-soft); }
+.previdenciar-app :is(.form-note,.report-help,.report-footer-note,.report-preview-fallback) { max-width: 74ch; }
+.previdenciar-app .data-table caption { text-align: left; font-size: var(--fs-xs); color: var(--muted); padding: 0 0 10px; }
+.previdenciar-app .assistant-stepbar progress { appearance: none; width: 160px; height: 6px; border: 1px solid var(--border); border-radius: 999px; background: var(--inset); overflow: hidden; }
+.previdenciar-app .assistant-stepbar progress::-webkit-progress-bar { background: var(--inset); }
+.previdenciar-app .assistant-stepbar progress::-webkit-progress-value { background: var(--accent); border-radius: 999px; }
+.previdenciar-app .assistant-stepbar progress::-moz-progress-bar { background: var(--accent); border-radius: 999px; }
+.previdenciar-app .robot-question h2:focus { outline: none; }
+@media (min-width: 601px) { .previdenciar-app .toolbar .input { width: auto; max-width: 240px; } }
+@media (min-width: 1024px) { .previdenciar-app .toast { top: 92px; bottom: auto; left: 50%; right: auto; transform: translateX(-50%); max-width: min(420px, calc(100vw - 48px)); } }
+@media (min-width: 601px) and (max-width: 900px) { .previdenciar-app .page-head { flex-direction: column; align-items: flex-start; gap: 16px; } }
 @media (max-height: 940px) {
-  .previus-app .side-nav { min-height: 0; padding-bottom: 8px; scrollbar-gutter: stable; scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
-  .previus-app .side-foot { padding-top: 10px; }
+  .previdenciar-app .side-nav { min-height: 0; padding-bottom: 8px; scrollbar-gutter: stable; scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+  .previdenciar-app .side-foot { padding-top: 10px; }
 }
 @media (max-width: 600px) {
-  .previus-app .robot-workspace { display: flex; flex-direction: column; }
-  .previus-app .assistant-case-context { order: 3; }
-  .previus-app .robot-footer { order: 4; }
-  .previus-app .robot-question h2 { font-size: 20px; }
-  .previus-app .assistant-stepbar progress { width: 120px; }
+  .previdenciar-app .robot-workspace { display: flex; flex-direction: column; }
+  .previdenciar-app .assistant-case-context { order: 3; }
+  .previdenciar-app .robot-footer { order: 4; }
+  .previdenciar-app .robot-question h2 { font-size: 20px; }
+  .previdenciar-app .assistant-stepbar progress { width: 120px; }
 }
 
 :root { --lg-border-button: #66788f; }
 :root[data-theme="light"] { --lg-border-button: #798a9e; }
-.previus-app .btn:not(.btn-primary) { border-color: var(--lg-border-button); }
-.previus-app .btn:disabled { opacity: 1; color: var(--muted); background: var(--surface-2); border-color: var(--lg-border-button); box-shadow: none; transform: none; }
-.previus-app .btn-primary:disabled { color: var(--muted); background: var(--surface-2); border-color: var(--lg-border-button); }
-.previus-app .robot-choice.selected small, .previus-app .report-template.is-selected small { color: var(--fg-2); }
-.previus-app .report-empty-document { background: transparent; border: 0; box-shadow: none; }
-.previus-app .report-paper-workspace:has(.report-empty-document) { min-height: 420px; padding: 12px; }
-.previus-app .data-table td { font-size: var(--fs-sm); line-height: 1.5; }
-.previus-app :is(.form-note,.report-help,.report-footer-note,.report-preview-fallback,.notice) { font-size: var(--fs-sm); }
-.previus-app .amicro-overview h2 { font-size: var(--fs-title) !important; }
-.previus-app .cockpit-stack { display: flex; flex-direction: column; gap: 24px; }
-.previus-app .cockpit-stack > .card { flex: 1; display: flex; flex-direction: column; }
-.previus-app .cockpit-stack > .card > .card__body { flex: 1; display: flex; flex-direction: column; }
-.previus-app .cockpit-stack .card__body > .btn { margin-top: auto; align-self: flex-start; }
-.previus-app .panel--answer .card__title { font-size: var(--fs-sm) !important; font-weight: 500; color: var(--fg-2); }
-.previus-app .panel--answer .card__head { padding-bottom: 12px; }
-.previus-app .new-calculation-choice:hover { background: var(--surface); border-color: var(--border); }
-.previus-app .new-calculation-choice.recommended:hover { background: var(--accent-soft); border-color: var(--accent-line); }
-.previus-app :is(.assistant-case-context strong,.assistant-scope-notice p,.cnis-review__tabs button,.conference-tabs button) { font-size: var(--fs-sm); }
-.previus-app .field > span { font-size: var(--fs-xs); }
-.previus-app input[type="checkbox"] { appearance: none; width: 16px; height: 16px; border: 1px solid var(--lg-border-control); border-radius: 4px; background: var(--inset); display: inline-grid; place-content: center; padding: 0; min-height: 0; }
-.previus-app input[type="checkbox"]::before { content: ""; width: 9px; height: 9px; transform: scale(0); transition: transform 120ms; clip-path: polygon(14% 44%,0 65%,50% 100%,100% 16%,80% 0%,43% 62%); background: var(--lg-on-primary); }
-.previus-app input[type="checkbox"]:checked { background: var(--accent); border-color: var(--accent); }
-.previus-app input[type="checkbox"]:checked::before { transform: scale(1); }
-.previus-app input[type="checkbox"]:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.previdenciar-app .btn:not(.btn-primary) { border-color: var(--lg-border-button); }
+.previdenciar-app .btn:disabled { opacity: 1; color: var(--muted); background: var(--surface-2); border-color: var(--lg-border-button); box-shadow: none; transform: none; }
+.previdenciar-app .btn-primary:disabled { color: var(--muted); background: var(--surface-2); border-color: var(--lg-border-button); }
+.previdenciar-app .robot-choice.selected small, .previdenciar-app .report-template.is-selected small { color: var(--fg-2); }
+.previdenciar-app .report-empty-document { background: transparent; border: 0; box-shadow: none; }
+.previdenciar-app .report-paper-workspace:has(.report-empty-document) { min-height: 420px; padding: 12px; }
+.previdenciar-app .data-table td { font-size: var(--fs-sm); line-height: 1.5; }
+.previdenciar-app :is(.form-note,.report-help,.report-footer-note,.report-preview-fallback,.notice) { font-size: var(--fs-sm); }
+.previdenciar-app .amicro-overview h2 { font-size: var(--fs-title) !important; }
+.previdenciar-app .cockpit-stack { display: flex; flex-direction: column; gap: 24px; }
+.previdenciar-app .cockpit-stack > .card { flex: 1; display: flex; flex-direction: column; }
+.previdenciar-app .cockpit-stack > .card > .card__body { flex: 1; display: flex; flex-direction: column; }
+.previdenciar-app .cockpit-stack .card__body > .btn { margin-top: auto; align-self: flex-start; }
+.previdenciar-app .panel--answer .card__title { font-size: var(--fs-sm) !important; font-weight: 500; color: var(--fg-2); }
+.previdenciar-app .panel--answer .card__head { padding-bottom: 12px; }
+.previdenciar-app .new-calculation-choice:hover { background: var(--surface); border-color: var(--border); }
+.previdenciar-app .new-calculation-choice.recommended:hover { background: var(--accent-soft); border-color: var(--accent-line); }
+.previdenciar-app :is(.assistant-case-context strong,.assistant-scope-notice p,.cnis-review__tabs button,.conference-tabs button) { font-size: var(--fs-sm); }
+.previdenciar-app .field > span { font-size: var(--fs-xs); }
+.previdenciar-app input[type="checkbox"] { appearance: none; width: 16px; height: 16px; border: 1px solid var(--lg-border-control); border-radius: 4px; background: var(--inset); display: inline-grid; place-content: center; padding: 0; min-height: 0; }
+.previdenciar-app input[type="checkbox"]::before { content: ""; width: 9px; height: 9px; transform: scale(0); transition: transform 120ms; clip-path: polygon(14% 44%,0 65%,50% 100%,100% 16%,80% 0%,43% 62%); background: var(--lg-on-primary); }
+.previdenciar-app input[type="checkbox"]:checked { background: var(--accent); border-color: var(--accent); }
+.previdenciar-app input[type="checkbox"]:checked::before { transform: scale(1); }
+.previdenciar-app input[type="checkbox"]:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 html[data-theme-switching] * { transition: none !important; animation: none !important; }
-@media (max-width: 600px) { .previus-app .page-head p { font-size: var(--fs-sm); } }
+@media (max-width: 600px) { .previdenciar-app .page-head p { font-size: var(--fs-sm); } }
 
-.previus-app .toast-inline { position: static; inset: auto; transform: none; width: auto; max-width: 760px; margin: 0 0 18px; border-left: 3px solid var(--success); box-shadow: none; justify-content: flex-start; } .previus-app .toast-inline .iconbtn { margin-left: auto; }
+.previdenciar-app .toast-inline { position: static; inset: auto; transform: none; width: auto; max-width: 760px; margin: 0 0 18px; border-left: 3px solid var(--success); box-shadow: none; justify-content: flex-start; } .previdenciar-app .toast-inline .iconbtn { margin-left: auto; }
 
-.previus-app .field-error { color: var(--danger); font-size: var(--fs-xs); line-height: 1.5; } .previus-app .field-error[role="alert"] { margin-top: 2px; } .previus-app .field:has(.field-error) .input, .previus-app .field:has(.field-error) .text-area { border-color: var(--danger); }
+.previdenciar-app .field-error { color: var(--danger); font-size: var(--fs-xs); line-height: 1.5; } .previdenciar-app .field-error[role="alert"] { margin-top: 2px; } .previdenciar-app .field:has(.field-error) .input, .previdenciar-app .field:has(.field-error) .text-area { border-color: var(--danger); }
 
 @media (max-width: 600px) {
-  .previus-app:has(.robot-workspace) .page-head p { display: none; }
-  .previus-app .robot-question { padding: 14px 16px; gap: 12px; }
-  .previus-app .robot-question .robot-face { width: 34px; height: 34px; border-radius: 9px; }
-  .previus-app .robot-question .robot-face svg { width: 24px; height: 24px; }
-  .previus-app .robot-question h2 { font-size: 18px; line-height: 1.35; }
+  .previdenciar-app:has(.robot-workspace) .page-head p { display: none; }
+  .previdenciar-app .robot-question { padding: 14px 16px; gap: 12px; }
+  .previdenciar-app .robot-question .robot-face { width: 34px; height: 34px; border-radius: 9px; }
+  .previdenciar-app .robot-question .robot-face svg { width: 24px; height: 24px; }
+  .previdenciar-app .robot-question h2 { font-size: 18px; line-height: 1.35; }
 }
 
-:root[data-theme="light"] .previus-app .brand-logo-full { display: block; }
-:root[data-theme="light"] .previus-app .brand-emblem,
-:root[data-theme="light"] .previus-app .brand-copy { display: none; }
-.previus-app .brand-logo-full { display: none; width: 190px; max-width: 100%; height: auto; }
-.previus-app .brand-emblem { background: #eef5f3; border-color: #d6e4df; padding: 6px; }
-.previus-app .brand-emblem img { display: block; width: 26px; height: 26px; object-fit: contain; }
-@media (max-width: 1200px) { :root[data-theme="light"] .previus-app .brand-logo-full { width: 174px; } }
+:root[data-theme="light"] .previdenciar-app .brand-logo-full { display: block; }
+:root[data-theme="light"] .previdenciar-app .brand-emblem,
+:root[data-theme="light"] .previdenciar-app .brand-copy { display: none; }
+.previdenciar-app .brand-logo-full { display: none; width: 190px; max-width: 100%; height: auto; }
+.previdenciar-app .brand-emblem { background: #eef5f3; border-color: #d6e4df; padding: 6px; }
+.previdenciar-app .brand-emblem img { display: block; width: 26px; height: 26px; object-fit: contain; }
+@media (max-width: 1200px) { :root[data-theme="light"] .previdenciar-app .brand-logo-full { width: 174px; } }
 
-.previus-app .brand-logo { display: none; width: 190px; max-width: 100%; height: auto; }
-.previus-app .brand-logo-dark { display: block; }
-:root[data-theme="light"] .previus-app .brand-logo-dark { display: none; }
-:root[data-theme="light"] .previus-app .brand-logo-light { display: block; mix-blend-mode: multiply; }
-.previus-app .chrome-mobile-brand { display: none; align-items: center; gap: 8px; }
-@media (max-width: 1023px) { .previus-app .chrome-mobile-brand { display: flex; } }
-.previus-app .chrome-mobile-brand img { width: 26px; height: 26px; border-radius: 7px; object-fit: cover; }
-@media (max-width: 1200px) { .previus-app .brand-logo { width: 174px; } }
+.previdenciar-app .brand-logo { display: none; width: 190px; max-width: 100%; height: auto; }
+.previdenciar-app .brand-logo-dark { display: block; }
+:root[data-theme="light"] .previdenciar-app .brand-logo-dark { display: none; }
+:root[data-theme="light"] .previdenciar-app .brand-logo-light { display: block; mix-blend-mode: multiply; }
+.previdenciar-app .chrome-mobile-brand { display: none; align-items: center; gap: 8px; }
+@media (max-width: 1023px) { .previdenciar-app .chrome-mobile-brand { display: flex; } }
+.previdenciar-app .chrome-mobile-brand img { width: 26px; height: 26px; border-radius: 7px; object-fit: cover; }
+@media (max-width: 1200px) { .previdenciar-app .brand-logo { width: 174px; } }
 
-@media (max-width: 359px) { .previus-app .chrome-mobile-brand span { display: none; } .previus-app .chrome-mobile-brand img { width: 24px; height: 24px; } }
+@media (max-width: 359px) { .previdenciar-app .chrome-mobile-brand span { display: none; } .previdenciar-app .chrome-mobile-brand img { width: 24px; height: 24px; } }

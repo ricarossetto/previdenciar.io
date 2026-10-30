@@ -2,9 +2,17 @@
 
 ## Armazenamento
 
-No Windows, a base protegida usa DPAPI e o caminho legado LOCALAPPDATA/PreviusRust/workspace.pvr, mantido por compatibilidade. Dados são vinculados ao ambiente da conta Windows; mover um arquivo cifrado não garante que ele poderá ser aberto em outra conta ou máquina.
+No Windows, a base protegida usa DPAPI e o caminho LOCALAPPDATA/Previdenciar/workspace.pvr. Dados são vinculados ao ambiente da conta Windows; mover um arquivo cifrado não garante que ele poderá ser aberto em outra conta ou máquina.
 
-Não há sincronização em nuvem, envio de CNIS ou modelo de linguagem remoto nos fluxos implementados. Uma release pode ser baixada via GitHub, e dependências usam rede durante o desenvolvimento/build; isso não significa upload automático dos documentos do usuário.
+Os fluxos de importação, cálculo, PDF, relatórios e backup não enviam documentos a servidor nenhum. O Copiloto IA é uma exceção **opcional e explícita**: ele só envia a pergunta, o histórico da conversa e os trechos de ferramentas locais depois que a pessoa marca a autorização. CNIS, clientes, cálculos e PDFs não são anexados automaticamente. As chaves ficam em `%LOCALAPPDATA%\Previdenciar\ai-keys.pvai`, protegidas por DPAPI, e não voltam para a interface. Uma release pode ser baixada via GitHub, e dependências usam rede durante o desenvolvimento/build; isso não significa upload automático dos documentos do usuário.
+
+## Copiloto IA opcional
+
+O Copiloto não é acionado na inicialização e não recebe o workspace. A tela mostra quais dados serão enviados antes do primeiro pedido: o texto da pergunta, o histórico em memória, o prompt de sistema e, se a consulta local estiver habilitada, os trechos públicos retornados pelas ferramentas. Se você selecionar um caso e marcar o anexo, também é enviado um resumo estrutural sem nome, CPF, NIT, salários, notas ou textos livres. Esse resumo contém apenas campos do caso, como módulo, DIB, sexo e condição de deficiência; o envio depende da marcação explícita e pode ser desfeito antes de cada pedido. A autorização é por sessão e pode ser desmarcada.
+
+O histórico da conversa não é salvo no workspace, no backup ou no cofre. O provedor externo escolhido pode reter o texto conforme a própria política; o aplicativo não controla essa retenção. Não envie dados de cliente, CNIS ou documentos por chat sem necessidade e sem conferir a política do provedor.
+
+As ferramentas locais leem os extratos importados de habilidades, legislação, NatJus e jurisprudência em `%LOCALAPPDATA%\Previdenciar\conhecimento`. Elas não gravam no workspace e não enviam nada por conta própria; o resultado só chega ao provedor quando o modelo o solicita dentro de uma conversa já autorizada. Na Minuta assistida, o resumo estrutural do caso, o roteiro e o texto em revisão também só são enviados depois da marcação de consentimento. O PDF anexado é convertido em texto localmente, com OCR local opcional quando Tesseract e Poppler estão instalados; as imagens não são enviadas. O texto extraído pode conter dados pessoais; ele só entra no pedido depois que você confirma a leitura, e você pode remover o anexo se não quiser enviá-lo. A minuta exportada ou salva como modelo local passa a ser um arquivo do operador; revise antes de compartilhar.
 
 ## Importação e exportação
 

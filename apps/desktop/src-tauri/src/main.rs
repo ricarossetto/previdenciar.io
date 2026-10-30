@@ -1,11 +1,13 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 #![forbid(unsafe_code)]
+mod ai;
 mod backend;
 mod economic;
 mod files;
+use ai::{AiState, ai_cancel, ai_chat, ai_data_status, ai_delete_key, ai_import_data, ai_key_status, ai_knowledge_read, ai_knowledge_search, ai_models, ai_provider_catalog, ai_save_key, ai_test, pick_case_pdf_text, save_export_file};
 use backend::{BackendState, BootResult};
-use previus_cnis::ImportResult;
-use previus_workspace::{Calculation, Workspace};
+use previdenciar_cnis::ImportResult;
+use previdenciar_workspace::{Calculation, Workspace};
 use serde_json::Value;
 use tauri::{State, WebviewWindowBuilder};
 
@@ -60,29 +62,29 @@ async fn import_cnis_path(path: String) -> Result<ImportResult, String> {
 
 #[tauri::command]
 async fn run_tool(tool: String, input: Value) -> Result<Value, String> {
-    tauri::async_runtime::spawn_blocking(move || previus_core::run_tool(&tool, input)).await
+    tauri::async_runtime::spawn_blocking(move || previdenciar_core::run_tool(&tool, input)).await
         .map_err(|_| "Ferramenta interrompida; nenhum resultado produzido.".to_owned())?
 }
 
 #[tauri::command]
 async fn run_finance(tool: String, input: Value) -> Result<Value, String> {
-    tauri::async_runtime::spawn_blocking(move || previus_core::finance::run_finance(&tool, input)).await
+    tauri::async_runtime::spawn_blocking(move || previdenciar_core::finance::run_finance(&tool, input)).await
         .map_err(|_| "Ferramenta financeira interrompida; nenhum resultado produzido.".to_owned())?
 }
 
 #[tauri::command]
-async fn fetch_economic_snapshot(through:String)->Result<previus_rgps::pcd::Snapshot,String>{
+async fn fetch_economic_snapshot(through:String)->Result<previdenciar_rgps::pcd::Snapshot,String>{
  tauri::async_runtime::spawn_blocking(move||economic::load(&through)).await.map_err(|_|"Consulta pública interrompida; snapshot anterior preservado.".to_owned())?
 }
 
 #[tauri::command]
-fn local_economic_snapshot(through: String) -> Result<previus_rgps::pcd::Snapshot, String> {
-    previus_rgps::pcd::local_snapshot(&through)
+fn local_economic_snapshot(through: String) -> Result<previdenciar_rgps::pcd::Snapshot, String> {
+    previdenciar_rgps::pcd::local_snapshot(&through)
 }
 
 #[tauri::command]
 fn prepare_case_from_cnis(calculation: Calculation, reference: String) -> Result<Value, String> {
-    let (prepared, notes) = previus_rgps::prepare_from_cnis(&calculation, &reference)?;
+    let (prepared, notes) = previdenciar_rgps::prepare_from_cnis(&calculation, &reference)?;
     Ok(serde_json::json!({ "calculation": prepared, "notes": notes }))
 }
 
@@ -91,19 +93,19 @@ async fn calculate_case(calculation: Calculation) -> Result<Value, String> {
     tauri::async_runtime::spawn_blocking(move || {
         backend::validate_calculation(&calculation)?;
         backend::validate_assistant_for_calculation(&calculation)?;
-        enforce_rgps_envelope(previus_rgps::calculate_case(&calculation)?)
+        enforce_rgps_envelope(previdenciar_rgps::calculate_case(&calculation)?)
     }).await.map_err(|_| "Motor RGPS interrompido; nenhum resultado produzido.".to_owned())?
 }
 
 #[tauri::command]
 async fn calculate_rgps(input: Value) -> Result<Value, String> {
-    tauri::async_runtime::spawn_blocking(move || enforce_rgps_envelope(previus_rgps::calculate_json(input)?)).await
+    tauri::async_runtime::spawn_blocking(move || enforce_rgps_envelope(previdenciar_rgps::calculate_json(input)?)).await
         .map_err(|_| "Motor RGPS interrompido; nenhum resultado produzido.".to_owned())?
 }
 
 #[tauri::command]
 async fn project_rgps(calculation: Calculation) -> Result<Value, String> {
-    tauri::async_runtime::spawn_blocking(move || previus_rgps::project_case(&calculation)).await
+    tauri::async_runtime::spawn_blocking(move || previdenciar_rgps::project_case(&calculation)).await
         .map_err(|_| "Projeção interrompida; nenhum resultado produzido.".to_owned())?
 }
 
@@ -178,11 +180,13 @@ fn navigation_allowed(url: &tauri::Url, development: bool) -> bool {
 fn main() {
     let result = tauri::Builder::default()
         .manage(BackendState::default())
+        .manage(AiState::default())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .invoke_handler(tauri::generate_handler![bootstrap, save_workspace, pick_import_cnis, import_cnis_path,
             run_tool, run_finance, fetch_economic_snapshot, local_economic_snapshot, prepare_case_from_cnis,
-            calculate_case, calculate_rgps, project_rgps, preview_report, export_report, export_reports_batch, export_document, merge_pdfs, backup_export])
+            calculate_case, calculate_rgps, project_rgps, preview_report, export_report, export_reports_batch, export_document, merge_pdfs, backup_export,
+            ai_provider_catalog, ai_key_status, ai_save_key, ai_delete_key, ai_test, ai_models, ai_data_status, ai_import_data, ai_knowledge_search, ai_knowledge_read, save_export_file, pick_case_pdf_text, ai_chat, ai_cancel])
         .setup(|app| {
             let config = app.config().app.windows.first().ok_or("Configuração da janela principal ausente.")?;
             WebviewWindowBuilder::from_config(app, config)?
@@ -222,14 +226,14 @@ mod tests {
     }
     #[test]
     fn missing_rgps_inputs_produce_real_blocked_result_not_fabricated_math() {
-        let actual = enforce_rgps_envelope(previus_rgps::calculate_case(&Calculation::default()).unwrap()).unwrap();
+        let actual = enforce_rgps_envelope(previdenciar_rgps::calculate_case(&Calculation::default()).unwrap()).unwrap();
         assert_eq!(actual["status"], "blocked"); assert!(actual["data"].is_null());
         assert!(actual["blockers"].as_array().unwrap().len() > 0); assert_eq!(actual["legal_validation_performed"], false);
     }
     #[test]
     fn existing_core_facade_is_real_and_unknown_tool_is_error() {
-        let value = previus_core::run_tool("inclusive_dates", json!({"start":"2026-10-10","end":"2026-10-10"})).unwrap();
-        assert!(!value["data"].is_null()); assert!(previus_core::run_tool("missing_finance", json!({})).is_err());
+        let value = previdenciar_core::run_tool("inclusive_dates", json!({"start":"2026-10-10","end":"2026-10-10"})).unwrap();
+        assert!(!value["data"].is_null()); assert!(previdenciar_core::run_tool("missing_finance", json!({})).is_err());
     }
     #[test]
     fn config_and_capabilities_have_only_local_command_permissions() {
@@ -251,11 +255,11 @@ mod tests {
             assert!(permission.starts_with("allow-") || plugin_permissions.contains(&permission));
         }
         assert!(permissions.iter().any(|value| value == "allow-export-reports-batch"));
-        assert_eq!(permissions.len(), 19);
+        assert_eq!(permissions.len(), 33);
     }
     #[test]
     fn direct_rgps_json_rejects_invalid_schema_without_false_result() {
-        assert!(previus_rgps::calculate_json(json!({"unexpected":"synthetic"})).is_err());
+        assert!(previdenciar_rgps::calculate_json(json!({"unexpected":"synthetic"})).is_err());
     }
 
     #[test]
@@ -282,7 +286,7 @@ mod tests {
 mod rgps_positive_integration {
     #[test]
     fn actual_async_case_command_returns_native_rmi_for_explicit_synthetic_review() {
-        let case: previus_workspace::Calculation = serde_json::from_str(include_str!("../../../../crates/previus-rgps/tests/fixtures/calculation-synthetic.json")).unwrap();
+        let case: previdenciar_workspace::Calculation = serde_json::from_str(include_str!("../../../../crates/previdenciar-rgps/tests/fixtures/calculation-synthetic.json")).unwrap();
         let result = tauri::async_runtime::block_on(super::calculate_case(case)).unwrap();
         assert_eq!(result["status"], "experimental", "{result}");
         assert_eq!(result["legal_validation_performed"], false);

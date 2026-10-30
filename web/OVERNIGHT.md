@@ -2,7 +2,7 @@
 
 **Objetivo:** transformar o mock navegável em uma versão web que abre no navegador, carrega um workspace real exportado em JSON, persiste localmente, exporta de volta, imprime a prévia do relatório e mantém a demonstração como fallback.
 
-**Fora de escopo original:** importar CNIS/PDF, gerar PDF real, backend, autenticação ou sincronização. O **`rgps-core`** foi incluído depois como extensão WebAssembly; o adaptador `previus-rgps`, o CNIS, o workspace cifrado e o PDF continuam no app desktop.
+**Fora de escopo original:** importar CNIS/PDF, gerar PDF real, backend, autenticação ou sincronização. O **`rgps-core`** foi incluído depois como extensão WebAssembly; o adaptador `previdenciar-rgps`, o CNIS, o workspace cifrado e o PDF continuam no app desktop.
 
 ## Fases
 
@@ -53,14 +53,14 @@ Campos opcionais por caso: `cnisCount`, `adjustments`, `used`, `pending`, `cnisP
 
 ## Extensão — motor WASM
 
-O núcleo puro `rgps-core` (só `rust_decimal`, `serde`, `serde_json`, `thiserror`) foi compilado para `wasm32-unknown-unknown` no crate `crates/previus-wasm`, com ABI JSON própria (`pio_alloc`, `pio_calculate`, `pio_free`, `pio_version`). O adaptador `previus-rgps` não entra: ele depende de CNIS/workspace e não é wasm-friendly.
+O núcleo puro `rgps-core` (só `rust_decimal`, `serde`, `serde_json`, `thiserror`) foi compilado para `wasm32-unknown-unknown` no crate `crates/previdenciar-wasm`, com ABI JSON própria (`pio_alloc`, `pio_calculate`, `pio_free`, `pio_version`). O adaptador `previdenciar-rgps` não entra: ele depende de CNIS/workspace e não é wasm-friendly.
 
 - Build: `scripts/build-web-engine.ps1` → `engine.wasm` de **453.273 bytes**, base64 em `engine.data.js` (604.393 bytes) para rodar em `file://`.
 - Página **Motor local (WASM)** na navegação, com duas entradas: fixture sintético de 300 competências e dados do caso atual.
 - Resultado do fixture: 300 competências, coeficiente 80, **RMI R$ 1.600,00**.
 - Resultado do caso de demonstração: 12 competências, coeficiente 60, **RMI R$ 1.728,50**, com aviso de coeficiente e correção — a saída é do motor, não do valor cenográfico do caso.
 - Chrome em `file://`: executa, sem erro de console e sem requisição externa. Node também executa o wasm e lê a memória.
-- Testes nativos: `cargo test -p previus-wasm` (fixture 300 + entrada inválida) e testes do `rgps-core` continuam no workspace.
+- Testes nativos: `cargo test -p previdenciar-wasm` (fixture 300 + entrada inválida) e testes do `rgps-core` continuam no workspace.
 
 O wasm é o núcleo de cálculo, não o app: não importa CNIS, não lê a base cifrada, não gera PDF e não aplica as políticas do adaptador. O resultado continua experimental.
 
@@ -78,7 +78,7 @@ O wasm é o núcleo de cálculo, não o app: não importa CNIS, não lê a base 
 | Restaurar demonstração | 8 clientes, 9 casos, 14 contribuições, 6 compromissos, 6 documentos; permanece após reload |
 | JSON inválido | rejeitado com “O workspace precisa de pelo menos um cliente.”, estado anterior intacto |
 | Impressão | rail `none`, lista lateral `none`, capa `flex`; captura em `../work/web-review/print-preview.png` |
-| Build wasm | 453.273 bytes; `cargo test -p previus-wasm` 2/2 |
+| Build wasm | 453.273 bytes; `cargo test -p previdenciar-wasm` 2/2 |
 | Motor no Chrome | exemplo 300 → R$ 1.600,00; caso 12 → R$ 1.728,50; 0 erros; 0 rede |
 | Motor no Node | `WebAssembly.instantiate` + leitura de memória ok |
 | Rede | 0 requisições externas |
@@ -89,4 +89,4 @@ Uma manipulação de `data.js`, `data2.js` e `data3.js` via PowerShell sem `-Enc
 
 ## Arquivos entregues
 
-`index.html`, `styles.css`, `core.js`, `data.js`, `data2.js`, `data3.js`, `workspace.js`, `engine.js`, `engine.data.js`, `engine.wasm`, `engine.example.js`, `engine.example.json`, `views-main.js`, `views-case.js`, `views-more.js`, `views-rest.js`, `views-engine.js`, `app.js`, `workspace.example.json`, `README.md`, `DESIGN.md`, `ENGINE.md`, `OVERNIGHT.md`; no Rust: `crates/previus-wasm/`; no build: `scripts/build-web-engine.ps1`, `scripts/embed-web-engine.js`.
+`index.html`, `styles.css`, `core.js`, `data.js`, `data2.js`, `data3.js`, `workspace.js`, `engine.js`, `engine.data.js`, `engine.wasm`, `engine.example.js`, `engine.example.json`, `views-main.js`, `views-case.js`, `views-more.js`, `views-rest.js`, `views-engine.js`, `app.js`, `workspace.example.json`, `README.md`, `DESIGN.md`, `ENGINE.md`, `OVERNIGHT.md`; no Rust: `crates/previdenciar-wasm/`; no build: `scripts/build-web-engine.ps1`, `scripts/embed-web-engine.js`.
