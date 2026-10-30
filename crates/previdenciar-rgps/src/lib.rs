@@ -3,6 +3,7 @@
 #![forbid(unsafe_code)]
 mod bridge;
 pub mod pcd;
+pub mod fabrica;
 pub mod guided;
 pub mod contracts;
 pub use bridge::{calculate_case, project_case};
@@ -138,6 +139,9 @@ fn calculate_input(r: CalculationInput) -> Result<Value, String> {
             issue(&mut b,"historical_policy_unsupported","dataReferencia","Adaptador restrito a cenários pós-reforma; cálculo de RMI de legislação anterior não validado.");
         }
     }
+    if r.segurado.especie.as_deref().map(str::trim) == Some("41") && birth.is_none() {
+        issue(&mut b,"birth_required_for_age","segurado.dataNascimento","Espécie 41 exige data de nascimento para conferir idade e carência.");
+    }
     if r.vinculos.is_empty() { issue(&mut b,"links_missing","vinculos","Períodos de contribuição com datas finais confirmadas são obrigatórios."); }
     if r.vinculos.len() > MAX_LINKS || r.competencias.len() > MAX_WAGES {
         issue(&mut b,"input_limit","vinculos/competencias","Limite de registros excedido.");
@@ -258,7 +262,7 @@ fn calculate_input(r: CalculationInput) -> Result<Value, String> {
     let dib = dib.expect("validated DIB");
     let native = RgpsEntrada {
         nome:None, especie:r.segurado.especie.clone(), sexo:sex, data_nascimento:birth, data_referencia:Some(dib), vinculos:links, competencias:wages,
-        opcoes:RgpsOpcoes {corrigir_salarios:o.corrigir_salarios.unwrap(),descarte:o.descarte.unwrap(),divisor_minimo:o.divisor_minimo.unwrap(),descartar_menores_minimo:o.descartar_menores_minimo,referencia_correcao:reference.or(Some(Competencia {ano:dib.ano as u16,mes:dib.mes})),teto:ceiling,piso:floor,aplicar_teto_vigente_der:o.aplicar_teto_vigente_der.unwrap(),expectativa_sobrevida:expectation,periodos_graca:vec![],recolhimentos_atraso:vec![],regra_alvo:None}
+        opcoes:RgpsOpcoes {corrigir_salarios:o.corrigir_salarios.unwrap(),descarte:o.descarte.unwrap(),divisor_minimo:o.divisor_minimo.unwrap(),descartar_menores_minimo:o.descartar_menores_minimo,referencia_correcao:reference.or(Some(Competencia {ano:dib.ano as u16,mes:dib.mes})),teto:ceiling,piso:floor,aplicar_teto_vigente_der:o.aplicar_teto_vigente_der.unwrap(),expectativa_sobrevida:expectation,periodos_graca:vec![],recolhimentos_atraso:vec![],regra_alvo:None,incapacidade_origem:o.incapacidade_origem.clone(),especial_grau:o.grau_especial.clone(),tempo_especial_meses:o.tempo_especial_meses,especial_antes_reforma:o.especial_antes_reforma,magisterio_meses:o.magisterio_meses,magisterio_exclusivo:o.magisterio_exclusivo,magisterio_antes_reforma:o.magisterio_antes_reforma}
     };
     // The copied core is kept byte-identical; overflow/panic never becomes a zero result.
     let result = std::panic::catch_unwind(|| rgps_core::calcular(&native))

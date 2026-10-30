@@ -9,7 +9,7 @@
 5. Gere SHA256SUMS.txt e notas honestas de escopo, testes e limitações. Marque versões experimentais como prerelease.
 6. Publique executável e checksum no GitHub Releases. Não anexe base, CNIS, PDFs pessoais, logs, dumps ou perfil de teste nativo.
 
-A primeira distribuição é um executável portátil, não um instalador MSI assinado. Build e download não certificam compatibilidade universal, cálculo normativo ou fluxo completo nativo.
+A distribuição inclui um executável portátil e um instalador NSIS. O instalador é assinado apenas para o atualizador do próprio aplicativo; não há assinatura de código Windows. Build e download não certificam compatibilidade universal, cálculo normativo ou fluxo completo nativo.
 
 ## Automação
 

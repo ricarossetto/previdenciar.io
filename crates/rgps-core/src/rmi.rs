@@ -100,7 +100,7 @@ pub fn calcular_pbc_com_correcao(
         pbc
     };
 
-    // Ordena desc pelo valor cheio (não arredondado), como no ATRIUM,
+    // Ordena desc pelo valor cheio (não arredondado), como na implementação de referência,
     // sem alterar a ordem cronológica das parcelas publicadas.
     let mut ordenadas: Vec<_> = parcelas.clone();
     ordenadas.sort_by(|a, b| {

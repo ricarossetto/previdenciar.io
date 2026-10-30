@@ -76,12 +76,44 @@ fn forged_application_or_modified_manual_rows_fail_before_the_engine() {
     assert!(previdenciar_rgps::calculate_case(&c).is_err());
 }
 #[test]
-fn especie_sem_motor_bloqueia_o_caso() {
+fn especie_especial_e_professor_chegam_ao_motor_com_requisitos() {
     let mut c = reviewed();
-    c.especie = Some("31".into());
+    c.especie = Some("46".into());
     let result = previdenciar_rgps::calculate_case(&c).unwrap();
-    assert_eq!(result["status"], "blocked", "{result}");
-    assert!(result["blockers"].as_array().unwrap().iter().any(|b| b["code"] == "especie_unsupported"), "{result}");
-    c.especie = Some("42".into());
-    assert!(previdenciar_rgps::calculate_case(&c).is_ok());
+    assert_eq!(result["status"], "experimental", "{result}");
+    assert_eq!(result["data"]["native_result"]["especie"]["codigo"], "46");
+    let regras = result["data"]["native_result"]["beneficio"]["regras"]
+        .as_array()
+        .unwrap();
+    assert!(
+        regras.iter().any(|r| r["id"] == "especial-permanente"),
+        "{result}"
+    );
+    c.especie = Some("57".into());
+    let result = previdenciar_rgps::calculate_case(&c).unwrap();
+    assert_eq!(result["status"], "experimental", "{result}");
+    assert_eq!(result["data"]["native_result"]["especie"]["codigo"], "57");
+    assert!(
+        result["data"]["native_result"]["beneficio"]["regras"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|r| r["id"] == "professor-pedagio"),
+        "{result}"
+    );
+}
+
+#[test]
+fn especie_idade_chega_ao_motor_com_requisitos() {
+    let mut c = reviewed();
+    c.especie = Some("41".into());
+    let result = previdenciar_rgps::calculate_case(&c).unwrap();
+    assert_eq!(result["status"], "experimental", "{result}");
+    assert_eq!(result["data"]["native_result"]["especie"]["codigo"], "41");
+    assert!(
+        !result["data"]["native_result"]["beneficio"]["regras"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
 }

@@ -1,6 +1,6 @@
 # previdenciar.io — demonstração web
 
-Versão web navegável do produto, feita para rodar no navegador sem build e sem o executável desktop. Cobre as 15 áreas do app com dados fictícios, a linguagem visual **ATRIUM ui-v2** com movimento do **GioMed IA**, o **motor `rgps-core` real compilado para WebAssembly** e uma área **Fábrica de Cálculos** que fala com a API oficial do TRF3 por um proxy local opcional. O adaptador, o CNIS e o PDF continuam no desktop.
+Versão web navegável do produto, feita para rodar no navegador sem build e sem o executável desktop. Cobre as 15 áreas do app com dados fictícios, a linguagem visual própria do previdenciar.io, o **motor `rgps-core` real compilado para WebAssembly** e uma área **Fábrica de Cálculos** que fala com a API oficial do TRF3 por um proxy local opcional. O adaptador, o CNIS e o PDF continuam no desktop.
 
 ## Abrir
 
@@ -115,7 +115,7 @@ O contrato completo está em `OVERNIGHT.md` e o exemplo em `workspace.example.js
 | --- | --- |
 | `index.html` | Carcaça, topbar, rail, dock, meta e favicon |
 | `styles.css` | Base de layout, componentes e regras de impressão |
-| `atrium.css` | Camada ATRIUM ui-v2: tokens, shell, tipografia, fólios, estados e movimento GioMed |
+| `visual.css` | Camada visual: tokens, shell, tipografia, fólios, estados e movimento |
 | `fonts/` | Inter 400/500/600/700 e Playfair Display 500/600/700 locais |
 | `core.js` | Ícones, estado, helpers, formatação e semântica de status |
 | `data.js`, `data2.js`, `data3.js` | Dados fictícios: clientes, casos, vínculos, contribuições, séries, modelos, cenários |
@@ -159,17 +159,17 @@ O contrato completo está em `OVERNIGHT.md` e o exemplo em `workspace.example.js
 4. Salvar resultados da Fábrica como snapshot no workspace e oferecer download do demonstrativo/permalink.
 5. Usar o renderer Rust para gerar os PDFs e uma fila de lote com pasta de destino; ligar “Imprimir” à prévia real.
 6. Cobrir os estados vazios de primeira execução, o modo somente leitura e a migração de versões do contrato.
-7. Revisar a proposta visual com o OpenDesign antes de promover a identidade.
+7. Revisar a proposta visual com o time de design antes de promover a identidade.
 
 ## Processo
 
-A superfície usa o **ATRIUM ui-v2** como referência visual (`atrium-pro/css/views/ui-v2/tokens.css`) e o movimento do **GioMed IA** (`gi-clinical/apps/web/src/styles/motion.css`), com fontes Inter/Playfair locais. O contrato de direção em `../.impeccable/surfaces/web.md` foi atualizado; a implementação está em `atrium.css`, carregado depois de `styles.css` e `fabrica.css`. O detector determinístico e o `axe-core` foram usados como piso: tokens, foco, movimento reduzido, sem gradiente em texto, sem cartão dentro de cartão, sem ícone-emoji e sem métrica inventada.
+A superfície usa a camada visual própria do previdenciar.io, com fontes Inter/Playfair locais. O contrato de direção em `../.impeccable/surfaces/web.md` foi atualizado; a implementação está em `visual.css`, carregado depois de `styles.css` e `fabrica.css`. O detector determinístico e o `axe-core` foram usados como piso: tokens, foco, movimento reduzido, sem gradiente em texto, sem cartão dentro de cartão, sem ícone-emoji e sem métrica inventada.
 
 Verificação da ponte de dados: importação do exemplo (1 cliente, 1 caso, 3 contribuições), persistência após reload, exportação de volta em JSON v1, restauração da demonstração (8 clientes, 9 casos), rejeição de workspace inválido com mensagem, e impressão em mídia `print` com rail, lista lateral e chrome ocultos.
 
 Verificação do motor: build `wasm32-unknown-unknown` de 453.273 bytes; Node e Chrome executaram o fixture de 300 competências (RMI R$ 1.600,00) e o caso de demonstração (12 competências, RMI R$ 1.728,50), sem erros de console e sem requisições externas. `axe-core` (WCAG 2 A/AA, 2.1 e 2.2 AA) sem violações nas telas amostradas; 20 views a 390 px sem overflow horizontal.
 
-Verificação visual: tema escuro ATRIUM por padrão e claro disponível; Inter/Playfair carregadas de `web/fonts/`; entrada de página, stagger de cards, hover de navegação e press de botões do GioMed; `axe-core` sem violações em Home, Caso, Relatórios, Configurações, Motor, Fábrica e Referências; 390 px sem overflow; impressão em A4 com chrome oculto e capa branca. As capturas ficam em `../work/` (local, não versionado).
+Verificação visual: tema escuro por padrão e claro disponível; Inter/Playfair carregadas de `web/fonts/`; entrada de página, stagger de cards, hover de navegação e press de botões; `axe-core` sem violações em Home, Caso, Relatórios, Configurações, Motor, Fábrica e Referências; 390 px sem overflow; impressão em A4 com chrome oculto e capa branca. As capturas ficam em `../work/` (local, não versionado).
 
 Verificação da Fábrica: `GET /api/fabrica/health` respondeu `configured: true`; `POST /api/fabrica/tempo` devolveu `status: ok` com 2.820 dias, 94 meses de carência e benefícios analisados para um payload sintético; `POST /api/fabrica/rmi/por-fundamento` devolveu `status: ok`; a UI mostrou “Conectado”, calculou tempo e RMI e consultou limites. A área foi verificada em `file://` e em `http://127.0.0.1:8787/`, a 1440 px e 390 px, sem erros de console, sem overflow horizontal e com `axe-core` sem violações. O proxy encaminha a chave apenas no servidor; o `.env` é ignorado pelo git.
 

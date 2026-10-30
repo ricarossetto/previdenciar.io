@@ -7,7 +7,7 @@ fn main() {
         .nth(1)
         .unwrap_or_else(|| "typst-real.pdf".into());
     let (case, _workspace, outcome) = common::calculated_case(); let ws = previdenciar_workspace::Workspace::default();
-    match previdenciar_reports::render_report(&case, &kind, Some(&outcome), &ws) {
+    match previdenciar_reports::render_report(&case, &kind, Some(&outcome), &ws, true) {
         Ok(pdf) => {
             std::fs::write(&out, &pdf).expect("write");
             println!("{{\"status\":\"ok\",\"kind\":\"{kind}\",\"bytes\":{}}}", pdf.len());

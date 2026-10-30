@@ -1,57 +1,166 @@
-## previdenciar.io 0.10.5
+## previdenciar.io 0.16.0
 
-Versão estável da linha 0.10 para Windows x64. Desktop local, gratuito e open source sob MIT; não é serviço oficial do INSS nem certificação de direito a benefício.
+As seis aposentadorias do RGPS agora têm motor: 42, 41, 32, 31, 46 e 57.
 
-### Novidades
+### O que passou a funcionar
 
-- Espécie de benefício explícita no contrato. Apenas a 42 tem motor; as demais espécies bloqueiam com motivo.
-- Fator previdenciário com alíquota fixa de 0,31 e acréscimo de cinco anos ao tempo da mulher (Lei 9.876/1999), com tábua de expectativa de sobrevida embutida, com vigências de 1992 a 2025. O pedágio de 50% calcula sem expectativa declarada.
-- IRRF mensal oficial por competência, com dependentes e isenção de 65 anos declarada. A vigência atual foi conferida com a Lei 14.848/2024.
-- Descarte dos menores salários da EC 103 (art. 26, § 6º) como opção explícita, com o mínimo de competências que preserva o direito.
-- Transições medidas por tempo apurado, com corte em 13/11/2019, e qualidade de segurado unificada em 12 meses.
-- Importação de CNIS sem rejeição pelo índice dos valores consolidados; duplicação de cálculo com identificadores novos; origem dos valores na revisão de contribuições.
-- Abertura da base fora da thread principal.
+- **46 — especial**: informe o grau/agente (15, 20 ou 25 anos), o tempo especial,
+  a referência do PPP e se o tempo foi completo até 13/11/2019. O motor devolve
+  direito adquirido de 100%, regra permanente de 55/58/60 + 60% + 2% e transição
+  por pontos 66/76/86.
+- **57 — professor**: informe o tempo de magistério, a exclusividade e se o tempo
+  foi completo até 13/11/2019. O motor devolve pedágio de 100% (52/55 + 25/30),
+  pontos 81/91 e regra permanente de 62/65 + 25/30 + 60% + 2%.
+- O editor e o seletor mostram as seis espécies; a tabela de requisitos aparece na
+  tela e no PDF.
 
-### Preparação guiada no ponto de decisão
+### O que continua declarado
 
-- O bloco "Preparar e calcular a partir do CNIS" virou componente único e aparece na conferência do assistente e nos parâmetros do cálculo.
-- Com CNIS importado, a política manual fica recolhida; o caminho guiado aplica correção INPC até a DIB, sem descarte e com teto vigente. Ajustar manualmente continua a um clique.
-- Sem CNIS ou em cenário PcD, a política permanece aberta. Nenhum cálculo mudou.
+- PPP, enquadramento e magistério exclusivo **não** são verificados pelo app; sem
+  o dado declarado, a regra não fica elegível. Nenhuma atividade comum é
+  transformada em especial.
+- O direito adquirido do professor (80% × fator) não é calculado; o app explica e
+  não inventa valor.
+- 46/57 não são enviados à conferência online.
 
-### Correções da revisão de código
+### Validação
 
-- Os comandos `local_economic_snapshot` e `prepare_case_from_cnis` passam a estar registrados no handler do Tauri; na 0.10.3 a interface chamava comandos inexistentes.
-- O modal da preparação guiada saiu do ramo de importação e agora abre pelo botão, preparando e calculando.
-- Fator previdenciário com alíquota fixa de 0,31 e acréscimo de cinco anos ao tempo da mulher (Lei 9.876/1999).
-- Tábua de expectativa gerada pelo nome das colunas; idades 78 a 90 não herdam mais valores de outra série.
-- Descarte da EC 103 recusa mínimo zero; o IRRF não cai em faixa silenciosa; a preparação guiada ignora valores de contribuição que não são remuneração.
+- 509 testes Rust, 120 de interface e 36 de navegador.
+- Nenhum CNIS, nome, CPF, PDF ou chave entra no repositório ou no pacote.
 
-### Preparação guiada a partir do CNIS
+## previdenciar.io 0.15.2
 
-- A tela de parâmetros ganhou um botão único que prepara e calcula a hipótese a partir do CNIS: exclui vínculos PRPPS, fecha vínculo sem data final pelo último salário, soma remunerações concomitantes do RGPS e registra cada decisão em notas. A fonte permanece intacta.
-- Sem INPC publicado para a DIB, a correção é desativada e o resultado é nominal, com aviso.
+O cenário PcD com o CNIS importado deixou de exigir a conferência manual de 331
+lançamentos. A hipótese pode usar a fonte importada diretamente, que continua
+traceável, ou o livro revisado para quem quiser ajustar os salários.
 
-### Correção
+### O que mudou
 
-- Competências com valor abaixo do salário mínimo (indicador PREC-MENOR-MIN) também ficam fora do PBC no caminho RGPS comum, com aviso e lista das competências. Antes a regra valia apenas no cenário PcD.
+- A etapa **Parâmetros** do PcD mostra **Usar os salários do CNIS no PcD** quando
+  há salários manuais sem livro aplicado.
+- O motor usa a fonte importada; nenhum salário é inventado e o resultado
+  continua marcado como simulação.
+- O caminho do livro revisado permanece disponível, com a justificativa e a
+  aplicação explícitas.
 
-### Revisão de texto
+### Validação
 
-- Revisão de texto na interface, nos documentos e nas mensagens: travessões substituídos por vírgulas, dois-pontos ou pontos, aspas curvas convertidas em aspas retas, reticências em três pontos e títulos em caixa de frase. Nenhum cálculo, código de bloqueio ou dado foi alterado.
+- 506 testes Rust, 120 de interface e 36 de navegador.
+- Nenhum CNIS, nome, CPF, PDF ou chave entra no repositório ou no pacote.
 
-### Paridade e validação
+## previdenciar.io 0.15.1
 
-- Caso PcD de referência: PBC 357, divisor 285, soma R$ 1.482.072,91 e RMI R$ 5.200,25. O motor público do TRF3 retorna R$ 5.200,88 e o software de referência R$ 5.200,89, diferença de 0,012% compatível com arredondamento de índices. Tempo e carência batem: 10.698 dias e 357 meses.
-- 474 testes Rust, 104 testes de interface e 36 testes de navegador aprovados; `tsc` limpo; revisão de fonte pública sem achados. Os testes de navegador usam IPC sintético.
+O caminho PcD do assistente agora termina no cálculo. O editor avisa quando os
+salários manuais ainda não têm o livro de contribuições aplicado e leva ao livro;
+sem essa revisão o motor não usa os salários, por desenho.
 
-### O que permanece em aberto
+### O que mudou
 
-- Decreto 10.410/2020: as duas regras aparecem na interface do software de referência (R$ 5.032,06 e R$ 4.874,98), mas a fórmula não é recuperável do export. Não foi implementada por inferência.
-- Conversão de tempo comum para PcD (0,93/0,89/0,83), ROI, Análise da Situação Atual e planejamento na interface continuam fora desta versão.
-- O diálogo nativo de Salvar PDF e a aprovação visual humana não estão certificados.
+- A etapa **Parâmetros** do PcD mostra o aviso e o botão **Abrir o livro de
+  contribuições** quando há salários manuais sem livro aplicado.
+- O usuário confere o livro e clica em **Aplicar revisão ao cálculo**; o aviso
+  desaparece e a execução do PcD fica disponível.
+- O fluxo resultado bloqueado → editor PcD → livro → revisão → execução foi
+  coberto por teste de interface.
 
-### Download e compatibilidade
+### Validação
 
-Executável portátil `previdenciar.io-0.10.5-windows-x64.exe`, sem assinatura de código; requer Windows 10/11 x64 e WebView2. Confira `SHA256SUMS.txt` e `BUILDINFO.json`. Não desative proteções do Windows para executar o arquivo.
+- 506 testes Rust, 119 de interface e 36 de navegador.
+- Nenhum CNIS, nome, CPF, PDF ou chave entra no repositório ou no pacote.
 
-A base local cifrada e o identificador legado são preservados, sem migração silenciosa. Nenhum CNIS, PDF de cliente, base, credencial ou perfil de teste acompanha esta release. Use dados fictícios no primeiro teste.
+## previdenciar.io 0.15.0
+
+Agora o aplicativo pode comparar a RMI do motor local com o cálculo da Fábrica
+de Cálculos/TRF3. É uma conferência opcional, com chave própria e envio mínimo:
+o resultado local continua sendo o resultado do aplicativo.
+
+### Como funciona
+
+- Em **Configurações → Fábrica de Cálculos**, informe a chave da API (campo de
+  senha). Ela fica na base local cifrada e só é usada no botão de conferência.
+- No resultado, clique em **Conferir na Fábrica de Cálculos**. Um diálogo mostra
+  exatamente o que sai: data de nascimento, sexo, DIB, espécie, períodos e
+  salários revisados.
+- Nome, CPF, NIT, CNIS, PDF, endereço e anotações **não** são enviados. A chave
+  vai apenas no cabeçalho `x-api-key`; não entra no corpo, no PDF ou nos logs.
+- O resumo do provedor mostra RMI, regra/fundamento, salário de benefício,
+  coeficiente, requisitos, conclusão, fonte, horário e hashes. Quando a correção
+  local está ativa, o app compara os valores em centavos.
+- O PDF detalhado imprime a seção de conferência quando ela foi feita.
+
+### Cenário PcD
+
+- O aviso agora explica que a LC 142 tem um módulo próprio no editor; não diz
+  mais que a aposentadoria PcD "não tem motor".
+- Depois de alterar as premissas do PcD, a etapa **Revisão** do editor permite
+  confirmar a revisão do assistente; a execução deixa de falhar com
+  "Complete as perguntas..." e oferece o atalho **Ir para revisão**.
+- A conferência continua preparando vínculos e salários; o resultado bloqueado
+  do RGPS leva ao botão **Abrir o cenário PcD no editor**, sem valor inventado.
+
+### O que foi validado
+
+- Documentação técnica da Fábrica lida por inteiro: 47 rotas na spec unificada
+  v1.5.20, `calculos-rmi`, `fundamentos`, `marcos-temporais`, datas ISO e
+  autenticação `x-api-key`.
+- Caso sintético de 300 competências: espécies 41 e 42 retornaram HTTP 200 com
+  RMI e regra. As espécies 31 e 32 retornaram HTTP 200 **sem RMI apurada** com
+  o payload atual; o app mostra a resposta do provedor, mantém o motor local e
+  não inventa valor.
+- 506 testes Rust, 118 de interface e 36 de navegador.
+
+### Limites
+
+- A conferência de 31/32 não apurou RMI no teste; PcD (LC 142) não é enviada.
+- O hash registra a resposta recebida, não é assinatura do provedor. A retenção
+  do lado da Fábrica segue a política dela.
+- A conferência não substitui revisão documental, perícia, nexo, DII ou
+  conferência de CTC. Sem chave, o aplicativo funciona offline como antes.
+- A distribuição não tem assinatura de código Windows; confira o SHA-256.
+
+## previdenciar.io 0.14.0
+
+O motor deixou de atender só a espécie 42. Aposentadoria por idade (41),
+incapacidade permanente (32) e auxílio por incapacidade temporária (31) agora
+têm fórmula, requisitos e base legal próprios. O que não tem regra implementada
+continua bloqueado, com motivo — nunca aproximado.
+
+### O que passou a funcionar
+
+- **41 — Aposentadoria por idade**: 62/65 anos (60/55 rural), 180 contribuições,
+  regra permanente e regra do art. 18 da EC 103 para quem já era filiado em
+  13/11/2019. Coeficiente de 60% + 2% por ano acima de 15/20.
+- **32 — Incapacidade permanente**: carência de 12 ou isenção por acidente,
+  doença ocupacional ou doença da lista; 60% + 2% na regra comum e 100% na
+  origem acidentária. A DER anterior à reforma usa o art. 44 e avisa sobre a DII
+  e o Tema 1300 do STF.
+- **31 — Incapacidade temporária**: 91% do salário de benefício, limitado à
+  média dos últimos 12 salários (art. 29, § 10).
+- **Requisitos na tela e no PDF**: idade, carência, tempo, incapacidade e
+  origem aparecem com valor exigido, apurado, meses faltantes e a marca
+  "declarado, não verificado pelo motor" quando é o caso.
+- **Escolha da espécie** no editor e na entrevista guiada, com a origem da
+  incapacidade no editor de política.
+
+### O que continua bloqueado, de propósito
+
+- **46 — Especial**: exige PPP, enquadramento e 15/20/25 anos de exposição.
+- **57 — Professor**: exige comprovação exclusiva de magistério.
+- Pensão por morte, salário-maternidade, auxílio-acidente e demais prestações
+  não são aposentadorias e não têm fórmula neste motor.
+- A incapacidade é declarada. O programa calcula a renda; não faz perícia nem
+  certifica nexo, DII ou qualidade de segurado.
+
+### Também nesta versão
+
+- A matriz completa está em `docs/COVERAGE.md`.
+- O resumo do PDF mostra a espécie e a regra escolhida; a memória mostra cada
+  requisito.
+- 495 testes Rust, 111 de interface e 36 de navegador.
+
+### Limites
+
+- O direito adquirido da espécie 42 continua sem recálculo da RMI antiga (80%
+  maiores e fator/85-95); ele aparece como elegível, sem valor.
+- O módulo PcD da LC 142/2013 continua separado e com premissas declaradas.
+- A distribuição não tem assinatura de código; confira o SHA-256.

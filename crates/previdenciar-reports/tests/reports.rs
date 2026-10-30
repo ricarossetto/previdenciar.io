@@ -155,3 +155,28 @@ fn opts(kind:ReportKind,personal:bool)->ReportOptions{ReportOptions::new(kind, p
     assert!(trimmed.contains("Síntese, situação e alcance"));
     assert!(trimmed.contains("Conclusão e o que pode mudá-la"));
 }
+
+#[test]
+fn detailed_report_includes_optional_fabrica_conference() {
+    let (mut case, ws, o) = calculated_case();
+    case.fabrica = Some(json!({
+        "provider": {
+            "maiorRmi": "1700.00",
+            "beneficios": [{
+                "descricao": "Aposentadoria por Idade",
+                "fundamento": "EC 103, art. 18",
+                "dadosRmi": {"rmi": "1700.00", "salarioBeneficio": "2000.00", "coeficiente": 0.7, "divisor": 300},
+                "requisitos": [{"nome": "Idade", "porExtenso": "cumpriu idade", "cumprido": true}]
+            }],
+            "conclusao": {"completo": true}
+        },
+        "source_url": "https://fabrica-de-calculos.app.trf3.jus.br/rgps/api/v1/calculos-rmi",
+        "retrieved_at": "2026-10-27T12:00:00Z",
+        "response_sha256": "b".repeat(64)
+    }));
+    let pdf = render_pdf(&case, &ws, opts(ReportKind::Detailed, false), Some(&o)).unwrap();
+    let (_, text) = extract(&pdf);
+    assert!(text.contains("Fábrica de Cálculos"));
+    assert!(text.contains("1.700,00"));
+    assert!(text.contains("cumpriu idade"));
+}

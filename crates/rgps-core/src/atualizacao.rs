@@ -38,7 +38,7 @@ pub fn teto_vigente(competencia: &Competencia) -> Result<Decimal> {
 }
 
 /// Fator de atualização INPC da competência até a referência (ambas inclusas),
-/// mesma semântica de fatorAtualizacao() do ATRIUM.
+/// mesma semântica de fatorAtualizacao() da implementação de referência.
 pub fn fator_atualizacao(
     competencia: &Competencia,
     referencia: &Competencia,

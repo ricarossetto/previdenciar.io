@@ -3,6 +3,7 @@
 mod ai;
 mod backend;
 mod economic;
+mod fabrica;
 mod files;
 use ai::{AiState, ai_cancel, ai_chat, ai_data_status, ai_delete_key, ai_import_data, ai_key_status, ai_knowledge_read, ai_knowledge_search, ai_models, ai_provider_catalog, ai_save_key, ai_test, pick_case_pdf_text, save_export_file};
 use backend::{BackendState, BootResult};
@@ -75,6 +76,13 @@ async fn run_finance(tool: String, input: Value) -> Result<Value, String> {
 #[tauri::command]
 async fn fetch_economic_snapshot(through:String)->Result<previdenciar_rgps::pcd::Snapshot,String>{
  tauri::async_runtime::spawn_blocking(move||economic::load(&through)).await.map_err(|_|"Consulta pública interrompida; snapshot anterior preservado.".to_owned())?
+}
+
+#[tauri::command]
+async fn conferir_fabrica_rmi(input: previdenciar_rgps::fabrica::FabricaInput, api_key: String) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || fabrica::conferir(input, api_key))
+        .await
+        .map_err(|_| "Conferência online interrompida; nenhum valor foi alterado.".to_owned())?
 }
 
 #[tauri::command]
@@ -184,7 +192,7 @@ fn main() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .invoke_handler(tauri::generate_handler![bootstrap, save_workspace, pick_import_cnis, import_cnis_path,
-            run_tool, run_finance, fetch_economic_snapshot, local_economic_snapshot, prepare_case_from_cnis,
+            run_tool, run_finance, fetch_economic_snapshot, conferir_fabrica_rmi, local_economic_snapshot, prepare_case_from_cnis,
             calculate_case, calculate_rgps, project_rgps, preview_report, export_report, export_reports_batch, export_document, merge_pdfs, backup_export,
             ai_provider_catalog, ai_key_status, ai_save_key, ai_delete_key, ai_test, ai_models, ai_data_status, ai_import_data, ai_knowledge_search, ai_knowledge_read, save_export_file, pick_case_pdf_text, ai_chat, ai_cancel])
         .setup(|app| {
@@ -255,7 +263,7 @@ mod tests {
             assert!(permission.starts_with("allow-") || plugin_permissions.contains(&permission));
         }
         assert!(permissions.iter().any(|value| value == "allow-export-reports-batch"));
-        assert_eq!(permissions.len(), 33);
+        assert_eq!(permissions.len(), 34);
     }
     #[test]
     fn direct_rgps_json_rejects_invalid_schema_without_false_result() {

@@ -372,7 +372,7 @@ pub fn build_transicoes(entrada: &TransicoesEntrada) -> Result<TransicoesResulta
         observacoes: vec![
             "Tempo apurado por competências: não considera concomitância, tempo especial, rural ou militar; confira o CNIS.".into(),
             "A RMI de cada regra é estimativa com o PBC atual e limites informados; a regra vencedora é a de maior RMI entre as elegíveis.".into(),
-            "Pedágio de 50% exige expectativa de sobrevida do IBGE (informada pelo operador, como no ATRIUM).".into(),
+            "Pedágio de 50% exige expectativa de sobrevida do IBGE (informada pelo operador, como na implementação de referência).".into(),
         ],
     })
 }

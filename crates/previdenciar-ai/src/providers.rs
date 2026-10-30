@@ -206,7 +206,7 @@ pub fn catalog() -> Vec<ProviderPreset> {
             "",
             &[],
             false,
-            "Informe a URL raiz e o modelo. Use esta opção para gateways e provedores BYOK compatíveis com OpenAI. CommandCode e Cline são agentes BYOK, não gateways universais; OpenDesign não e um provedor de modelo.",
+            "Informe a URL raiz e o modelo. Use esta opção para gateways e provedores BYOK compatíveis com OpenAI. CommandCode e Cline são agentes BYOK, não gateways universais; este aplicativo não é um provedor de modelo.",
         ),
         preset(
             "custom-anthropic",

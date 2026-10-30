@@ -67,15 +67,17 @@ jobs:
           Copy-Item -LiteralPath target/release/previus-next-desktop.exe -Destination "release/$name"
           $hash = (Get-FileHash -LiteralPath "release/$name" -Algorithm SHA256).Hash.ToLowerInvariant()
           "$hash  $name" | Set-Content -LiteralPath release/SHA256SUMS.txt -Encoding ascii
-          $installer = Get-ChildItem 'apps/desktop/src-tauri/target/release/bundle/nsis/*.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
+          $installer = Get-ChildItem 'target/release/bundle/nsis/*.exe','apps/desktop/src-tauri/target/release/bundle/nsis/*.exe' -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
           $updaterAsset = ''
           if ($installer) {
             Copy-Item -LiteralPath $installer.FullName -Destination "release/$($installer.Name)"
+            $installerHash = (Get-FileHash -LiteralPath "release/$($installer.Name)" -Algorithm SHA256).Hash.ToLowerInvariant()
+            "$installerHash  $($installer.Name)" | Add-Content -LiteralPath release/SHA256SUMS.txt -Encoding ascii
             $sigFile = "$($installer.FullName).sig"
             if (Test-Path $sigFile) {
               $signature = (Get-Content -LiteralPath $sigFile -Raw).Trim()
               $updaterAsset = $installer.Name
-              @{ version=$version; notes='.github/RELEASE_NOTES.md'; pub_date=(Get-Date -AsUTC -Format 'yyyy-MM-ddTHH:mm:ssZ'); platforms=@{ 'windows-x86_64'=@{ signature=$signature; url="https://github.com/ricarossetto/previdenciar.io/releases/download/$env:RELEASE_TAG/$($installer.Name)" } } } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath release/latest.json -Encoding utf8
+              @{ version=$version; notes=(Get-Content '.github/RELEASE_NOTES.md' -Raw); pub_date=(Get-Date -AsUTC -Format 'yyyy-MM-ddTHH:mm:ssZ'); platforms=@{ 'windows-x86_64'=@{ signature=$signature; url="https://github.com/ricarossetto/previdenciar.io/releases/download/$env:RELEASE_TAG/$($installer.Name)" } } } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath release/latest.json -Encoding utf8
             }
           }
           @{ commit=(git rev-parse HEAD); tag=$env:RELEASE_TAG; version=$coreVersion; product='previdenciar.io'; platform='windows-x64'; sha256=$hash; bytes=(Get-Item "release/$name").Length; signed=$false } | ConvertTo-Json | Set-Content -LiteralPath release/BUILDINFO.json -Encoding utf8

@@ -4,6 +4,7 @@ import './styles/app.css';
 import './styles/liquid-glass.css';
 import './styles/ui-remediation.css';
 import './styles/amicro.css';
+import './styles/ui-fixes.css';
 import './styles/ai.css';
 import './styles/knowledge.css';
 import './styles/minuta.css';

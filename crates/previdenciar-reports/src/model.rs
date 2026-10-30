@@ -652,8 +652,8 @@ fn engine(native:Option<&Value>,personal:bool)->Result<Vec<Section>,String>{
     if let Some(reference)=p.and_then(|p|p.get("referencia_correcao")).and_then(Value::as_str){rows.push(vec!["Competência de correção".into(),month(reference)?]);}
     sum.tables.push(table("Parâmetros utilizados no cálculo",&["Parâmetro","Valor do motor"],&[6,4],rows));
     let mut rows=vec![];
-    if let Some(items)=n.get("memoria").and_then(Value::as_array){for(i,v)in items.iter().enumerate(){let kind=v.get("tipo").and_then(Value::as_str);let known=match kind{Some("media")=>Some("Média / salário de benefício"),Some("coeficiente")=>Some("Coeficiente computacional"),Some("rmi")=>Some("Salário de benefício × coeficiente"),Some("limite")=>Some("Aplicação de piso ou teto"),_=>None};let value=v.get("valor").and_then(Value::as_str);let number=match value{Some(v)=>if let Some(v)=v.strip_suffix('%'){format!("{}%",decimal(v,false)?)}else{decimal(v,true)?},None=>"Não produzido".into()};
-        rows.push(vec![(i+1).to_string(),known.unwrap_or("Etapa não catalogada").into(),if personal{optional_field(v.get("descricao").and_then(Value::as_str))?}else{known.unwrap_or("Descrição livre oculta").into()},number]);}}
+    if let Some(items)=n.get("memoria").and_then(Value::as_array){for(i,v)in items.iter().enumerate(){let kind=v.get("tipo").and_then(Value::as_str);let known=match kind{Some("media")=>Some("Média / salário de benefício"),Some("coeficiente")=>Some("Coeficiente computacional"),Some("rmi")=>Some("Salário de benefício × coeficiente"),Some("limite")=>Some("Aplicação de piso ou teto"),Some("especie")=>Some("Espécie e regra aplicada"),Some("requisito")=>Some("Requisito da espécie"),_=>None};let value=v.get("valor").and_then(Value::as_str);let number=match kind{Some("especie")|Some("requisito")=>value.unwrap_or("Não produzido").to_string(),_=>match value{Some(v)=>if let Some(v)=v.strip_suffix('%'){format!("{}%",decimal(v,false)?)}else{decimal(v,true)?},None=>"Não produzido".into()}};
+        rows.push(vec![(i+1).to_string(),known.unwrap_or("Etapa não catalogada").into(),if personal||matches!(kind,Some("especie")|Some("requisito")){optional_field(v.get("descricao").and_then(Value::as_str))?}else{known.unwrap_or("Descrição livre oculta").into()},number]);}}
     memory.tables.push(table("Todas as etapas numéricas retornadas",&["Nº","Etapa","Descrição","Valor fornecido"],&[1,3,6,3],rows));
     if let Some(c)=n.get("carencia"){let mut rows=vec![];for(key,label)in[("competencias_salario","Competências de remuneração"),("competencias_vinculo","Competências de vínculos"),("competencias_graca","Competências de graça"),("recolhimentos_atraso","Recolhimentos em atraso"),("carencia_meses","União de competências, meses")]{rows.push(vec![label.into(),numeric(c.get(key),false)?]);}memory.tables.push(table("Decomposição da carência computacional",&["Origem","Quantidade fornecida"],&[6,4],rows));}
     if let Some(c)=n.get("correcao").filter(|v|!v.is_null()){
@@ -668,16 +668,51 @@ fn engine(native:Option<&Value>,personal:bool)->Result<Vec<Section>,String>{
         let rows=if personal{sources.iter().map(|(s,id)|vec![format!("F{id}"),s.clone()]).collect()}else{vec![vec!["F1".into(),"Fonte textual do motor oculta no modo sem identificação; proveniência e cobertura exigem conferência na aplicação.".into()]]};
         correction.tables.push(table("Referências declaradas pelo resultado: não certificadas pelo renderer",&["ID","Descrição"],&[1,9],rows));
     }else{correction.paragraphs.push("Resultado não contém correção parcela a parcela. Sem série de índices fabricada; média nominal somente se explicitamente retornada pelo motor.".into());}
-    for(key,label)in[("parametros","Parâmetros"),("resumo","Resumo"),("tempo","Tempo"),("carencia","Carência"),("correcao","Correção"),("memoria","Memória"),("transicoes","Transições")]{if let Some(v)=n.get(key){let known:&[&str]=match key{
+    for(key,label)in[("parametros","Parâmetros"),("resumo","Resumo"),("tempo","Tempo"),("carencia","Carência"),("correcao","Correção"),("memoria","Memória"),("transicoes","Transições"),("especie","Espécie"),("beneficio","Requisitos")]{if let Some(v)=n.get(key){let known:&[&str]=match key{
         "resumo"=>&["competencias","carencia_meses","soma_salarios","salario_beneficio","coeficiente","rmi_bruta","rmi","limite_aplicado","teto","piso"],
         "parametros"=>&["divisor","divisor_minimo_aplicado","anos","meses_restantes","anos_base","coeficiente","correcao_ativa","referencia_correcao","descarte_aplicado"],
         "tempo"=>&["vinculos","total_dias","total_dias_efetivos","total","carencia_meses","marcos","avisos"],
         "carencia"=>&["competencias_salario","competencias_vinculo","competencias_graca","recolhimentos_atraso","carencia_meses","competencias_extras","avisos"],
         "correcao"=>&["referencia","pbc","consideradas","descartadas","parcelas","parcelas_descartadas","soma_considerada","media","salario_beneficio","descarte_aplicado","fontes_tetos","fontes_inpc"],
-        "transicoes"=>&["referencia","sexo","idade_meses","idade_anos","tempo_total_meses","tempo_total_anos","tempo_ate_reforma_meses","regras","regra_escolhida","numero_regra_transicao","rmi_escolhida","observacoes"],_=>&[]};
+        "transicoes"=>&["referencia","sexo","idade_meses","idade_anos","tempo_total_meses","tempo_total_anos","tempo_ate_reforma_meses","regras","regra_escolhida","numero_regra_transicao","rmi_escolhida","observacoes"],
+        "especie"=>&["codigo","nome","regra_escolhida","elegivel"],
+        "beneficio"=>&["especie","nome","coeficiente","regra_escolhida","regras","base_legal","limite_media_12","observacoes"],_=>&[]};
         if let Some(object)=v.as_object(){let count=object.keys().filter(|k|!known.contains(&k.as_str())).count();if count>0{memory.paragraphs.push(format!("{label}: {count} campo(s) fora do contrato documental não publicado(s), para evitar expor dados arbitrários do resultado."));}}
     }}
     Ok(vec![sum,memory,correction])
+}
+fn fabrica_section(fabrica:&Value,case:&Calculation)->Result<Section,String>{
+    let mut s=section("Conferência na Fábrica de Cálculos/TRF3",true);
+    s.paragraphs.push("Consulta externa opcional feita pelo operador. O resultado do provedor depende dos dados enviados e das regras dele; não é certificação de direito, concessão ou perícia. O motor local continua experimental e separado.".into());
+    let provider=fabrica.get("provider").unwrap_or(&Value::Null);
+    let best=provider.get("beneficios").and_then(Value::as_array).and_then(|items|items.first());
+    let mut rows=vec![
+        vec!["Fonte".into(),optional_field(fabrica.get("source_url").and_then(Value::as_str))?],
+        vec!["Consultado em".into(),optional_field(fabrica.get("retrieved_at").and_then(Value::as_str))?],
+        vec!["RMI do provedor".into(),numeric(provider.get("maiorRmi"),true)?],
+        vec!["Regra do provedor".into(),optional_field(best.and_then(|b|b.get("fundamento")).and_then(Value::as_str))?],
+        vec!["Salário de benefício".into(),numeric(best.and_then(|b|b.pointer("/dadosRmi/salarioBeneficio")),true)?],
+        vec!["Coeficiente".into(),best.and_then(|b|b.pointer("/dadosRmi/coeficiente")).and_then(Value::as_f64).map(|v|format!("{:.2}%",v*100.0)).unwrap_or_else(||"Não apurado".into())],
+        vec!["Divisor / competências".into(),format!("{} / {}",numeric(best.and_then(|b|b.pointer("/dadosRmi/divisor")),false)?,numeric(best.and_then(|b|b.pointer("/dadosRmi/totalCompetenciasConsideradas")),false)?)],
+        vec!["RMI local no relatório".into(),case.result.as_ref().and_then(|r|r.pointer("/data/native_result/transicoes/rmi_escolhida").or_else(||r.pointer("/data/native_result/resumo/rmi"))).map(|v|numeric(Some(v),true)).transpose()?.unwrap_or_else(||"Não apurada".into())],
+        vec!["Hash da resposta".into(),fabrica.get("response_sha256").and_then(Value::as_str).map(|v|v.chars().take(32).collect::<String>()+"…").unwrap_or_else(||"Não registrado".into())],
+    ];
+    if let Some(items)=best.and_then(|b|b.get("requisitos")).and_then(Value::as_array){
+        for item in items{
+            let name=item.get("rotulo").or_else(||item.get("nome")).and_then(Value::as_str).unwrap_or("Requisito");
+            let text=optional_field(item.get("porExtenso").and_then(Value::as_str))?;
+            let text=if text.is_empty(){"Resultado não detalhado".to_string()}else{text};
+            let status=match item.get("cumprido").and_then(Value::as_bool){Some(true)=>"Cumprido",Some(false)=>"Não cumprido",None=>"—"};
+            rows.push(vec![format!("Requisito · {name}"),format!("{text} ({status})")]);
+        }
+    }
+    s.tables.push(table("Conferência externa e comparação com o resultado local",&["Item","Valor fornecido"],&[5,5],rows));
+    if let Some(conclusao)=provider.get("conclusao"){
+        let completo=conclusao.get("completo").and_then(Value::as_bool);
+        if completo==Some(false){s.paragraphs.push(format!("O provedor interrompeu o cálculo{}.",conclusao.get("motivoInterrupcao").and_then(Value::as_str).map(|v|format!(": {v}")).unwrap_or_default()));}
+    }
+    s.paragraphs.push("A conferência não substitui a revisão documental, a perícia, o nexo, a DII ou a conferência de CTC. O hash registra a resposta recebida, não uma assinatura do provedor.".into());
+    Ok(s)
 }
 fn rule_label(id:Option<&str>)->&'static str{match id{Some("direito-adquirido")=>"Direito adquirido (pré-reforma)",Some("pontos")=>"Transição por pontos",Some("idade-progressiva")=>"Idade progressiva",Some("pedagio-50")=>"Pedágio de 50%",Some("pedagio-100")=>"Pedágio de 100%",Some("idade-permanente")=>"Regra por idade permanente",_=>"Regra não catalogada"}}
 fn transitions(native:Option<&Value>,personal:bool)->Result<Section,String>{
@@ -807,6 +842,11 @@ pub(crate) fn build(case:&Calculation,workspace:&Workspace,options:ReportOptions
     if case.contribution_review.is_some() && selected(options,&[ReportKind::Salaries,ReportKind::Memory]){report.sections.push(contribution_ledger(case,options.include_personal)?);}
     if selected(options,&[ReportKind::Memory,ReportKind::Summary]){let mut sections=engine(native,options.include_personal)?;if options.kind==ReportKind::Summary{sections.truncate(1);}report.sections.extend(sections);}
     if selected(options,&[ReportKind::Transitions]){report.sections.push(transitions(native,options.include_personal)?);}
+    if options.kind==ReportKind::Detailed {
+        if let Some(fabrica)=case.fabrica.as_ref().filter(|value|!value.is_null()) {
+            report.sections.push(fabrica_section(fabrica,case)?);
+        }
+    }
     // Summary has a compact warning cover; all other kinds include relevant pending records.
     if options.kind==ReportKind::Summary {let mut s=section("Ressalvas e conclusão",false);s.paragraphs.push("A fonte não foi automaticamente validada. Conferir PRPPS, datas finais, concomitância, indicadores e moedas históricas antes de usar um resultado para benefício.".into());if let Some(o)=outcome{let count=["blockers","missing","warnings","known_model_risks"].iter().map(|k|o.get(k).and_then(Value::as_array).map_or(0,Vec::len)).sum::<usize>();s.paragraphs.push(format!("Resultado fornecido registra {count} pendência(s)/aviso(s)/risco(s). O relatório detalhado mantém as categorias e origens."));}report.sections.push(s);}
     else{report.sections.push(pending(case,options.include_personal,outcome)?);}

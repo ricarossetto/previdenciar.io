@@ -1,4 +1,174 @@
 # Changelog
+## 0.15.2 - 2026-10-27
+## 0.16.0 - 2026-10-27
+
+As seis aposentadorias do RGPS: 46 (especial) e 57 (professor) com regra própria.
+
+### Added
+- **46 — aposentadoria especial**: grau/agente declarado (15/20/25 anos), tempo especial, PPP/enquadramento declarados e conclusão até 13/11/2019. Regras: direito adquirido **100%**; permanente **55/58/60 + 15/20/25 + 60% + 2%**; transição por **pontos 66/76/86**.
+- **57 — aposentadoria de professor**: tempo de magistério e exclusividade declarados (25/30), conclusão até 13/11/2019. Regras: **pedágio 100%** (52/55 + 25/30); **pontos 81/91**; permanente **62/65 + 25/30 + 60% + 2%**; direito adquirido **80% × fator não calculado**.
+- O seletor e o editor oferecem as seis espécies; os campos de 46/57 são declarados e os requisitos aparecem na tela e no PDF.
+
+### Changed
+- O motor deixa de bloquear 46/57 com `especie_...`; agora devolve as regras e os requisitos. Sem os dados declarados, as regras não ficam elegíveis.
+
+### Limits
+- PPP/enquadramento e magistério exclusivo são declarados; o motor não os verifica. Nenhuma atividade comum vira especial.
+- O direito adquirido do professor (80% × fator) não é calculado; nenhum valor é inventado.
+- 46/57 não são enviados à Fábrica; a conferência online cobre as espécies comuns.
+
+### Tests
+- 509 testes Rust, 120 de interface e 36 de navegador.
+
+
+
+PcD com o CNIS importado, sem exigir a conferência manual dos 331 lançamentos.
+
+### Fixed
+- **PcD**: quando o preparo do assistente cria salários manuais sem livro aplicado, a etapa **Parâmetros** oferece **Usar os salários do CNIS no PcD**. O motor passa a usar a fonte importada, que é traceável, e o usuário não precisa conferir 331 lançamentos um a um para chegar ao resultado.
+- O caminho do livro continua disponível para quem quiser revisar os salários manualmente; o motor recusa salários manuais sem livro, como antes.
+
+### Tests
+- 506 testes Rust, 120 de interface e 36 de navegador.
+
+
+
+## 0.15.1 - 2026-10-27
+
+Fecha o caminho PcD do assistente, incluindo o livro de contribuições.
+
+### Fixed
+- **Livro de contribuições no PcD**: quando a hipótese PcD tem salários manuais e o livro ainda não foi aplicado, a etapa **Parâmetros** avisa, explica que o motor não usa salários sem revisão e oferece **Abrir o livro de contribuições**. O usuário confere o livro e clica em **Aplicar revisão ao cálculo**; antes, a execução bloqueava em "Salários manuais exigem um livro...".
+- **Fluxo do PcD**: resultado bloqueado → editor PcD → livro de contribuições → revisão → execução fica completo, com o atalho e a confirmação já incluídos na 0.15.0.
+
+### Tests
+- 506 testes Rust, 119 de interface e 36 de navegador.
+
+
+
+## 0.15.0 - 2026-10-27
+
+Conferência online opcional de RMI na Fábrica de Cálculos/TRF3, com chave própria e envio mínimo.
+
+### Added
+- Botão **Conferir na Fábrica de Cálculos** no resultado, tanto no editor quanto na entrevista, com diálogo de confirmação e resumo exato do que será enviado.
+- Chave da API em **Configurações**, em campo de senha, guardada na base local cifrada. A chave é enviada somente no cabeçalho `x-api-key` para o endpoint fixo `/rgps/api/v1/calculos-rmi`.
+- Payload montado por whitelist: data de nascimento, sexo, DIB, espécie, períodos e salários revisados. Descrições genéricas; sem nome, CPF, NIT, CNIS, PDF, endereço ou anotações. O Rust rejeita campos extras e períodos sobrepostos.
+- Resumo do provedor com RMI, regra/fundamento, salário de benefício, coeficiente, requisitos, conclusão, fonte, horário e hashes SHA-256 do pedido e da resposta; comparação em centavos com a RMI local quando a correção está ativa.
+- Seção **Conferência na Fábrica de Cálculos** no PDF detalhado quando a conferência foi feita.
+- Documentação atualizada em `docs/PRIVACY.md`, `docs/COVERAGE.md`, `docs/LIMITATIONS.md` e `README.md`.
+
+### Changed
+- `Settings` ganhou `fabrica_api_key` e `Calculation` ganhou `fabrica`; ambos aditivos e compatíveis com bases antigas.
+- Novo comando Tauri `conferir_fabrica_rmi`, com cliente HTTP dedicado, sem redirecionamentos, timeout de 90 s e limite de 8 MB. Erros 401/403/429 têm mensagens seguras.
+- A chave não aparece em PDF, logs ou mensagens de erro; a resposta bruta não é gravada.
+
+### Fixed
+- **Cenário PcD no editor**: o botão **Abrir o cenário PcD no editor** levava a uma hipótese em que qualquer alteração de premissa invalidava a revisão do assistente e não havia como reconfirmá-la; a execução terminava no gate "Complete as perguntas...". A etapa **Revisão** do editor agora tem o checkbox de confirmação, a execução explica a pendência e oferece **Ir para revisão**, e o teste de interface cobre o caminho.
+- **Aviso do PcD**: a etapa de parâmetros dizia que a LC 142 "ainda não tem motor", embora exista o módulo próprio; o texto agora explica que o motor RGPS não calcula PcD, que a conferência prepara vínculos/salários e que o botão do resultado abre o módulo.
+- **Status do PcD**: a etapa do editor manda para **Revisão** e **Resultado**, não para uma conferência inexistente; a DIB aponta para **Segurado e cenário**.
+
+### Verified
+- Documentação técnica da Fábrica lida por inteiro: spec unificada v1.5.20 com 47 rotas, `calculos-rmi`, `fundamentos`, `marcos-temporais`, datas ISO e autenticação `x-api-key`.
+- Chamadas reais com caso sintético de 300 competências: 41 e 42 retornaram HTTP 200 com RMI e regra; 31 e 32 retornaram HTTP 200 sem RMI apurada com o payload atual. O app mostra a resposta e mantém o motor local.
+- 506 testes Rust, 118 de interface e 36 de navegador.
+
+### Limits
+- A conferência de 31/32 não apurou RMI no teste; PcD (LC 142) não é enviada. O motor local continua sendo o resultado do aplicativo.
+- O hash registra a resposta recebida, não é assinatura do provedor. A retenção do lado da Fábrica segue a política dela.
+- A conferência não substitui revisão documental, perícia, nexo, DII ou conferência de CTC.
+
+## 0.14.0 - 2026-10-27
+
+Motor RGPS por espécie: além da 42, a 41, a 32 e a 31 têm fórmula, requisitos e base legal próprios.
+
+### Added
+- **Aposentadoria por idade (41)**: idade de 62/65 (ou 60/55 rural), carência de 180 contribuições, regra permanente e regra do art. 18 da EC 103 para quem já era filiado em 13/11/2019. Coeficiente de 60% + 2% por ano acima de 15/20.
+- **Aposentadoria por incapacidade permanente (32)**: carência de 12 contribuições ou isenção por acidente/doença ocupacional/doença da lista; 60% + 2% na regra comum, 100% na origem acidentária; 100% na DER anterior à reforma, com aviso sobre DII e Tema 1300 do STF.
+- **Auxílio por incapacidade temporária (31)**: 91% do salário de benefício, com o limite da média dos últimos 12 salários (art. 29, § 10).
+- **Requisitos no resultado**: o motor devolve cada requisito com valor exigido, apurado, meses faltantes e se foi verificado. A tela e o PDF mostram a tabela.
+- **Origem da incapacidade** no editor de política: comum, acidente, doença ocupacional, doença do trabalho ou doença da lista.
+- **Seletor de espécie** no editor e na entrevista guiada; a entrevista não inventa a espécie.
+- **`docs/COVERAGE.md`** com a matriz de cobertura e as fontes.
+
+### Changed
+- A espécie 42 mantém o comparador de transições e a paridade de coeficiente por competências; as novas espécies usam o tempo apurado por vínculos, com fallback para competências.
+- A espécie 41 escolhe a regra elegível de menor idade (rural, art. 18 ou permanente) e informa a regra no resultado.
+- O PDF passa a exibir a espécie e a regra no resumo e a renderizar os requisitos e a origem declarada.
+- O aviso de coeficiente abaixo da base deixa de aparecer nas espécies 31/32/41.
+
+### Blocked by design
+- **46 (especial)** bloqueia por exigir PPP/enquadramento e 15/20/25 anos de exposição; **57 (professor)** bloqueia por exigir magistério exclusivo. Nenhuma das duas é aproximada pela regra comum.
+- **Pensão por morte, salário-maternidade, auxílio-acidente** e demais prestações seguem fora do motor, com bloqueio explícito.
+- A incapacidade é declarada: o motor calcula a renda, não a perícia, o nexo, a DII ou a qualidade de segurado.
+
+### Tests
+- 495 testes Rust, 111 de interface e 36 de navegador.
+
+### Notes
+- Nenhum dado pessoal, CNIS ou PDF real entrou no repositório. Os fixtures continuam sintéticos.
+
+## 0.13.0 - 2026-10-26
+
+Redesign do fluxo guiado: da casca de painel para uma mesa de trabalho.
+
+### Changed
+- Nova direção visual no assistente: superfície de papel, tinta escura, títulos em serifa e uma única cor de ação. Tokens declarados em `flow-v2`, documentados em `DESIGN.md`.
+- Uma pergunta por tela, com tipografia maior, opções em linhas e um único caminho de saída. "Passo X de 7" em linguagem simples, sem caixa alta e sem rótulos técnicos.
+- O contexto do caso, o bloco da pergunta, as listas de etapas e os painéis perderam o fundo escuro herdado da casca; contraste corrigido em todos os campos e cartões.
+- Resultado abre com uma faixa de estado: "Cálculo bloqueado" com o motivo em uma frase, ou "Resultado experimental" com o aviso de revisão.
+- Quando o bloqueio é a LC 142/2013, a ação primária passa a ser "Abrir o cenário PcD no editor"; o botão de reexecutar sai do caminho.
+- A etapa troca de tela já no topo, sem rolar para o meio do conteúdo anterior.
+
+### Added
+- `PRODUCT.md` com a verdade do produto e `DESIGN.md` com a direção, tokens e regras de acessibilidade.
+- Ajuda curta nos campos de DIB, sexo e deficiência, e finalidades secundárias recolhidas em "Outras finalidades".
+
+### Tests
+- 486 testes Rust, 108 de interface e 36 de navegador.
+
+## 0.12.1 - 2026-10-26
+
+Teste de usabilidade completo com o CNIS real do caso PcD, no binário nativo, em perfil isolado.
+
+### Fixed
+- **Identificação pessoal no PDF**: com a opção de identificação desmarcada, nome e CPF ainda apareciam nos relatórios Typst. O renderer passou a receber a opção e oculta nome, CPF e a origem do vínculo.
+- **Beco sem saída do cenário PcD**: o resultado bloqueado pela LC 142 agora explica o motivo e oferece o botão que abre o cenário PcD no editor, na etapa correta.
+- **Prévia do PDF sem resposta visível**: ao gerar a prévia, o documento é trazido para a tela. O texto de estado não manda mais escolher um cálculo que já está escolhido.
+- **"Pronto para o motor" com execução bloqueada** passou a "Revisado; execução bloqueada".
+- **Reexecução**: com resultado na tela, o botão passa a "Executar novamente" e o subtítulo avisa que o resultado é da última execução.
+
+### Changed
+- Etapa 3 mostra três finalidades principais e deixa as outras três em "Outras finalidades". A segunda pergunta virou "O que você quer obter?".
+- Etapa 4 ganhou ajuda curta em DIB, sexo e deficiência, em linguagem de quem não usa o programa todos os dias.
+- No cenário PcD, a etapa do editor se chama "Cenário PcD (LC 142/2013)" e não oferece o preparo genérico do CNIS, que apagaria a política declarada.
+
+### Tests
+- Teste Rust garante que a identificação é ocultada no dado do relatório.
+- Teste de interface garante o caminho do bloqueio PcD para o módulo LC 142 e o rótulo de reexecução.
+
+## 0.12.0 - 2026-10-26
+
+### Changed
+- **Conferência do assistente (Etapa 5) em dois passos visíveis**: primeiro as respostas da entrevista, com o botão que volta à etapa certa; depois o preparo a partir do CNIS, na própria página.
+- **Preparo sem modal**: a referência documental, o que o clique faz e o que ele não faz ficam visíveis, com um único botão "Preparar e calcular". A duplicidade de botões com o mesmo nome deixou de existir.
+- **Pendências com um caminho só**: quando as pendências são fonte, política, vínculos e remunerações, o painel informa que um clique as resolve e não oferece mais atalhos para as abas.
+- **CNIS explicado como fonte, não como entrada do motor**: o texto diz que o documento é conferido, que a cópia é revisada, que a referência fica registrada e que o cálculo parte dali.
+- **Respostas da entrevista não são mais inventadas pelo preparo**: benefício atual, finalidade e objetivo sem resposta continuam pendentes, com aviso e correção na conferência.
+- **Períodos concomitantes deixaram de ser pendência decisiva**: o motor soma apenas a parcela não sobreposta e avisa no resultado. O texto anterior dizia que o motor bloqueava a sobreposição, o que não correspondia ao adaptador, e travava o CNIS real com vínculos paralelos.
+- **Cenário PcD avisa antes de executar**: ao escolher grau de deficiência, a etapa de dados informa que a LC 142/2013 ainda não tem motor neste adaptador e que a execução será bloqueada com motivo, em vez de deixar o bloqueio aparecer só no resultado.
+
+### Added
+- Teste de fluxo guiado com IPC sintético cobrindo entrevista, importação, conferência e preparo em um clique (`apps/desktop/tests/guided-flow.test.tsx`).
+- Conferência mostra a resposta sobre benefício atual por extenso, com correção no mesmo lugar.
+
+### Fixed
+- Testes de interface que renderizam o aplicativo voltaram a rodar: `__APP_VERSION__` passou a ser definido no `vitest.config.ts`.
+- Rótulos desatualizados nos testes do assistente (opções da Etapa 3 e botão de avanço da Etapa 4), herdados da correção de texto anterior.
+- Suíte Rust voltou a compilar: o teste de workspace inicializa `Settings.logo_data_url` e o teste de capacidades reconhece as permissões `updater:default` e `process:allow-restart`/`allow-exit` exigidas pelo atualizador assinado. A descrição da capacidade deixou de negar os dois plugins.
+- Documentação: removidos nome de cliente e valor de RMI derivado do diagnóstico de usabilidade; o CPF de exemplo do formato de relatório passou a ser sintético.
+- Teste Rust garante que o preparo guiado não preenche respostas da entrevista.
+
 
 ## 0.11.1 - 2026-10-26
 
@@ -207,7 +377,7 @@ Primeira árvore de código pública de previdenciar.io, com identidade textual 
 - Cópia pública por lista permitida, sem documentos pessoais, evidências privadas, ferramentas de investigação ou binários proprietários.
 - Licença MIT, notices das fontes/componentes, documentação, CI, release Windows e site estático.
 - Editor completo de contribuições importadas registrado como prioridade futura, não anunciado como pronto.
-- Logo/identidade final aguardam pacote aprovado do OpenDesign.
+- Logo e identidade visual final permanecem em definição.
 
 Consulte docs/LIMITATIONS.md. Esta versão não é certificada juridicamente nem equivalente a outro produto.
 

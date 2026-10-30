@@ -96,6 +96,7 @@ describe('assistant data consideration',()=>{
     expect(codes).toContain('links_prpps');
     expect(codes).toContain('links_unconfirmed');
     expect(codes).toContain('links_overlap');
+    expect(r.issues.find(i=>i.code==='links_overlap')?.decisive).toBe(false);
   });
 
   it('refuses duplicate competences and salaries outside the reviewed link',()=>{

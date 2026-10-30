@@ -30,7 +30,14 @@ describe('assistant traceability panel',()=>{
     expect(screen.queryByText('Usado pelo motor')).not.toBeInTheDocument();
     expect(screen.getByText('Pendências que impedem calcular')).toBeInTheDocument();
     expect(screen.getAllByText(/Fonte CNIS ainda não excluída/).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole('button',{name:/Corrigir:/}).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Um clique resolve as pendências/)).toBeInTheDocument();
+    expect(screen.queryByRole('button',{name:/Corrigir:/})).not.toBeInTheDocument();
+  });
+  it('keeps a direct correction when the missing piece is an interview answer',()=>{
+    const c=base();c.cnis=cnis();c.assistant={...c.assistant!,current_benefit_received:null};
+    render(<AssistantConsiderationPanel consideration={assistantConsideration(c)} onFix={()=>{}}/>);
+    expect(screen.getByRole('button',{name:/Corrigir: Situação de benefício atual não confirmada/})).toBeInTheDocument();
+    expect(screen.queryByRole('button',{name:/Corrigir: Fonte CNIS/})).not.toBeInTheDocument();
   });
   it('marks a fully reviewed hypothesis ready without rewriting the source',()=>{
     const c=base();

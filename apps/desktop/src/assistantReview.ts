@@ -188,7 +188,7 @@ export function assistantConsideration(c: Calculation, _interview?: AssistantInt
   const birth = isoDate(c.identity.birth_date ?? '');
   if (birth && links.some(link => { const range = dateRange(link); return range ? range.start < birth : false; })) add('links_before_birth','Vínculo começa antes do nascimento.','links');
   const ordered = links.map(link => ({link,range:dateRange(link)})).filter((item): item is {link:ManualLink;range:{start:string;end:string}} => item.range !== null).sort((x,y) => x.range.start.localeCompare(y.range.start));
-  if (ordered.some((item,index) => index > 0 && ordered[index-1].range.end >= item.range.start)) add('links_overlap','Períodos concomitantes/sobrepostos exigem revisão documental; o motor deduplica o tempo, mas a hipótese não deve ser usada sem conferência.','links');
+  if (ordered.some((item,index) => index > 0 && ordered[index-1].range.end >= item.range.start)) add('links_overlap','Períodos concomitantes ou sobrepostos: o motor soma apenas a parcela não sobreposta e avisa no resultado.','links',false);
 
   if (salaries.length === 0) add('salaries_missing','Nenhuma remuneração manual selecionada para o motor.','salaries');
   const unconfirmedSalaries = salaries.filter(s => !s.confirmed).length;
@@ -228,7 +228,6 @@ export function assistantConsideration(c: Calculation, _interview?: AssistantInt
   if (blockedResult) conclusion = 'A última execução foi bloqueada; nenhum valor financeiro foi produzido.';
   else if (ready && experimental) conclusion = 'O motor recebeu ' + selected.links + ' vínculo(s) e ' + selected.salaries + ' remuneração(ões) revisadas. Resultado experimental disponível; a fonte CNIS não entrou no cálculo.';
   else if (ready) conclusion = 'Os dados revisados estão prontos para o motor: ' + selected.links + ' vínculo(s) e ' + selected.salaries + ' remuneração(ões). A fonte CNIS não entra no cálculo.';
-  else if (experimental) conclusion = 'Há resultado experimental do motor, mas há pendência decisiva: ' + decisive.slice(0,2).map(item => item.label.replace(/\.$/,'')).join('; ') + '. Revise antes de usar ou exportar.';
   else conclusion = 'Ainda não é possível calcular: ' + decisive.slice(0,2).map(item => item.label.replace(/\.$/,'')).join('; ') + (decisive.length > 2 ? '; e mais ' + (decisive.length-2) + ' pendência(s).' : '.');
 
   return {

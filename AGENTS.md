@@ -12,4 +12,4 @@ Keep the Tauri application identifier and the legacy storage path compatible unl
 
 PDF preview and export must use the real Rust renderer. Do not replace them with HTML/JSON mocks. Native tests and browser IPC fixtures must be described separately.
 
-The logo and final identity will arrive from OpenDesign. Current text branding and the generic app icon are placeholders, not the approved identity.
+The logo and final identity will be defined by the design team. Current text branding and the generic app icon are placeholders, not the approved identity.

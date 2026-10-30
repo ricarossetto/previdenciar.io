@@ -30,13 +30,12 @@ export function ReportCenter({workspace,selected,onSelect,onNotify,draftCase,onC
   const[busy,setBusy]=useState<'preview'|'export'|'batch'|null>(null);
   const[pdfUrl,setPdfUrl]=useState('');
   const[pdfBytes,setPdfBytes]=useState(0);
-  const[exported,setExported]=useState('');
   const[error,setError]=useState('');
   const[batch,setBatch]=useState<string[]>([]);
   const[batchResult,setBatchResult]=useState<BatchExport|null>(null);
   const[title,setTitle]=useState('');
   const[presentation,setPresentation]=useState<Presentation>({includeAppendix:true,includeQuality:true,includePlanning:true});
-  const generation=useRef(0),urlRef=useRef(''),lastCase=useRef<number|null>(null);
+  const generation=useRef(0),urlRef=useRef(''),lastCase=useRef<number|null>(null),paper=useRef<HTMLDivElement>(null);
   const calculation=draftCase??workspace.calculations.find(c=>c.id===selected)??null;
   const choices=draftCase?[draftCase]:workspace.calculations;
   const description=FORMATS.find(f=>f.id===format);
@@ -49,7 +48,7 @@ export function ReportCenter({workspace,selected,onSelect,onNotify,draftCase,onC
   useEffect(()=>{
     generation.current+=1;
     if(urlRef.current){URL.revokeObjectURL(urlRef.current);urlRef.current='';}
-    setPdfUrl('');setPdfBytes(0);setExported('');setError('');setBusy(null);setBatchResult(null);
+    setPdfUrl('');setPdfBytes(0);setError('');setBusy(null);setBatchResult(null);
     return()=>{generation.current+=1;if(urlRef.current){URL.revokeObjectURL(urlRef.current);urlRef.current='';}};
   },[calculation,format,personal,presentationKey]);
   function toggleBatch(id:string){setBatch(current=>current.includes(id)?current.filter(value=>value!==id):[...current,id])}
@@ -68,6 +67,9 @@ export function ReportCenter({workspace,selected,onSelect,onNotify,draftCase,onC
       const blob=pdfBlob(encoded),url=URL.createObjectURL(blob);
       if(urlRef.current)URL.revokeObjectURL(urlRef.current);
       urlRef.current=url;setPdfUrl(url);setPdfBytes(blob.size);
+      // A prévia aparece no painel do documento, abaixo do botão. Sem rolar até
+      // ela, quem clicou pode achar que nada aconteceu.
+      requestAnimationFrame(()=>{const node=paper.current;if(node&&typeof node.scrollIntoView==='function')node.scrollIntoView({block:'start',behavior:'smooth'});});
     }catch(e){if(request===generation.current)setError(errorMessage(e));}
     finally{if(request===generation.current)setBusy(null);}
   }
@@ -76,10 +78,7 @@ export function ReportCenter({workspace,selected,onSelect,onNotify,draftCase,onC
     const request=++generation.current;setBusy('export');setError('');
     try{
       const destination=await api.exportReport(calculation,workspace,format,personal,presentation);
-      if(request===generation.current&&destination){
-        setExported(destination);
-        onNotify(draftCase?((description?.title??'Relatório')+' gerado localmente. Confira os avisos e o estado da hipótese.'):'Relatório exportado no destino escolhido.');
-      }
+      if(request===generation.current&&destination)onNotify(draftCase?'PDF detalhado gerado localmente. Confira os avisos e o estado da hipótese.':'Relatório exportado no destino escolhido.');
     }catch(e){if(request===generation.current)setError(errorMessage(e));}
     finally{if(request===generation.current)setBusy(null);}
   }
@@ -107,12 +106,8 @@ export function ReportCenter({workspace,selected,onSelect,onNotify,draftCase,onC
       <p className="report-help">Sem essa opção, nome e identificadores ficam ocultos. Datas e valores continuam sensíveis.</p><details className="report-help"><summary>Outros modelos dos documentos originais</summary><p>Retorno do investimento não está disponível neste fluxo. A qualidade de segurado é apurada pelo próprio motor, por vínculo e com a regra legal declarada, e nunca copiada de outro segurado.</p></details>
     </aside>
     <div className="report-workspace">
-      <header className="report-toolbar"><div><h2>{description?.title??'Exportação de dados'}</h2><p>{calculation?.name??'Selecione um cálculo para começar.'}</p></div><div className="report-toolbar__actions" data-ui-actions><Button primary={!pdfUrl} disabled={!calculation||!isPdf||!!busy} onClick={()=>void preview()}>{busy==='preview'?'Gerando prévia...':'Pré-visualizar PDF'}</Button><Button primary={!!pdfUrl} disabled={!calculation||!!busy} onClick={()=>void exportFile()}>{busy==='export'?'Exportando...':draftCase?(format==='pdf_detailed'?'Gerar relatório PDF detalhado':'Gerar PDF'):'Exportar arquivo'}<Icon name="file" size={16}/></Button></div></header>
+      <header className="report-toolbar"><div><h2>{description?.title??'Exportação de dados'}</h2><p>{calculation?.name??'Selecione um cálculo para começar.'}</p></div><div className="report-toolbar__actions" data-ui-actions><Button disabled={!calculation||!isPdf||!!busy} onClick={()=>void preview()}>{busy==='preview'?'Gerando prévia...':'Pré-visualizar PDF'}</Button><Button primary disabled={!calculation||!!busy} onClick={()=>void exportFile()}>{busy==='export'?'Exportando...':draftCase?(format==='pdf_detailed'?'Gerar relatório PDF detalhado':'Gerar PDF'):'Exportar arquivo'}<Icon name="file" size={16}/></Button></div></header>
       {error&&<Notice tone="error">{error}</Notice>}
-      <div className="report-document-status" role="status" aria-live="polite"><Badge tone={exported||pdfUrl?'good':'neutral'}>{exported?'PDF exportado':pdfUrl?'PDF gerado':busy==='preview'?'Gerando documento':'Prévia não gerada'}</Badge><span>{exported?(exported.split(/[\\/]/).pop()+' · pronto para conferir'):pdfUrl?((pdfBytes/1024).toFixed(0)+' KB · documento pronto para conferir'):'A prévia usa os dados atuais do cálculo.'}</span></div>
-      <div className="report-paper-workspace" aria-busy={busy==='preview'}>
-        {pdfUrl?<><iframe className="report-pdf-frame" title="Prévia do relatório PDF" src={pdfUrl}/><p className="report-preview-fallback">Se o visualizador não abrir neste computador, <a href={pdfUrl} download="previdenciar-previa.pdf">baixar esta prévia em PDF</a>.</p></>:exported?<div className="report-empty-document report-exported-document"><Icon name="check" size={38}/><h3>PDF exportado</h3><p>{exported.split(/[\\/]/).pop()+' · pronto para conferir.'}</p></div>:<div className="report-empty-document"><Icon name="file" size={38}/><h3>{busy==='preview'?'Preparando o documento...':isPdf?'Confira o documento antes de exportar':'Formato de dados selecionado'}</h3><p>{busy==='preview'?'O motor está gerando as páginas da hipótese selecionada.':isPdf?(calculation?'Gere a prévia do cálculo selecionado para conferir o PDF antes de exportar.':'Escolha um cálculo e gere a prévia para conferir o PDF antes de exportar.'):'HTML, CSV e JSON continuam disponíveis para exportação. A prévia paginada é exclusiva dos formatos PDF.'}</p></div>}
-      </div>
       <fieldset className="report-batch">
         <legend>Exportar vários relatórios</legend>
         <p className="report-help">Um arquivo PDF por tipo selecionado, na pasta que você escolher. Nomes fixos e arquivos existentes não são sobrescritos; o lote continua mesmo se um tipo falhar.</p>
@@ -131,7 +126,12 @@ export function ReportCenter({workspace,selected,onSelect,onNotify,draftCase,onC
           <label className="checkline"><input type="checkbox" checked={presentation.includePlanning??true} onChange={e=>setPresentation(current=>({...current,includePlanning:e.target.checked}))} disabled={!!busy}/>Incluir as premissas de planejamento</label>
         </div>
         <p className="report-help">As opções de apresentação mudam apenas o que é impresso. Cada seção continua disponível nos outros tipos de relatório.</p>
-      </fieldset><p className="report-footer-note">Resultados experimentais e pendências permanecem identificados. Nenhuma ausência é convertida em benefício concedido ou valor zero.</p>
+      </fieldset>
+      <div className="report-document-status"><Badge tone={pdfUrl?'good':'neutral'}>{pdfUrl?'PDF gerado':busy==='preview'?'Gerando documento':'Prévia não gerada'}</Badge><span>{pdfUrl?((pdfBytes/1024).toFixed(0)+' KB · documento pronto para conferir'):'A prévia usa os dados atuais do cálculo.'}</span></div>
+      <div className="report-paper-workspace" aria-busy={busy==='preview'} ref={paper}>
+        {pdfUrl?<><iframe className="report-pdf-frame" title="Prévia do relatório PDF" src={pdfUrl}/><p className="report-preview-fallback">Se o visualizador não abrir neste computador, <a href={pdfUrl} download="previdenciar-previa.pdf">baixar esta prévia em PDF</a>.</p></>:<div className="report-empty-document"><Icon name="file" size={38}/><h3>{busy==='preview'?'Preparando o documento...':isPdf?'Confira o documento antes de exportar':'Formato de dados selecionado'}</h3><p>{busy==='preview'?'O motor está gerando as páginas da hipótese selecionada.':isPdf?(calculation?'Clique em Pré-visualizar PDF para ver o documento antes de exportar.':'Escolha um cálculo e gere a prévia. Você verá o PDF de verdade, com páginas e tabelas, não uma lista de dados técnicos.'):'HTML, CSV e JSON continuam disponíveis para exportação. A prévia paginada é exclusiva dos formatos PDF.'}</p></div>}
+      </div>
+      <p className="report-footer-note">Resultados experimentais e pendências permanecem identificados. Nenhuma ausência é convertida em benefício concedido ou valor zero.</p>
     </div>
   </section>;
 }

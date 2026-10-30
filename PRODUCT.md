@@ -1,57 +1,35 @@
-# Product
+# PRODUCT.md
 
-<!-- impeccable:product-schema 1 -->
+## Produto
 
-## Platform
+previdenciar.io é um aplicativo desktop local (Tauri + React + Rust) para organizar CNIS, montar hipóteses de cálculo previdenciário e gerar relatórios em PDF. Não é serviço oficial do INSS, não certifica direito e não substitui revisão profissional.
 
-web
+## Quem usa
 
-## Stack
+Advogados e profissionais do Direito Previdenciário, muitos entre 50 e 75 anos, com pouca familiaridade com software. Trabalham sozinhos, leem devagar, usam óculos, erram cliques e desistem quando não sabem o próximo passo. O caso típico tem um CNIS longo (20 a 30 páginas) e um cliente com deficiência ou tempo rural.
 
-delegated: static HTML/CSS/JS, no build step, so the mock opens from disk in a browser. An optional local Node proxy (no dependencies) serves the same files and forwards explicit Fábrica de Cálculos requests with the API key kept server-side. The desktop app (React + Tauri + Rust) is the product reference, not a dependency.
+## Trabalho a ser feito
 
-## Users
+Receber um CNIS real, conferir o que o documento diz, decidir parâmetros com honestidade e chegar a um relatório que possa ser lido e explicado ao cliente.
 
-Advogados e consultores previdenciários que organizam CNIS, testam hipóteses de aposentadoria e produzem relatórios para clientes. Trabalham sozinhos ou em escritórios pequenos, no Windows, alternando entre documentos oficiais, cálculo e conferência manual. A versão web é uma demonstração navegável do produto para esse mesmo profissional.
+## Promessas
 
-## Product Purpose
+- Dado ausente não vira zero, e pendência não vira resultado.
+- O CNIS não é alterado; a hipótese é uma cópia revisada.
+- Nenhum valor, sexo, deficiência ou data é inferido.
+- Cálculo, importação e PDF acontecem na máquina do operador.
+- O resultado bloqueado continua bloqueado, com motivo legível.
 
-Tornar o caminho entre o CNIS e uma hipótese previdenciária conferível: importar e organizar vínculos e contribuições, declarar premissas, calcular e levar a memória junto em relatórios. Sucesso é o profissional conseguir explicar cada número a partir da origem, e não apenas ver um resultado.
+## Restrições
 
-## Positioning
+- O motor RGPS cobre as espécies 42 (tempo de contribuição), 41 (idade), 32 (incapacidade permanente), 31 (incapacidade temporária), 46 (especial) e 57 (professor), com requisitos declarados e limites próprios.
+- A conferência online na Fábrica de Cálculos/TRF3 é opcional, exige chave própria e só envia datas, sexo, espécie e salários revisados. Sem chave, o resultado local e os PDFs funcionam offline.
+- A LC 142/2013 existe como simulação com premissas declaradas em módulo próprio.
+- O aplicativo não tem backend web, conta ou telemetria.
 
-Origem antes do resultado. Cada valor mostra de onde veio, cada dado ausente permanece pendente, e o cálculo não inventa o que o documento não informa. O produto é local por padrão e declara seus limites em vez de prometer cobertura total.
+## Anti-metas
 
-## Operating Context
-
-O trabalho começa com um CNIS em PDF e termina em um relatório revisado. No meio: conferência de vínculos, livro de contribuições, escolha de cenário (RGPS, PcD), premissas explícitas, memória de cálculo e uma central de relatórios. O mock cobre esse fluxo com dados fictícios e sem executar o motor Rust. A área Fábrica permite comparar o motor local com o serviço oficial e usar os leitores de documentos por um proxy local.
-
-## Capabilities and Constraints
-
-- Versão web navegável das 15 áreas do app: Início, Clientes, Cálculos, RGPS, Motor local (WASM), **Fábrica de Cálculos**, Assistente, Editor de dados, Tabelas e índices, Módulos de apoio, Documentos, Relatórios, Agenda, Configurações e REA/validação.
-- Dados do mock 100% fictícios, autorais e identificados como demonstração. O núcleo `rgps-core` roda no navegador via WebAssembly; a área Fábrica é a exceção explícita: envia somente o payload que o usuário preencher ao proxy local e à API pública do TRF3.
-- A aba **Referências** consulta BCB SGS e IBGE SIDRA por um proxy com cache e importa CSV do CJF/SICOM; não faz scraping de calculadoras. Conecta/INSS fica fora até haver credenciamento e base legal.
-- O adaptador `previdenciar-rgps`, o CNIS, o workspace cifrado e o renderer de PDF continuam no desktop.
-- Sem backend remoto, sem Tauri, sem PDF real no mock: exportações continuam simulações de interface. O proxy local da Fábrica é opcional e não persiste payloads, documentos ou resultados.
-- Não é ferramenta oficial do INSS, não certifica direito e não substitui revisão profissional. O retorno da Fábrica é o serviço público do TRF3, sujeito aos mesmos limites de revisão.
-- Interface em pt-BR, com tema claro/escuro, navegação por teclado e movimento reduzido.
-
-## Brand Commitments
-
-O nome previdenciar.io e a voz "às claras" são fixos. A identidade visual final continua provisória e aguarda OpenDesign; esta superfície adota o ATRIUM ui-v2 como referência visual (grafite, ouro, Playfair/Inter) e o movimento do painel GioMed IA, sem copiar marca ou conteúdo dos dois produtos.
-
-## Evidence on Hand
-
-README, docs/ e site/ do repositório; o app desktop em apps/desktop para vocabulário, fluxos e estados. Não existem depoimentos, clientes reais, benchmarks ou dados de CNIS no repositório. Toda a matéria do mock é sintética e assim deve permanecer rotulada.
-
-## Product Principles
-
-1. Origem antes do resultado: todo número pode ser rastreado até o documento ou a premissa.
-2. Dado ausente não vira zero: pendência é um estado de primeira classe.
-3. Local por padrão: privacidade é arquitetura, não promessa de marketing.
-4. Limite declarado: o produto diz o que não faz, com a mesma clareza com que mostra o que faz.
-5. Revisão profissional: o resultado organiza o trabalho, não o substitui.
-
-## Accessibility & Inclusion
-
-Meta WCAG 2.2 AA: contraste de texto, foco visível, alvos de toque, navegação completa por teclado, respeito a `prefers-reduced-motion` e leitura coerente em 390 px e 1440 px.
+- Parecer um painel corporativo ou um ERP.
+- Esconder pendências para o fluxo "passar".
+- Encher a tela de opções técnicas simultâneas.
+- Prometer concessão, valor garantido ou conformidade jurídica.

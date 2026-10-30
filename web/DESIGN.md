@@ -1,16 +1,16 @@
-# previdenciar.io web — ATRIUM ui-v2
+# previdenciar.io web — sistema visual
 
-Sistema visual da demonstração web. A referência visual é o **ATRIUM atual** (`atrium-pro`, `css/views/ui-v2/*`); o movimento é adaptado do painel do **GioMed IA** (`gi-clinical`, `apps/web/src/styles/motion.css` e `components/amicro.tsx`). O conteúdo, os fluxos e a semântica continuam os do previdenciar.io.
+Sistema visual da demonstração web. A linguagem é própria do previdenciar.io: fundo grafite, superfícies em camadas, tipografia editorial e ouro como acento. O conteúdo, os fluxos e a semântica são os do produto.
 
 ## Tese
 
-O trabalho continua sendo um livro-razão de contribuições, mas a superfície usa a linguagem do ATRIUM: fundo grafite, superfícies em camadas, tipografia editorial e ouro como acento. A densidade e a origem do dado continuam visíveis; a mudança é de linguagem, não de produto.
+O trabalho continua sendo um livro-razão de contribuições, mas a superfície usa a linguagem visual própria do previdenciar.io: fundo grafite, superfícies em camadas, tipografia editorial e ouro como acento. A densidade e a origem do dado continuam visíveis; a mudança é de linguagem, não de produto.
 
 ## Referências
 
-- **Visual:** `atrium-pro/css/views/ui-v2/tokens.css`, `primitives.css`, `shell.css` e `dashboard.css`.
-- **Movimento:** `gi-clinical/apps/web/src/styles/motion.css` e `components/amicro.tsx` (Rise, Stagger, Press, Hover, Heartbeat/LiquidDots como vocabulário).
-- **Não copiar:** marca, logo, navegação ou textos do ATRIUM/GioMed. A identidade previdenciar.io permanece.
+- **Visual:** `web/visual.css`, com tokens, primitivas, shell e painéis próprios.
+- **Movimento:** vocabulário próprio de entrada, stagger, press, hover e indicadores de atividade.
+- **Identidade:** a marca, o logo, a navegação e os textos são do previdenciar.io.
 - As fontes Inter e Playfair Display são locais (`web/fonts/`), com licença aberta, para o mock continuar offline.
 
 ## Paleta
@@ -34,7 +34,7 @@ O trabalho continua sendo um livro-razão de contribuições, mas a superfície 
 | filete | `#343A3F` | `#D2D6D5` |
 | filete forte | `#485057` | `#B8C0C2` |
 
-Ação primária no escuro usa o `--v2-action-primary-*` (ouro translúcido); no claro usa o azul-acinzentado do ATRIUM. Ouro é destaque editorial e ação; o estado nunca depende só da cor.
+Ação primária no escuro usa o `--v2-action-primary-*` (ouro translúcido); no claro usa o azul-acinzentado do sistema. Ouro é destaque editorial e ação; o estado nunca depende só da cor.
 
 ## Tipografia
 
@@ -119,7 +119,7 @@ Ação primária no escuro usa o `--v2-action-primary-*` (ouro translúcido); no
 
 ## Não fazer
 
-- Não copiar marca, logo ou textos do ATRIUM/GioMed; a identidade exibida é previdenciar.io.
+- A identidade exibida é previdenciar.io; marca, logo e textos são próprios.
 - Não trocar o fólio por cartões de ícone + título + texto.
 - Não usar gradiente em texto, glass decorativo, emoji como ícone, cartão dentro de cartão ou sombra dura.
 - Não usar monoespaçado como fantasia; só para dado e medida.
@@ -128,8 +128,8 @@ Ação primária no escuro usa o `--v2-action-primary-*` (ouro translúcido); no
 
 ## Procedência
 
-- Direção visual: ATRIUM ui-v2, `atrium-pro` (commit `b49d200`).
-- Movimento: GioMed IA, `gi-clinical` (commit `b75bce8`).
-- Implementação: `web/atrium.css`, carregado depois de `styles.css` e `fabrica.css`.
+- Direção visual: sistema próprio do previdenciar.io.
+- Movimento: vocabulário próprio de entrada, stagger, press e hover.
+- Implementação: `web/visual.css`, carregado depois de `styles.css` e `fabrica.css`.
 - Verificação: 15 áreas + 6 abas de caso + Motor local + Fábrica + Referências em 390 px e 1440 px; sem overflow horizontal; sem erros de console; `axe-core` 0 nas telas amostradas; tema claro/escuro e movimento reduzido; impressão em A4.
 - Wasm: `rgps-core` 0.1.0 em wasm32 (453.273 bytes), fixture de 300 competências e caso de 12 competências executados no Chrome a partir de `file://`, sem rede.
