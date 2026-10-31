@@ -14,7 +14,7 @@ export function DashboardOverview({ workspace, onStart, onClient, onReports }: {
     { label: 'Compromissos abertos', value: workspace.appointments.filter(item => !item.completed).length, icon: 'calendar' },
   ];
   const actions = [
-    { number: '01', icon: 'calc', title: 'Organize a hipótese', description: 'Uma entrevista, uma etapa por vez. Sem preencher o que ainda precisa ser confirmado.', label: 'Abrir entrevista', onClick: onStart },
+    { number: '01', icon: 'calc', title: 'Organize a hipótese', description: 'Uma entrevista, uma etapa por vez. Sem preencher o que ainda precisa ser confirmado.', label: 'Novo cálculo', onClick: onStart },
     { number: '02', icon: 'users', title: 'Conheça cada caso', description: 'Identificação, documentos e histórico reunidos em um cadastro local protegido.', label: 'Cadastrar cliente', onClick: onClient },
     { number: '03', icon: 'file', title: 'Leve a memória junto', description: 'Confira os dados e gere os relatórios PDF com o motor real do aplicativo.', label: 'Consultar relatórios', onClick: onReports },
   ];
@@ -46,7 +46,7 @@ export function DashboardOverview({ workspace, onStart, onClient, onReports }: {
     <div className="amicro-action-grid">{actions.map((action, index) => <TiltCard key={action.number} index={index}>
       <div className="amicro-action-top"><span className="amicro-action-icon"><Icon name={action.icon} size={23} /></span><span className="amicro-action-number">{action.number}</span></div>
       <h3>{action.title}</h3><p>{action.description}</p>
-      <Button onClick={action.onClick}>{action.label}<Icon name="arrow" size={16} /></Button>
+      <Button primary={index===0} onClick={action.onClick}>{action.label}<Icon name="arrow" size={16} /></Button>
     </TiltCard>)}</div>
   </>;
 }

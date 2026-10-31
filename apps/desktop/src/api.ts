@@ -20,7 +20,7 @@ export interface AiImportSummary{skills:number;legislation:number;natjus:number;
 export type KnowledgeBlock='skills'|'legislation'|'natjus'|'jurisprudence';
 export interface KnowledgeHit{ref:string;id:string;titulo:string;tipo?:string;status?:string;identificacao?:string;url?:string|null;trecho?:string|null;score?:number}
 export interface KnowledgeOutcome{summary:string;sources:AiSource[];value:{resultados?:KnowledgeHit[];conteudo?:string;titulo?:string;id?:string;url?:string|null;fonte?:string;aviso?:string;[key:string]:unknown}}
-export const api={
+const tauriApi={
  fetchEconomicSnapshot:(through:string)=>invoke<import('./pcd').EconomicSnapshot>('fetch_economic_snapshot',{through}),
  fetchLocalEconomicSnapshot:(through:string)=>invoke<import('./pcd').EconomicSnapshot>('local_economic_snapshot',{through}),
  conferirFabricaRmi:(input:FabricaInput,apiKey:string)=>invoke<FabricaSummary>('conferir_fabrica_rmi',{input,apiKey}),
@@ -54,3 +54,5 @@ export const api={
  aiCancel:(requestId:string)=>invoke<void>('ai_cancel',{requestId}),
 };
 export function errorMessage(e:unknown):string{if(typeof e==='string')return e;if(e instanceof Error)return e.message;return 'Não foi possível concluir a operação. Nenhuma alteração foi confirmada.'}
+import { webApi } from './web-api';
+export const api = import.meta.env.MODE === 'web' ? webApi : tauriApi;

@@ -1,0 +1,36 @@
+﻿[package]
+name = "previdenciar-web-server"
+version = "0.1.0"
+edition = "2021"
+description = "HTTP API for previdenciar.io web; reuses the desktop Rust domain crates"
+license = "MIT"
+
+[dependencies]
+axum = { version = "0.8", features = ["json", "multipart"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal", "sync"] }
+tokio-stream = { version = "0.1", features = ["sync"] }
+tower-http = { version = "0.6", features = ["trace", "cors", "request-id", "fs"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio-rustls", "postgres", "uuid", "chrono", "json", "migrate", "macros"] }
+uuid = { version = "1", features = ["v4", "v5", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+dotenvy = "0.15"
+tempfile = "3"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+jsonwebtoken = "9"
+reqwest = { version = "0.13.5", default-features = false, features = ["json", "form", "rustls"] }
+thiserror = "2"
+sha2 = "0.10"
+aws-config = { version = "1", features = ["behavior-version-latest"] }
+aws-sdk-s3 = "1"
+flate2 = "1"
+tar = "0.4"
+previdenciar-workspace = { path = "../../crates/previdenciar-workspace" }
+previdenciar-rgps = { path = "../../crates/previdenciar-rgps" }
+previdenciar-core = { path = "../../crates/previdenciar-core" }
+previdenciar-cnis = { path = "../../crates/previdenciar-cnis" }
+previdenciar-reports = { path = "../../crates/previdenciar-reports" }
+previdenciar-ai = { path = "../../crates/previdenciar-ai" }
+

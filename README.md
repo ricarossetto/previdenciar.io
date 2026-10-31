@@ -1,4 +1,8 @@
 <p align="center"><strong>previdenciar.io</strong></p>
+
+> **Produto web oficial:** https://previdenciario.atrium.adv.br
+>
+> O desktop 0.16.0 está congelado como legado. A evolução funcional ocorre no aplicativo web com login Cognito, PostgreSQL, S3 e backend Rust/Axum. Veja [produção AWS](docs/PRODUCTION_AWS.md) e [desktop congelado](docs/DESKTOP_FROZEN.md).
 <h1 align="center">Cálculos previdenciários, às claras.</h1>
 <p align="center">Ferramenta desktop gratuita e open source para organizar CNIS, hipóteses de cálculo e relatórios locais.</p>
 <p align="center"><a href="https://github.com/ricarossetto/previdenciar.io/releases">Baixar para Windows</a> · <a href="https://ricarossetto.github.io/previdenciar.io/">Apresentação</a> · <a href="docs/GETTING_STARTED.md">Começar</a> · <a href="docs/LIMITATIONS.md">Limitações</a></p>

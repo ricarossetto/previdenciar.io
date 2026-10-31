@@ -7,7 +7,7 @@ mod providers;
 mod secrets;
 mod tools;
 
-pub use agent::{run, AiEvent, ChatMessage, ChatRequest, MinutaTask, Usage};
+pub use agent::{run, run_with_key, AiEvent, ChatMessage, ChatRequest, MinutaTask, Usage};
 pub use error::{AiError, Result};
 pub use importer::{extract_case_pdf, extract_pdf_text, import_audit, ExtractedPdf, ImportSummary};
 pub use providers::{

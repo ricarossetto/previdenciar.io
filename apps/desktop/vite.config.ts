@@ -8,6 +8,6 @@ export default defineConfig({
   plugins: [react()],
   clearScreen: false,
   define: { __APP_VERSION__: JSON.stringify(pkg.version) },
-  server: { host: '127.0.0.1', port: 1427, strictPort: true },
+  server: { host: '127.0.0.1', port: 1427, strictPort: true, proxy: { '/api': 'http://127.0.0.1:8788' } },
   build: { outDir: 'dist', emptyOutDir: true },
 });

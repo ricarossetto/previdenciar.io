@@ -36,7 +36,6 @@ for (const width of [1440, 1152, 768, 390, 320]) {
 }
 test('Amicro desktop and mobile visual evidence with synthetic data', async ({ page }) => {
   await start(page);
-  await page.getByRole('button', { name: 'Reduzir animações', exact: true }).click();
   await page.screenshot({ path: output + '/desktop-dark.png', fullPage: true });
   await page.getByRole('button', { name: 'Alternar tema', exact: true }).click();
   await page.screenshot({ path: output + '/desktop-light.png', fullPage: true });
@@ -64,14 +63,19 @@ test('Amicro pointer actions have feedback without replaying on text entry', asy
 test('Amicro honors persisted and system reduced motion', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await start(page);
-  await expect(page.getByRole('button', { name: 'Reduzir animações', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', { name: 'Configurações', exact: true }).click();
+  const motion = page.getByRole('checkbox', { name: 'Reduzir animações', exact: true });
+  await expect(motion).toBeChecked();
   await expect(page.locator('html')).toHaveAttribute('data-amicro-motion', 'off');
+  await page.getByRole('button', { name: 'Início', exact: true }).click();
   const card = page.locator('[data-amicro="tilt-card"]').first();
   await card.hover({ position: { x: 35, y: 35 } });
   await expect.poll(() => card.evaluate(el => getComputedStyle(el).transform)).toBe('none');
   await page.emulateMedia({ reducedMotion: 'no-preference' });
-  await expect(page.getByRole('button', { name: 'Reduzir animações', exact: true })).toHaveAttribute('aria-pressed', 'false');
-  await page.getByRole('button', { name: 'Reduzir animações', exact: true }).click();
+  await page.getByRole('button', { name: 'Configurações', exact: true }).click();
+  await expect(page.getByRole('checkbox', { name: 'Reduzir animações', exact: true })).not.toBeChecked();
+  await page.getByRole('checkbox', { name: 'Reduzir animações', exact: true }).click();
   await page.reload();
-  await expect(page.getByRole('button', { name: 'Reduzir animações', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', { name: 'Configurações', exact: true }).click();
+  await expect(page.getByRole('checkbox', { name: 'Reduzir animações', exact: true })).toBeChecked();
 });

@@ -27,7 +27,7 @@ describe('Amicro integration', () => {
     const workspace = blankWorkspace(), before = JSON.stringify(workspace);
     render(<MotionProvider><DashboardOverview workspace={workspace} {...{ onStart, onClient, onReports }} /></MotionProvider>);
     const user = userEvent.setup();
-    await user.click(screen.getByRole('button', { name: 'Abrir entrevista' }));
+    await user.click(screen.getByRole('button', { name: 'Novo cálculo' }));
     await user.click(screen.getByRole('button', { name: 'Cadastrar cliente' }));
     await user.click(screen.getByRole('button', { name: 'Consultar relatórios' }));
     expect(onStart).toHaveBeenCalledTimes(1); expect(onClient).toHaveBeenCalledTimes(1); expect(onReports).toHaveBeenCalledTimes(1);

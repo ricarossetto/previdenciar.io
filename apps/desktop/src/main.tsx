@@ -1,11 +1,12 @@
 import { createRoot } from 'react-dom/client';
 import App from './App';
+import { WebAuthGate } from './auth-web';
 import './styles/app.css';
 import './styles/liquid-glass.css';
 import './styles/ui-remediation.css';
 import './styles/amicro.css';
-import './styles/ui-fixes.css';
 import './styles/ai.css';
 import './styles/knowledge.css';
 import './styles/minuta.css';
-createRoot(document.getElementById('root')!).render(<App/>);
+import './styles/ui-fixes.css';
+createRoot(document.getElementById('root')!).render(import.meta.env.MODE === 'web' ? <WebAuthGate/> : <App/>);

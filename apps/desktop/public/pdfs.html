@@ -1,0 +1,19 @@
+﻿<!doctype html>
+<html lang="pt-BR">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>PDFs salvos â€” previdenciar.io</title>
+<style>body{font-family:system-ui,sans-serif;max-width:900px;margin:40px auto;padding:0 20px;color:#1d232b}table{border-collapse:collapse;width:100%}td,th{border-bottom:1px solid #ddd;padding:10px;text-align:left}button{cursor:pointer}.muted{color:#666}.error{color:#a22}</style>
+</head>
+<body>
+<h1>PDFs salvos</h1><p class="muted">Arquivos gerados por vocÃª, com retenÃ§Ã£o de 30 dias. Links de download expiram em cinco minutos.</p>
+<p><a href="/">Voltar ao escritÃ³rio</a></p>
+<p id="status">Carregando...</p>
+<table><thead><tr><th>Formato</th><th>Criado</th><th>Expira</th><th>Tamanho</th><th></th></tr></thead><tbody id="rows"></tbody></table>
+<script>
+const token=localStorage.getItem('previdenciar.web.idToken');const status=document.getElementById('status');
+async function call(path,opt={}){const r=await fetch(path,{...opt,headers:{...(opt.headers||{}),Authorization:'Bearer '+token,'Content-Type':'application/json'}});if(!r.ok)throw new Error('HTTP '+r.status);return r.json()}
+async function load(){if(!token){status.textContent='Entre no app para acessar.';return}try{const data=await call('/api/reports/saved');const rows=document.getElementById('rows');rows.textContent='';status.textContent=data.reports.length+' PDF(s).';for(const x of data.reports){const tr=document.createElement('tr');for(const v of [x.format,new Date(x.createdAt).toLocaleString('pt-BR'),new Date(x.expiresAt).toLocaleDateString('pt-BR'),(x.sizeBytes/1024).toFixed(0)+' KB']){const td=document.createElement('td');td.textContent=v;tr.appendChild(td)}const td=document.createElement('td');const a=document.createElement('button');a.textContent='Baixar';a.onclick=async()=>{const u=await call('/api/reports/saved/'+x.id);window.open(u.url,'_blank')};const d=document.createElement('button');d.textContent='Excluir';d.onclick=async()=>{if(confirm('Excluir este PDF?')){await call('/api/reports/saved/'+x.id,{method:'DELETE'});load()}};td.append(a,d);tr.appendChild(td);rows.appendChild(tr)}}catch(e){status.textContent='SessÃ£o expirada ou acesso negado.';status.className='error'}}
+load();
+</script>
+</body>
+</html>
+

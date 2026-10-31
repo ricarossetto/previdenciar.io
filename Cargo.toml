@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/previdenciar-core", "crates/previdenciar-cnis", "crates/previdenciar-workspace", "crates/rgps-core", "crates/previdenciar-rgps", "apps/desktop/src-tauri", "crates/previdenciar-reports", "crates/previdenciar-wasm", "crates/previdenciar-ai"]
+members = ["crates/previdenciar-core", "crates/previdenciar-cnis", "crates/previdenciar-workspace", "crates/rgps-core", "crates/previdenciar-rgps", "apps/desktop/src-tauri", "apps/server", "crates/previdenciar-reports", "crates/previdenciar-wasm", "crates/previdenciar-ai"]
 resolver = "2"
 
 [profile.release]
