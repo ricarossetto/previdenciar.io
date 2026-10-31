@@ -72,7 +72,7 @@ async function acceptTerms(): Promise<void> {
 }
 
 function LoginPage({ onLogin, onSignup, error }: { onLogin: (provider?: 'Google') => void; onSignup: () => void; error: string | null }) {
-  return <main className="loading-screen" style={{ padding: 24, textAlign: 'left', maxWidth: 520, margin: '0 auto' }}>
+  return <main className="loading-screen" style={{ padding: 24, paddingTop: 32, textAlign: 'left', maxWidth: 520, margin: '0 auto', height: 'auto', minHeight: '100dvh', placeContent: 'start center', overflowY: 'auto' }}>
     <div className="brand-name">previdenciar.io</div>
     <h1 style={{ marginTop: 20 }}>Entrar no escritório</h1>
     <p className="form-note">Use sua conta autorizada para abrir a base previdenciária.</p>
@@ -85,7 +85,7 @@ function LoginPage({ onLogin, onSignup, error }: { onLogin: (provider?: 'Google'
 }
 
 function TermsPage({ onAccept, error }: { onAccept: () => void; error: string | null }) {
-  return <main className="loading-screen" style={{ padding: 24, textAlign: 'left', maxWidth: 640, margin: '0 auto' }}>
+  return <main className="loading-screen" style={{ padding: 24, paddingTop: 32, textAlign: 'left', maxWidth: 640, margin: '0 auto', height: 'auto', minHeight: '100dvh', placeContent: 'start center', overflowY: 'auto' }}>
     <div className="brand-name">previdenciar.io</div>
     <h1 style={{ marginTop: 20 }}>Antes de continuar</h1>
     <p className="form-note">Leia os termos de uso e a política de privacidade. O aceite fica registrado com a versão e a data.</p>
