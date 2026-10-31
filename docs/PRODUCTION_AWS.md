@@ -7,8 +7,8 @@
 - Cloudflare Tunnel `previdenciario-aws` (`30282d26-e7c5-45de-acbe-77a9dab71833`) recebe `previdenciario.atrium.adv.br`.
 - O tÃºnel encaminha para o ALB `previdenciar-prod-326171366.sa-east-1.elb.amazonaws.com`.
 - ALB `previdenciar-prod` â†’ target group `previdenciar-tg` â†’ ECS Fargate.
-- ECS cluster `previdenciar-prod`; service `previdenciar-prod-web`; task definition `previdenciar-web:5`.
-- Imagem: `557789254125.dkr.ecr.sa-east-1.amazonaws.com/previdenciar-app:prod-20261031-5`.
+- ECS cluster `previdenciar-prod`; service `previdenciar-prod-web`; task definition `previdenciar-web:7`.
+- Imagem: `557789254125.dkr.ecr.sa-east-1.amazonaws.com/previdenciar-app:prod-20261031-7`.
 - RDS PostgreSQL `previdenciar-prod-db`, engine 18.3, `db.t4g.micro`, privado, backups de 1 dia.
 - S3 privado: `previdenciar-prod-files-557789254125`; AES256; ciclo de vida para `cnis/` 1 dia e `reports/`, `exports/` 30 dias.
 - Cognito: pool `sa-east-1_K3cfFB6GC`; app client `4vla5ttd8j59jqj5oviviaugsj`; domÃ­nio `previdenciar-auth-557789254125.auth.sa-east-1.amazoncognito.com`.
@@ -86,5 +86,6 @@ O site antigo na EC2 `i-0ac6b115b6a2868c5` continua existindo, mas o tÃºnel j�
 ```
 
 O usuÃ¡rio decidiu nÃ£o manter rollback de produto; a EC2 fica apenas como emergÃªncia operacional atÃ© a limpeza.
+
 
 
