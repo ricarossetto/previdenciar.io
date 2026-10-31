@@ -62,7 +62,7 @@ pub async fn authenticate(headers: &HeaderMap, state: &AppState) -> Result<AuthU
         Some(Value::String(value)) => value == "true",
         _ => false,
     };
-    if claims.email.is_some() && !verified {
+    if claims.email.is_some() && claims.email_verified.is_some() && !verified {
         return Err("Confirme o e-mail antes de entrar.".to_owned());
     }
     let email = claims
