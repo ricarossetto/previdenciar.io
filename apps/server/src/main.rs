@@ -5,6 +5,7 @@ mod routes;
 mod storage;
 
 use axum::http::{HeaderName, HeaderValue, Method};
+use axum::extract::DefaultBodyLimit;
 use config::Config;
 use jsonwebtoken::jwk::JwkSet;
 use sqlx::postgres::PgPoolOptions;
@@ -13,6 +14,7 @@ use std::sync::Arc;
 use std::time::Instant;
 use tokio::sync::RwLock;
 use tower_http::cors::{AllowOrigin, CorsLayer};
+use tower_http::set_header::SetResponseHeaderLayer;
 use tower_http::trace::TraceLayer;
 
 #[derive(Clone)]
@@ -88,13 +90,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 HeaderName::from_static("x-dev-user"),
             ])
     };
-    router = router.layer(cors).layer(TraceLayer::new_for_http());
+    router = router
+        .layer(DefaultBodyLimit::max(64 * 1024 * 1024))
+        .layer(SetResponseHeaderLayer::overriding(HeaderName::from_static("x-content-type-options"), HeaderValue::from_static("nosniff")))
+        .layer(SetResponseHeaderLayer::overriding(HeaderName::from_static("referrer-policy"), HeaderValue::from_static("strict-origin-when-cross-origin")))
+        .layer(SetResponseHeaderLayer::overriding(HeaderName::from_static("x-frame-options"), HeaderValue::from_static("DENY")))
+        .layer(cors)
+        .layer(TraceLayer::new_for_http());
 
     let listener = tokio::net::TcpListener::bind(&config.bind_addr).await?;
     tracing::info!(addr = %config.bind_addr, "previdenciar web server listening");
     axum::serve(listener, router).await?;
     Ok(())
 }
+
 
 
 
