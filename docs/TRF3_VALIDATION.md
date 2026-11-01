@@ -54,3 +54,13 @@ O resultado **não bate** com a API oficial.
 2. Repetir o caso e exigir igualdade de salário de benefício e RMI ao centavo.
 3. Criar casos de regressão para espécies 41 e 42 e para sexos M/F.
 4. Manter o modo nominal explicitamente separado do modo de conferência oficial.
+## Revisão crítica
+
+A revisão cruzada recomendou um híbrido:
+
+- Corrigir a série de índices para o perfil oficial versionado, sem fingir que um único caso prova equivalência.
+- Manter o resultado local e o oficial identificados por fonte enquanto a paridade multi-caso não estiver comprovada.
+- Validar fronteiras de índice, série salarial não uniforme, meses extremos e o passo a passo do salário de benefício; não aceitar apenas o total da RMI.
+- Não fechar o selo de equivalência com um único caso ou com tolerância de um centavo.
+
+Status: **divergência confirmada; correção ainda não aplicada**.
