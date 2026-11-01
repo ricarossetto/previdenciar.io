@@ -25,3 +25,18 @@
 16. Remover ou congelar definitivamente a EC2 antiga.
 17. Revisar mojibake de prompts e mensagens antigas.
 18. Rodar crítica independente novamente e repetir até zerar achados críticos/altos.
+
+## Resultado da validação TRF3
+
+- [x] Chamada oficial ao endpoint `/rgps/api/v1/calculos-rmi`.
+- [x] Caso sintético 42: oficial R$ 4.067,11 / SB R$ 5.083,89.
+- [x] Local nominal R$ 1.600,00 / SB R$ 2.000,00.
+- [x] Local corrigido R$ 3.779,69 / SB R$ 4.724,61.
+- [ ] Equivalência: **não**. Divergência de 7,07%; motor local usa INPC fixo, API usa IPC-R/INPC/IGP-DI/INPC.
+- [ ] Implementar perfil oficial versionado e validar SB/RMI em múltiplos casos.
+
+## Skills
+
+- [x] `saga` instalada para orquestração autônoma com workers.
+- [x] `cross-critique` instalada e usada na revisão da divergência.
+- [ ] Rodar nova crítica independente após a correção do motor.
