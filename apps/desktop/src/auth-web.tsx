@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import App from './App';
 import { Button } from './components/ui';
 import { setSession, validToken } from './web-auth-store';
+import { describeFailure, parseJsonSafe } from './http-errors';
+import { consumeAttempt, readCallback, resolveCallback } from './oauth-callback';
 
-const VERIFIER_KEY = 'previdenciar.web.codeVerifier';
+const ATTEMPT_KEY = 'previdenciar.web.oauthAttempt';
 const CLIENT_ID = import.meta.env.VITE_COGNITO_CLIENT_ID ?? '4vla5ttd8j59jqj5oviviaugsj';
 const DOMAIN = import.meta.env.VITE_COGNITO_DOMAIN ?? 'previdenciar-auth-557789254125.auth.sa-east-1.amazoncognito.com';
 const GOOGLE_ENABLED = import.meta.env.VITE_COGNITO_GOOGLE === '1';
@@ -21,7 +23,10 @@ async function challenge(verifier: string): Promise<string> {
 
 async function beginAuthentication(provider?: 'Google', signup = false) {
   const verifier = base64Url(crypto.getRandomValues(new Uint8Array(48)));
-  sessionStorage.setItem(VERIFIER_KEY, verifier);
+  // O state amarra o retorno a esta tentativa. Ele é aleatório e separado do
+  // verifier: se a origem devolver outro state, a troca nem chega a acontecer.
+  const state = base64Url(crypto.getRandomValues(new Uint8Array(32)));
+  sessionStorage.setItem(ATTEMPT_KEY, JSON.stringify({ verifier, state }));
   const params = new URLSearchParams({
     client_id: CLIENT_ID,
     response_type: 'code',
@@ -29,25 +34,25 @@ async function beginAuthentication(provider?: 'Google', signup = false) {
     redirect_uri: `${window.location.origin}/auth/callback`,
     code_challenge_method: 'S256',
     code_challenge: await challenge(verifier),
+    state,
   });
   if (provider) params.set('identity_provider', provider);
   window.location.assign(`https://${DOMAIN}/${signup ? 'signup' : 'oauth2/authorize'}?${params.toString()}`);
 }
 
-async function completeAuthentication(code: string) {
-  const verifier = sessionStorage.getItem(VERIFIER_KEY);
-  if (!verifier) throw new Error('Sessão de login expirada. Tente novamente.');
+async function completeAuthentication(code: string, verifier: string) {
   const response = await fetch('/api/auth/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ code, code_verifier: verifier, redirect_uri: `${window.location.origin}/auth/callback` }),
   });
   const text = await response.text();
-  const parsed = text ? JSON.parse(text) : null;
-  if (!response.ok || !parsed?.id_token) throw new Error(parsed?.error ?? 'Não foi possível concluir o login.');
-  setSession(parsed.id_token, parsed.refresh_token);
-  sessionStorage.removeItem(VERIFIER_KEY);
-  window.history.replaceState({}, '', '/');
+  const parsed = parseJsonSafe(text);
+  const idToken = typeof parsed?.id_token === 'string' ? parsed.id_token : '';
+  if (!response.ok || !idToken) {
+    throw new Error(describeFailure(response.status, parsed, 'Não foi possível concluir o login.'));
+  }
+  setSession(idToken, typeof parsed?.refresh_token === 'string' ? parsed.refresh_token : null);
 }
 
 async function sessionState(): Promise<'ready' | 'terms' | 'login'> {
@@ -55,8 +60,11 @@ async function sessionState(): Promise<'ready' | 'terms' | 'login'> {
   if (!token) return 'login';
   const response = await fetch('/api/me', { headers: { Authorization: `Bearer ${token}` } });
   if (response.status === 401) return 'login';
-  if (!response.ok) throw new Error('Não foi possível carregar a sessão.');
-  const data = await response.json() as { terms?: { accepted?: boolean } };
+  const parsed = parseJsonSafe(await response.text());
+  if (!response.ok) {
+    throw new Error(describeFailure(response.status, parsed, 'Não foi possível carregar a sessão.'));
+  }
+  const data = (parsed ?? {}) as { terms?: { accepted?: boolean } };
   return data.terms?.accepted ? 'ready' : 'terms';
 }
 
@@ -98,22 +106,40 @@ function TermsPage({ onAccept, error }: { onAccept: () => void; error: string | 
 export function WebAuthGate() {
   const [state, setState] = useState<'checking' | 'login' | 'terms' | 'ready'>('checking');
   const [error, setError] = useState<string | null>(null);
+  // O efeito roda duas vezes em desenvolvimento. A primeira passagem já
+  // consumiu a tentativa e limpou a URL; a segunda não pode tratar o retorno
+  // como divergente nem competir com a troca de código em andamento.
+  const iniciado = useRef(false);
 
   useEffect(() => {
     if (import.meta.env.VITE_AUTH_DISABLED === '1') {
       setState('ready');
       return;
     }
+    if (iniciado.current) return;
+    iniciado.current = true;
     const url = new URL(window.location.href);
-    const code = url.searchParams.get('code');
-    if (url.pathname === '/auth/callback' && code) {
-      void completeAuthentication(code)
+    const retorno = readCallback(url.pathname, url.searchParams);
+    // A decisão e o consumo da tentativa acontecem antes de qualquer rede.
+    // Limpar a URL na hora evita que um recarregamento reenvie o mesmo código;
+    // o consumo único dentro de consumeAttempt garante o mesmo para efeitos
+    // duplicados do StrictMode em desenvolvimento.
+    const decisao = resolveCallback(retorno, () => consumeAttempt(sessionStorage, ATTEMPT_KEY));
+    if (decisao.limparUrl) window.history.replaceState({}, '', '/');
+    if (decisao.kind === 'prosseguir') {
+      void completeAuthentication(decisao.code, decisao.verifier)
         .then(sessionState)
         .then(setState)
         .catch((reason) => {
           setError(reason instanceof Error ? reason.message : 'Falha ao entrar.');
           setState('login');
         });
+      return;
+    }
+    if (decisao.kind === 'mensagem') {
+      // Mensagem fechada: nunca reproduz o texto do provedor, o code ou o token.
+      setError(decisao.texto);
+      setState('login');
       return;
     }
     void sessionState().then(setState).catch((reason) => {

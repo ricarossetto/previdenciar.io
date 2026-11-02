@@ -1,4 +1,5 @@
 ﻿import { normalizeCaseForEngine } from './model';
+import { describeFailure, parseJsonSafe } from './http-errors';
 import { clearSession, refreshSession, storedToken } from './web-auth-store';
 import type {
   AiChatRequest, AiDataStatus, AiEvent, AiImportSummary, AiKeyStatus, AiProviderPreset, AiTestResult,
@@ -8,6 +9,41 @@ import type { BatchExport, Boot, Calculation, Cnis, Json, Workspace } from './mo
 import type { EconomicSnapshot } from './pcd';
 
 const API = '/api';
+
+const MSG_OPERACAO = 'A operação falhou. Tente de novo em instantes.';
+
+// Corpo de sucesso tem de ser um registro JSON. Texto vazio, página HTML,
+// o literal null e lista não são dados: o servidor publica o SPA em rota
+// desconhecida, então um 200 com HTML passaria por resposta boa.
+// Nenhum endpoint usado aqui devolve lista no topo; quando isso existir, a
+// validação precisa ser declarada no contrato do endpoint, não afrouxada aqui.
+function readSuccessObject(texto: string, padrao: string): Record<string, unknown> {
+  const limpo = texto.trim();
+  if (!limpo || limpo.startsWith('<')) throw new Error(padrao);
+  let valor: unknown;
+  try {
+    valor = JSON.parse(limpo);
+  } catch {
+    throw new Error(padrao);
+  }
+  if (!valor || typeof valor !== 'object' || Array.isArray(valor)) throw new Error(padrao);
+  return valor as Record<string, unknown>;
+}
+
+// Endpoint cujo contrato admite lista no topo. Ainda exige JSON de objeto ou
+// lista: vazio, HTML e null continuam recusados.
+function readSuccessValue(texto: string, padrao: string): Record<string, unknown> | unknown[] {
+  const limpo = texto.trim();
+  if (!limpo || limpo.startsWith('<')) throw new Error(padrao);
+  let valor: unknown;
+  try {
+    valor = JSON.parse(limpo);
+  } catch {
+    throw new Error(padrao);
+  }
+  if (!valor || typeof valor !== 'object') throw new Error(padrao);
+  return valor as Record<string, unknown> | unknown[];
+}
 
 function authHeaders(extra?: HeadersInit): HeadersInit {
   const headers = new Headers(extra);
@@ -26,22 +62,28 @@ async function authorizedFetch(path: string, init: RequestInit = {}): Promise<Re
   return response;
 }
 
-async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+type RequestOptions = {
+  // Endpoint cujo contrato é uma lista no topo. Fora disso, lista é inválida.
+  permitirLista?: boolean;
+};
+
+async function request<T>(
+  method: string,
+  path: string,
+  body?: unknown,
+  opcoes: RequestOptions = {},
+): Promise<T> {
   const response = await authorizedFetch(API + path, {
     method,
     headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   const text = await response.text();
-  let parsed: unknown = null;
-  try { parsed = text ? JSON.parse(text) : null; } catch { /* non-JSON response */ }
   if (!response.ok) {
-    const message = parsed && typeof parsed === 'object' && 'error' in parsed
-      ? String((parsed as { error: unknown }).error)
-      : `A operação falhou (${response.status}).`;
-    throw new Error(message);
+    throw new Error(describeFailure(response.status, parseJsonSafe(text), MSG_OPERACAO));
   }
-  return parsed as T;
+  if (opcoes.permitirLista) return readSuccessValue(text, MSG_OPERACAO) as T;
+  return readSuccessObject(text, MSG_OPERACAO) as T;
 }
 
 function chooseFile(accept: string): Promise<File | null> {
@@ -83,15 +125,17 @@ export const webApi = {
     form.append('file', file, file.name);
     const response = await authorizedFetch(`${API}/cnis/import`, { method: 'POST', body: form });
     const text = await response.text();
-    const parsed = text ? JSON.parse(text) : null;
-    if (!response.ok) throw new Error(parsed?.error ?? `A importação falhou (${response.status}).`);
-    return parsed as Cnis;
+    const falha = 'A importação do CNIS falhou. Tente de novo em instantes.';
+    if (!response.ok) throw new Error(describeFailure(response.status, parseJsonSafe(text), falha));
+    // O importador devolve sempre um registro do CNIS. Lista, null ou HTML
+    // aqui é resposta inválida, não um CNIS vazio.
+    return readSuccessObject(text, falha) as unknown as Cnis;
   },
   importPath: (_path: string) => unsupported('Importação por caminho local'),
   calculate: (calculation: Calculation) => request<Json>('POST', '/calculate', { calculation: normalizeCaseForEngine(calculation) }),
   rawRgps: (_input: Json) => unsupported('Motor RGPS direto'),
-  tool: (tool: string, input: Json) => request<Json>('POST', `/tools/${encodeURIComponent(tool)}`, input),
-  finance: (tool: string, input: Json) => request<Json>('POST', `/finance/${encodeURIComponent(tool)}`, input),
+  tool: (tool: string, input: Json) => request<Json>('POST', `/tools/${encodeURIComponent(tool)}`, input, { permitirLista: true }),
+  finance: (tool: string, input: Json) => request<Json>('POST', `/finance/${encodeURIComponent(tool)}`, input, { permitirLista: true }),
   previewReport: async (calculation: Calculation, workspace: Workspace, format: string, includePersonal: boolean, presentation?: Presentation) => {
     const response = await authorizedFetch(`${API}/reports/preview`, {
       method: 'POST',
@@ -100,8 +144,7 @@ export const webApi = {
     });
     if (!response.ok) {
       const text = await response.text();
-      const parsed = text ? JSON.parse(text) : null;
-      throw new Error(parsed?.error ?? `A prévia falhou (${response.status}).`);
+      throw new Error(describeFailure(response.status, parseJsonSafe(text), 'A prévia do relatório falhou.'));
     }
     return URL.createObjectURL(await response.blob());
   },
@@ -124,8 +167,7 @@ export const webApi = {
     });
     if (!response.ok) {
       const text = await response.text();
-      const parsed = text ? JSON.parse(text) : null;
-      throw new Error(parsed?.error ?? `A exportação falhou (${response.status}).`);
+      throw new Error(describeFailure(response.status, parseJsonSafe(text), 'A exportação do relatório falhou.'));
     }
     return download(await response.blob(), 'application/pdf', `previdenciar-${format.replace(/^pdf_/, '')}.pdf`);
   },
@@ -182,9 +224,9 @@ export const webApi = {
     form.append('file', file, file.name);
     const response = await authorizedFetch(`${API}/case-pdf/text`, { method: 'POST', body: form });
     const text = await response.text();
-    const parsed = text ? JSON.parse(text) : null;
-    if (!response.ok) throw new Error(parsed?.error ?? `A leitura do PDF falhou (${response.status}).`);
-    return parsed as CasePdfText;
+    const falha = 'A leitura do PDF falhou. Tente de novo em instantes.';
+    if (!response.ok) throw new Error(describeFailure(response.status, parseJsonSafe(text), falha));
+    return readSuccessObject(text, falha) as unknown as CasePdfText;
   },
   saveExportFile: (data: Uint8Array, extension: string, suggestedName: string) => Promise.resolve(download(data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer, 'application/octet-stream', `${suggestedName}.${extension}`)),
   aiImportData: (_includeNatjusPdf: boolean) => unsupported('Importação da base'),
@@ -196,9 +238,7 @@ export const webApi = {
     });
     if (!response.ok) {
       const text = await response.text();
-      let message = `O Copiloto falhou (${response.status}).`;
-      try { message = JSON.parse(text)?.error ?? message; } catch { /* resposta não JSON */ }
-      throw new Error(message);
+      throw new Error(describeFailure(response.status, parseJsonSafe(text), 'O Copiloto não respondeu. Tente de novo em instantes.'));
     }
     if (!response.body) throw new Error('O Copiloto não retornou uma resposta legível.');
     const reader = response.body.getReader();

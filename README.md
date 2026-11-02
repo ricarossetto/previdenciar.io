@@ -79,6 +79,14 @@ npm run test:e2e
 
 Esses testes usam IPC sintético em memória e não cobrem o transporte nativo do Tauri, o diálogo de exportação ou a conformidade jurídica. A suíte Rust cobre separadamente o parsing, o armazenamento, as guardas, o cálculo e a geração dos PDFs sintéticos.
 
+Para conferir a saúde da API publicada, dentro de apps/desktop:
+
+~~~powershell
+npm run check:health
+~~~
+
+O comando consulta `https://previdenciario.atrium.adv.br/api/health` e falha com código 1 quando a resposta não for JSON com `status: "ok"`. Aceita outra URL como argumento: `npm run check:health -- https://exemplo/api/health`. A regra de aprovação está em `scripts/health-core.mjs`, o mesmo módulo usado pelos testes da interface.
+
 ## Documentação
 
 - [Primeiros passos](docs/GETTING_STARTED.md)

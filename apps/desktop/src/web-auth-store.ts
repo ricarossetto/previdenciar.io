@@ -18,8 +18,14 @@ function decodePayload(token: string): TokenPayload | null {
 
 export function isExpired(token: string): boolean {
   const payload = decodePayload(token);
-  if (!payload?.exp) return false;
+  // Sem exp numérico não há como provar validade. Tratar como vencido é
+  // postura segura; a autorização real continua sendo do servidor.
+  if (!payload || typeof payload.exp !== 'number' || !Number.isFinite(payload.exp)) return true;
   return payload.exp <= Math.floor(Date.now() / 1000) + EXPIRY_SKEW_SECONDS;
+}
+
+export function shouldRefresh(token: string | null): boolean {
+  return !token || isExpired(token);
 }
 
 export function storedToken(): string | null {
