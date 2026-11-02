@@ -55,17 +55,39 @@ Números, fórmulas, coeficientes e o caminho nominal sem perfil não foram alte
 `perfil_em_branco_e_ausencia_e_nao_bloqueia` fixa que o caminho nominal segue devolvendo
 R$ 1.600,00 no caso de 300 competências de R$ 2.000,00.
 
-## Conflito conhecido, não resolvido aqui
+## Conflito resolvido em 02/11/2026 (commit seguinte)
 
-`crates/rgps-core/tests/trf3_conferencia.rs`, linhas 148–159, monta quatro casos com os mesmos
-valores (`SB_OFICIAL` / `RMI_OFICIAL`) e rótulos `sintetico-{i}`, e afirma
-`conjunto.equivalencia_declarada`. Esse é exatamente o comportamento que R1 remove. Com a
-correção, aquele teste falha.
+`crates/rgps-core/tests/trf3_conferencia.rs` montava quatro casos com os mesmos valores
+(`SB_OFICIAL` / `RMI_OFICIAL`) e rótulos `sintetico-{i}`, e afirmava
+`conjunto.equivalencia_declarada`. Esse era exatamente o comportamento que R1 remove, e o teste
+ficava vermelho.
 
-O arquivo está fora do escopo autorizado desta frente (o teste de paridade ignorado mora nele e
-só perde o `#[ignore]` depois da prova). A decisão fica para quem revisar: atualizar a
-asserção para tuplas distintas reais, ou aceitar a falha como sinal de que a alegação antiga
-era indevida.
+Com autorização pontual, a asserção foi trocada para **recusar** equivalência por repetição: o
+teste agora confere `casos_informados == 4`, `casos_distintos == 1` e
+`!equivalencia_declarada`. Também renomeei o teste de
+`sb_validado_independentemente_e_rmi_nao_nasce_do_sb` para
+`sb_validado_independentemente_rmi_independente_e_repeticao_nao_declara_equivalencia`, porque a
+intenção antiga não incluía repetição.
+
+O trecho usa apenas valores que já estavam no arquivo e mede **deduplicação**, não cobertura de
+fronteiras. Nenhum caso "oficial" novo foi inventado, e nenhum valor artificial foi apresentado
+como prova de paridade. O teste `#[ignore]` de paridade, as âncoras de SB/RMI e a expectativa de
+fallback `5068.27` foram preservados; o bloco do `#[ignore]` ficou byte a byte idêntico.
+
+## Compatibilidade dos campos novos
+
+`ConferenciaResultado` passou a serializar dois campos, `casos_distintos` e `casos_informados`.
+A mudança é **aditiva**, não uma renomeação:
+
+- nenhum campo existente foi renomeado, removido ou teve tipo alterado;
+- nenhum consumidor do repositório lê `ConferenciaResultado` fora de `rgps-core` — as buscas em
+  `crates/`, `apps/desktop`, `web/` e `scripts/` não encontraram uso;
+- `conferencia` não é reexportado em `lib.rs`; o acesso é por `rgps_core::conferencia::*`.
+
+O que isso **não** garante: consumidores externos ao repositório que desserializem
+`ConferenciaResultado` com struct fechada passariam a falhar se recusarem campos desconhecidos.
+Não afirmei contrato intocado; afirmei que a mudança é aditiva e que não há consumidor
+conhecido neste repositório. A conferência não é selo de estabilidade de API.
 
 ## Estado
 

@@ -118,7 +118,7 @@ fn caso_trf3_sb_conferido_antes_da_rmi_com_divergencia_conhecida() {
 }
 
 #[test]
-fn sb_validado_independentemente_e_rmi_nao_nasce_do_sb() {
+fn sb_validado_independentemente_rmi_independente_e_repeticao_nao_declara_equivalencia() {
     // SB confere, RMI diverge: o veredito de RMI é independente do SB.
     let conferencia = conferir_casos(&[ConferenciaCaso {
         rotulo: "sb-igual-rmi-divergente".into(),
@@ -145,7 +145,9 @@ fn sb_validado_independentemente_e_rmi_nao_nasce_do_sb() {
     assert!(unico.sb_confere_todos && unico.rmi_confere_todos);
     assert!(!unico.equivalencia_declarada, "um caso nunca prova equivalência");
 
-    // A equivalência exige o mínimo de casos distintos, todos ao centavo.
+    // Quatro entradas com os mesmos valores e rótulos diferentes NÃO são
+    // quatro casos: a prova de diversidade conta tuplas de valores, não
+    // rótulos. Este trecho mede só a deduplicação, não cobertura de fronteiras.
     let casos: Vec<ConferenciaCaso> = (0..MINIMO_CASOS_PARIDADE)
         .map(|i| ConferenciaCaso {
             rotulo: format!("sintetico-{i}"),
@@ -156,7 +158,22 @@ fn sb_validado_independentemente_e_rmi_nao_nasce_do_sb() {
         })
         .collect();
     let conjunto = conferir_casos(&casos).unwrap();
-    assert!(conjunto.equivalencia_declarada, "{}", conjunto.fundamento);
+    assert!(
+        conjunto.sb_confere_todos && conjunto.rmi_confere_todos,
+        "todos os valores conferem ao centavo"
+    );
+    assert_eq!(conjunto.casos_informados, 4, "quatro entradas na lista");
+    assert_eq!(conjunto.casos_distintos, 1, "mesmos valores: uma única tupla");
+    assert!(
+        !conjunto.equivalencia_declarada,
+        "repetição com rótulo diferente não declara equivalência: {}",
+        conjunto.fundamento
+    );
+    assert!(
+        conjunto.fundamento.contains("tuplas distintas"),
+        "o fundamento explica a contagem: {}",
+        conjunto.fundamento
+    );
 }
 
 /// PORTÃO DE PARIDADE: este teste falha de forma explícita enquanto a série
