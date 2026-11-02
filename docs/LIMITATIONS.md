@@ -32,7 +32,7 @@ Esta distribuição é uma pré-release experimental. Não use a existência de 
 - A Minuta assistida gera roteiro, texto, revisão crítica e revisão adversarial; exporta texto e DOCX e permite imprimir/salvar em PDF pelo diálogo do Windows. O OCR local do anexo da Minuta exige Tesseract com o pacote de português e Poppler instalados, lê no máximo 20 páginas e pode truncar o texto; ainda não mantém comentários ancorados nem persiste versões entre sessões. O texto exportado é um rascunho para revisão profissional. A confirmação é da leitura do anexo inteiro; ainda não há extração campo a campo com página e trecho para cada campo. A checagem do anexo procura padrões de instrução dirigida ao modelo, mas não detecta texto oculto, fonte minúscula ou texto branco; o hash SHA-256 identifica o arquivo lido, não certifica autoria nem integridade posterior.
 - A versão inicial é focada no Windows e não possui assinatura digital de código.
 - O site publicado não executa o aplicativo desktop e não recebe documentos.
-- A identidade visual definitiva está pendente de aprovação; o ícone atual é provisório.
+- A identidade visual do produto está integrada ao aplicativo (logotipo no menu lateral, no cabeçalho móvel e na abertura). O ícone do executável e do instalador ainda usa o pacote provisório até a definição final da marca pela equipe de design.
 
 ## Validação conhecida
 

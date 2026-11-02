@@ -1,4 +1,45 @@
 # Changelog
+## 0.16.3 - 2026-10-28
+
+Identidade visual e README.
+
+### Added
+- Marca quadrada no ícone do aplicativo e na aba/favicon; logo horizontal no menu lateral, no cabeçalho móvel e na abertura.
+- README visual: identidade, badges, tabelas de recursos e espécies, captura da tela inicial e links de documentação.
+
+### Fixed
+- Rótulo **Assistente guiado** no menu, no lugar de "Assistente (passo a passo)", que quebrava em duas linhas.
+
+
+## 0.16.2 - 2026-10-27
+
+Rodada 46/57 no binário 0.16.1.
+
+### Fixed
+- **46/57**: os campos de tempo especial/magistério agora abrem por padrão, com título próprio ("Tempo especial (46) e política do cálculo"), em vez de ficarem escondidos em "Ajustar manualmente".
+- **Identidade divergente**: quando o operador corrige a data de nascimento em relação ao CNIS, há uma confirmação explícita ("Confirmo a identidade revisada; não sobrescrever o CNIS importado"). Antes a execução bloqueava sem saída.
+- **PDF no editor**: o resultado do editor agora tem o centro de relatórios e a prévia/exportação do PDF, antes só disponível em Relatórios.
+- Corrigida a mensagem corrompida do bloqueio de módulo na ponte Rust.
+
+### Validado
+- Caso 46 com CNIS sintético: R$ 6.835,73; regra de direito adquirido; tabela de requisitos com carência, grau e tempo especial.
+- 64 testes da ponte + 5 de contribuições; build da interface.
+
+
+## 0.16.1 - 2026-10-27
+
+Correções do teste de menu com advogado idoso.
+
+### Fixed
+- **Assistente**: o resultado agora tem **Novo cálculo** e não fica preso ao último caso.
+- **Navegação**: **Meus cálculos**, **Assistente (passo a passo)**, **Editor avançado**, **Ferramentas** e **Cobertura e validação**, em vez de quatro nomes parecidos.
+- **Cobertura**: a página foi atualizada para as seis espécies (42/41/32/31/46/57); 46/57 com tempo especial/magistério declarados; não diz mais "apenas 42 tem motor".
+- **UI**: tema do assistente, botões 44/32/48, inputs 44, espaçamento de texto e rolagem do menu lateral.
+
+### Tests
+- 509 testes Rust, 120 de interface e 36 de navegador.
+
+
 ## 0.15.2 - 2026-10-27
 ## 0.16.0 - 2026-10-27
 

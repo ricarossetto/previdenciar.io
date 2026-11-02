@@ -10,7 +10,7 @@ const rows:Row[]=[
   {area:'Entrevista',field:'Objetivo do calculo',model:'Resposta assistida',editing:'Pergunta curta',calculation:'Somente novo beneficio executa',status:'Parcial'},
   {area:'Entrevista',field:'Sexo cadastral',model:'Masculino/Feminino',editing:'Selecao',calculation:'Usado pelo fator e regras',status:'Implementado'},
   {area:'Entrevista',field:'Deficiencia',model:'Nao/Leve/Moderada/Grave',editing:'Selecao',calculation:'LC 142 com grau constante',status:'Implementado'},
-  {area:'Entrevista',field:'Especie de beneficio',model:'Texto livre',editing:'Campo',calculation:'Apenas 42 tem motor; demais bloqueiam',status:'Parcial'},
+  {area:'Entrevista',field:'Espécie de benefício',model:'42, 41, 32, 31, 46 e 57',editing:'Seleção',calculation:'46/57 usam tempo especial/magistério declarados; as demais bloqueiam',status:'Implementado'},
   {area:'Qualidade',field:'Filiacao',model:'Importada e exibida',editing:'Somente leitura',calculation:'Classificacao por vinculo',status:'Implementado'},
   {area:'Qualidade',field:'Primeiro pagamento',model:'Derivado do primeiro lancamento',editing:'Conferencia',calculation:'Primeira competencia com salario',status:'Implementado'},
   {area:'Qualidade',field:'Periodo de graca / prorrogacoes',model:'12 meses de graca e prorrogacao ate 24',editing:'Nao se aplica',calculation:'Aplicado por vinculo',status:'Implementado'},

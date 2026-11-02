@@ -552,3 +552,45 @@ li {
 .robot-workspace.objective-step .assistant-case-context {
   display: none;
 }
+
+/* 13. Identidade visual: logo horizontal no app e marca quadrada na aba.
+   As regras usam a classe raiz real (.previdenciar-app); o bloco anterior
+   apontava para .previus-app e nunca era aplicado. */
+.previdenciar-app .brand-link {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 2px 12px 18px;
+}
+.previdenciar-app .brand-logo,
+.loading-screen .loading-logo {
+  display: block;
+  width: 100%;
+  max-width: 210px;
+  height: auto;
+  background: #f7f3ea;
+  border-radius: 12px;
+  padding: 9px 11px;
+  box-sizing: border-box;
+}
+.loading-screen .loading-logo {
+  max-width: 250px;
+  margin: 0 auto 18px;
+}
+.previdenciar-app .brand-sub {
+  padding-left: 2px;
+  font-size: 11px;
+  letter-spacing: .02em;
+  color: var(--c-muted, var(--muted));
+}
+@media (max-width: 1023px) {
+  .previdenciar-app .chrome-mobile-brand img {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    object-fit: contain;
+    background: #f7f3ea;
+    padding: 2px;
+  }
+}

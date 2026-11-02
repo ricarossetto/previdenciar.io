@@ -12,7 +12,7 @@ beforeEach(()=>{invoke.mockReset();invoke.mockImplementation(async(cmd:string,ar
 
 async function toConference(){
   render(<App/>);await screen.findByRole('heading',{name:'Início'});const u=userEvent.setup();
-  await u.click(screen.getByRole('button',{name:'Cálculos do RGPS',exact:true}));
+  await u.click(screen.getByRole('button',{name:'Meus cálculos',exact:true}));
   await u.click(screen.getByRole('button',{name:'Novo cálculo',exact:true}));
   await u.click(screen.getByRole('button',{name:'Usar o assistente de cálculos',exact:true}));
   await u.type(screen.getByLabelText('Nome do cálculo'),'Simulação Sintética do Assistente');
