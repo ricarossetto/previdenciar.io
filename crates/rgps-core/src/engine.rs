@@ -228,6 +228,34 @@ pub fn validar(entrada: &RgpsEntrada) -> Result<()> {
             return Err(RgpsError("Piso informado é maior que o teto.".into()));
         }
     }
+    // Perfil de correção é validado aqui, no núcleo, e não apenas no adaptador:
+    // a chamada direta a `calcular` não pode ignorar opções incoerentes em
+    // silêncio nem descobrir um perfil desconhecido no meio da apuração. Fica no
+    // fim para não alterar a precedência das mensagens de validação já testadas.
+    let perfil_informado = entrada
+        .opcoes
+        .perfil_correcao
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty());
+    match perfil_informado {
+        Some(perfil) => {
+            if !entrada.opcoes.corrigir_salarios {
+                return Err(RgpsError(format!(
+                    "Perfil de correção {perfil} informado com corrigir_salarios=false: o perfil só se aplica com a correção ativa. Ligue corrigir_salarios ou remova o perfil; a opção não é ignorada em silêncio."
+                )));
+            }
+            // Id desconhecido falha listando os disponíveis, antes de qualquer cálculo.
+            crate::perfil_correcao::perfil_por_id(perfil)?;
+        }
+        None => {
+            if entrada.opcoes.fallback_inpc_documentado {
+                return Err(RgpsError(
+                    "Fallback documentado pelo INPC exige perfil de correção: informe opcoes.perfil_correcao junto com corrigir_salarios, ou desligue o fallback.".into(),
+                ));
+            }
+        }
+    }
     Ok(())
 }
 
@@ -848,5 +876,47 @@ mod tests {
         // SB 2000 × 60% = 1200 < 1518 → piso.
         assert_eq!(resultado.resumo.limite_aplicado, Some("piso"));
         assert_eq!(resultado.resumo.rmi, "1518.00");
+    }
+
+    #[test]
+    fn perfil_sem_correcao_ativa_falha_no_nucleo_e_nao_e_ignorado() {
+        // Caminho que antes passava em silêncio: perfil informado, correção
+        // desligada, cálculo devolvia Ok como se o perfil não existisse.
+        let mut entrada = entrada_feminina_300();
+        entrada.opcoes.perfil_correcao = Some("trf3-v1".into());
+        entrada.opcoes.corrigir_salarios = false;
+        let erro = calcular(&entrada).expect_err("perfil com correção desligada deve bloquear");
+        assert!(erro.0.contains("corrigir_salarios=false"), "{erro}");
+        assert!(erro.0.contains("trf3-v1"), "{erro}");
+        // A porta pública de validação também bloqueia, não só calcular().
+        assert!(validar(&entrada).is_err());
+    }
+
+    #[test]
+    fn perfil_desconhecido_falha_na_validacao_antes_do_calculo() {
+        let mut entrada = entrada_feminina_300();
+        entrada.opcoes.perfil_correcao = Some("perfil-inexistente".into());
+        entrada.opcoes.corrigir_salarios = true;
+        let erro = validar(&entrada).unwrap_err();
+        assert!(erro.0.contains("trf3-v1"), "lista os disponíveis: {erro}");
+        assert!(calcular(&entrada).is_err());
+    }
+
+    #[test]
+    fn fallback_sem_perfil_falha_na_validacao() {
+        let mut entrada = entrada_feminina_300();
+        entrada.opcoes.fallback_inpc_documentado = true;
+        let erro = validar(&entrada).unwrap_err();
+        assert!(erro.0.contains("exige perfil de correção"), "{erro}");
+    }
+
+    #[test]
+    fn perfil_vazio_ou_com_espacos_nao_arma_a_guardas() {
+        // Campo em branco é ausência declarada, não perfil: não bloqueia.
+        let mut entrada = entrada_feminina_300();
+        entrada.opcoes.perfil_correcao = Some("   ".into());
+        entrada.opcoes.corrigir_salarios = false;
+        assert!(validar(&entrada).is_ok());
+        assert_eq!(calcular(&entrada).unwrap().resumo.rmi, "1600.00");
     }
 }
