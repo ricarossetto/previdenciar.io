@@ -64,3 +64,11 @@ A revisão cruzada recomendou um híbrido:
 - Não fechar o selo de equivalência com um único caso ou com tolerância de um centavo.
 
 Status: **divergência confirmada; correção ainda não aplicada**.
+
+## Atualização de 02/11/2026
+
+A série IPC-R (07/1994–06/1995) foi encontrada na fonte pública do IBGE e versionada em
+`crates/rgps-core/data/`. Isso resolve o insumo que faltava, não a paridade. O confronto com
+a API do TRF3 continua sem execução e os valores esperados acima não foram alterados.
+Detalhes, hash e o que ainda falta em
+[TRF3_VALIDATION_20261102.md](TRF3_VALIDATION_20261102.md).

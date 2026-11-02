@@ -1,0 +1,19 @@
+{
+  "serie": "IPC-R",
+  "versao": "ibge-86-103-brasil-geral-20261102",
+  "fonte": "IBGE — API de Serviços v3, agregado 86 (Índice de Preços ao Consumidor em Real), variável 103 (Percentual no mês), unidade %, classificação 72 categoria 2640 (Índice geral), localidade N1 Brasil, períodos 199407–199506. Corpo bruto em data/ipcr-ibge-86-20261102.json, SHA-256 5CEFB1CABA2B0046A83848161E27A0D8C2F12B3AE3E3BE19B3846B2DBC025B98, coletado em 2026-11-02T07:35:23Z.",
+  "valores": [
+    { "competencia": "1994-07", "variacao": "6.08" },
+    { "competencia": "1994-08", "variacao": "5.46" },
+    { "competencia": "1994-09", "variacao": "1.51" },
+    { "competencia": "1994-10", "variacao": "1.86" },
+    { "competencia": "1994-11", "variacao": "3.27" },
+    { "competencia": "1994-12", "variacao": "2.19" },
+    { "competencia": "1995-01", "variacao": "1.67" },
+    { "competencia": "1995-02", "variacao": "0.99" },
+    { "competencia": "1995-03", "variacao": "1.41" },
+    { "competencia": "1995-04", "variacao": "1.92" },
+    { "competencia": "1995-05", "variacao": "2.57" },
+    { "competencia": "1995-06", "variacao": "1.82" }
+  ]
+}
