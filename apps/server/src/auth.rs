@@ -36,22 +36,25 @@ pub async fn authenticate(headers: &HeaderMap, state: &AppState) -> Result<AuthU
         .get(axum::http::header::AUTHORIZATION)
         .and_then(|value| value.to_str().ok())
         .and_then(|value| value.strip_prefix("Bearer "))
-        .ok_or_else(|| "SessÃ£o ausente.".to_owned())?;
+        .ok_or_else(|| "Sessão ausente.".to_owned())?;
 
-    let header = decode_header(token).map_err(|_| "Token invÃ¡lido.".to_owned())?;
-    let kid = header.kid.ok_or_else(|| "Token sem identificador de chave.".to_owned())?;
+    let header = decode_header(token).map_err(|_| "Token inválido.".to_owned())?;
+    let kid = header
+        .kid
+        .ok_or_else(|| "Token sem identificador de chave.".to_owned())?;
     let jwks = jwks(state).await?;
     let jwk = jwks
         .keys
         .iter()
         .find(|key| key.common.key_id.as_deref() == Some(kid.as_str()))
         .ok_or_else(|| "Chave de assinatura desconhecida.".to_owned())?;
-    let key = DecodingKey::from_jwk(jwk).map_err(|_| "Chave de assinatura invÃ¡lida.".to_owned())?;
+    let key =
+        DecodingKey::from_jwk(jwk).map_err(|_| "Chave de assinatura inválida.".to_owned())?;
     let mut validation = Validation::new(Algorithm::RS256);
     validation.set_audience(&[state.config.cognito_client_id.as_str()]);
     validation.set_issuer(&[state.config.cognito_issuer().as_str()]);
     let claims = decode::<Claims>(token, &key, &validation)
-        .map_err(|_| "SessÃ£o invÃ¡lida ou expirada.".to_owned())?
+        .map_err(|_| "Sessão inválida ou expirada.".to_owned())?
         .claims;
     if claims.token_use.as_deref() == Some("access") && claims.email.is_none() {
         // Access tokens are accepted, but the email is taken from the subject
@@ -86,14 +89,13 @@ async fn jwks(state: &AppState) -> Result<JwkSet, String> {
         .get(state.config.jwks_url())
         .send()
         .await
-        .map_err(|_| "NÃ£o foi possÃ­vel consultar as chaves do Cognito.".to_owned())?
+        .map_err(|_| "Não foi possível consultar as chaves do Cognito.".to_owned())?
         .error_for_status()
         .map_err(|_| "O Cognito recusou a consulta de chaves.".to_owned())?;
     let jwks = response
         .json::<JwkSet>()
         .await
-        .map_err(|_| "Resposta de chaves do Cognito invÃ¡lida.".to_owned())?;
+        .map_err(|_| "Resposta de chaves do Cognito inválida.".to_owned())?;
     *state.jwks.write().await = Some((Instant::now(), jwks.clone()));
     Ok(jwks)
 }
-

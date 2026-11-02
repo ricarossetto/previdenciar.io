@@ -51,7 +51,14 @@ describe('MinutaPage assisted flow', () => {
     await user.click(screen.getByRole('checkbox', { name: /Permitir o envio/ }));
     await user.click(screen.getByRole('button', { name: /1. Gerar roteiro/ }));
     await waitFor(() => expect((screen.getByPlaceholderText(/O roteiro gerado/) as HTMLTextAreaElement).value).toContain('Roteiro sintetico'));
-    await user.click(screen.getByRole('button', { name: /2. Gerar minuta/ }));
+    const draftButton = screen.getByRole('button', { name: /2. Gerar minuta/ });
+    expect(draftButton).toBeDisabled();
+    fireEvent.change(screen.getByLabelText('Área'), { target: { value: 'Previdenciário' } });
+    fireEvent.change(screen.getByLabelText('Matéria'), { target: { value: 'Aposentadoria por idade' } });
+    await user.click(screen.getByRole('button', { name: 'Confirmar classificação' }));
+    await waitFor(() => expect(screen.getByText('Classificação confirmada')).toBeInTheDocument());
+    expect(draftButton).toBeEnabled();
+    await user.click(draftButton);
     await waitFor(() => expect((screen.getByPlaceholderText(/A minuta aparece/) as HTMLTextAreaElement).value).toContain('Minuta sintetica'));
     const calls = mocks.invoke.mock.calls.filter(([command]) => command === 'ai_chat');
     expect(calls).toHaveLength(2);
@@ -59,12 +66,65 @@ describe('MinutaPage assisted flow', () => {
     expect(calls[1][1].request.task).toBe('draft');
     expect(calls[0][1].request.caseContext).toContain('Módulo: RGPS');
     expect(calls[0][1].request.consent).toBe(true);
+    expect(calls[1][1].request.messages[0].content).toContain('Área: Previdenciário');
     await waitFor(() => expect(screen.getByRole('button', { name: /Exportar DOCX/ })).toBeEnabled());
     await user.click(screen.getByRole('button', { name: /Exportar DOCX/ }));
     await waitFor(() => expect(mocks.invoke.mock.calls.some(([command]) => command === 'save_export_file')).toBe(true));
     const exported = mocks.invoke.mock.calls.find(([command]) => command === 'save_export_file');
     expect(exported?.[1].extension).toBe('docx');
     expect(exported?.[1].data).toEqual([1, 2, 3]);
+  });
+
+  it('blocks drafting until the classification of the piece is explicitly confirmed', async () => {
+    const user = userEvent.setup();
+    render(<MinutaPage workspace={blankWorkspace()} notify={() => {}} onOpenCopilot={() => {}} onSaveTemplate={async () => {}}/>);
+    await waitFor(() => expect(screen.getByText('Provedor pronto')).toBeInTheDocument());
+    await user.type(screen.getByLabelText('Objetivo e limites'), 'Organizar a revisão.');
+    await user.click(screen.getByRole('checkbox', { name: /Permitir o envio/ }));
+    await user.click(screen.getByRole('button', { name: /1. Gerar roteiro/ }));
+    await waitFor(() => expect((screen.getByPlaceholderText(/O roteiro gerado/) as HTMLTextAreaElement).value).toContain('Roteiro sintetico'));
+    const draftButton = screen.getByRole('button', { name: /2. Gerar minuta/ });
+    expect(screen.getByText('A confirmar')).toBeInTheDocument();
+    expect(draftButton).toBeDisabled();
+    fireEvent.change(screen.getByLabelText('Área'), { target: { value: 'Direito Previdenciário' } });
+    fireEvent.change(screen.getByLabelText('Matéria'), { target: { value: 'Aposentadoria por idade' } });
+    fireEvent.change(screen.getByLabelText('Técnicas'), { target: { value: 'petição inicial' } });
+    expect(draftButton).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: 'Confirmar classificação' }));
+    await waitFor(() => expect(screen.getByText('Classificação confirmada')).toBeInTheDocument());
+    expect(draftButton).toBeEnabled();
+    fireEvent.change(screen.getByLabelText('Área'), { target: { value: 'Direito Processual' } });
+    expect(screen.getByText('A confirmar')).toBeInTheDocument();
+    expect(draftButton).toBeDisabled();
+  });
+
+  it('proposes a classification with the AI and still requires explicit confirmation', async () => {
+    mocks.invoke.mockImplementation(async (command: string, args?: Record<string, unknown>) => {
+      if (command === 'ai_provider_catalog') return [{ id: 'opencode-go', name: 'OpenCode Go', kind: 'openai', baseUrl: 'https://opencode.ai/inference/go/openai/v1', defaultModel: 'deepseek-v4.1-flash', models: ['deepseek-v4.1-flash'], keyRequired: true, note: '' }];
+      if (command === 'ai_key_status') return [{ providerId: 'opencode-go', hasKey: true }];
+      if (command === 'ai_chat') {
+        const channel = args?.onEvent as { send: (event: unknown) => void };
+        channel.send({ type: 'delta', text: 'Área: Direito Previdenciário\nMatéria: Aposentadoria por idade\nTécnicas: petição inicial; perícia técnica' });
+        channel.send({ type: 'done', finish: 'stop', usage: null });
+        return;
+      }
+      throw new Error('Unexpected native command ' + command);
+    });
+    const user = userEvent.setup();
+    render(<MinutaPage workspace={blankWorkspace()} notify={() => {}} onOpenCopilot={() => {}} onSaveTemplate={async () => {}}/>);
+    await waitFor(() => expect(screen.getByText('Provedor pronto')).toBeInTheDocument());
+    await user.type(screen.getByLabelText('Objetivo e limites'), 'Revisar a DIB.');
+    await user.click(screen.getByRole('checkbox', { name: /Permitir o envio/ }));
+    await user.click(screen.getByRole('button', { name: /Propor classificação/ }));
+    await waitFor(() => expect(screen.getByLabelText('Área')).toHaveValue('Direito Previdenciário'));
+    expect(screen.getByLabelText('Matéria')).toHaveValue('Aposentadoria por idade');
+    expect(screen.getByLabelText('Técnicas')).toHaveValue('petição inicial; perícia técnica');
+    expect(screen.getByText('A confirmar')).toBeInTheDocument();
+    const call = mocks.invoke.mock.calls.find(([command]) => command === 'ai_chat');
+    expect(call?.[1].request.task).toBe('chat');
+    expect(call?.[1].request.messages[0].content).toContain('Classifique a peça');
+    await user.click(screen.getByRole('button', { name: 'Confirmar classificação' }));
+    await waitFor(() => expect(screen.getByText('Classificação confirmada')).toBeInTheDocument());
   });
 
   it('shows when the case PDF was read by local OCR', async () => {

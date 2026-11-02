@@ -227,6 +227,12 @@ fn calculate_input(r: CalculationInput) -> Result<Value, String> {
     }
     if o.corrigir_salarios==Some(true) && o.divisor_minimo==Some(true) { issue(&mut b,"corrected_divisor_unsupported","opcoes.divisorMinimo","PBC corrigido nativo não aplica divisor mínimo: combinação bloqueada, não ignorada."); }
     if o.corrigir_salarios==Some(false) && o.descarte==Some(true) { issue(&mut b,"uncorrected_discard_unsupported","opcoes.descarte","Descarte só existe no caminho corrigido nativo: combinação bloqueada."); }
+    let perfil_declarado = o.perfil_correcao.as_deref().map(str::trim).filter(|s| !s.is_empty());
+    if let Some(perfil) = perfil_declarado {
+        if o.corrigir_salarios!=Some(true) { issue(&mut b,"profile_requires_correction","opcoes.perfilCorrecao","Perfil de correção só se aplica com corrigirSalarios ativo."); }
+        if rgps_core::perfil_correcao::perfil_por_id(perfil).is_err() { issue(&mut b,"correction_profile_unknown","opcoes.perfilCorrecao","Perfil de correção desconhecido. Perfis disponíveis: trf3-v1."); }
+    }
+    if o.fallback_inpc_documentado==Some(true) && perfil_declarado.is_none() { issue(&mut b,"fallback_without_profile","opcoes.fallbackInpcDocumentado","O fallback documentado pelo INPC só existe no caminho do perfil de correção; informe opcoes.perfilCorrecao."); }
     if o.corrigir_salarios==Some(true) {
         if let Some(reference)=reference {
             let last = rgps_core::dados::inpc::INPC_MENSAL.last().expect("nonempty INPC").0;
@@ -262,7 +268,7 @@ fn calculate_input(r: CalculationInput) -> Result<Value, String> {
     let dib = dib.expect("validated DIB");
     let native = RgpsEntrada {
         nome:None, especie:r.segurado.especie.clone(), sexo:sex, data_nascimento:birth, data_referencia:Some(dib), vinculos:links, competencias:wages,
-        opcoes:RgpsOpcoes {corrigir_salarios:o.corrigir_salarios.unwrap(),descarte:o.descarte.unwrap(),divisor_minimo:o.divisor_minimo.unwrap(),descartar_menores_minimo:o.descartar_menores_minimo,referencia_correcao:reference.or(Some(Competencia {ano:dib.ano as u16,mes:dib.mes})),teto:ceiling,piso:floor,aplicar_teto_vigente_der:o.aplicar_teto_vigente_der.unwrap(),expectativa_sobrevida:expectation,periodos_graca:vec![],recolhimentos_atraso:vec![],regra_alvo:None,incapacidade_origem:o.incapacidade_origem.clone(),especial_grau:o.grau_especial.clone(),tempo_especial_meses:o.tempo_especial_meses,especial_antes_reforma:o.especial_antes_reforma,magisterio_meses:o.magisterio_meses,magisterio_exclusivo:o.magisterio_exclusivo,magisterio_antes_reforma:o.magisterio_antes_reforma}
+        opcoes:RgpsOpcoes {corrigir_salarios:o.corrigir_salarios.unwrap(),descarte:o.descarte.unwrap(),divisor_minimo:o.divisor_minimo.unwrap(),descartar_menores_minimo:o.descartar_menores_minimo,referencia_correcao:reference.or(Some(Competencia {ano:dib.ano as u16,mes:dib.mes})),teto:ceiling,piso:floor,aplicar_teto_vigente_der:o.aplicar_teto_vigente_der.unwrap(),expectativa_sobrevida:expectation,periodos_graca:vec![],recolhimentos_atraso:vec![],regra_alvo:None,incapacidade_origem:o.incapacidade_origem.clone(),especial_grau:o.grau_especial.clone(),tempo_especial_meses:o.tempo_especial_meses,especial_antes_reforma:o.especial_antes_reforma,magisterio_meses:o.magisterio_meses,magisterio_exclusivo:o.magisterio_exclusivo,magisterio_antes_reforma:o.magisterio_antes_reforma,perfil_correcao:o.perfil_correcao.clone(),fallback_inpc_documentado:o.fallback_inpc_documentado.unwrap_or(false)}
     };
     // The copied core is kept byte-identical; overflow/panic never becomes a zero result.
     let result = std::panic::catch_unwind(|| rgps_core::calcular(&native))

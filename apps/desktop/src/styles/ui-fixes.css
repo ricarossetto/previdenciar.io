@@ -238,7 +238,7 @@ li {
   }
 }
 
-/* 7. Links de salto ficam ocultos atÈ o foco por teclado. */
+/* 7. Links de salto ficam ocultos at√© o foco por teclado. */
 .skip-link {
   position: fixed;
   left: 16px;
@@ -262,7 +262,7 @@ li {
   outline-offset: 2px;
 }
 
-/* 8. Campos, busca, selects e botıes compartilham a mesma altura. */
+/* 8. Campos, busca, selects e bot√µes compartilham a mesma altura. */
 .searchbox {
   height: 44px;
 }
@@ -314,7 +314,7 @@ li {
   grid-template-columns: 1fr;
 }
 
-/* 9. Sobrescreve a regra antiga que deixava o atalho de salto sempre visÌvel. */
+/* 9. Sobrescreve a regra antiga que deixava o atalho de salto sempre vis√≠vel. */
 .previdenciar-app .skip-link {
   top: -80px;
   left: 16px;
@@ -338,7 +338,7 @@ li {
   display: none;
 }
 
-/* 10. PainÈis laterais usam 40 px, n„o uma altura improvisada por componente. */
+/* 10. Pain√©is laterais usam 40 px, n√£o uma altura improvisada por componente. */
 .ai-form .field .input,
 .minuta-save .input,
 .minuta-version-add .input {
@@ -382,13 +382,13 @@ li {
   }
 }
 
-/* O foco program·tico no tÌtulo existe para leitores de tela; n„o desenha caixa. */
+/* O foco program√°tico no t√≠tulo existe para leitores de tela; n√£o desenha caixa. */
 .previdenciar-app .page-head h1:focus,
 .previdenciar-app .page-head h1:focus-visible {
   outline: none;
 }
 
-/* 11. Menos moldura e mais conte˙do: aproxima o topo e compacta os cartıes. */
+/* 11. Menos moldura e mais conte√∫do: aproxima o topo e compacta os cart√µes. */
 .previdenciar-app .top-chrome {
   padding-left: 24px;
   gap: 12px;
@@ -479,7 +479,7 @@ li {
 .robot-workspace { gap: 12px; }
 .panel--answer .form-actions { margin-top: 14px; padding-top: 12px; }
 
-/* 12. Assistente compacto: a pergunta ocupa a tela, n„o o vazio. */
+/* 12. Assistente compacto: a pergunta ocupa a tela, n√£o o vazio. */
 .previdenciar-app .app-content { padding-top: 20px; padding-bottom: 24px; }
 .page-wrap { gap: 12px; }
 .previdenciar-app .flow-v2 {

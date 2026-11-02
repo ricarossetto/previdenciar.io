@@ -68,6 +68,12 @@ pub struct ParcelaCorrigida {
     pub corrigido: Decimal,
     /// Valor cheio (sem arredondar a 2 casas), usado na ordenação do descarte.
     pub corrigido_full: Decimal,
+    /// Séries de índice efetivamente usadas na correção desta parcela.
+    pub series_usadas: Vec<String>,
+    /// Perfil de correção versionado aplicado (ausente no caminho de INPC único).
+    pub perfil: Option<String>,
+    /// Houve fallback documentado pelo INPC na correção desta parcela.
+    pub fallback_inpc: bool,
 }
 
 /// min(SC, teto da época) antes da correção; correção pelo INPC acumulado.
@@ -93,6 +99,42 @@ pub fn corrigir_salario(
         indice: fator,
         corrigido: crate::money::to_cents(corrigido),
         corrigido_full: corrigido,
+        series_usadas: vec!["INPC".to_string()],
+        perfil: None,
+        fallback_inpc: false,
+    })
+}
+
+/// min(SC, teto da época) antes da correção; correção pelo fator do perfil de
+/// correção versionado ([`crate::perfil_correcao::FatorCorrecao`]), que registra
+/// a série usada em cada competência do período corrigido.
+pub fn corrigir_salario_com_fator(
+    competencia: &Competencia,
+    salario_nominal: Decimal,
+    fator_correcao: &crate::perfil_correcao::FatorCorrecao,
+) -> Result<ParcelaCorrigida> {
+    if salario_nominal < Decimal::ZERO {
+        return Err(RgpsError(
+            "Salário de contribuição não pode ser negativo.".into(),
+        ));
+    }
+    let teto = teto_vigente(competencia)?;
+    let considerado = min_dec(salario_nominal, teto);
+    let corrigido = mul(considerado, fator_correcao.fator);
+    Ok(ParcelaCorrigida {
+        competencia: *competencia,
+        salario_nominal,
+        teto,
+        considerado,
+        indice: fator_correcao.fator,
+        corrigido: crate::money::to_cents(corrigido),
+        corrigido_full: corrigido,
+        series_usadas: fator_correcao.series_usadas.clone(),
+        perfil: Some(format!(
+            "{}@{}",
+            fator_correcao.perfil_id, fator_correcao.perfil_versao
+        )),
+        fallback_inpc: !fator_correcao.substituicoes_inpc.is_empty(),
     })
 }
 
@@ -133,5 +175,54 @@ mod tests {
         let parcela = corrigir_salario(&comp, Decimal::from(5000), &refc).unwrap();
         assert_eq!(money(parcela.teto), "2400.00");
         assert_eq!(money(parcela.considerado), "2400.00");
+    }
+
+    #[test]
+    fn corrigir_com_fator_do_perfil_registra_serie_e_perfil() {
+        let catalogo = crate::perfil_correcao::CatalogoSeries::compilado().unwrap();
+        let perfil = crate::perfil_correcao::perfil_trf3_v1();
+        // Faixa IGP-DI: série real, sem fallback.
+        let fator = crate::perfil_correcao::fator_com_perfil(
+            &catalogo,
+            &perfil,
+            crate::perfil_correcao::PoliticaFallback::ExigirSerieOficial,
+            &Competencia::parse("2004-01", "t").unwrap(),
+            &Competencia::parse("2004-01", "t").unwrap(),
+        )
+        .unwrap();
+        let parcela = corrigir_salario_com_fator(
+            &Competencia::parse("2004-01", "t").unwrap(),
+            Decimal::from(5000),
+            &fator,
+        )
+        .unwrap();
+        assert_eq!(money(parcela.teto), "2400.00");
+        assert_eq!(money(parcela.considerado), "2400.00");
+        assert_eq!(parcela.series_usadas, vec!["IGP-DI".to_string()]);
+        assert_eq!(parcela.perfil.as_deref(), Some("trf3-v1@1"));
+        assert!(!parcela.fallback_inpc);
+    }
+
+    #[test]
+    fn corrigir_com_fator_marca_fallback_do_inpc() {
+        let catalogo = crate::perfil_correcao::CatalogoSeries::compilado().unwrap();
+        let perfil = crate::perfil_correcao::perfil_trf3_v1();
+        let fator = crate::perfil_correcao::fator_com_perfil(
+            &catalogo,
+            &perfil,
+            crate::perfil_correcao::PoliticaFallback::FallbackInpcDocumentado,
+            &Competencia::parse("1995-05", "t").unwrap(),
+            &Competencia::parse("1995-05", "t").unwrap(),
+        )
+        .unwrap();
+        let parcela = corrigir_salario_com_fator(
+            &Competencia::parse("1995-05", "t").unwrap(),
+            Decimal::from(2000),
+            &fator,
+        )
+        .unwrap();
+        // Teto de 1995-05 (832.66) corta o salário antes da correção.
+        assert_eq!(money(parcela.considerado), "832.66");
+        assert!(parcela.fallback_inpc, "substituição IPC-R→INPC registrada");
     }
 }

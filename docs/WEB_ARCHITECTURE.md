@@ -32,9 +32,10 @@ React (apps/desktop, modo web)
 
 ## Modo local
 
-Sem `AUTH_DISABLED`, a API exige JWT do Cognito. Em desenvolvimento:
+Sem `AUTH_DISABLED`, a API exige JWT do Cognito. Em desenvolvimento (a flag só é aceita com `APP_ENV=development` ou `APP_ENV=test`):
 
 ```dotenv
+APP_ENV=development
 AUTH_DISABLED=1
 DATABASE_URL=postgres://postgres:dev@127.0.0.1:55432/previdenciar
 WEB_DIST=apps/desktop/dist

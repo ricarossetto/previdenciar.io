@@ -4,6 +4,16 @@ import type { Boot, Workspace, Cnis, Calculation, Json, BatchExport } from './mo
 import type { FabricaInput, FabricaSummary } from './fabrica';
 /** Presentation choices for the generated documents. They never change the calculation. */
 export interface Presentation {includeAppendix?:boolean;includeQuality?:boolean;includePlanning?:boolean}
+export interface SavedReport {id:string;calculationId:number|null;format:string;sizeBytes:number;sha256:string;createdAt:string;expiresAt:string}
+export interface SavedReportUrl {url:string;expiresInSeconds:number}
+export interface SavedReportStored {id:string;format:string;sizeBytes:number;sha256:string;expiresInDays:number}
+/** Saved PDFs live on the server account; the desktop build has no account, so it exposes null. */
+export interface SavedReportsApi {
+  save:(calculation:Calculation,workspace:Workspace,format:string,includePersonal:boolean,presentation?:Presentation)=>Promise<SavedReportStored>;
+  list:()=>Promise<SavedReport[]>;
+  link:(id:string)=>Promise<SavedReportUrl>;
+  remove:(id:string)=>Promise<void>;
+}
 export type AiProviderKind='openai'|'anthropic';
 export interface AiProviderPreset{id:string;name:string;kind:AiProviderKind;baseUrl:string;defaultModel:string;models:string[];keyRequired:boolean;note:string}
 export interface AiKeyStatus{providerId:string;hasKey:boolean}
@@ -51,7 +61,8 @@ const tauriApi={
  saveExportFile:(data:Uint8Array,extension:string,suggestedName:string)=>invoke<string|null>('save_export_file',{data:Array.from(data),extension,suggestedName}),
  aiImportData:(includeNatjusPdf:boolean)=>invoke<AiImportSummary|null>('ai_import_data',{includeNatjusPdf}),
  aiChat:(request:AiChatRequest,onEvent:(event:AiEvent)=>void)=>{const channel=new Channel<AiEvent>();channel.onmessage=onEvent;return invoke<void>('ai_chat',{request,onEvent:channel})},
- aiCancel:(requestId:string)=>invoke<void>('ai_cancel',{requestId}),
+  aiCancel:(requestId:string)=>invoke<void>('ai_cancel',{requestId}),
+  savedReports:null,
 };
 export function errorMessage(e:unknown):string{if(typeof e==='string')return e;if(e instanceof Error)return e.message;return 'Não foi possível concluir a operação. Nenhuma alteração foi confirmada.'}
 import { webApi } from './web-api';

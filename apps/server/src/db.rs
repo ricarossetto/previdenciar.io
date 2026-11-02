@@ -1,4 +1,4 @@
-use crate::auth::AuthUser;
+﻿use crate::auth::AuthUser;
 use serde_json::Value;
 use sqlx::{PgPool, Row};
 use uuid::Uuid;
@@ -141,3 +141,4 @@ pub async fn audit(
     .await?;
     Ok(())
 }
+

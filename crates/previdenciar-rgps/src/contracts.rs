@@ -86,6 +86,12 @@ pub struct OptionsInput {
     pub magisterio_exclusivo: Option<bool>,
     /// 57: tempo de magistério completo até 13/11/2019.
     pub magisterio_antes_reforma: Option<bool>,
+    /// Perfil de correção versionado (ex.: "trf3-v1"): usa as séries por faixa
+    /// de vigência do perfil em vez do INPC único. Exige corrigirSalarios.
+    pub perfil_correcao: Option<String>,
+    /// Fallback documentado pelo INPC quando a série oficial do perfil falta.
+    /// Sem ele, a série ausente bloqueia o cálculo.
+    pub fallback_inpc_documentado: Option<bool>,
 }
 #[derive(Clone, Default, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]

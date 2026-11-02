@@ -42,7 +42,7 @@ O frontend fica em `http://127.0.0.1:8787/` e a API em `/api/*`.
 
 ## Autenticação
 
-`AUTH_DISABLED=1` só existe para desenvolvimento. Em produção, a API valida o JWT do Cognito pelo JWKS, com issuer e audience configurados. O frontend usa o modo web quando compilado com `vite build --mode web`.
+`AUTH_DISABLED=1` só existe para desenvolvimento e só é aceita com `APP_ENV=development` ou `APP_ENV=test`; em produção (APP_ENV ausente, `production` ou valor desconhecido) a flag é ignorada com aviso no log e o header `x-dev-user` fica fora do CORS. Em produção, a API valida o JWT do Cognito pelo JWKS, com issuer e audience configurados. O frontend usa o modo web quando compilado com `vite build --mode web`.
 
 ## Banco
 

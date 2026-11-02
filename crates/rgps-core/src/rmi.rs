@@ -15,6 +15,12 @@ pub struct ParcelaPbc {
     pub indice: String,
     pub corrigido: String,
     pub fonte: String,
+    /// Séries de índice efetivamente usadas na correção desta parcela.
+    pub series_usadas: Vec<String>,
+    /// Perfil de correção versionado aplicado (ausente no caminho de INPC único).
+    pub perfil: Option<String>,
+    /// Houve fallback documentado pelo INPC na correção desta parcela.
+    pub fallback_inpc: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -32,6 +38,14 @@ pub struct PbcResultado {
     pub descarte_aplicado: bool,
     pub fontes_tetos: &'static str,
     pub fontes_inpc: &'static str,
+    /// Perfil de correção versionado usado (ex.: "trf3-v1@1"); None no INPC único.
+    pub perfil: Option<String>,
+    /// Séries de índice efetivamente usadas, sem repetição.
+    pub series_utilizadas: Vec<String>,
+    /// Substituições documentadas IPC-R→INPC (fallback), mês a mês.
+    pub substituicoes_inpc: Vec<String>,
+    /// Séries exigidas pelo perfil e ausentes do catálogo no momento do cálculo.
+    pub series_ausentes: Vec<String>,
 }
 
 /// Comparação descritiva de médias, sem escolher regra nem recalcular tempo.
@@ -81,18 +95,55 @@ fn cenarios_de_media(parcelas: &[ParcelaCorrigida]) -> Result<Vec<CenarioPbc>> {
     Ok(cenarios)
 }
 
-/// Porta de calcularRmiComCorrecao: teto da época antes, INPC acumulado,
-/// descarte dos 20% menores e média das consideradas.
-pub fn calcular_pbc_com_correcao(
-    competencias: &[(Competencia, Decimal)],
+fn publicar_parcelas(parcelas: &[ParcelaCorrigida]) -> Vec<ParcelaPbc> {
+    let (tetos, inpc) = fontes_atualizacao();
+    parcelas
+        .iter()
+        .map(|p| ParcelaPbc {
+            competencia: p.competencia.to_string(),
+            salario: money(p.salario_nominal),
+            teto: money(p.teto),
+            considerado: money(p.considerado),
+            indice: fixed(p.indice, 6),
+            corrigido: money(p.corrigido),
+            fonte: format!("{tetos} | {inpc}"),
+            series_usadas: p.series_usadas.clone(),
+            perfil: p.perfil.clone(),
+            fallback_inpc: p.fallback_inpc,
+        })
+        .collect()
+}
+
+/// Consolida perfil, séries usadas e competências com fallback a partir das parcelas.
+fn consolidar_series(
+    parcelas: &[ParcelaCorrigida],
+) -> (Option<String>, Vec<String>, Vec<String>) {
+    let mut perfil: Option<String> = None;
+    let mut series: Vec<String> = Vec::new();
+    let mut substituicoes: Vec<String> = Vec::new();
+    for parcela in parcelas {
+        if perfil.is_none() {
+            perfil = parcela.perfil.clone();
+        }
+        for serie in &parcela.series_usadas {
+            if !series.contains(serie) {
+                series.push(serie.clone());
+            }
+        }
+        if parcela.fallback_inpc {
+            substituicoes.push(parcela.competencia.to_string());
+        }
+    }
+    (perfil, series, substituicoes)
+}
+
+/// Corpo comum do PBC corrigido: ordena desc pelo valor cheio (não arredondado),
+/// aplica o descarte fixo de 20% quando pedido e fecha a média das consideradas.
+fn pbc_de_parcelas(
+    parcelas: Vec<ParcelaCorrigida>,
     referencia: &Competencia,
     descarte: bool,
 ) -> Result<PbcResultado> {
-    let mut parcelas: Vec<_> = Vec::with_capacity(competencias.len());
-    for (competencia, salario) in competencias {
-        parcelas.push(corrigir_salario(competencia, *salario, referencia)?);
-    }
-
     let pbc = parcelas.len();
     let consideradas = if descarte {
         ((pbc as f64) * 0.8).floor().max(1.0) as usize
@@ -118,37 +169,80 @@ pub fn calcular_pbc_com_correcao(
     let media = div(soma, Decimal::from(consideradas as i64))?;
     let salario_beneficio = to_cents(media);
 
-    let parcelas_publicas: Vec<ParcelaPbc> = parcelas
-        .iter()
-        .map(|p| {
-            let (tetos, inpc) = fontes_atualizacao();
-            ParcelaPbc {
-                competencia: p.competencia.to_string(),
-                salario: money(p.salario_nominal),
-                teto: money(p.teto),
-                considerado: money(p.considerado),
-                indice: fixed(p.indice, 6),
-                corrigido: money(p.corrigido),
-                fonte: format!("{tetos} | {inpc}"),
-            }
-        })
-        .collect();
-
+    let (perfil, series_utilizadas, substituicoes_inpc) = consolidar_series(&parcelas);
     Ok(PbcResultado {
         referencia: referencia.to_string(),
         pbc,
         consideradas,
         descartadas: descartadas.len(),
+        parcelas: publicar_parcelas(&parcelas),
         parcelas_descartadas: descartadas.iter().map(|p| p.competencia.to_string()).collect(),
         cenarios: cenarios_de_media(&parcelas)?,
         soma_considerada: money(soma),
         media: money(salario_beneficio),
         salario_beneficio: money(salario_beneficio),
         descarte_aplicado: descarte,
-        parcelas: parcelas_publicas,
         fontes_tetos: fontes_atualizacao().0,
         fontes_inpc: fontes_atualizacao().1,
+        perfil,
+        series_utilizadas,
+        substituicoes_inpc,
+        series_ausentes: Vec::new(),
     })
+}
+
+/// Porta de calcularRmiComCorrecao: teto da época antes, INPC acumulado,
+/// descarte dos 20% menores e média das consideradas.
+pub fn calcular_pbc_com_correcao(
+    competencias: &[(Competencia, Decimal)],
+    referencia: &Competencia,
+    descarte: bool,
+) -> Result<PbcResultado> {
+    let mut parcelas: Vec<_> = Vec::with_capacity(competencias.len());
+    for (competencia, salario) in competencias {
+        parcelas.push(corrigir_salario(competencia, *salario, referencia)?);
+    }
+    pbc_de_parcelas(parcelas, referencia, descarte)
+}
+
+/// PBC corrigido pelo perfil oficial versionado: teto da época antes, fator por
+/// faixa de série do perfil e média das consideradas. Sem a série oficial
+/// carregada, o cálculo falha de forma explícita (ou usa o INPC como fallback
+/// documentado, quando a política for [`crate::perfil_correcao::PoliticaFallback::FallbackInpcDocumentado`]).
+pub fn calcular_pbc_com_perfil(
+    competencias: &[(Competencia, Decimal)],
+    referencia: &Competencia,
+    descarte: bool,
+    catalogo: &crate::perfil_correcao::CatalogoSeries,
+    perfil: &crate::perfil_correcao::PerfilCorrecao,
+    politica: crate::perfil_correcao::PoliticaFallback,
+) -> Result<PbcResultado> {
+    let mut parcelas: Vec<_> = Vec::with_capacity(competencias.len());
+    let mut substituicoes_inpc: Vec<String> = Vec::new();
+    let mut series_ausentes: Vec<String> = Vec::new();
+    for (competencia, salario) in competencias {
+        let fator =
+            crate::perfil_correcao::fator_com_perfil(catalogo, perfil, politica, competencia, referencia)?;
+        for substituicao in &fator.substituicoes_inpc {
+            if !substituicoes_inpc.contains(substituicao) {
+                substituicoes_inpc.push(substituicao.clone());
+            }
+        }
+        for serie in &fator.series_ausentes {
+            if !series_ausentes.contains(serie) {
+                series_ausentes.push(serie.clone());
+            }
+        }
+        parcelas.push(crate::atualizacao::corrigir_salario_com_fator(
+            competencia,
+            *salario,
+            &fator,
+        )?);
+    }
+    let mut resultado = pbc_de_parcelas(parcelas, referencia, descarte)?;
+    resultado.substituicoes_inpc = substituicoes_inpc;
+    resultado.series_ausentes = series_ausentes;
+    Ok(resultado)
 }
 
 /// Descarte dos menores salários (EC 103/2019, art. 26, § 6º) até o mínimo de
@@ -187,21 +281,7 @@ pub fn calcular_pbc_com_descarte_minimo(
         div(soma, Decimal::from(minimo as i64))?
     };
     let salario_beneficio = to_cents(media);
-    let parcelas_publicas: Vec<ParcelaPbc> = parcelas
-        .iter()
-        .map(|p| {
-            let (tetos, inpc) = fontes_atualizacao();
-            ParcelaPbc {
-                competencia: p.competencia.to_string(),
-                salario: money(p.salario_nominal),
-                teto: money(p.teto),
-                considerado: money(p.considerado),
-                indice: fixed(p.indice, 6),
-                corrigido: money(p.corrigido),
-                fonte: format!("{tetos} | {inpc}"),
-            }
-        })
-        .collect();
+    let (perfil, series_utilizadas, substituicoes_inpc) = consolidar_series(&parcelas);
     Ok(PbcResultado {
         referencia: referencia.to_string(),
         pbc,
@@ -213,9 +293,13 @@ pub fn calcular_pbc_com_descarte_minimo(
         media: money(salario_beneficio),
         salario_beneficio: money(salario_beneficio),
         descarte_aplicado: corte > 0,
-        parcelas: parcelas_publicas,
+        parcelas: publicar_parcelas(&parcelas),
         fontes_tetos: fontes_atualizacao().0,
         fontes_inpc: fontes_atualizacao().1,
+        perfil,
+        series_utilizadas,
+        substituicoes_inpc,
+        series_ausentes: Vec::new(),
     })
 }
 /// Média simples sem correção (salários já corrigidos), com divisor mínimo opcional.
@@ -311,5 +395,53 @@ mod tests {
         assert_eq!(pbc.cenarios[0].descartadas, 0);
         assert!(pbc.cenarios.iter().any(|c| c.descartadas > 0));
         assert!(pbc.cenarios.iter().all(|c| !c.media.is_empty()));
+    }
+
+    #[test]
+    fn pbc_com_perfil_registra_series_substituicoes_e_nao_declara_oficial_sem_ipcr() {
+        let catalogo = crate::perfil_correcao::CatalogoSeries::compilado().unwrap();
+        let perfil = crate::perfil_correcao::perfil_trf3_v1();
+        // Uma competência na faixa IPC-R e outra na faixa IGP-DI.
+        let comps: Vec<(Competencia, Decimal)> = vec![
+            (
+                Competencia::parse("1995-06", "t").unwrap(),
+                parse_money("2000.00", "s").unwrap(),
+            ),
+            (
+                Competencia::parse("1996-04", "t").unwrap(),
+                parse_money("2000.00", "s").unwrap(),
+            ),
+        ];
+        let pbc = calcular_pbc_com_perfil(
+            &comps,
+            &Competencia::parse("1996-05", "t").unwrap(),
+            false,
+            &catalogo,
+            &perfil,
+            crate::perfil_correcao::PoliticaFallback::FallbackInpcDocumentado,
+        )
+        .unwrap();
+        assert_eq!(pbc.perfil.as_deref(), Some("trf3-v1@1"));
+        assert_eq!(pbc.series_ausentes, vec!["IPC-R".to_string()]);
+        assert!(!pbc.substituicoes_inpc.is_empty(), "fallback registrado");
+        assert!(pbc.parcelas.iter().all(|p| p.perfil.as_deref() == Some("trf3-v1@1")));
+        let serie_igpdi = pbc
+            .parcelas
+            .iter()
+            .find(|p| p.competencia == "1996-04")
+            .unwrap();
+        assert_eq!(serie_igpdi.series_usadas, vec!["IGP-DI".to_string()]);
+        assert!(!serie_igpdi.fallback_inpc);
+        // Sem fallback, a mesma entrada falha nomeando a IPC-R.
+        let erro = calcular_pbc_com_perfil(
+            &comps,
+            &Competencia::parse("1996-05", "t").unwrap(),
+            false,
+            &catalogo,
+            &perfil,
+            crate::perfil_correcao::PoliticaFallback::ExigirSerieOficial,
+        )
+        .unwrap_err();
+        assert!(erro.0.contains("IPC-R"), "{erro}");
     }
 }

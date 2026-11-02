@@ -1,15 +1,20 @@
 ﻿mod auth;
+mod blocking;
 mod config;
 mod db;
+mod limits;
 mod routes;
 mod storage;
 
-use axum::http::{HeaderName, HeaderValue, Method};
-use axum::extract::DefaultBodyLimit;
+use axum::extract::Request;
+use axum::http::{header, HeaderName, HeaderValue, Method};
+use axum::middleware::{self, Next};
+use axum::response::Response;
+use axum::Router;
 use config::Config;
 use jsonwebtoken::jwk::JwkSet;
 use sqlx::postgres::PgPoolOptions;
-use std::collections::HashMap;
+use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::sync::RwLock;
@@ -24,7 +29,8 @@ pub struct AppState {
     pub http: reqwest::Client,
     pub jwks: Arc<RwLock<Option<(Instant, JwkSet)>>>,
     pub storage: Option<Arc<storage::S3Store>>,
-    pub limits: Arc<tokio::sync::Mutex<HashMap<String, Vec<Instant>>>>,
+    pub limits: Arc<limits::RateLimiter>,
+    pub blocking: Arc<blocking::BlockingGate>,
 }
 
 #[tokio::main]
@@ -63,18 +69,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         http: reqwest::Client::new(),
         jwks: Arc::new(RwLock::new(None)),
         storage,
-        limits: Arc::new(tokio::sync::Mutex::new(HashMap::new())),
+        limits: Arc::new(limits::RateLimiter::new()),
+        blocking: Arc::new(blocking::BlockingGate::new()),
     };
 
     let mut router = routes::router(state);
+    let mut allowed_headers = vec![
+        axum::http::header::AUTHORIZATION,
+        axum::http::header::CONTENT_TYPE,
+    ];
+    if config.dev_user_header_allowed() {
+        allowed_headers.push(HeaderName::from_static("x-dev-user"));
+    }
     let cors = if config.allowed_origins.is_empty() {
         CorsLayer::new()
             .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE])
-            .allow_headers([
-                axum::http::header::AUTHORIZATION,
-                axum::http::header::CONTENT_TYPE,
-                HeaderName::from_static("x-dev-user"),
-            ])
+            .allow_headers(allowed_headers.clone())
     } else {
         let origins = config
             .allowed_origins
@@ -84,24 +94,61 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         CorsLayer::new()
             .allow_origin(AllowOrigin::list(origins))
             .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE])
-            .allow_headers([
-                axum::http::header::AUTHORIZATION,
-                axum::http::header::CONTENT_TYPE,
-                HeaderName::from_static("x-dev-user"),
-            ])
+            .allow_headers(allowed_headers.clone())
     };
-    router = router
-        .layer(DefaultBodyLimit::max(64 * 1024 * 1024))
-        .layer(SetResponseHeaderLayer::overriding(HeaderName::from_static("x-content-type-options"), HeaderValue::from_static("nosniff")))
-        .layer(SetResponseHeaderLayer::overriding(HeaderName::from_static("referrer-policy"), HeaderValue::from_static("strict-origin-when-cross-origin")))
-        .layer(SetResponseHeaderLayer::overriding(HeaderName::from_static("x-frame-options"), HeaderValue::from_static("DENY")))
+    router = security_headers(router)
         .layer(cors)
         .layer(TraceLayer::new_for_http());
 
     let listener = tokio::net::TcpListener::bind(&config.bind_addr).await?;
     tracing::info!(addr = %config.bind_addr, "previdenciar web server listening");
-    axum::serve(listener, router).await?;
+    if !config.trust_proxy {
+        tracing::info!("IP do cliente vem do endereco de conexao; havendo proxy ou CDN, defina TRUST_PROXY=1");
+    }
+    axum::serve(
+        listener,
+        router.into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .await?;
     Ok(())
+}
+
+fn security_headers(router: Router) -> Router {
+    router
+        .layer(middleware::from_fn(cache_control_no_store_in_api))
+        .layer(SetResponseHeaderLayer::overriding(
+            header::CONTENT_SECURITY_POLICY,
+            HeaderValue::from_static(
+                "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'",
+            ),
+        ))
+        .layer(SetResponseHeaderLayer::overriding(
+            header::STRICT_TRANSPORT_SECURITY,
+            HeaderValue::from_static("max-age=31536000; includeSubDomains"),
+        ))
+        .layer(SetResponseHeaderLayer::overriding(
+            header::X_CONTENT_TYPE_OPTIONS,
+            HeaderValue::from_static("nosniff"),
+        ))
+        .layer(SetResponseHeaderLayer::overriding(
+            header::REFERRER_POLICY,
+            HeaderValue::from_static("strict-origin-when-cross-origin"),
+        ))
+        .layer(SetResponseHeaderLayer::overriding(
+            header::X_FRAME_OPTIONS,
+            HeaderValue::from_static("DENY"),
+        ))
+}
+
+async fn cache_control_no_store_in_api(request: Request, next: Next) -> Response {
+    let is_api = request.uri().path().starts_with("/api/");
+    let mut response = next.run(request).await;
+    if is_api {
+        response
+            .headers_mut()
+            .insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
+    }
+    response
 }
 
 

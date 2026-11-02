@@ -64,6 +64,9 @@ fn blocker(v:Value,code:&str) {
 #[test] fn missing_review_blocks() {let mut v=fixture();v["revisao"]=json!({});blocker(v,"review_not_confirmed");}
 #[test] fn uncorrected_discard_is_not_ignored() {let mut v=fixture();v["opcoes"]["descarte"]=json!(true);blocker(v,"uncorrected_discard_unsupported");}
 #[test] fn corrected_minimum_divisor_is_not_ignored() {let mut v=fixture();v["opcoes"]["corrigirSalarios"]=json!(true);v["opcoes"]["divisorMinimo"]=json!(true);v["opcoes"]["referenciaCorrecao"]=json!("2025-01");blocker(v,"corrected_divisor_unsupported");}
+#[test] fn correction_profile_requires_active_correction() {let mut v=fixture();v["opcoes"]["perfilCorrecao"]=json!("trf3-v1");blocker(v,"profile_requires_correction");}
+#[test] fn unknown_correction_profile_blocks_listing_known() {let mut v=fixture();v["opcoes"]["corrigirSalarios"]=json!(true);v["opcoes"]["referenciaCorrecao"]=json!("2025-01");v["opcoes"]["perfilCorrecao"]=json!("trf3-v2");blocker(v,"correction_profile_unknown");}
+#[test] fn inpc_fallback_requires_correction_profile() {let mut v=fixture();v["opcoes"]["fallbackInpcDocumentado"]=json!(true);blocker(v,"fallback_without_profile");}
 #[test] fn future_inpc_never_extrapolated_zero() {let mut v=fixture();v["dataReferencia"]=json!("2026-10-10");v["opcoes"]["corrigirSalarios"]=json!(true);v["opcoes"]["referenciaCorrecao"]=json!("2026-10");blocker(v,"inpc_out_of_coverage");}
 #[test] fn future_ceiling_never_rolls_last_value() {let mut v=fixture();v["dataReferencia"]=json!("2027-01-01");v["opcoes"]["aplicarTetoVigenteDer"]=json!(true);blocker(v,"ceiling_out_of_coverage");}
 #[test] fn inverted_floor_ceiling_blocks() {let mut v=fixture();v["opcoes"]["teto"]=json!("2000.00");v["opcoes"]["piso"]=json!("3000.00");blocker(v,"inverted_limits");}

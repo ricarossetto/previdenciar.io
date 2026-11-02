@@ -9,6 +9,7 @@ interface StoredConfig { providerId: string; kind: AiProviderKind; baseUrl: stri
 interface ToolActivity { name: string; status: 'running' | 'done' | 'error'; summary: string; sources: AiSource[] }
 interface MinutaVersion { id: string; label: string; text: string; date: string }
 export interface CaseDocument { fileName: string; text: string; usedOcr?: boolean; pages?: number; hashSha256?: string; reviewed?: boolean }
+interface PecaClassification { area: string; materia: string; tecnicas: string }
 interface MinutaDraftCache {
   objective: string;
   documentType: string;
@@ -22,6 +23,8 @@ interface MinutaDraftCache {
   versionLabel: string;
   templateName: string;
   sources: AiSource[];
+  classification: PecaClassification;
+  classificationConfirmed: boolean;
 }
 const CONFIG_KEY = 'previdenciar.ai.config.v1';
 const DOCUMENT_TYPES = ['Petição inicial', 'Manifestação', 'Parecer', 'Recurso', 'Contestação', 'Memorial', 'Outro'];
@@ -67,7 +70,10 @@ export function MinutaPage({ workspace, notify, onOpenCopilot, onSaveTemplate, o
   const [tools, setTools] = useState<ToolActivity[]>([]);
   const [sources, setSources] = useState<AiSource[]>(() => draftCache?.sources ?? []);
   const [notice, setNotice] = useState<{ message: string; error: boolean } | null>(null);
+  const [classification, setClassification] = useState<PecaClassification>(() => draftCache?.classification ?? { area: '', materia: '', tecnicas: '' });
+  const [classificationConfirmed, setClassificationConfirmed] = useState(() => draftCache?.classificationConfirmed ?? false);
   const activeRequest = useRef<string | null>(null);
+  const classifyBuffer = useRef('');
 
   const cases = useMemo(() => workspace.calculations.filter((item) => !item.archived), [workspace.calculations]);
   const selectedCase = useMemo(() => cases.find((item) => item.id === caseId) ?? null, [cases, caseId]);
@@ -83,6 +89,9 @@ export function MinutaPage({ workspace, notify, onOpenCopilot, onSaveTemplate, o
     return selectedCase.reading_ids.map((id) => workspace.readings.find((reading) => reading.id === id)).filter((reading) => reading !== undefined);
   }, [selectedCase, workspace.readings]);
   const provider = useMemo(() => catalog.find((item) => item.id === config?.providerId) ?? null, [catalog, config]);
+  const classificationLine = useMemo(() => classificationConfirmed
+    ? `\nClassificação confirmada da peça — Área: ${classification.area}; Matéria: ${classification.materia}; Técnicas: ${classification.tecnicas || 'não informadas'}.`
+    : '', [classificationConfirmed, classification]);
   const keyReady = config ? (keys[config.providerId] || provider?.keyRequired === false) : false;
   const attachmentReviewed = !caseDocument || Boolean(caseDocument.reviewed);
   const ready = Boolean(config && keyReady && consent && config.model.trim() && config.baseUrl.trim() && attachmentReviewed);
@@ -139,15 +148,17 @@ export function MinutaPage({ workspace, notify, onOpenCopilot, onSaveTemplate, o
   }, []);
 
   useEffect(() => {
-    draftCache = { objective, documentType, caseId, attachCase, caseDocument, plan, draft, review, versions, versionLabel, templateName, sources };
-  }, [objective, documentType, caseId, attachCase, caseDocument, plan, draft, review, versions, versionLabel, templateName, sources]);
+    draftCache = { objective, documentType, caseId, attachCase, caseDocument, plan, draft, review, versions, versionLabel, templateName, sources, classification, classificationConfirmed };
+  }, [objective, documentType, caseId, attachCase, caseDocument, plan, draft, review, versions, versionLabel, templateName, sources, classification, classificationConfirmed]);
 
   useEffect(() => () => {
     const requestId = activeRequest.current;
     if (requestId) void api.aiCancel(requestId).catch(() => {});
   }, []);
 
-  async function runTask(task: AiTask, messages: AiChatMessage[], maxTokens: number) {
+  type TaskSink = 'plan' | 'draft' | 'review' | 'classification' | 'ignore';
+  async function runTask(task: AiTask, messages: AiChatMessage[], maxTokens: number, sinkOverride?: TaskSink) {
+    const sink: TaskSink = sinkOverride ?? (task === 'plan' || task === 'draft' ? task : task === 'review' || task === 'adversarial' ? 'review' : 'ignore');
     if (!config) { setNotice({ message: 'Configure um provedor no Copiloto IA antes de gerar a minuta.', error: true }); return; }
     if (!consent) { setNotice({ message: 'Marque a autorização de envio ao provedor.', error: true }); return; }
     if (!keyReady) { setNotice({ message: 'Salve a chave do provedor no Copiloto IA ou escolha um endpoint local sem chave.', error: true }); return; }
@@ -155,20 +166,22 @@ export function MinutaPage({ workspace, notify, onOpenCopilot, onSaveTemplate, o
     setBusy(task);
     setTools([]);
     setNotice(null);
-    if (task === 'plan') setPlan('');
-    if (task === 'draft') {
+    if (sink === 'plan') setPlan('');
+    if (sink === 'draft') {
       pushVersion(draft, 'Antes de gerar nova minuta');
       setDraft('');
     }
-    if (task === 'review' || task === 'adversarial') setReview('');
+    if (sink === 'review') setReview('');
+    if (sink === 'classification') classifyBuffer.current = '';
     const requestId = id(`minuta-${task}`);
     activeRequest.current = requestId;
     try {
       await api.aiChat({ requestId, providerId: config.providerId, kind: config.kind, baseUrl: config.baseUrl, model: config.model, messages, consent: true, toolsEnabled: true, maxTokens, caseContext, task }, (event: AiEvent) => {
         if (event.type === 'delta') {
-          if (task === 'plan') setPlan((current) => current + event.text);
-          if (task === 'draft') setDraft((current) => current + event.text);
-          if (task === 'review' || task === 'adversarial') setReview((current) => current + event.text);
+          if (sink === 'plan') setPlan((current) => current + event.text);
+          if (sink === 'draft') setDraft((current) => current + event.text);
+          if (sink === 'review') setReview((current) => current + event.text);
+          if (sink === 'classification') classifyBuffer.current += event.text;
         }
         if (event.type === 'tool') {
           setTools((current) => {
@@ -184,11 +197,43 @@ export function MinutaPage({ workspace, notify, onOpenCopilot, onSaveTemplate, o
           });
         }
       });
+      if (sink === 'classification') {
+        const parsed = parseClassification(classifyBuffer.current);
+        if (!parsed.area && !parsed.materia && !parsed.tecnicas) setNotice({ message: 'A proposta da IA não pôde ser interpretada. Preencha a classificação manualmente.', error: true });
+        else {
+          setClassification(parsed);
+          setClassificationConfirmed(false);
+          setNotice({ message: 'Classificação proposta pela IA. Revise os campos e confirme antes de redigir.', error: false });
+        }
+      }
     } catch (error) {
       const message = errorMessage(error);
       if (!/cancelad/i.test(message)) setNotice({ message, error: true });
       else notify('Geração cancelada.');
     } finally { activeRequest.current = null; setBusy(null); }
+  }
+  function parseClassification(text: string): PecaClassification {
+    const field = (label: string) => {
+      const match = text.match(new RegExp(`^\\s*(?:[-*•]\\s*)?${label}\\s*:\\s*(.+)$`, 'im'));
+      return match ? match[1].trim().replace(/[.;]+$/, '') : '';
+    };
+    return { area: field('Área'), materia: field('Matéria'), tecnicas: field('Técnicas') };
+  }
+  function updateClassification(patch: Partial<PecaClassification>) {
+    setClassification((current) => ({ ...current, ...patch }));
+    setClassificationConfirmed(false);
+  }
+  function confirmClassification() {
+    if (!classification.area.trim() || !classification.materia.trim()) {
+      setNotice({ message: 'Informe a área e a matéria da peça antes de confirmar a classificação.', error: true });
+      return;
+    }
+    setClassificationConfirmed(true);
+    setNotice({ message: 'Classificação confirmada por você. A redação da minuta está liberada.', error: false });
+  }
+  function proposeClassification() {
+    if (!objective.trim()) { setNotice({ message: 'Descreva o objetivo da minuta antes de pedir a classificação.', error: true }); return; }
+    void runTask('chat', [{ role: 'user', content: `Tipo de documento: ${documentType}\nObjetivo: ${objective.trim()}\n\nClassifique a peça jurídica que será redigida. Responda somente neste formato, uma informação por linha, sem comentários:\nÁrea: <área do direito>\nMatéria: <matéria principal da peça>\nTécnicas: <técnicas processuais, separadas por ponto e vírgula>` }], 300, 'classification');
   }
   async function attachPdf() {
     setExtracting(true);
@@ -221,11 +266,12 @@ export function MinutaPage({ workspace, notify, onOpenCopilot, onSaveTemplate, o
 
   function makePlan() {
     if (!objective.trim()) { setNotice({ message: 'Descreva o objetivo da minuta antes de gerar o roteiro.', error: true }); return; }
-    void runTask('plan', [{ role: 'user', content: `Tipo de documento: ${documentType}\nObjetivo: ${objective.trim()}\n\nProduza o roteiro de planejamento. Se faltarem dados essenciais, liste perguntas objetivas antes da tese.` }], 1800);
+    void runTask('plan', [{ role: 'user', content: `Tipo de documento: ${documentType}\nObjetivo: ${objective.trim()}${classificationLine}\n\nProduza o roteiro de planejamento. Se faltarem dados essenciais, liste perguntas objetivas antes da tese.` }], 1800);
   }
   function makeDraft() {
     if (!plan.trim()) { setNotice({ message: 'Gere ou escreva um roteiro antes de redigir a minuta.', error: true }); return; }
-    void runTask('draft', [{ role: 'user', content: `Tipo de documento: ${documentType}\nObjetivo: ${objective.trim()}\n\nRoteiro aprovado:\n${plan.trim()}\n\nRedija a minuta em Markdown, seguindo o roteiro e marcando pendências.` }], 4000);
+    if (!classificationConfirmed) { setNotice({ message: 'Confirme a classificação da peça (área, matéria e técnicas) antes de redigir.', error: true }); return; }
+    void runTask('draft', [{ role: 'user', content: `Tipo de documento: ${documentType}\nObjetivo: ${objective.trim()}${classificationLine}\n\nRoteiro aprovado:\n${plan.trim()}\n\nRedija a minuta em Markdown, seguindo o roteiro e marcando pendências.` }], 4000);
   }
   function makeAdversarial() {
     if (!draft.trim()) { setNotice({ message: 'Gere ou escreva uma minuta antes da revisão adversarial.', error: true }); return; }
@@ -355,10 +401,11 @@ export function MinutaPage({ workspace, notify, onOpenCopilot, onSaveTemplate, o
         <div className="minuta-actions">
           <Button primary disabled={!ready || busy !== null} onClick={makePlan}><Icon name="spark" size={16}/>{busy === 'plan' ? 'Planejando…' : '1. Gerar roteiro'}</Button>
           {busy !== null && <Button onClick={() => void cancel()}>Cancelar geração</Button>}
-          <Button disabled={!ready || !plan.trim() || busy !== null} onClick={makeDraft}><Icon name="file" size={16}/>{busy === 'draft' ? 'Redigindo…' : '2. Gerar minuta'}</Button>
+          <Button disabled={!ready || !plan.trim() || !classificationConfirmed || busy !== null} title={!classificationConfirmed ? 'Confirme a classificação da peça para liberar a redação.' : undefined} onClick={makeDraft}><Icon name="file" size={16}/>{busy === 'draft' ? 'Redigindo…' : '2. Gerar minuta'}</Button>
           <Button disabled={!ready || !draft.trim() || busy !== null} onClick={makeReview}><Icon name="shield" size={16}/>{busy === 'review' ? 'Revisando…' : '3. Revisar'}</Button>
           <Button disabled={!ready || !draft.trim() || busy !== null} onClick={makeAdversarial}><Icon name="shield" size={16}/>{busy === 'adversarial' ? 'Atacando…' : '4. Revisão adversarial'}</Button>
         </div>
+        {!classificationConfirmed && <p className="form-note">A redação fica bloqueada até a confirmação da classificação da peça, na etapa “Classificação da peça”.</p>}
         <div className="minuta-actions">
           <Button disabled={!draft.trim() || busy !== null} onClick={() => copy(draft, 'Minuta copiada.')}>Copiar minuta</Button>
           <Button disabled={!draft.trim() || busy !== null} onClick={() => void exportDraft()}>Exportar texto</Button>
@@ -372,6 +419,21 @@ export function MinutaPage({ workspace, notify, onOpenCopilot, onSaveTemplate, o
         <p className="form-note">O workspace guarda o texto como modelo local. A exportação em texto, DOCX e PDF (via diálogo de impressão) é sempre um rascunho para revisão profissional.</p>
       </Panel>
     </div>
+
+    <Panel title="Classificação da peça" subtitle="Área, matéria e técnicas da peça, com confirmação explícita antes da redação." actions={<Badge tone={classificationConfirmed ? 'good' : (classification.area.trim() || classification.materia.trim()) ? 'review' : 'neutral'}>{classificationConfirmed ? 'Classificação confirmada' : 'A confirmar'}</Badge>}>
+      <div className="minuta-classification">
+        <label className="field"><span>Área</span><input className="input" value={classification.area} onChange={(event) => updateClassification({ area: event.target.value })} placeholder="Ex.: Direito Previdenciário" disabled={busy !== null}/></label>
+        <label className="field"><span>Matéria</span><input className="input" value={classification.materia} onChange={(event) => updateClassification({ materia: event.target.value })} placeholder="Ex.: Aposentadoria por idade — revisão de DIB" disabled={busy !== null}/></label>
+        <label className="field wide"><span>Técnicas</span><input className="input" value={classification.tecnicas} onChange={(event) => updateClassification({ tecnicas: event.target.value })} placeholder="Ex.: petição inicial; tutela de urgência; perícia técnica" disabled={busy !== null}/></label>
+        <div className="minuta-classification__actions wide" data-ui-actions>
+          <Button disabled={!ready || busy !== null || !objective.trim()} onClick={proposeClassification}><Icon name="spark" size={16}/>{busy === 'chat' ? 'Classificando…' : 'Propor classificação com a IA'}</Button>
+          <Button primary disabled={!classification.area.trim() || !classification.materia.trim() || busy !== null} onClick={confirmClassification}><Icon name="check" size={16}/>Confirmar classificação</Button>
+        </div>
+        {classificationConfirmed
+          ? <p className="minuta-classification__confirmed" role="status"><Icon name="check" size={15}/>Classificação confirmada por você — Área: {classification.area} · Matéria: {classification.materia}{classification.tecnicas ? ` · Técnicas: ${classification.tecnicas}` : ''}. A redação está liberada.</p>
+          : <p className="form-note">A redação fica bloqueada até você confirmar a classificação. Preencha os campos manualmente ou peça uma proposta à IA. Qualquer alteração depois da confirmação exige confirmar de novo.</p>}
+      </div>
+    </Panel>
 
     {tools.length > 0 && <div className="minuta-tools" aria-label="Ferramentas consultadas">
       {tools.map((tool, index) => <span key={`${tool.name}-${index}`} className={`minuta-tool ${tool.status}`}><Icon name="tool" size={13}/><strong>{tool.name.replaceAll('_', ' ')}</strong>{tool.summary}</span>)}

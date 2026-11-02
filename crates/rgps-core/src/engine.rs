@@ -60,6 +60,13 @@ pub struct RgpsOpcoes {
     pub magisterio_exclusivo: Option<bool>,
     /// 57: tempo de magistério completo até 13/11/2019.
     pub magisterio_antes_reforma: Option<bool>,
+    /// Perfil de correção versionado (ex.: "trf3-v1"). Quando presente com
+    /// `corrigir_salarios`, a correção usa as séries por faixa de vigência do
+    /// perfil em vez do INPC único. Ausente = caminho histórico de INPC único.
+    pub perfil_correcao: Option<String>,
+    /// Fallback documentado: substitui série oficial ausente pelo INPC e
+    /// registra cada substituição. Sem isso, a série ausente bloqueia o cálculo.
+    pub fallback_inpc_documentado: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -115,6 +122,10 @@ pub struct ParametrosView {
     pub correcao_ativa: bool,
     pub referencia_correcao: Option<String>,
     pub descarte_aplicado: Option<bool>,
+    /// Perfil de correção versionado usado na correção dos salários.
+    pub perfil_correcao: Option<String>,
+    /// Fallback documentado pelo INPC habilitado junto ao perfil.
+    pub fallback_inpc_documentado: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -285,18 +296,58 @@ pub fn calcular(entrada: &RgpsEntrada) -> Result<RgpsResultado> {
     let correcao_ativa = entrada.opcoes.corrigir_salarios;
     let correcao = if correcao_ativa {
         let referencia_correcao = entrada.opcoes.referencia_correcao.unwrap_or(ultima);
-        Some(match entrada.opcoes.descartar_menores_minimo {
-            Some(minimo) => crate::rmi::calcular_pbc_com_descarte_minimo(
-                &competencias,
-                &referencia_correcao,
-                minimo,
-            )?,
-            None => calcular_pbc_com_correcao(
-                &competencias,
-                &referencia_correcao,
-                entrada.opcoes.descarte,
-            )?,
-        })
+        match entrada
+            .opcoes
+            .perfil_correcao
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+        {
+            // Correção pelo perfil oficial versionado: série por faixa de
+            // vigência, com falha explícita quando a série oficial falta (ou
+            // fallback documentado pelo INPC, se explicitamente habilitado).
+            Some(perfil_id) => {
+                let dib = entrada.data_referencia.ok_or_else(|| {
+                    RgpsError(
+                        "Perfil de correção exige data de referência (DIB/DER) para a política de escolha por faixa de DIB.".into(),
+                    )
+                })?;
+                let perfil = crate::perfil_correcao::perfil_por_id(perfil_id)?;
+                let politica_dib = crate::perfil_correcao::politica_para_perfil(&perfil.id)?;
+                let perfil_da_dib = politica_dib.escolher_perfil(&dib)?;
+                if perfil_da_dib != perfil.id {
+                    return Err(RgpsError(format!(
+                        "DIB {dib} escolhe o perfil {perfil_da_dib} na política de faixas, não {perfil_id}."
+                    )));
+                }
+                let catalogo = crate::perfil_correcao::CatalogoSeries::compilado()?;
+                let politica_fallback = if entrada.opcoes.fallback_inpc_documentado {
+                    crate::perfil_correcao::PoliticaFallback::FallbackInpcDocumentado
+                } else {
+                    crate::perfil_correcao::PoliticaFallback::ExigirSerieOficial
+                };
+                Some(crate::rmi::calcular_pbc_com_perfil(
+                    &competencias,
+                    &referencia_correcao,
+                    entrada.opcoes.descarte,
+                    &catalogo,
+                    &perfil,
+                    politica_fallback,
+                )?)
+            }
+            None => Some(match entrada.opcoes.descartar_menores_minimo {
+                Some(minimo) => crate::rmi::calcular_pbc_com_descarte_minimo(
+                    &competencias,
+                    &referencia_correcao,
+                    minimo,
+                )?,
+                None => calcular_pbc_com_correcao(
+                    &competencias,
+                    &referencia_correcao,
+                    entrada.opcoes.descarte,
+                )?,
+            }),
+        }
     } else {
         None
     };
@@ -474,10 +525,40 @@ pub fn calcular(entrada: &RgpsEntrada) -> Result<RgpsResultado> {
 
     // Avisos (paridade com o implementação de referência + extensões deste motor).
     avisos.push(if correcao_ativa {
-        "Salários nominais corrigidos pelo INPC com o teto da época aplicado antes da correção.".into()
+        match entrada
+            .opcoes
+            .perfil_correcao
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+        {
+            Some(perfil_id) => format!(
+                "Salários nominais corrigidos pelo perfil de correção {perfil_id} (séries por faixa de vigência) com o teto da época aplicado antes da correção."
+            ),
+            None => {
+                "Salários nominais corrigidos pelo INPC com o teto da época aplicado antes da correção.".into()
+            }
+        }
     } else {
         "Informe os salários de contribuição já corrigidos para a mesma data de referência; a correção monetária é etapa separada.".into()
     });
+    if correcao_ativa {
+        if let Some(correcao) = &correcao {
+            if !correcao.substituicoes_inpc.is_empty() {
+                avisos.push(format!(
+                    "Fallback documentado pelo INPC: {} mês(es) sem série oficial carregada ({}) foram corrigidos pelo INPC; o resultado não reproduz a correção oficial enquanto as séries não forem carregadas.",
+                    correcao.substituicoes_inpc.len(),
+                    correcao.substituicoes_inpc.join(", ")
+                ));
+            }
+            if !correcao.series_ausentes.is_empty() {
+                avisos.push(format!(
+                    "Séries oficiais ausentes do catálogo de correção: {}. Carregue os arquivos versionados (JSON/CSV) para a correção oficial.",
+                    correcao.series_ausentes.join(", ")
+                ));
+            }
+        }
+    }
     avisos.push(
         "Tempo especial, rural e concomitância exigem análise própria; confira o CNIS e a carta de concessão antes de usar o resultado.".into(),
     );
@@ -611,6 +692,8 @@ pub fn calcular(entrada: &RgpsEntrada) -> Result<RgpsResultado> {
                 .as_ref()
                 .map(|pbc| pbc.referencia.clone()),
             descarte_aplicado: correcao.as_ref().map(|pbc| pbc.descarte_aplicado),
+            perfil_correcao: correcao.as_ref().and_then(|pbc| pbc.perfil.clone()),
+            fallback_inpc_documentado: entrada.opcoes.fallback_inpc_documentado,
         },
         resumo: ResumoView {
             competencias: quantidade,

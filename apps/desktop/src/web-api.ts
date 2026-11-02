@@ -2,7 +2,7 @@
 import { clearSession, refreshSession, storedToken } from './web-auth-store';
 import type {
   AiChatRequest, AiDataStatus, AiEvent, AiImportSummary, AiKeyStatus, AiProviderPreset, AiTestResult,
-  CasePdfText, KnowledgeBlock, KnowledgeOutcome, Presentation,
+  CasePdfText, KnowledgeBlock, KnowledgeOutcome, Presentation, SavedReport, SavedReportStored, SavedReportUrl,
 } from './api';
 import type { BatchExport, Boot, Calculation, Cnis, Json, Workspace } from './model';
 import type { EconomicSnapshot } from './pcd';
@@ -38,7 +38,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   if (!response.ok) {
     const message = parsed && typeof parsed === 'object' && 'error' in parsed
       ? String((parsed as { error: unknown }).error)
-      : `A operaÃ§Ã£o falhou (${response.status}).`;
+      : `A operação falhou (${response.status}).`;
     throw new Error(message);
   }
   return parsed as T;
@@ -65,13 +65,13 @@ function download(bytes: BlobPart, type: string, name: string): string {
 }
 
 async function unsupported(feature: string): Promise<never> {
-  throw new Error(`${feature} ainda nÃ£o estÃ¡ disponÃ­vel na versÃ£o web.`);
+  throw new Error(`${feature} ainda não está disponível na versão web.`);
 }
 
 export const webApi = {
   fetchEconomicSnapshot: (through: string) => request<EconomicSnapshot>('GET', `/pcd/snapshot?through=${encodeURIComponent(through)}`),
   fetchLocalEconomicSnapshot: (through: string) => request<EconomicSnapshot>('GET', `/pcd/snapshot?through=${encodeURIComponent(through)}`),
-  conferirFabricaRmi: () => unsupported('ConferÃªncia na FÃ¡brica'),
+  conferirFabricaRmi: () => unsupported('Conferência na Fábrica'),
   prepareFromCnis: (calculation: Calculation, reference: string) =>
     request<{ calculation: Calculation; notes: string[] }>('POST', '/prepare-from-cnis', { calculation: normalizeCaseForEngine(calculation), reference }),
   boot: () => request<Boot>('GET', '/bootstrap'),
@@ -84,10 +84,10 @@ export const webApi = {
     const response = await authorizedFetch(`${API}/cnis/import`, { method: 'POST', body: form });
     const text = await response.text();
     const parsed = text ? JSON.parse(text) : null;
-    if (!response.ok) throw new Error(parsed?.error ?? `A importaÃ§Ã£o falhou (${response.status}).`);
+    if (!response.ok) throw new Error(parsed?.error ?? `A importação falhou (${response.status}).`);
     return parsed as Cnis;
   },
-  importPath: (_path: string) => unsupported('ImportaÃ§Ã£o por caminho local'),
+  importPath: (_path: string) => unsupported('Importação por caminho local'),
   calculate: (calculation: Calculation) => request<Json>('POST', '/calculate', { calculation: normalizeCaseForEngine(calculation) }),
   rawRgps: (_input: Json) => unsupported('Motor RGPS direto'),
   tool: (tool: string, input: Json) => request<Json>('POST', `/tools/${encodeURIComponent(tool)}`, input),
@@ -101,11 +101,20 @@ export const webApi = {
     if (!response.ok) {
       const text = await response.text();
       const parsed = text ? JSON.parse(text) : null;
-      throw new Error(parsed?.error ?? `A prÇ¸via falhou (${response.status}).`);
+      throw new Error(parsed?.error ?? `A prévia falhou (${response.status}).`);
     }
     return URL.createObjectURL(await response.blob());
   },
-  saveReport: async (calculation: Calculation, workspace: Workspace, format: string, includePersonal: boolean, presentation?: Presentation) => request<{ id: string; format: string; sizeBytes: number; sha256: string; expiresInDays: number }>('POST', '/reports/save', { calculation: normalizeCaseForEngine(calculation), workspace, format, include_personal: includePersonal, presentation: presentation ?? null }),
+  savedReports: {
+    save: async (calculation: Calculation, workspace: Workspace, format: string, includePersonal: boolean, presentation?: Presentation) =>
+      request<SavedReportStored>('POST', '/reports/save', { calculation: normalizeCaseForEngine(calculation), workspace, format, include_personal: includePersonal, presentation: presentation ?? null }),
+    list: async () => {
+      const data = await request<{ reports?: SavedReport[] }>('GET', '/reports/saved');
+      return data.reports ?? [];
+    },
+    link: (id: string) => request<SavedReportUrl>('GET', `/reports/saved/${encodeURIComponent(id)}`),
+    remove: async (id: string) => { await request<{ deleted?: boolean }>('DELETE', `/reports/saved/${encodeURIComponent(id)}`); },
+  },
 
   exportReport: async (calculation: Calculation, workspace: Workspace, format: string, includePersonal: boolean, presentation?: Presentation) => {
     const response = await authorizedFetch(`${API}/reports/preview`, {
@@ -116,7 +125,7 @@ export const webApi = {
     if (!response.ok) {
       const text = await response.text();
       const parsed = text ? JSON.parse(text) : null;
-      throw new Error(parsed?.error ?? `A exportaï¿½ï¿½Çœo falhou (${response.status}).`);
+      throw new Error(parsed?.error ?? `A exportação falhou (${response.status}).`);
     }
     return download(await response.blob(), 'application/pdf', `previdenciar-${format.replace(/^pdf_/, '')}.pdf`);
   },
@@ -149,7 +158,7 @@ export const webApi = {
       defaultModel: status.model,
       models: [status.model],
       keyRequired: true,
-      note: 'O envio usa a chave da plataforma e o consentimento explÃ­cito desta conversa.',
+      note: 'O envio usa a chave da plataforma e o consentimento explícito desta conversa.',
     } as AiProviderPreset];
   },
   aiKeyStatus: async () => {
@@ -163,7 +172,7 @@ export const webApi = {
     const status = await request<{ model: string }>('GET', '/ai/status');
     return [status.model];
   },
-  aiDataStatus: () => Promise.resolve({ skills: 0, legislation: 0, natjus: 0, natjusText: 0, jurisprudence: 0, ready: false, message: 'Base de conhecimento ainda nÃ£o conectada ao servidor.' } as AiDataStatus),
+  aiDataStatus: () => Promise.resolve({ skills: 0, legislation: 0, natjus: 0, natjusText: 0, jurisprudence: 0, ready: false, message: 'Base de conhecimento ainda não conectada ao servidor.' } as AiDataStatus),
   aiKnowledgeSearch: (_block: KnowledgeBlock, _query: string, _limit?: number) => unsupported('Busca na base'),
   aiKnowledgeRead: (_block: KnowledgeBlock, _id: string) => unsupported('Leitura da base'),
   pickCasePdfText: async () => {
@@ -178,7 +187,7 @@ export const webApi = {
     return parsed as CasePdfText;
   },
   saveExportFile: (data: Uint8Array, extension: string, suggestedName: string) => Promise.resolve(download(data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer, 'application/octet-stream', `${suggestedName}.${extension}`)),
-  aiImportData: (_includeNatjusPdf: boolean) => unsupported('ImportaÃ§Ã£o da base'),
+  aiImportData: (_includeNatjusPdf: boolean) => unsupported('Importação da base'),
   aiChat: async (requestBody: AiChatRequest, onEvent: (event: AiEvent) => void) => {
     const response = await authorizedFetch(`${API}/ai/chat`, {
       method: 'POST',
@@ -188,10 +197,10 @@ export const webApi = {
     if (!response.ok) {
       const text = await response.text();
       let message = `O Copiloto falhou (${response.status}).`;
-      try { message = JSON.parse(text)?.error ?? message; } catch { /* resposta nÃ£o JSON */ }
+      try { message = JSON.parse(text)?.error ?? message; } catch { /* resposta não JSON */ }
       throw new Error(message);
     }
-    if (!response.body) throw new Error('O Copiloto nÃ£o retornou uma resposta legÃ­vel.');
+    if (!response.body) throw new Error('O Copiloto não retornou uma resposta legível.');
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
