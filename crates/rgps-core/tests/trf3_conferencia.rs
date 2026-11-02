@@ -186,7 +186,13 @@ fn sb_validado_independentemente_rmi_independente_e_repeticao_nao_declara_equiva
 /// crate). Formato (ver docs de `rgps_core::perfil_correcao`):
 /// `{ "serie": "IPC-R", "versao": "...", "fonte": "...", "valores": [
 ///    {"competencia": "1994-07", "variacao": "..."} ] }`.
-#[ignore = "requer a série oficial IPC-R carregada via RGPS_IPCR_JSON ou data/ipcr.json"]
+///
+/// ESTADO EM 02/11/2026: a série já está versionada em `data/ipcr.json`, mas o
+/// portão continua fechado. Executado sem variável de ambiente, ele chega ao
+/// cálculo e falha na comparação ao centavo: SB 5068.57 contra os 5083.89
+/// esperados do TRF3 (diferença de 0,30%). O bloqueio deixou de ser de insumo e
+/// passou a ser de paridade. Ver docs/TRF3_VALIDATION_20261102.md.
+#[ignore = "série IPC-R já versionada, mas a paridade ao centavo com o TRF3 ainda diverge (SB 5068.57 contra 5083.89)"]
 #[test]
 fn paridade_centavo_trf3_falha_enquanto_a_serie_ipcr_nao_estiver_carregada() {
     let caminho = std::env::var("RGPS_IPCR_JSON")
