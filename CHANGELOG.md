@@ -1,4 +1,5 @@
 # Changelog
+
 ## 0.16.3 - 2026-10-28
 
 Identidade visual e README.
@@ -9,6 +10,9 @@ Identidade visual e README.
 
 ### Fixed
 - Rótulo **Assistente guiado** no menu, no lugar de "Assistente (passo a passo)", que quebrava em duas linhas.
+
+### Tests
+- 643 testes Rust (2 ignorados), 248 de interface e 37 de navegador (33 passaram; 4 falhas conhecidas, em correção em outra frente).
 
 
 ## 0.16.2 - 2026-10-27
@@ -32,7 +36,7 @@ Correções do teste de menu com advogado idoso.
 
 ### Fixed
 - **Assistente**: o resultado agora tem **Novo cálculo** e não fica preso ao último caso.
-- **Navegação**: **Meus cálculos**, **Assistente (passo a passo)**, **Editor avançado**, **Ferramentas** e **Cobertura e validação**, em vez de quatro nomes parecidos.
+- **Navegação**: **Meus cálculos**, **Assistente (passo a passo)**, **Editor avançado**, **Ferramentas** e **Cobertura e validação**, em vez de quatro nomes parecidos. O rótulo do assistente foi encurtado para **Assistente guiado** na 0.16.3.
 - **Cobertura**: a página foi atualizada para as seis espécies (42/41/32/31/46/57); 46/57 com tempo especial/magistério declarados; não diz mais "apenas 42 tem motor".
 - **UI**: tema do assistente, botões 44/32/48, inputs 44, espaçamento de texto e rolagem do menu lateral.
 
@@ -40,7 +44,6 @@ Correções do teste de menu com advogado idoso.
 - 509 testes Rust, 120 de interface e 36 de navegador.
 
 
-## 0.15.2 - 2026-10-27
 ## 0.16.0 - 2026-10-27
 
 As seis aposentadorias do RGPS: 46 (especial) e 57 (professor) com regra própria.
@@ -62,6 +65,8 @@ As seis aposentadorias do RGPS: 46 (especial) e 57 (professor) com regra própri
 - 509 testes Rust, 120 de interface e 36 de navegador.
 
 
+
+## 0.15.2 - 2026-10-27
 
 PcD com o CNIS importado, sem exigir a conferência manual dos 331 lançamentos.
 
