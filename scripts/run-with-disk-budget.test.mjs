@@ -59,7 +59,7 @@ function fixture() {
   };
 }
 
-function argvFor(f, { init = true, command = process.execPath, args = ['-e', 'process.exit(0)'] } = {}) {
+function argvFor(f, { init = true, command = process.execPath, args = ['-e', 'process.exit(0)'], timeoutSeconds = 0 } = {}) {
   const argv = [
     '--ledger', f.ledger,
     '--baseline', f.baseline,
@@ -69,6 +69,7 @@ function argvFor(f, { init = true, command = process.execPath, args = ['-e', 'pr
     '--cwd', f.repo,
   ];
   if (init) argv.push('--init-ledger');
+  if (timeoutSeconds) argv.push('--timeout-seconds', String(timeoutSeconds));
   argv.push('--', command, ...args);
   return argv;
 }
@@ -189,6 +190,19 @@ test('monitor aborta o próprio filho e não mata um processo externo', async ()
   await new Promise((resolve) => foreign.once('exit', resolve));
   const ledger = JSON.parse(fs.readFileSync(f.ledger, 'utf8'));
   assert.equal(ledger.status, 'blocked');
+});
+
+test('timeout encerra o próprio filho e devolve bloqueio', async () => {
+  const f = fixture();
+  const result = await run(f, {
+    command: process.execPath,
+    args: ['-e', 'setTimeout(() => {}, 5000)'],
+    timeoutSeconds: 1,
+  });
+  assert.equal(result.status, 'blocked');
+  assert.equal(result.exitCode, 3);
+  const ledger = JSON.parse(fs.readFileSync(f.ledger, 'utf8'));
+  assert.equal(ledger.last_run.reason, 'timeout');
 });
 
 test('código não zero do filho é preservado e o ledger não guarda argv', async () => {
