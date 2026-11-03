@@ -282,6 +282,7 @@ fn usuario(email: &str) -> auth::AuthUser {
     auth::AuthUser {
         subject: format!("dev:{email}"),
         email: email.to_owned(),
+        admin_email: None,
     }
 }
 
@@ -324,6 +325,7 @@ async fn usuario_e_workspace_persistem_entre_chamadas() {
     let com_email_novo = auth::AuthUser {
         subject: "dev:persistencia@teste.local".to_owned(),
         email: "renomeado@teste.local".to_owned(),
+        admin_email: None,
     };
     let atualizado = db::ensure_user(&banco.pool, &com_email_novo)
         .await

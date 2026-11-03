@@ -348,7 +348,10 @@ async fn me(
     Ok(Json(json!({
         "user": { "email": user.email, "subject": user.subject },
         "advanced": advanced,
-        "admin": state.config.is_admin(&user.email),
+        "admin": user
+            .admin_email
+            .as_deref()
+            .is_some_and(|email| state.config.is_admin(email)),
         "terms": { "version": state.config.terms_version, "accepted": accepted }
     })))
 }
@@ -390,7 +393,10 @@ async fn require_admin(
     let user = auth::authenticate(headers, state)
         .await
         .map_err(ApiError::unauthorized)?;
-    if !state.config.is_admin(&user.email) {
+    let Some(admin_email) = user.admin_email.as_deref() else {
+        return Err(ApiError::forbidden("Acesso administrativo restrito.".into()));
+    };
+    if !state.config.is_admin(admin_email) {
         return Err(ApiError::forbidden("Acesso administrativo restrito.".into()));
     }
     ensure_user_guarded(state, ip, &user).await
