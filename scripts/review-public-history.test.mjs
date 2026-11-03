@@ -221,6 +221,20 @@ test('limite de achados combinado é fail-closed e não ultrapassa o teto', () =
   assert.ok(result.coverage.limitations.some((item) => item.category.includes('limite de achados')));
 });
 
+test('limite de achados inclui paths privados, não só conteúdo', () => {
+  const repo = newRepo('path-limit');
+  for (let index = 0; index < 6; index += 1) {
+    write(repo, `target/p${index}.txt`, 'ok\n');
+  }
+  commit(repo, 'muitos paths privados');
+  const result = scan(repo, { maxFindings: 2 });
+  assert.equal(result.status, 'blocked');
+  assert.equal(result.coverage.complete, false);
+  assert.ok(result.historyFindings.length <= 2);
+  assert.ok(result.historyFindings.every((item) => item.rule === 'private-or-generated-path'));
+  assert.ok(result.coverage.limitations.some((item) => item.category.includes('limite de achados')));
+});
+
 test('refs/replace é detectado e bloqueia cobertura', () => {
   const repo = newRepo('replace');
   write(repo, 'base.txt', 'base\n');
