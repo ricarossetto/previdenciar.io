@@ -226,6 +226,22 @@ const PRIVATE_DIRECTORY =
 const ENV_FILE = /(?:^|\/)\.env(?:$|\.(?!example$))/;
 const SKIP_CONTENT = /\.(?:ttf|woff2|ico|png)$/i;
 
+/**
+ * Classificação de caminho reutilizada pelo scanner de histórico. Não altera
+ * a varredura atual; só expõe a mesma decisão de caminho privado/gerado.
+ */
+export function classifyPath(file) {
+  if (PROHIBITED_PATH.test(file) || PRIVATE_DIRECTORY.test(file) || ENV_FILE.test(file)) {
+    return {
+      rule: 'private-or-generated-path',
+      reason: 'caminho privado, gerado ou binário não pertence ao código público',
+      hint: 'Mova o arquivo para fora do repositório ou adicione ao .gitignore.',
+    };
+  }
+  if (SKIP_CONTENT.test(file)) return { skipContent: true };
+  return null;
+}
+
 /* ------------------------------------------------------------------------- */
 /* Motor de varredura                                                        */
 /* ------------------------------------------------------------------------- */
