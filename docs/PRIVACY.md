@@ -37,3 +37,14 @@ A conferência na Fábrica de Cálculos/TRF3 é uma ação separada, disparada p
 O corpo enviado contém apenas data de nascimento, sexo, DIB, espécie, períodos e salários revisados. Nome, CPF, NIT, CNIS, PDF, endereço, anotações e a chave não são enviados. O provedor é público e pode registrar IP, data e conteúdo da requisição conforme a política dele; o aplicativo não controla a retenção do lado do provedor. O resumo retornado, a fonte, o horário e os hashes ficam na base local protegida; a resposta bruta não é gravada.
 
 Sem chave, sem confirmação no diálogo ou com dados não revisados, nada é enviado. O cálculo local, os PDFs e a exportação continuam funcionando offline. Backups protegidos incluem a chave cifrada e os resumos de conferência; trate o arquivo de backup como documento sensível.
+
+## Produto web oficial: arquivos no S3
+
+O produto web (https://previdenciario.atrium.adv.br) é outro artefato: usa login pelo Cognito, PostgreSQL e um bucket S3 privado. As regras de retenção do bucket estão descritas em [PRODUCTION_AWS.md](PRODUCTION_AWS.md), seção "Retenção de arquivos no S3".
+
+- **`cnis/` expira em 1 dia.** O CNIS enviado é lido para a importação e o objeto é apagado pelo ciclo de vida do S3 no dia seguinte ao envio. O expurgo é automático e não depende de ação do usuário.
+- **`reports/` e `exports/` expiram em 30 dias.** Os PDFs e as exportações geradas ficam disponíveis nesse prazo.
+
+O trade-off é o seguinte. De um lado, a minimização e a necessidade (art. 6º, III, e art. 15 da LGPD) recomendam manter o CNIS só enquanto ele serve para a importação, porque o documento pode conter dado pessoal sensível de saúde (art. 5º, II) e um arquivo apagado não vaza. Do outro, a prova em disputa pode exigir demonstrar o que foi importado e quando, e nesse caso um arquivo apagado em 24 horas não serve como evidência.
+
+O prazo de 1 dia é o **comportamento atual do sistema**, não uma política aprovada. A decisão final cabe ao dono do produto, com apoio jurídico e de segurança. Estado em 02/11/2026: **aguardando decisão**. Enquanto ela não existe, vale o default de 1 dia, e a engenharia não altera a regra de ciclo de vida por conta própria.

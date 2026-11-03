@@ -104,6 +104,28 @@ fn especie_especial_e_professor_chegam_ao_motor_com_requisitos() {
 }
 
 #[test]
+fn especie_nao_suportada_lista_as_seis_aposentadorias_com_motor() {
+    let mut c = reviewed();
+    c.especie = Some("99".into());
+    let result = previdenciar_rgps::calculate_case(&c).unwrap();
+    assert_eq!(result["status"], "blocked", "{result}");
+    assert!(result["data"].is_null(), "{result}");
+    let mensagem = result["blockers"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|b| b["code"] == "especie_unsupported")
+        .map(|b| b["message"].as_str().unwrap().to_string())
+        .expect("bloqueio de espécie não suportada");
+    for codigo in ["42", "41", "32", "31", "46", "57"] {
+        assert!(
+            mensagem.contains(&format!("{codigo} (")),
+            "a mensagem deve listar a espécie {codigo}: {mensagem}"
+        );
+    }
+}
+
+#[test]
 fn especie_idade_chega_ao_motor_com_requisitos() {
     let mut c = reviewed();
     c.especie = Some("41".into());

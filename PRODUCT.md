@@ -25,7 +25,7 @@ Receber um CNIS real, conferir o que o documento diz, decidir parâmetros com ho
 - O motor RGPS cobre as espécies 42 (tempo de contribuição), 41 (idade), 32 (incapacidade permanente), 31 (incapacidade temporária), 46 (especial) e 57 (professor), com requisitos declarados e limites próprios.
 - A conferência online na Fábrica de Cálculos/TRF3 é opcional, exige chave própria e só envia datas, sexo, espécie e salários revisados. Sem chave, o resultado local e os PDFs funcionam offline.
 - A LC 142/2013 existe como simulação com premissas declaradas em módulo próprio.
-- O aplicativo não tem backend web, conta ou telemetria.
+- Esta distribuição desktop roda localmente: não tem backend web próprio, não exige conta e não envia telemetria. O produto web oficial (https://previdenciario.atrium.adv.br) é outro artefato: exige login pelo Cognito, guarda clientes e cálculos no PostgreSQL e arquivos no S3. O desktop não se conecta a esse backend.
 
 ## Anti-metas
 

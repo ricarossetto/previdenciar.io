@@ -58,7 +58,7 @@ pub fn calculate_case(case: &Calculation) -> Result<Value,String> {
             "42" | "41" | "31" | "32" | "46" | "57" => {}
             outra => {
                 let mensagem = format!(
-                    "Espécie {outra} não tem fórmula implementada. Espécies atendidas: 42 (tempo de contribuição), 41 (idade), 32 (incapacidade permanente) e 31 (incapacidade temporária)."
+                    "Espécie {outra} não tem fórmula implementada. Espécies atendidas: 42 (tempo de contribuição), 41 (idade), 32 (incapacidade permanente), 31 (incapacidade temporária), 46 (especial) e 57 (professor)."
                 );
                 issue(&mut blockers, "especie_unsupported", "especie", &mensagem);
             }
