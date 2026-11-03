@@ -91,6 +91,7 @@ impl S3Store {
     pub(crate) fn for_tests() -> Self {
         use aws_sdk_s3::config::Region;
         let config = aws_sdk_s3::Config::builder()
+            .behavior_version(aws_config::BehaviorVersion::latest())
             .region(Region::new("sa-east-1"))
             .build();
         Self {
