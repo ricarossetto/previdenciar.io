@@ -21,7 +21,8 @@ export const GIB = 1024 * MIB;
 export const CAP_BYTES = 4 * GIB;
 export const RESERVE_BYTES = 256 * MIB;
 export const FLOOR_BYTES = 10 * GIB;
-export const SCHEMA = 'm1-budget-supervisor/v1';
+export const SCHEMA = 'm1-budget-supervisor/v2';
+export const LEGACY_SCHEMA = 'm1-budget-supervisor/v1';
 
 const fail = (code, message) => {
   const error = new Error(message);
@@ -104,8 +105,8 @@ function newLedger(baseline, baselineBytes) {
   const roots = rootsFromBaseline(baseline);
   const vhd = Array.isArray(baseline.vhd) ? baseline.vhd : [];
   if (!baseline.authorization_id || !baseline.authorized_at) fail('baseline', 'identidade da autorização ausente');
-  const rootState = Object.fromEntries(roots.map((root) => [root.name, { path: root.path, start_bytes: root.start_bytes, high_water_bytes: root.start_bytes, charged_bytes: 0 }]));
-  const vhdState = Object.fromEntries(vhd.map((item) => [item.name, { path: path.resolve(expand(item.path)), start_bytes: item.start_bytes, high_water_bytes: item.start_bytes, charged_bytes: 0 }]));
+  const rootState = Object.fromEntries(roots.map((root) => [root.name, { path: root.path, start_bytes: root.start_bytes, last_observed_bytes: root.start_bytes, high_water_bytes: root.start_bytes, charged_bytes: 0 }]));
+  const vhdState = Object.fromEntries(vhd.map((item) => [item.name, { path: path.resolve(expand(item.path)), start_bytes: item.start_bytes, last_observed_bytes: item.start_bytes, high_water_bytes: item.start_bytes, charged_bytes: 0 }]));
   return {
     schema: SCHEMA,
     authorization_id: baseline.authorization_id,
@@ -116,10 +117,31 @@ function newLedger(baseline, baselineBytes) {
     status: 'ready',
     roots: rootState,
     vhd: vhdState,
-    pagefile: { start_bytes: baseline.pagefile.start_alloc_bytes, high_water_bytes: baseline.pagefile.start_alloc_bytes, charged_bytes: 0 },
+    pagefile: { start_bytes: baseline.pagefile.start_alloc_bytes, last_observed_bytes: baseline.pagefile.start_alloc_bytes, high_water_bytes: baseline.pagefile.start_alloc_bytes, charged_bytes: 0 },
     charged_bytes: 0,
     history: [],
   };
+}
+
+function migrateLedgerV1(ledger) {
+  const migrated = JSON.parse(JSON.stringify(ledger));
+  migrated.schema = SCHEMA;
+  migrated.migrated_from = LEGACY_SCHEMA;
+  migrated.migration = {
+    at: new Date().toISOString(),
+    note: 'last_observed_bytes inicializado do high_water do ledger v1; charged preservado; primeira amostra atualiza o último sem crédito.',
+  };
+  for (const group of [migrated.roots, migrated.vhd]) {
+    for (const state of Object.values(group ?? {})) {
+      if (!Number.isSafeInteger(state.last_observed_bytes)) {
+        state.last_observed_bytes = state.high_water_bytes ?? state.start_bytes;
+      }
+    }
+  }
+  if (migrated.pagefile && !Number.isSafeInteger(migrated.pagefile.last_observed_bytes)) {
+    migrated.pagefile.last_observed_bytes = migrated.pagefile.high_water_bytes ?? migrated.pagefile.start_bytes;
+  }
+  return migrated;
 }
 
 export function loadOrCreateLedger(baselinePath, ledgerPath) {
@@ -135,8 +157,18 @@ export function loadOrCreateLedger(baselinePath, ledgerPath) {
     persistLedger(ledgerPath, ledger);
     return { baseline, ledger };
   }
-  const ledger = readJson(ledgerPath);
+  let ledger = readJson(ledgerPath);
+  if (ledger.schema === LEGACY_SCHEMA) {
+    ledger = migrateLedgerV1(ledger);
+    persistLedger(ledgerPath, ledger);
+  }
   if (ledger.schema !== SCHEMA) fail('identity', 'schema do ledger novo difere');
+  for (const group of [ledger.roots, ledger.vhd]) {
+    for (const [name, state] of Object.entries(group ?? {})) {
+      if (!Number.isSafeInteger(state.last_observed_bytes) || !Number.isSafeInteger(state.high_water_bytes)) fail('identity', `estado sem last/high-water: ${name}`);
+    }
+  }
+  if (!ledger.pagefile || !Number.isSafeInteger(ledger.pagefile.last_observed_bytes)) fail('identity', 'pagefile sem último observado');
   if (ledger.authorization_id !== baseline.authorization_id || ledger.authorized_at !== baseline.authorized_at) fail('identity', 'autorização difere');
   if (ledger.baseline_sha256 !== baselineHash) fail('identity', 'baseline difere da autorização');
   for (const root of rootsFromBaseline(baseline)) {
@@ -150,31 +182,31 @@ export function loadOrCreateLedger(baselinePath, ledgerPath) {
   return { baseline, ledger };
 }
 
+function advanceSegment(state, bytes, name) {
+  if (!state) fail('identity', `segmento novo: ${name}`);
+  const last = Number.isSafeInteger(state.last_observed_bytes)
+    ? state.last_observed_bytes
+    : state.start_bytes;
+  const delta = bytes - last;
+  if (delta > 0) {
+    state.charged_bytes += delta;
+  }
+  state.last_observed_bytes = bytes;
+  if (!Number.isSafeInteger(state.high_water_bytes) || bytes > state.high_water_bytes) {
+    state.high_water_bytes = bytes;
+  }
+  return delta > 0 ? delta : 0;
+}
+
 export function accumulate(ledger, sample) {
   let delta = 0;
   for (const root of sample.roots) {
-    const state = ledger.roots[root.name];
-    if (!state) fail('identity', `raiz nova: ${root.name}`);
-    if (root.bytes > state.high_water_bytes) {
-      delta += root.bytes - state.high_water_bytes;
-      state.charged_bytes += root.bytes - state.high_water_bytes;
-      state.high_water_bytes = root.bytes;
-    }
+    delta += advanceSegment(ledger.roots[root.name], root.bytes, `raiz ${root.name}`);
   }
   for (const item of sample.vhd) {
-    const state = ledger.vhd[item.name];
-    if (!state) fail('identity', `VHD novo: ${item.name}`);
-    if (item.bytes > state.high_water_bytes) {
-      delta += item.bytes - state.high_water_bytes;
-      state.charged_bytes += item.bytes - state.high_water_bytes;
-      state.high_water_bytes = item.bytes;
-    }
+    delta += advanceSegment(ledger.vhd[item.name], item.bytes, `VHD ${item.name}`);
   }
-  if (sample.pagefile_alloc_bytes > ledger.pagefile.high_water_bytes) {
-    delta += sample.pagefile_alloc_bytes - ledger.pagefile.high_water_bytes;
-    ledger.pagefile.charged_bytes += sample.pagefile_alloc_bytes - ledger.pagefile.high_water_bytes;
-    ledger.pagefile.high_water_bytes = sample.pagefile_alloc_bytes;
-  }
+  delta += advanceSegment(ledger.pagefile, sample.pagefile_alloc_bytes, 'pagefile');
   ledger.charged_bytes += delta;
   ledger.updated_at = new Date().toISOString();
   return delta;
@@ -201,10 +233,27 @@ export function persistLedger(file, ledger) {
   }
 }
 
-export function cancelOwnChild(child) {
-  if (!child || typeof child.kill !== 'function') return false;
-  child.kill();
-  return true;
+export function cancelOwnChild(child, deps = {}) {
+  if (!child) return false;
+  if (child.exitCode !== null && child.exitCode !== undefined) return false;
+  if (child.signalCode !== null && child.signalCode !== undefined) return false;
+
+  const platform = deps.platform ?? process.platform;
+  const pid = child.pid;
+  if (platform === 'win32' && Number.isInteger(pid) && pid > 0) {
+    const taskkill = deps.taskkill ?? ((childPid) => spawnSync(
+      'taskkill',
+      ['/PID', String(childPid), '/T', '/F'],
+      { windowsHide: true, timeout: 5000 },
+    ));
+    const result = taskkill(pid);
+    if (result && result.status === 0) return true;
+  }
+  if (typeof child.kill === 'function') {
+    child.kill();
+    return true;
+  }
+  return false;
 }
 
 function usage() {
@@ -249,7 +298,6 @@ function persistSample(ledgerPath, ledger, sample, status = 'running', lastError
     status,
     ...(lastError ? { error: lastError } : {}),
   });
-  if (ledger.history.length > 200) ledger.history = ledger.history.slice(-200);
   persistLedger(ledgerPath, ledger);
 }
 
@@ -280,7 +328,7 @@ export async function runSupervisor(argv, deps = {}) {
     finalCode = 3;
     failure = reason;
     try { persistSample(parsed.ledger, ledger, (deps.measureAll ?? ((b) => measureAll(b, deps)))(baseline), 'blocked', reason); } catch {}
-    cancelOwnChild(child);
+    (deps.cancelOwnChild ?? cancelOwnChild)(child, deps);
   };
   await new Promise((resolve) => {
     interval = setInterval(() => {

@@ -62,40 +62,34 @@ function sample(start, free = 100 * GIB) {
 
 function ledgerWithRoots(start) {
   return {
-    roots: Object.fromEntries(start.roots.map((root) => [root.name, { high_water_bytes: root.start_bytes, charged_bytes: 0 }])),
-    vhd: Object.fromEntries(start.vhd.map((item) => [item.name, { high_water_bytes: item.start_bytes, charged_bytes: 0 }])),
-    pagefile: { high_water_bytes: start.pagefile.start_alloc_bytes, charged_bytes: 0 },
+    roots: Object.fromEntries(start.roots.map((root) => [root.name, { last_observed_bytes: root.start_bytes, high_water_bytes: root.start_bytes, charged_bytes: 0 }])),
+    vhd: Object.fromEntries(start.vhd.map((item) => [item.name, { last_observed_bytes: item.start_bytes, high_water_bytes: item.start_bytes, charged_bytes: 0 }])),
+    pagefile: { last_observed_bytes: start.pagefile.start_alloc_bytes, high_water_bytes: start.pagefile.start_alloc_bytes, charged_bytes: 0 },
     charged_bytes: 0,
     updated_at: '',
   };
 }
 
-test('soma positiva é cumulativa e redução não gera crédito', () => {
-  const f = fixture();
-  const ledger = ledgerWithRoots(f.baseline);
-  const first = sample(f.baseline);
-  first.roots[0].bytes += 10;
-  first.roots[1].bytes += 20;
-  first.vhd[0].bytes += 30;
-  first.pagefile_alloc_bytes += 40;
-  assert.equal(accumulate(ledger, first), 100);
-  assert.equal(ledger.charged_bytes, 100);
-
-  const lower = sample(f.baseline);
-  lower.roots[0].bytes += 1;
-  lower.roots[1].bytes += 2;
-  lower.vhd[0].bytes += 3;
-  lower.pagefile_alloc_bytes += 4;
-  assert.equal(accumulate(ledger, lower), 0);
-  assert.equal(ledger.charged_bytes, 100);
-
-  const higher = sample(f.baseline);
-  higher.roots[0].bytes += 15;
-  higher.roots[1].bytes += 25;
-  higher.vhd[0].bytes += 35;
-  higher.pagefile_alloc_bytes += 45;
-  assert.equal(accumulate(ledger, higher), 20);
-  assert.equal(ledger.charged_bytes, 120);
+test('aumento queda aumento cobra pelo último observado, sem crédito', () => {
+  const ledger = {
+    roots: { repo: { start_bytes: 100, last_observed_bytes: 100, high_water_bytes: 100, charged_bytes: 0 } },
+    vhd: { docker_data: { start_bytes: 1000, last_observed_bytes: 1000, high_water_bytes: 1000, charged_bytes: 0 } },
+    pagefile: { start_bytes: 1000, last_observed_bytes: 1000, high_water_bytes: 1000, charged_bytes: 0 },
+    charged_bytes: 0,
+    updated_at: '',
+  };
+  const at = (value) => ({
+    roots: [{ name: 'repo', bytes: value }],
+    vhd: [{ name: 'docker_data', bytes: 1000 }],
+    pagefile_alloc_bytes: 1000,
+  });
+  assert.equal(accumulate(ledger, at(100)), 0);
+  assert.equal(accumulate(ledger, at(120)), 20);
+  assert.equal(accumulate(ledger, at(80)), 0);
+  assert.equal(accumulate(ledger, at(100)), 20);
+  assert.equal(ledger.charged_bytes, 40);
+  assert.equal(ledger.roots.repo.last_observed_bytes, 100);
+  assert.equal(ledger.roots.repo.high_water_bytes, 120);
 });
 
 test('teto e piso param antes de exceder reserva', () => {
@@ -126,15 +120,60 @@ test('ledger novo retoma high-water e rejeita identidade diferente', () => {
   assert.throws(() => loadOrCreateLedger(badPath, f.ledger), /autorização difere/);
 });
 
+test('ledger v1 migra preservando charged e inicializa o último', () => {
+  const f = fixture();
+  const { ledger } = loadOrCreateLedger(f.baselinePath, f.ledger);
+  const v1 = JSON.parse(JSON.stringify(ledger));
+  v1.schema = 'm1-budget-supervisor/v1';
+  delete v1.migration;
+  v1.charged_bytes = 123;
+  v1.roots.repo.charged_bytes = 123;
+  for (const group of [v1.roots, v1.vhd]) {
+    for (const state of Object.values(group)) delete state.last_observed_bytes;
+  }
+  delete v1.pagefile.last_observed_bytes;
+  const v1Path = path.join(f.root, 'ledger-v1.json');
+  fs.writeFileSync(v1Path, JSON.stringify(v1), 'utf8');
+  const migrated = loadOrCreateLedger(f.baselinePath, v1Path).ledger;
+  assert.equal(migrated.schema, 'm1-budget-supervisor/v2');
+  assert.equal(migrated.charged_bytes, 123);
+  assert.equal(migrated.roots.repo.last_observed_bytes, migrated.roots.repo.high_water_bytes);
+});
+
 test('fonte de raiz ausente falha fechado', () => {
   const missing = path.join(os.tmpdir(), 'tmp-m1-budget-missing-source-nao-existe');
   assert.throws(() => measureRoots([{ name: 'sumiu', path: missing }]), (error) => error.code === 'source');
 });
 
-test('cancelamento só chama kill do filho próprio', () => {
-  const child = { killed: false, kill() { this.killed = true; } };
-  assert.equal(cancelOwnChild(child), true);
-  assert.equal(child.killed, true);
+test('cancelamento usa taskkill /PID do filho próprio', () => {
+  const calls = [];
+  const child = {
+    pid: 4321,
+    exitCode: null,
+    killed: false,
+    kill() { this.killed = true; },
+  };
+  const result = cancelOwnChild(child, {
+    platform: 'win32',
+    taskkill: (pid) => { calls.push(pid); return { status: 0 }; },
+  });
+  assert.equal(result, true);
+  assert.deepEqual(calls, [4321]);
+  assert.equal(child.killed, false, 'taskkill vencedor não deve chamar kill');
+});
+
+test('cancelamento não toca filho já terminado e faz fallback finito', () => {
+  let calls = 0;
+  const exited = { pid: 4321, exitCode: 0, kill() { calls += 1; } };
+  assert.equal(cancelOwnChild(exited, { platform: 'win32', taskkill: () => { calls += 1; return { status: 0 }; } }), false);
+  assert.equal(calls, 0);
+
+  const fallback = { pid: 4322, exitCode: null, killed: false, kill() { this.killed = true; } };
+  assert.equal(cancelOwnChild(fallback, {
+    platform: 'win32',
+    taskkill: () => ({ status: 1 }),
+  }), true);
+  assert.equal(fallback.killed, true);
   assert.equal(cancelOwnChild(null), false);
 });
 
