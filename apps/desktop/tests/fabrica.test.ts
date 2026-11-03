@@ -1,6 +1,7 @@
 import {describe,expect,it} from 'vitest';
 import {blankCase} from '../src/model';
 import {buildFabricaInput,cents,difference,localRmi} from '../src/fabrica';
+import {LINK_KINDS} from '../src/assistantReview';
 
 function case41() {
   const c = blankCase();
@@ -29,6 +30,37 @@ function withKind(kind: string) {
   const policy = JSON.parse(c.options.rule_policy);
   policy.manual_link_kind = kind;
   c.options.rule_policy = JSON.stringify(policy);
+  return c;
+}
+
+function withSource(affiliation: string | null, prpps = false, indicators: string[] = []) {
+  const c = case41();
+  c.manual_links[0] = {
+    ...c.manual_links[0],
+    regime: 'RGPS',
+    source_review: {sequence: 1, source_sha256: 'synthetic', excluded: false, history: []},
+  };
+  c.cnis = {
+    metadata: {page_count: 1, source_sha256: 'synthetic', extractor: 'synthetic'},
+    identity: {...c.identity},
+    salary_entries: [],
+    salary_months: {},
+    links: [{
+      sequence: 1,
+      raw_employer: 'Origem 1',
+      affiliation,
+      start_date: '1994-07-01',
+      end_date: '2019-06-30',
+      prpps,
+      indicators,
+      reported_last_salary_month: null,
+      inferred_last_salary_end: null,
+      source: {page: 1},
+    }],
+    benefits: [],
+    warnings: [],
+    findings: [],
+  };
   return c;
 }
 
@@ -122,6 +154,60 @@ describe('conferência na Fábrica de Cálculos', () => {
       expect(built.input).toBeNull();
       expect(built.issues.join(' ')).toContain('não suportada');
     }
+  });
+
+  it('aceita os cinco tipos locais como COMUM e AVRC-DEF como informativo', () => {
+    for (const kind of LINK_KINDS) {
+      const built = buildFabricaInput(withKind(kind));
+      expect(built.input?.tipo).toBe('COMUM');
+    }
+    const informative = case41();
+    informative.manual_links[0].indicators = 'AVRC-DEF';
+    const built = buildFabricaInput(informative);
+    expect(built.issues).toEqual([]);
+    expect(built.input?.tipo).toBe('COMUM');
+  });
+
+  it('bloqueia indicador pendente ou desconhecido mesmo com confirmed=true', () => {
+    for (const indicator of ['PREC-MENOR-MIN','PEXT','PREM-EMPR','INDICADOR-X']) {
+      const link = case41();
+      link.manual_links[0].indicators = indicator;
+      const built = buildFabricaInput(link);
+      expect(built.input).toBeNull();
+      expect(built.issues.join(' ')).toContain(indicator === 'INDICADOR-X' ? 'não catalogado' : 'pendente');
+    }
+    const salary = case41();
+    salary.manual_salaries[0].indicators = 'PREC-MENOR-MIN';
+    const built = buildFabricaInput(salary);
+    expect(built.input).toBeNull();
+    expect(built.issues.join(' ')).toContain('pendente');
+  });
+
+  it('bloqueia regime não RGPS ou ausente sem alterar o regime', () => {
+    for (const regime of ['RPPS','PRPPS','A confirmar','']) {
+      const link = case41();
+      link.manual_links[0].regime = regime;
+      const built = buildFabricaInput(link);
+      expect(built.input).toBeNull();
+      expect(built.issues.join(' ')).toContain('não é RGPS');
+      expect(link.manual_links[0].regime).toBe(regime);
+    }
+  });
+
+  it('bloqueia origem PRPPS/CTC e afiliação RPPS mesmo com regime RGPS', () => {
+    const prpps = buildFabricaInput(withSource('Empregado', true, ['PRPPS']));
+    expect(prpps.input).toBeNull();
+    expect(prpps.issues.join(' ')).toContain('PRPPS/CTC');
+
+    const servidor = buildFabricaInput(withSource('Servidor'));
+    expect(servidor.input).toBeNull();
+    expect(servidor.issues.join(' ')).toContain('RPPS');
+
+    const missing = withSource(null);
+    missing.cnis!.links = [];
+    const built = buildFabricaInput(missing);
+    expect(built.input).toBeNull();
+    expect(built.issues.join(' ')).toContain('origem ausente');
   });
 
   it('preserva RURICOLA quando a declaração rural é explícita e os vínculos estão confirmados', () => {

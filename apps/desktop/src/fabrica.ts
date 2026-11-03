@@ -110,6 +110,39 @@ function inside(competence: string, start: string, end: string): boolean {
   return month >= start.slice(0, 7) && month <= end.slice(0, 7);
 }
 
+// Códigos oficiais usados pelo adaptador local. PRPPS/CTC, PREC-MENOR-MIN,
+// IREM/IREC-INDPEND, PREM-EMPR/PREM-FVIN e PEXT são pendências de revisão.
+// AVRC-DEF é o acerto extemporâneo deferido: alerta informativo, não invalidez.
+// Qualquer código não catalogado falha fechado.
+const KNOWN_PENDING_INDICATORS = new Set([
+  'PRPPS',
+  'PREC-MENOR-MIN',
+  'IREM-INDPEND',
+  'IREC-INDPEND',
+  'PREM-EMPR',
+  'PREM-FVIN',
+  'PEXT',
+]);
+const INFORMATIVE_INDICATORS = new Set(['AVRC-DEF']);
+
+function indicatorCodes(value: string): string[] {
+  return value.split(/[\s,;]+/).map(code => code.trim().toUpperCase()).filter(Boolean);
+}
+
+function indicatorIssue(value: string, allowInformative: boolean): string | null {
+  const codes = indicatorCodes(value);
+  if (!codes.length) return null;
+  const unknown = codes.filter(code => !KNOWN_PENDING_INDICATORS.has(code) && !INFORMATIVE_INDICATORS.has(code));
+  if (unknown.length) {
+    return `Indicador(es) ${unknown.join(', ')} não catalogado(s); revise a origem e registre a resolução documental antes do envio.`;
+  }
+  const pending = codes.filter(code => !allowInformative || !INFORMATIVE_INDICATORS.has(code));
+  if (pending.length) {
+    return `Indicador(es) ${pending.join(', ')} pendente(s) de revisão documental; o indicador é alerta, não invalidez. Resolva e limpe a pendência no vínculo antes do envio.`;
+  }
+  return null;
+}
+
 /**
  * The provider's `tipo` is global (`dadosSegurado.tipo`), not per link. A rural
  * declaration is sent only when every source-reviewed link proves rural
@@ -151,9 +184,30 @@ export function buildFabricaInput(c: Calculation): { input: FabricaInput|null; i
   }
 
   const links = c.manual_links.filter(link => !link.source_review?.excluded);
+  const sources = new Map((c.cnis?.links ?? []).map(source => [source.sequence, source]));
   if (!links.length) push('Confirme ao menos um vínculo antes da conferência.');
   links.forEach(link => {
     if (!link.confirmed) push('Confirme todos os vínculos usados na conferência.');
+    const regime = link.regime.trim().toUpperCase();
+    if (regime !== 'RGPS') {
+      push(`Vínculo com regime ${link.regime.trim() || 'ausente'} não é RGPS; confirme o regime com documento próprio antes do envio.`);
+    }
+    const linkIndicators = indicatorIssue(link.indicators, true);
+    if (linkIndicators) push(linkIndicators);
+    const sequence = link.source_review?.sequence;
+    if (sequence !== undefined) {
+      const source = sources.get(sequence);
+      if (!source) push('Vínculo aponta origem ausente; revise a proveniência antes do envio.');
+      else {
+        if (source.prpps || source.indicators.some(code => code.trim().toUpperCase() === 'PRPPS')) {
+          push('Origem PRPPS/CTC permanece pendente mesmo com vínculo confirmado; não enviar sem prova documental específica.');
+        }
+        const affiliation = (source.affiliation ?? '').trim().toLowerCase();
+        if (affiliation.includes('servidor') || affiliation.includes('rpps')) {
+          push('Afiliação de origem indica RPPS; confirme regime e CTC antes do envio.');
+        }
+      }
+    }
     const start = iso(link.start_date);
     const end = iso(link.end_date);
     if (!start || !end) push('Todo vínculo precisa de início e fim confirmados.');
@@ -172,6 +226,8 @@ export function buildFabricaInput(c: Calculation): { input: FabricaInput|null; i
   const orphans: string[] = [];
   for (const salary of c.manual_salaries) {
     if (!salary.confirmed) push('Confirme todas as remunerações usadas na conferência.');
+    const salaryIndicators = indicatorIssue(salary.indicators, false);
+    if (salaryIndicators) push(salaryIndicators);
     const competence = salary.competence.trim();
     if (!ISO_MONTH.test(competence)) { push('Há competência de remuneração inválida.'); continue; }
     if (seen.has(competence)) push('Há competência repetida entre as remunerações.');
