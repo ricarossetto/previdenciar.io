@@ -1,4 +1,4 @@
-import {render,screen} from '@testing-library/react';
+import {render,screen,within} from '@testing-library/react';
 import {describe,it,expect} from 'vitest';
 import {ResultView} from '../src/components/CaseWorkbench';
 import type {Json} from '../src/model';
@@ -14,5 +14,39 @@ describe('result audit panels',()=>{
     expect(screen.getAllByText('Regra sintética').length).toBeGreaterThan(0);
     expect(screen.getByText(/Nenhum salário foi elevado ao mínimo silenciosamente/)).toBeInTheDocument();
     expect(screen.getByText('R$ 1.600,00')).toBeInTheDocument();
+  });
+
+  it('shows missing time as not measured instead of zero',()=>{
+    render(<ResultView result={{status:'experimental',data:{native_result:{resumo:{rmi:'1600.00'},tempo:{total:{},marcos:{},vinculos:[]}}}} as Json}/>);
+    expect(screen.getAllByText('Não apurado').length).toBeGreaterThanOrEqual(2);
+    expect(screen.getAllByText('Sem dado').length).toBeGreaterThanOrEqual(3);
+    expect(screen.queryByText('0a 0m 0d')).not.toBeInTheDocument();
+  });
+
+  it('keeps an explicit zero returned by the engine',()=>{
+    render(<ResultView result={{status:'experimental',data:{native_result:{resumo:{rmi:'0.00',carencia_meses:0},tempo:{total:{anos:0,meses:0,dias:0},carencia_meses:0,marcos:{ate_ec103:0},vinculos:[]}}}} as Json}/>);
+    expect(screen.getByText('0a 0m 0d')).toBeInTheDocument();
+    expect(screen.getAllByText('0 meses').length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByText('R$ 0,00')).toBeInTheDocument();
+  });
+
+  it('groups blocked pendencies by next action and keeps origin fields',()=>{
+    const blocked:Json={status:'blocked',blockers:[
+      {code:'link_unconfirmed',field:'vinculos[0]',message:'Período sem confirmação documental.'},
+      {code:'source_end_after_dib',field:'cnis.links[1]',message:'Fim da origem posterior à DIB.'},
+      {code:'wage_after_dib',field:'competencias[3]',message:'Remuneração posterior à DIB.'},
+      {code:'wage_unconfirmed',field:'competencias[4]',message:'Salário sem confirmação documental.'},
+      {code:'disability_unconfirmed',field:'segurado.deficiencia',message:'Deficiência não confirmada.'},
+    ]};
+    render(<ResultView result={blocked}/>);
+    expect(screen.getByText('Execução bloqueada')).toBeInTheDocument();
+    const linksGroup=screen.getByText('Revisar vínculos e regime').closest('details');
+    expect(linksGroup).not.toBeNull();
+    expect(within(linksGroup!).getAllByRole('listitem')).toHaveLength(2);
+    expect(within(linksGroup!).getByText('vinculos[0]')).toBeInTheDocument();
+    expect(screen.getByText('Revisar competências e remunerações')).toBeInTheDocument();
+    expect(screen.getByText('Confirmar parâmetros e revisão')).toBeInTheDocument();
+    expect(screen.getByText('competencias[3]')).toBeInTheDocument();
+    expect(screen.queryByText(/^R\$/)).not.toBeInTheDocument();
   });
 });

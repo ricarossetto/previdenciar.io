@@ -52,8 +52,9 @@ export function ReportCenter({workspace,selected,onSelect,onNotify,draftCase,onC
   const[busySaved,setBusySaved]=useState<string|null>(null);
   const[confirmDelete,setConfirmDelete]=useState<string|null>(null);
   const[savingCloud,setSavingCloud]=useState(false);
-  const generation=useRef(0),urlRef=useRef(''),lastCase=useRef<number|null>(null),paper=useRef<HTMLDivElement>(null);
+  const generation=useRef(0),urlRef=useRef(''),lastCase=useRef<number|null>(null),paper=useRef<HTMLDivElement>(null),personalByCase=useRef(new Map<string,boolean>());
   const calculation=draftCase??workspace.calculations.find(c=>c.id===selected)??null;
+  const caseKey=calculation?calculation.id+':'+calculation.name:'sem-calculo';
   const choices=draftCase?[draftCase]:workspace.calculations;
   const description=FORMATS.find(f=>f.id===format);
   const isPdf=format.startsWith('pdf_');
@@ -62,6 +63,7 @@ export function ReportCenter({workspace,selected,onSelect,onNotify,draftCase,onC
     const id=calculation?.id??null;
     if(id!==lastCase.current){lastCase.current=id;setTitle(calculation?.options.report_title??'');}
   },[calculation]);
+  useEffect(()=>{setPersonal(personalByCase.current.get(caseKey)??false)},[caseKey]);
   useEffect(()=>{
     generation.current+=1;
     if(urlRef.current){URL.revokeObjectURL(urlRef.current);urlRef.current='';}
@@ -170,12 +172,13 @@ export function ReportCenter({workspace,selected,onSelect,onNotify,draftCase,onC
       <label className="field"><span>Cálculo selecionado</span><select aria-label="Selecionar cálculo" value={draftCase?.id??selected??''} disabled={!!draftCase} onChange={e=>onSelect(e.target.value?Number(e.target.value):null)}><option value="">Escolha um cálculo</option>{choices.map(c=><option key={c.id} value={c.id}>{c.name||'Cálculo sem nome'}</option>)}</select></label>
       <label className="field"><span>{draftCase?'Tipo de relatório PDF':'Formato'}</span><select aria-label={draftCase?'Tipo de relatório PDF':'Formato'} value={format} onChange={event=>setFormat(event.target.value)}>{FORMATS.map(item=><option key={item.id} value={item.id}>{item.title}</option>)}{!draftCase&&<optgroup label="Exportar dados"><option value="html">Página HTML</option><option value="csv">Planilha CSV</option><option value="json">Dados JSON</option></optgroup>}</select></label>
       {description&&<p className="report-help">{description.detail}</p>}
-      <label className="checkline report-privacy"><input type="checkbox" checked={personal} onChange={e=>setPersonal(e.target.checked)}/>Incluir identificação pessoal no relatório local</label>
-      <p className="report-help">Sem essa opção, nome e identificadores ficam ocultos. Datas e valores continuam sensíveis.</p><details className="report-help"><summary>Outros modelos dos documentos originais</summary><p>Retorno do investimento não está disponível neste fluxo. A qualidade de segurado é apurada pelo próprio motor, por vínculo e com a regra legal declarada, e nunca copiada de outro segurado.</p></details>
+      <label className="checkline report-privacy"><input type="checkbox" checked={personal} onChange={e=>{const checked=e.target.checked;setPersonal(checked);personalByCase.current.set(caseKey,checked)}}/>Incluir identificação pessoal neste relatório</label>
+      <p className="report-help">A escolha vale somente para este cálculo; os demais continuam sem identificação. Datas e valores continuam sensíveis.</p><details className="report-help"><summary>Outros modelos dos documentos originais</summary><p>Retorno do investimento não está disponível neste fluxo. A qualidade de segurado é apurada pelo próprio motor, por vínculo e com a regra legal declarada, e nunca copiada de outro segurado.</p></details>
     </aside>
     <div className="report-workspace">
       <header className="report-toolbar"><div><h2>{description?.title??'Exportação de dados'}</h2><p>{calculation?.name??'Selecione um cálculo para começar.'}</p></div><div className="report-toolbar__actions" data-ui-actions><Button disabled={!calculation||!isPdf||!!busy} onClick={()=>void preview()}>{busy==='preview'?'Gerando prévia...':'Pré-visualizar PDF'}</Button><Button primary disabled={!calculation||!!busy} onClick={()=>void exportFile()}>{busy==='export'?'Exportando...':draftCase?(format==='pdf_detailed'?'Gerar relatório PDF detalhado':'Gerar PDF'):'Exportar arquivo'}<Icon name="file" size={16}/></Button>{savedReports&&isPdf&&<Button disabled={!calculation||!!busy||savingCloud} title="Gera o PDF no servidor e guarda na sua conta." onClick={()=>void saveToAccount()}>{savingCloud?'Salvando na conta...':'Salvar PDF na conta'}<Icon name="upload" size={16}/></Button>}</div></header>
       {error&&<Notice tone="error">{error}</Notice>}
+      {calculation&&(calculation.result as {status?:string}|null)?.status==='blocked'&&<Notice tone="review">Este cálculo está bloqueado. Os relatórios disponíveis registram as pendências e não apresentam valor financeiro como resultado.</Notice>}
       <fieldset className="report-batch">
         <legend>Exportar vários relatórios</legend>
         <p className="report-help">Um arquivo PDF por tipo selecionado, na pasta que você escolher. Nomes fixos e arquivos existentes não são sobrescritos; o lote continua mesmo se um tipo falhar.</p>
