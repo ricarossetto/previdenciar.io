@@ -27,10 +27,12 @@ import { BudgetError, freeBytesForPath, parseBaselineObject } from './disk-budge
 
 const GIB = 1024 ** 3;
 const MIB = 1024 ** 2;
-const SCHEMA = 'previdenciar-run-disk-budget/v1';
+const SCHEMA = 'previdenciar-run-disk-budget/v2';
+const LEGACY_SCHEMA = 'previdenciar-run-disk-budget/v1';
 const AUTHORIZED_CAP_BYTES = 2 * GIB;
 const AUTHORIZED_FLOOR_BYTES = 10 * GIB;
 const AUTHORIZED_RESERVE_BYTES = 256 * MIB;
+const INITIAL_RECONCILIATION_BYTES = 64 * MIB;
 const MAX_ENTRIES = 2_000_000;
 const MAX_HISTORY = 50;
 const MAX_DECREASES = 50;
@@ -44,6 +46,7 @@ export const POLICY = Object.freeze({
   totalCapBytes: AUTHORIZED_CAP_BYTES,
   floorBytes: AUTHORIZED_FLOOR_BYTES,
   reserveBytes: AUTHORIZED_RESERVE_BYTES,
+  initialChargeBytes: INITIAL_RECONCILIATION_BYTES,
   maxEntries: MAX_ENTRIES,
 });
 
@@ -54,16 +57,18 @@ Uso:
     --root target=<dir> --root repo=<dir> --root saga=<dir> \\
     [--root temp=<dir>] [--root pg=<dir>] [--cache cargo=<dir>] \\
     [--volume <dir>] [--cwd <dir>] [--timeout-seconds N] \\
-    [--init-ledger] -- <comando> [args...]
+    [--init-ledger | --reconcile-initial] -- <comando> [args...]
 
 Política fixa: 2 GiB de crescimento total desde a retomada, piso de 10 GiB
-livres e reserva de 256 MiB para interrupção/relatórios. Não há flag para
-afrouxar. O wrapper não usa shell, não lê conteúdo de arquivos e não mata
-processos que não sejam o próprio filho.
+livres, reserva de 256 MiB e cobrança inicial conservadora de 64 MiB. Não há
+flag para afrouxar. O wrapper não usa shell, não lê conteúdo de arquivos e não
+mata processos que não sejam o próprio filho.
 
-Primeiro uso: --init-ledger. O ledger não pode ser sobrescrito, trocado de
-caminho, apagado ou recriado por medição nova. O baseline antigo permanece
-como está; a diminuição externa do target é registrada, não creditada.
+Primeiro uso: --init-ledger. Ledger v1 existente: --reconcile-initial, sem
+comando, com ponto anterior e histórico preservados. O ledger não pode ser
+sobrescrito, trocado de caminho, apagado ou recriado por medição nova. O
+baseline antigo permanece como está; a diminuição externa do target é
+registrada, não creditada.
 
 Códigos: 0 comando ok; código do filho se ele falhar; 3 bloqueio de orçamento;
 4 erro de configuração/medição/ledger; 130 cancelamento.`;
@@ -147,6 +152,7 @@ export function parseArgs(argv) {
   const parsed = {
     help: false,
     initLedger: false,
+    reconcileInitial: false,
     ledger: null,
     baseline: null,
     roots: [],
@@ -176,6 +182,11 @@ export function parseArgs(argv) {
       index += 1;
       continue;
     }
+    if (arg === '--reconcile-initial') {
+      parsed.reconcileInitial = true;
+      index += 1;
+      continue;
+    }
     const value = argv[index + 1];
     if (value === undefined) fail('config', `${arg} exige um valor`);
     if (arg === '--ledger') parsed.ledger = path.resolve(value);
@@ -191,7 +202,8 @@ export function parseArgs(argv) {
   if (parsed.help) return parsed;
   if (!parsed.ledger) fail('config', '--ledger é obrigatório');
   if (!parsed.baseline) fail('config', '--baseline é obrigatório');
-  if (!parsed.command) fail('config', 'informe o comando depois de --');
+  if (parsed.initLedger && parsed.reconcileInitial) fail('config', '--init-ledger e --reconcile-initial são exclusivos');
+  if (!parsed.command && !parsed.reconcileInitial) fail('config', 'informe o comando depois de --');
   if (!parsed.roots.some((root) => root.name === 'target')) fail('config', '--root target é obrigatório');
   if (!parsed.roots.some((root) => root.name === 'repo')) fail('config', '--root repo é obrigatório');
   if (!parsed.roots.some((root) => root.name === 'saga')) fail('config', '--root saga é obrigatório');
@@ -215,6 +227,8 @@ export function validatePolicy(policy) {
   if (!isSafeInteger(policy.floorBytes) || policy.floorBytes <= 0) fail('config', 'piso inválido');
   if (!isSafeInteger(policy.reserveBytes) || policy.reserveBytes <= 0) fail('config', 'reserva inválida');
   if (policy.reserveBytes >= policy.totalCapBytes) fail('config', 'reserva consome o cap');
+  if (!isSafeInteger(policy.initialChargeBytes) || policy.initialChargeBytes <= 0) fail('config', 'cobrança inicial inválida');
+  if (policy.initialChargeBytes >= policy.totalCapBytes) fail('config', 'cobrança inicial consome o cap');
   if (!isSafeInteger(policy.maxEntries) || policy.maxEntries <= 0) fail('config', 'limite de entradas inválido');
   return policy;
 }
@@ -248,29 +262,40 @@ export function measureTree(root, { excludes = [], maxEntries = MAX_ENTRIES, io 
   const excluded = new Set(excludes.map((value) => normalize(value)));
   let bytes = 0;
   let entries = 0;
-  const pending = [absolute];
+  let transientSkips = 0;
+  const pending = [{ directory: absolute, root: true }];
   while (pending.length) {
-    const directory = pending.pop();
+    const current = pending.pop();
     let children;
     try {
-      children = io.readdirSync(directory, { withFileTypes: true });
-    } catch {
-      fail('measurement', 'falha ao ler uma raiz');
+      children = io.readdirSync(current.directory, { withFileTypes: true });
+    } catch (error) {
+      if (error.code === 'ENOENT' && !current.root) {
+        transientSkips += 1;
+        continue;
+      }
+      fail('measurement', current.root ? 'raiz desapareceu durante a medição' : 'falha ao ler um diretório');
     }
     for (const child of children) {
       entries += 1;
       if (entries > maxEntries) fail('measurement', 'limite de entradas excedido');
-      const full = path.join(directory, child.name);
+      const full = path.join(current.directory, child.name);
       if (excluded.has(normalize(full))) continue;
-      let stat;
-      try {
-        stat = io.lstatSync(full);
-      } catch {
-        fail('measurement', 'falha ao medir uma entrada');
+      let stat = null;
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        try {
+          stat = io.lstatSync(full);
+          break;
+        } catch (error) {
+          if (error.code !== 'ENOENT') fail('measurement', 'falha ao medir uma entrada');
+          if (attempt < 2) continue;
+          transientSkips += 1;
+        }
       }
+      if (!stat) continue;
       assertNoSymlink(stat);
       if (stat.isDirectory()) {
-        pending.push(full);
+        pending.push({ directory: full, root: false });
       } else if (stat.isFile()) {
         if (!isSafeInteger(stat.size)) fail('measurement', 'tamanho inválido');
         bytes += stat.size;
@@ -280,7 +305,7 @@ export function measureTree(root, { excludes = [], maxEntries = MAX_ENTRIES, io 
       }
     }
   }
-  return { bytes, entries, root: absolute, exists: true };
+  return { bytes, entries, root: absolute, exists: true, transientSkips };
 }
 
 function nestedExcludes(root, allPaths) {
@@ -388,20 +413,25 @@ export function buildLedger({ config, baseline, measured, policy = POLICY, now =
     total_cap_bytes: policy.totalCapBytes,
     floor_bytes: policy.floorBytes,
     reserve_bytes: policy.reserveBytes,
-    used_bytes: 0,
+    initial_charge_bytes: policy.initialChargeBytes,
+    initial_charge_at: created,
+    initial_charge_basis: `reconciliação autorizada em 2026-11-03; cobrança conservadora de ${policy.initialChargeBytes} bytes para artefatos anteriores e incerteza do baseline; não cria novo cap`,
+    used_bytes: policy.initialChargeBytes,
     reserved_bytes: 0,
-    remaining_bytes: policy.totalCapBytes,
+    remaining_bytes: policy.totalCapBytes - policy.initialChargeBytes,
     status: 'ready',
+    previous: null,
+    reconciliation: null,
     segments,
     history: [],
     last_run: null,
   };
 }
 
-export function validateLedger(ledger, { config, baseline, policy = POLICY, now = Date.now() }) {
+export function validateLedger(ledger, { config, baseline, policy = POLICY, now = Date.now(), legacy = false }) {
   validatePolicy(policy);
   if (!ledger || typeof ledger !== 'object' || Array.isArray(ledger)) fail('ledger', 'ledger inválido');
-  if (ledger.schema !== SCHEMA) fail('ledger', 'schema do ledger desconhecido');
+  if (ledger.schema !== (legacy ? LEGACY_SCHEMA : SCHEMA)) fail('ledger', 'schema do ledger desconhecido');
   if (!ledger.ledger_path || !samePath(ledger.ledger_path, config.ledger)) fail('ledger', 'ledger em caminho diferente');
   if (!ledger.repo_root || !samePath(ledger.repo_root, config.repoRoot)) fail('ledger', 'repo diferente');
   if (!ledger.target_root || !samePath(ledger.target_root, config.targetRoot)) fail('ledger', 'target diferente');
@@ -413,6 +443,14 @@ export function validateLedger(ledger, { config, baseline, policy = POLICY, now 
   if (ledger.total_cap_bytes !== policy.totalCapBytes) fail('ledger', 'cap foi alterado');
   if (ledger.floor_bytes !== policy.floorBytes) fail('ledger', 'piso foi alterado');
   if (ledger.reserve_bytes !== policy.reserveBytes) fail('ledger', 'reserva foi alterada');
+  const initialCharge = legacy ? 0 : ledger.initial_charge_bytes;
+  if (!legacy) {
+    if (initialCharge !== policy.initialChargeBytes) fail('ledger', 'cobrança inicial foi alterada');
+    if (Number.isNaN(Date.parse(ledger.initial_charge_at))) fail('ledger', 'data de cobrança inicial inválida');
+    if (typeof ledger.initial_charge_basis !== 'string' || !ledger.initial_charge_basis.trim()) {
+      fail('ledger', 'justificativa da cobrança inicial ausente');
+    }
+  }
   if (typeof ledger.resumption_id !== 'string' || !ledger.resumption_id.trim()) fail('ledger', 'resumption_id ausente');
   if (!isSafeInteger(ledger.external_decrease_bytes)) fail('ledger', 'diminuição externa inválida');
   if (typeof ledger.external_decrease_approx !== 'boolean') fail('ledger', 'aproximação externa inválida');
@@ -435,7 +473,9 @@ export function validateLedger(ledger, { config, baseline, policy = POLICY, now 
       if (!isSafeInteger(segment[key])) fail('ledger', 'bytes de segmento inválidos');
     }
     if (segment.high_water_bytes < segment.start_bytes) fail('ledger', 'highwater abaixo do início');
-    if (segment.charged_bytes !== segment.high_water_bytes - segment.start_bytes) fail('ledger', 'cobrança divergente');
+    if (legacy && segment.charged_bytes !== segment.high_water_bytes - segment.start_bytes) {
+      fail('ledger', 'cobrança legada divergente');
+    }
     used += segment.charged_bytes;
     if (!Number.isSafeInteger(used)) fail('ledger', 'soma de uso excedeu o inteiro seguro');
   }
@@ -450,7 +490,9 @@ export function validateLedger(ledger, { config, baseline, policy = POLICY, now 
       fail('ledger', 'segmento não corresponde à configuração');
     }
   }
-  if (used !== ledger.used_bytes) fail('ledger', 'uso não reconcilia');
+  const expectedUsed = initialCharge + used;
+  if (!Number.isSafeInteger(expectedUsed)) fail('ledger', 'uso excedeu o inteiro seguro');
+  if (expectedUsed !== ledger.used_bytes) fail('ledger', 'uso não reconcilia');
   if (ledger.remaining_bytes !== policy.totalCapBytes - ledger.used_bytes - ledger.reserved_bytes) {
     fail('ledger', 'saldo não reconcilia');
   }
@@ -473,27 +515,31 @@ export function updateSegments(ledger, measured, { policy = POLICY, now = Date.n
   for (const segment of ledger.segments) {
     const value = byName.get(segment.name);
     if (!value || !samePath(value.path, segment.path)) fail('measurement', 'segmento medido não confere');
-    const previous = segment.last_observed_bytes ?? segment.high_water_bytes;
-    if (value.bytes < previous) {
+    const previous = segment.last_observed_bytes ?? segment.start_bytes;
+    const delta = value.bytes - previous;
+    if (delta > 0) {
+      segment.charged_bytes += delta;
+      if (!Number.isSafeInteger(segment.charged_bytes)) fail('measurement', 'cobrança do segmento excedeu inteiro seguro');
+    } else if (delta < 0) {
       ledger.external_decreases.push({
         at: nowIso(now),
         kind: 'observed-decrease',
         segment: segment.name,
         before_bytes: previous,
         after_bytes: value.bytes,
-        bytes: previous - value.bytes,
+        bytes: -delta,
       });
       if (ledger.external_decreases.length > MAX_DECREASES) ledger.external_decreases.shift();
     }
     segment.last_observed_bytes = value.bytes;
     segment.high_water_bytes = Math.max(segment.high_water_bytes, value.bytes);
-    segment.charged_bytes = segment.high_water_bytes - segment.start_bytes;
     used += segment.charged_bytes;
     if (!Number.isSafeInteger(used)) fail('measurement', 'uso excedeu inteiro seguro');
   }
-  ledger.used_bytes = used;
+  const initialCharge = ledger.initial_charge_bytes ?? 0;
+  ledger.used_bytes = initialCharge + used;
   ledger.reserved_bytes = Math.min(ledger.reserved_bytes, policy.reserveBytes);
-  ledger.remaining_bytes = policy.totalCapBytes - used - ledger.reserved_bytes;
+  ledger.remaining_bytes = policy.totalCapBytes - ledger.used_bytes - ledger.reserved_bytes;
   ledger.updated_at = nowIso(now);
   return ledger;
 }
@@ -561,7 +607,45 @@ function loadLedger(ledgerPath, config, baseline, policy, now) {
     fail('ledger', 'ledger não pôde ser lido');
   }
   if (stat.isSymbolicLink() || !stat.isFile()) fail('ledger', 'ledger não é arquivo regular');
-  return validateLedger(readJsonFile(ledgerPath, 'ledger'), { config, baseline, policy, now });
+  const raw = readJsonFile(ledgerPath, 'ledger');
+  if (raw.schema === LEGACY_SCHEMA) fail('ledger', 'ledger v1 exige --reconcile-initial');
+  return validateLedger(raw, { config, baseline, policy, now });
+}
+
+function migrateLedgerV1(legacy, { config, baseline, policy, now = Date.now() }) {
+  const oldHash = sha256File(config.ledger);
+  const initial = policy.initialChargeBytes;
+  const used = legacy.used_bytes + initial;
+  if (!Number.isSafeInteger(used)) fail('ledger', 'cobrança inicial excedeu inteiro seguro');
+  const migrated = {
+    ...legacy,
+    schema: SCHEMA,
+    updated_at: nowIso(now),
+    initial_charge_bytes: initial,
+    initial_charge_at: nowIso(now),
+    initial_charge_basis: `reconciliação autorizada em 2026-11-03; cobrança conservadora de ${initial} bytes para artefatos anteriores e incerteza do baseline; não cria novo cap`,
+    used_bytes: used,
+    reserved_bytes: 0,
+    remaining_bytes: policy.totalCapBytes - used,
+    status: 'ready',
+    previous: {
+      schema: LEGACY_SCHEMA,
+      ledger_sha256: oldHash,
+      used_bytes: legacy.used_bytes,
+      remaining_bytes: legacy.remaining_bytes,
+      created_at: legacy.created_at,
+      history_entries: legacy.history?.length ?? 0,
+    },
+    reconciliation: {
+      at: nowIso(now),
+      authorized_at: '2026-11-03',
+      initial_charge_bytes: initial,
+      previous_used_bytes: legacy.used_bytes,
+      basis: 'inventário conservador; não renova o cap de 2 GiB',
+    },
+  };
+  validateLedger(migrated, { config, baseline, policy, now });
+  return migrated;
 }
 
 function ensurePaths(config) {
@@ -577,21 +661,55 @@ function ensurePaths(config) {
   }
 }
 
-function checkFree({ config, policy, freeBytes = freeBytesForPath }) {
-  const volumePaths = [config.targetRoot, ...config.volumes];
-  const pg = config.roots.find((root) => root.name === 'pg');
-  if (pg) volumePaths.push(pg.path);
+function freeBytesAt(value) {
+  try {
+    const stat = fs.statfsSync(value);
+    const bytes = stat.bavail * stat.bsize;
+    if (Number.isSafeInteger(bytes) && bytes >= 0) return bytes;
+  } catch {
+    // fallback abaixo, sempre no caminho declarado
+  }
+  try {
+    return freeBytesForPath(value);
+  } catch {
+    fail('measurement', 'espaço livre não pôde ser medido');
+  }
+}
+
+function volumeKeyFor(value) {
+  const absolute = path.resolve(value);
+  try {
+    const stat = fs.statSync(absolute);
+    if (Number.isSafeInteger(stat.dev) && stat.dev !== 0) return `dev:${stat.dev}`;
+  } catch {
+    // usa a raiz do caminho somente como chave de deduplicação
+  }
+  return `root:${normalize(path.parse(absolute).root)}`;
+}
+
+function checkFree({ config, policy, freeBytes, volumeKey = volumeKeyFor }) {
+  const volumePaths = [
+    ...config.roots.map((root) => root.path),
+    ...config.caches.map((cache) => cache.path),
+    ...config.volumes,
+  ];
   const seen = new Set();
   const minimum = policy.floorBytes + policy.reserveBytes;
-  const readFree = typeof freeBytes === 'function' ? freeBytes : () => freeBytes;
+  const readFree = typeof freeBytes === 'function'
+    ? freeBytes
+    : (freeBytes === undefined ? freeBytesAt : () => freeBytes);
   for (const value of volumePaths) {
-    const root = path.parse(path.resolve(value)).root;
-    const key = normalize(root);
+    let key;
+    try {
+      key = volumeKey(value);
+    } catch {
+      fail('measurement', 'volume não pôde ser identificado');
+    }
     if (seen.has(key)) continue;
     seen.add(key);
     let free;
     try {
-      free = readFree(root);
+      free = readFree(value);
     } catch {
       fail('measurement', 'espaço livre não pôde ser medido');
     }
@@ -618,6 +736,7 @@ function summary(ledger, { status, exitCode, reason, childExitCode = null, child
     remainingBytes: ledger.remaining_bytes,
     totalCapBytes: ledger.total_cap_bytes,
     floorBytes: ledger.floor_bytes,
+    initialChargeBytes: ledger.initial_charge_bytes ?? 0,
     externalDecreaseBytes: ledger.external_decrease_bytes,
     externalDecreaseApprox: ledger.external_decrease_approx,
     childExitCode,
@@ -866,6 +985,26 @@ export async function runWithBudget(parsed, deps = {}) {
   try {
     acquireLock(lockPath);
     lockHeld = true;
+    if (parsed.reconcileInitial) {
+      let stat;
+      try {
+        stat = fs.lstatSync(config.ledger);
+      } catch (error) {
+        if (error.code === 'ENOENT') fail('ledger', 'ledger ausente para reconciliação');
+        fail('ledger', 'ledger não pôde ser lido');
+      }
+      if (stat.isSymbolicLink() || !stat.isFile()) fail('ledger', 'ledger não é arquivo regular');
+      const raw = readJsonFile(config.ledger, 'ledger');
+      if (raw.schema !== LEGACY_SCHEMA) fail('ledger', '--reconcile-initial exige ledger v1');
+      const legacy = validateLedger(raw, { config, baseline, policy, now: Date.now(), legacy: true });
+      const migrated = migrateLedgerV1(legacy, { config, baseline, policy });
+      writeLedgerAtomic(config.ledger, migrated);
+      if (lockHeld) releaseLock(lockPath);
+      return {
+        ...summary(migrated, { status: 'ok', exitCode: 0, reason: 'reconciled' }),
+        ledger: migrated,
+      };
+    }
     const measured = measureConfig(config, { policy, measure: deps.measureTree });
     if (parsed.initLedger) {
       let exists = true;
@@ -891,7 +1030,7 @@ export async function runWithBudget(parsed, deps = {}) {
       if (lockHeld) releaseLock(lockPath);
       return { ...summary(ledger, { status: 'blocked', exitCode: 3, reason: blocked }), ledger };
     }
-    checkFree({ config, policy, freeBytes: deps.freeBytes });
+    checkFree({ config, policy, freeBytes: deps.freeBytes, volumeKey: deps.volumeKey });
     ledger.reserved_bytes = policy.reserveBytes;
     ledger.remaining_bytes = ledger.total_cap_bytes - ledger.used_bytes - ledger.reserved_bytes;
     ledger.status = 'running';
@@ -899,7 +1038,7 @@ export async function runWithBudget(parsed, deps = {}) {
     ledger.updated_at = nowIso();
     writeLedgerAtomic(config.ledger, ledger);
     const onFreeSample = () => {
-      checkFree({ config, policy, freeBytes: deps.freeBytes });
+      checkFree({ config, policy, freeBytes: deps.freeBytes, volumeKey: deps.volumeKey });
     };
     const onRootSample = () => {
       const current = measureConfig(config, { policy, measure: deps.measureTree });
