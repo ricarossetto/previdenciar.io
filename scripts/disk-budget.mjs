@@ -13,6 +13,11 @@
  * máximo 2 GiB desde a liberação do target. O script não recalcula o baseline:
  * ele lê o arquivo indicado ou o valor numérico explícito e recusa baseline
  * inválido, alvo ausente, link/reparsepoint ou política mais fraca.
+ * O baseline também é recusado se exceder a capacidade total do volume ou o
+ * target atual + incerteza. Nesse caso o check retorna 1 e NÃO há reset
+ * automático: se o target diminuiu legitimamente, isso exige decisão e um
+ * baseline novo, não uma aprovação silenciosa. O limite de 2 GiB é o total da
+ * tarefa, não um teto extra exclusivo do target.
  *
  * Medição:
  * - espaço livre: fs.statfsSync na raiz do volume; fallback de leitura via
@@ -201,8 +206,8 @@ function parseBaseline(input, { targetPath }) {
       approx: true,
       uncertaintyGb: DEFAULT_UNCERTAINTY_GB,
       source: 'CLI numérico (aproximado; sem baseline exato)',
-      createdAt: new Date().toISOString(),
-      resumptionId: 'cli',
+      createdAt: 'não informado (CLI)',
+      resumptionId: 'não informado (CLI)',
       targetPath,
       floorGb: AUTHORIZED_FLOOR_GB,
       growthCapGb: AUTHORIZED_GROWTH_CAP_GB,
@@ -245,11 +250,11 @@ function assertNoLink(targetPath, stat) {
  * Soma metadados do target. Não lê conteúdo, mas percorre a árvore; por isso
  * não usa cache antigo para liberar build. Links são recusados.
  */
-export function measureTargetBytes(targetPath) {
+export function measureTargetBytes(targetPath, io = fs) {
   const root = path.resolve(targetPath);
   let rootStat;
   try {
-    rootStat = fs.lstatSync(root);
+    rootStat = io.lstatSync(root);
   } catch (error) {
     fail(`target ${root} não pôde ser medido: ${error.message}`);
   }
@@ -258,7 +263,7 @@ export function measureTargetBytes(targetPath) {
 
   let realRoot;
   try {
-    realRoot = fs.realpathSync.native(root);
+    realRoot = io.realpathSync.native(root);
   } catch (error) {
     fail(`target ${root} não pôde ser resolvido: ${error.message}`);
   }
@@ -273,7 +278,7 @@ export function measureTargetBytes(targetPath) {
     const directory = pending.pop();
     let children;
     try {
-      children = fs.readdirSync(directory, { withFileTypes: true });
+      children = io.readdirSync(directory, { withFileTypes: true });
     } catch (error) {
       fail(`falha ao ler ${directory}: ${error.message}`);
     }
@@ -285,7 +290,7 @@ export function measureTargetBytes(targetPath) {
       const full = path.join(directory, child.name);
       let stat;
       try {
-        stat = fs.lstatSync(full);
+        stat = io.lstatSync(full);
       } catch (error) {
         fail(`falha ao medir ${full}: ${error.message}`);
       }
@@ -306,14 +311,14 @@ export function measureTargetBytes(targetPath) {
   return { bytes, entries, root };
 }
 
-function freeBytesViaPowerShell(root) {
+function volumeBytesViaPowerShell(root, expression) {
   const drive = root.replace(/[\\/:]/g, '');
   if (!/^[A-Za-z]$/.test(drive)) fail(`não foi possível identificar a unidade de ${root}`);
   let output;
   try {
     output = execFileSync(
       'powershell.exe',
-      ['-NoProfile', '-NonInteractive', '-Command', `(Get-PSDrive -Name '${drive}').Free`],
+      ['-NoProfile', '-NonInteractive', '-Command', `$d = Get-PSDrive -Name '${drive}'; [string](${expression})`],
       { encoding: 'utf8', timeout: 15_000, windowsHide: true },
     ).trim();
   } catch (error) {
@@ -336,8 +341,43 @@ export function freeBytesForPath(targetPath) {
     }
     return bytes;
   } catch (error) {
-    if (process.platform === 'win32') return freeBytesViaPowerShell(root);
+    if (error instanceof BudgetError) throw error;
+    if (process.platform === 'win32') return volumeBytesViaPowerShell(root, '$d.Free');
     fail(`fs.statfs falhou para ${root}: ${error.message}`);
+  }
+}
+
+/** Capacidade total do volume que contém o target; somente leitura. */
+export function capacityBytesForPath(targetPath) {
+  const root = path.parse(path.resolve(targetPath)).root;
+  try {
+    const stat = fs.statfsSync(root);
+    const bytes = stat.blocks * stat.bsize;
+    if (!Number.isSafeInteger(bytes) || bytes <= 0) {
+      fail(`fs.statfs devolveu capacidade inválida para ${root}`);
+    }
+    return bytes;
+  } catch (error) {
+    if (error instanceof BudgetError) throw error;
+    if (process.platform === 'win32') return volumeBytesViaPowerShell(root, '$d.Used + $d.Free');
+    fail(`fs.statfs falhou para ${root}: ${error.message}`);
+  }
+}
+
+function validateBaselineAgainstVolume(baseline, { capacityBytes, targetBytes }) {
+  if (!isFiniteNonNegative(capacityBytes) || capacityBytes <= 0) {
+    fail('capacidade do volume indisponível ou inválida');
+  }
+  if (!isFiniteNonNegative(targetBytes)) fail('targetBytes inválido');
+  if (baseline.baselineBytes > capacityBytes) {
+    fail(`baseline ${round(baseline.baselineBytes / GIB)} GiB excede a capacidade do volume ${round(capacityBytes / GIB)} GiB`);
+  }
+  if (targetBytes > capacityBytes) {
+    fail(`target ${round(targetBytes / GIB)} GiB excede a capacidade do volume ${round(capacityBytes / GIB)} GiB`);
+  }
+  const uncertaintyBytes = baseline.approx ? baseline.uncertaintyGb * GIB : 0;
+  if (baseline.baselineBytes > targetBytes + uncertaintyBytes) {
+    fail('baseline acima do target atual + incerteza; se o target diminuiu legitimamente, registre um baseline novo com decisão explícita — não há reset automático');
   }
 }
 
@@ -360,7 +400,9 @@ export function evaluateBudget({
   ]) {
     if (!isFiniteNonNegative(value)) fail(`${label} inválido`);
   }
-  if (!isFiniteNonNegative(uncertaintyGb)) fail('uncertaintyGb inválido');
+  if (!isFiniteNonNegative(uncertaintyGb) || uncertaintyGb > 1) {
+    fail('uncertaintyGb inválido; máximo 1 GiB');
+  }
   if (!Number.isFinite(floorGb) || floorGb < 0) fail('floorGb inválido');
   if (!Number.isFinite(growthCapGb) || growthCapGb < 0) fail('growthCapGb inválido');
 
@@ -450,7 +492,9 @@ export function runCli(argv, deps = {}) {
     const baseline = parseBaseline(parsed.baseline, { targetPath: target });
     const policy = resolvePolicy(parsed.floorGb, parsed.growthCapGb, baseline);
     const freeBytes = deps.freeBytes ?? freeBytesForPath(target);
+    const capacityBytes = deps.capacityBytes ?? capacityBytesForPath(target);
     const targetBytes = deps.targetBytes ?? measureTargetBytes(target).bytes;
+    validateBaselineAgainstVolume(baseline, { capacityBytes, targetBytes });
     const result = evaluateBudget({
       freeBytes,
       targetBytes,
@@ -468,6 +512,8 @@ export function runCli(argv, deps = {}) {
       baselineGb: round(result.baselineGb),
       baselineApprox: result.baselineApprox,
       baselineSource: baseline.source,
+      baselineCreatedAt: baseline.createdAt,
+      baselineResumptionId: baseline.resumptionId,
       baselineEffectiveGb: round(result.baselineEffectiveGb),
       growthGb: round(result.growthGb),
       floorGb: result.floorGb,
@@ -476,6 +522,8 @@ export function runCli(argv, deps = {}) {
       targetPath: target,
       measuredAt: new Date().toISOString(),
       freeBytes: result.freeBytes,
+      capacityGb: round(capacityBytes / GIB),
+      capacityBytes,
       targetBytes: result.targetBytes,
       baselineBytes: result.baselineBytes,
       growthBytes: result.growthBytes,

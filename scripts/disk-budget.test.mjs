@@ -8,6 +8,7 @@ import {
   runCli,
   measureTargetBytes,
   freeBytesForPath,
+  capacityBytesForPath,
 } from './disk-budget.mjs';
 
 const GIB = 1024 ** 3;
@@ -114,10 +115,17 @@ test('baseline aproximado usa incerteza conservadora', () => {
   near(blocked.growthGb, 2.01);
 });
 
-test('valores inválidos falham fechado', () => {
+test('valores inválidos e incerteza acima de 1 GiB falham fechado', () => {
   assert.throws(() => evaluateBudget({ freeBytes: Number.NaN, targetBytes: 1, baselineBytes: 1 }), BudgetError);
   assert.throws(() => evaluateBudget({ freeBytes: 1, targetBytes: -1, baselineBytes: 1 }), BudgetError);
   assert.throws(() => evaluateBudget({ freeBytes: 1, targetBytes: 1, baselineBytes: -1 }), BudgetError);
+  assert.throws(() => evaluateBudget({
+    freeBytes: 20 * GIB,
+    targetBytes: 1,
+    baselineBytes: 1,
+    baselineApprox: true,
+    uncertaintyGb: 1.1,
+  }), /incerteza|uncertaintyGb/);
 });
 
 test('baseline exato e aproximado são validados', () => {
@@ -187,7 +195,8 @@ test('CLI: erros de configuração retornam 1 e não aprovam', () => {
 test('CLI: saída JSON e códigos 0/2 com medições injetadas', () => {
   const ok = runCli(['--check', '--baseline', '46.66'], {
     freeBytes: 20 * GIB,
-    targetBytes: 1,
+    capacityBytes: 100 * GIB,
+    targetBytes: baseBytes,
   });
   assert.equal(ok.code, 0);
   const okReport = JSON.parse(ok.stdout);
@@ -196,20 +205,82 @@ test('CLI: saída JSON e códigos 0/2 com medições injetadas', () => {
   assert.ok(Object.hasOwn(okReport, 'freeGb'));
   assert.ok(Object.hasOwn(okReport, 'targetGb'));
   assert.ok(Object.hasOwn(okReport, 'growthGb'));
+  assert.equal(okReport.baselineCreatedAt, 'não informado (CLI)');
+  assert.equal(okReport.baselineResumptionId, 'não informado (CLI)');
+  assert.ok(!Number.isNaN(Date.parse(okReport.measuredAt)));
 
   const low = runCli(['--check', '--baseline', '46.66'], {
     freeBytes: 9.9 * GIB,
-    targetBytes: 1,
+    capacityBytes: 100 * GIB,
+    targetBytes: baseBytes,
   });
   assert.equal(low.code, 2);
   assert.equal(JSON.parse(low.stdout).status, 'blocked');
 
   const growth = runCli(['--check', '--baseline', '46.66'], {
     freeBytes: 20 * GIB,
+    capacityBytes: 100 * GIB,
     targetBytes: baseBytes + 2.1 * GIB,
   });
   assert.equal(growth.code, 2);
   assert.equal(JSON.parse(growth.stdout).status, 'blocked');
+});
+
+test('CLI: baseline numérico absurdo e acima do target falham com código 1', () => {
+  const absurd = runCli(['--check', '--baseline', '999'], {
+    freeBytes: 20 * GIB,
+    capacityBytes: 100 * GIB,
+    targetBytes: 1,
+  });
+  assert.equal(absurd.code, 1);
+  assert.match(absurd.stderr, /capacidade/);
+
+  const aboveTarget = runCli(['--check', '--baseline', '47'], {
+    freeBytes: 20 * GIB,
+    capacityBytes: 100 * GIB,
+    targetBytes: baseBytes,
+  });
+  assert.equal(aboveTarget.code, 1);
+  assert.match(aboveTarget.stderr, /acima do target/);
+
+  const withinUncertainty = runCli(['--check', '--baseline', '46.66'], {
+    freeBytes: 20 * GIB,
+    capacityBytes: 100 * GIB,
+    targetBytes: 46.655 * GIB,
+  });
+  assert.equal(withinUncertainty.code, 0);
+
+  const beyondUncertainty = runCli(['--check', '--baseline', '46.66'], {
+    freeBytes: 20 * GIB,
+    capacityBytes: 100 * GIB,
+    targetBytes: 46.64 * GIB,
+  });
+  assert.equal(beyondUncertainty.code, 1);
+});
+
+test('CLI: argumento desconhecido e --target explícito', () => {
+  assert.equal(runCli(['--check', '--baseline', '46.66', '--bogus'], {
+    freeBytes: 20 * GIB,
+    capacityBytes: 100 * GIB,
+    targetBytes: baseBytes,
+  }).code, 1);
+
+  const explicit = runCli([
+    '--check',
+    '--baseline',
+    '46.66',
+    '--target',
+    path.join(process.cwd(), 'scripts'),
+  ], {
+    freeBytes: 20 * GIB,
+    capacityBytes: 100 * GIB,
+    targetBytes: baseBytes,
+  });
+  assert.equal(explicit.code, 0);
+  assert.equal(
+    JSON.parse(explicit.stdout).targetPath,
+    path.resolve('scripts'),
+  );
 });
 
 test('medição real do diretório scripts é positiva e não dispara build', () => {
@@ -218,6 +289,7 @@ test('medição real do diretório scripts é positiva e não dispara build', ()
   assert.ok(measured.entries > 0);
   assert.equal(measured.root, path.resolve('scripts'));
   assert.ok(freeBytesForPath(process.cwd()) > 0);
+  assert.ok(capacityBytesForPath(process.cwd()) >= freeBytesForPath(process.cwd()));
 });
 
 test('target ausente ou arquivo comum falha fechado', () => {
@@ -229,4 +301,24 @@ test('target ausente ou arquivo comum falha fechado', () => {
     () => measureTargetBytes(path.join(process.cwd(), 'scripts', 'disk-budget.mjs')),
     /não é diretório/,
   );
+});
+
+test('link/reparsepoint e permissão são falhas fechadas (injeção, não teste real)', () => {
+  const linkIo = {
+    lstatSync: () => ({ isSymbolicLink: () => true, isDirectory: () => false }),
+    realpathSync: { native: () => 'C:\\fake' },
+    readdirSync: () => [],
+  };
+  assert.throws(() => measureTargetBytes('C:\\fake', linkIo), /symlink\/reparsepoint/);
+
+  const permissionIo = {
+    lstatSync: () => ({ isSymbolicLink: () => false, isDirectory: () => true }),
+    realpathSync: { native: () => 'C:\\fake' },
+    readdirSync: () => {
+      const error = new Error('EACCES: permission denied');
+      error.code = 'EACCES';
+      throw error;
+    },
+  };
+  assert.throws(() => measureTargetBytes('C:\\fake', permissionIo), /falha ao ler/);
 });
