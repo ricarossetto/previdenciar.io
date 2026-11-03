@@ -4,8 +4,8 @@
  *
  * Não substitui o run-with-disk-budget/ledger antigo e nunca o altera.
  * Este ledger é separado, inicia na medição da autorização registrada em
- * AUTORIZACAO-ORCAMENTO-M1-20261103.md e conta apenas aumentos positivos
- * (high-water), sem crédito por reduções.
+ * AUTORIZACAO-ORCAMENTO-M1-20261103.md e cobra apenas o crescimento positivo
+ * desde a última amostra, sem crédito por reduções; high-water é metadado.
  */
 import crypto from 'node:crypto';
 import fs from 'node:fs';
@@ -259,7 +259,7 @@ export function cancelOwnChild(child, deps = {}) {
 function usage() {
   return `Uso: node scripts/m1-budget-supervisor.mjs --baseline <json> --ledger <json> [--check] [--interval-seconds 5] [--timeout-seconds 3600] -- <comando> [args...]
 
-Mede roots/VHD/pagefile e conta apenas aumentos positivos (high-water).
+Mede roots/VHD/pagefile e cobra apenas o crescimento positivo desde a última amostra; high-water é metadado.
 Teto: 4 GiB - 256 MiB de reserva. Piso: C: 10 GiB + 256 MiB.
 O ledger antigo de 2 GiB não é lido nem alterado.`;
 }
@@ -287,8 +287,12 @@ function parseArgs(argv) {
   return parsed;
 }
 
-function persistSample(ledgerPath, ledger, sample, status = 'running', lastError = null) {
+export function evaluateSample(ledger, sample) {
   accumulate(ledger, sample);
+  return checkLimits(ledger, sample.free);
+}
+
+function persistSample(ledgerPath, ledger, sample, status = 'running', lastError = null) {
   ledger.status = status;
   ledger.updated_at = new Date().toISOString();
   ledger.history.push({
@@ -306,7 +310,7 @@ export async function runSupervisor(argv, deps = {}) {
   if (parsed.help) return { code: 0, stdout: `${usage()}\n` };
   const { baseline, ledger } = loadOrCreateLedger(parsed.baseline, parsed.ledger);
   const sample = (deps.measureAll ?? ((b) => measureAll(b, deps)))(baseline);
-  const initialLimit = checkLimits(ledger, sample.free);
+  const initialLimit = evaluateSample(ledger, sample);
   if (initialLimit) {
     persistSample(parsed.ledger, ledger, sample, 'blocked', initialLimit);
     return { code: 3, stderr: `bloqueado: ${initialLimit}\n` };
@@ -316,43 +320,59 @@ export async function runSupervisor(argv, deps = {}) {
     return { code: 0, stdout: `${JSON.stringify({ status: 'ok', charged_bytes: ledger.charged_bytes, free_bytes: sample.free })}\n` };
   }
 
+  const scheduleInterval = deps.setInterval ?? setInterval;
+  const clearScheduledInterval = deps.clearInterval ?? clearInterval;
+  const scheduleTimeout = deps.setTimeout ?? setTimeout;
+  const clearScheduledTimeout = deps.clearTimeout ?? clearTimeout;
   const child = (deps.spawn ?? spawn)(parsed.command, parsed.args, { stdio: 'inherit', windowsHide: true });
   let stopped = false;
   let timer = null;
   let interval = null;
   let finalCode = 0;
   let failure = null;
-  const stop = (reason) => {
+  const stop = (reason, alreadyRecorded = false) => {
     if (stopped) return;
     stopped = true;
     finalCode = 3;
     failure = reason;
-    try { persistSample(parsed.ledger, ledger, (deps.measureAll ?? ((b) => measureAll(b, deps)))(baseline), 'blocked', reason); } catch {}
+    if (!alreadyRecorded) {
+      try {
+        const current = (deps.measureAll ?? ((b) => measureAll(b, deps)))(baseline);
+        const limit = evaluateSample(ledger, current);
+        persistSample(parsed.ledger, ledger, current, 'blocked', limit ?? reason);
+      } catch {}
+    }
     (deps.cancelOwnChild ?? cancelOwnChild)(child, deps);
   };
   await new Promise((resolve) => {
-    interval = setInterval(() => {
+    interval = scheduleInterval(() => {
       try {
         const current = (deps.measureAll ?? ((b) => measureAll(b, deps)))(baseline);
-        const limit = checkLimits(ledger, current.free);
-        if (limit) { persistSample(parsed.ledger, ledger, current, 'blocked', limit); stop(limit); return; }
+        const limit = evaluateSample(ledger, current);
+        if (limit) {
+          // A amostra que cruzou o cap/piso já foi acumulada e é persistida
+          // como blocked nesta mesma passagem; não espera a próxima amostra.
+          persistSample(parsed.ledger, ledger, current, 'blocked', limit);
+          stop(limit, true);
+          return;
+        }
         persistSample(parsed.ledger, ledger, current, 'running');
       } catch (error) {
         stop(error.message || 'measure');
       }
     }, parsed.interval * 1000);
-    timer = setTimeout(() => stop('timeout'), parsed.timeout * 1000);
+    timer = scheduleTimeout(() => stop('timeout'), parsed.timeout * 1000);
     child.once('error', (error) => { failure = error.message; finalCode = 4; resolve(); });
     child.once('exit', (code, signal) => {
       if (!stopped) finalCode = signal ? 4 : (code ?? 4);
       resolve();
     });
   });
-  clearInterval(interval);
-  clearTimeout(timer);
+  clearScheduledInterval(interval);
+  clearScheduledTimeout(timer);
   try {
     const final = (deps.measureAll ?? ((b) => measureAll(b, deps)))(baseline);
-    const finalLimit = checkLimits(ledger, final.free);
+    const finalLimit = evaluateSample(ledger, final);
     persistSample(parsed.ledger, ledger, final, finalLimit || stopped ? 'blocked' : (finalCode === 0 ? 'ok' : 'command-failed'), finalLimit || failure);
     if (finalLimit && !stopped) finalCode = 3;
   } catch (error) {

@@ -14,6 +14,7 @@ import {
   accumulate,
   cancelOwnChild,
   checkLimits,
+  evaluateSample,
   loadOrCreateLedger,
   measureRoots,
   persistLedger,
@@ -60,6 +61,46 @@ function sample(start, free = 100 * GIB) {
   };
 }
 
+function fakeChild(pid = 777) {
+  const listeners = { exit: [], error: [] };
+  const child = {
+    pid,
+    exitCode: null,
+    signalCode: null,
+    killed: false,
+    once(event, callback) {
+      (listeners[event] ??= []).push(callback);
+      return child;
+    },
+    emit(event, ...args) {
+      for (const callback of listeners[event] ?? []) callback(...args);
+      return child;
+    },
+    kill() {
+      if (child.exitCode !== null) return;
+      child.killed = true;
+      child.exitCode = 1;
+      child.emit('exit', 1, null);
+    },
+  };
+  return child;
+}
+
+function fakeClock() {
+  const intervals = new Map();
+  const timeouts = new Map();
+  let nextId = 1;
+  return {
+    setInterval(callback) { const id = nextId++; intervals.set(id, callback); return id; },
+    clearInterval(id) { intervals.delete(id); },
+    setTimeout(callback) { const id = nextId++; timeouts.set(id, callback); return id; },
+    clearTimeout(id) { timeouts.delete(id); },
+    tick() { for (const callback of [...intervals.values()]) callback(); },
+    intervalCount() { return intervals.size; },
+    timeoutCount() { return timeouts.size; },
+  };
+}
+
 function ledgerWithRoots(start) {
   return {
     roots: Object.fromEntries(start.roots.map((root) => [root.name, { last_observed_bytes: root.start_bytes, high_water_bytes: root.start_bytes, charged_bytes: 0 }])),
@@ -97,6 +138,24 @@ test('teto e piso param antes de exceder reserva', () => {
   assert.equal(checkLimits(ledger, FLOOR_BYTES + RESERVE_BYTES), null);
   assert.equal(checkLimits({ charged_bytes: CAP_BYTES - RESERVE_BYTES + 1 }, FLOOR_BYTES + RESERVE_BYTES), 'cap');
   assert.equal(checkLimits({ charged_bytes: 0 }, FLOOR_BYTES + RESERVE_BYTES - 1), 'floor');
+});
+
+test('avaliação acumula a amostra atual antes de checar o cap', () => {
+  const ledger = {
+    roots: { repo: { start_bytes: 100, last_observed_bytes: 100, high_water_bytes: 100, charged_bytes: 0 } },
+    vhd: { docker_data: { start_bytes: 1000, last_observed_bytes: 1000, high_water_bytes: 1000, charged_bytes: 0 } },
+    pagefile: { start_bytes: 1000, last_observed_bytes: 1000, high_water_bytes: 1000, charged_bytes: 0 },
+    charged_bytes: CAP_BYTES - RESERVE_BYTES - 10,
+    updated_at: '',
+  };
+  const limit = evaluateSample(ledger, {
+    free: 100 * GIB,
+    roots: [{ name: 'repo', bytes: 120 }],
+    vhd: [{ name: 'docker_data', bytes: 1000 }],
+    pagefile_alloc_bytes: 1000,
+  });
+  assert.equal(limit, 'cap');
+  assert.equal(ledger.charged_bytes, CAP_BYTES - RESERVE_BYTES + 10);
 });
 
 test('ledger novo retoma high-water e rejeita identidade diferente', () => {
@@ -198,37 +257,167 @@ test('CLI direto funciona em caminho com espaço', () => {
   assert.match(result.stdout, /Uso: node scripts\/m1-budget-supervisor\.mjs/);
 });
 
-test('teto durante execução cancela somente o child próprio', async () => {
-  const f = fixture();
-  let calls = 0;
-  const fake = {
-    killed: false,
-    exit: null,
-    once(event, callback) {
-      if (event === 'exit') this.exit = callback;
-      return this;
-    },
-    kill() {
-      this.killed = true;
-      if (this.exit) this.exit(null, null);
-    },
-  };
-  const measureAll = () => {
-    calls += 1;
-    if (calls === 1) return sample(f.baseline);
-    const over = sample(f.baseline);
-    over.roots[0].bytes += CAP_BYTES;
-    return over;
-  };
-  const result = await runSupervisor([
+function loopArgs(f) {
+  return [
     '--baseline', f.baselinePath,
     '--ledger', f.ledger,
     '--interval-seconds', '1',
     '--timeout-seconds', '10',
     '--', 'comando-sintetico',
-  ], { measureAll, spawn: () => fake });
+  ];
+}
+
+function loopDeps(clock, child, extra = {}) {
+  return {
+    spawn: () => child,
+    setInterval: clock.setInterval,
+    clearInterval: clock.clearInterval,
+    setTimeout: clock.setTimeout,
+    clearTimeout: clock.clearTimeout,
+    platform: 'win32',
+    ...extra,
+  };
+}
+
+test('loop real: justo abaixo do cap segue, amostra seguinte bloqueia e cancela antes da próxima', async () => {
+  const f = fixture();
+  const clock = fakeClock();
+  const child = fakeChild();
+  const base = sample(f.baseline);
+  const limitCharge = CAP_BYTES - RESERVE_BYTES;
+  let measures = 0;
+  let measuresAtCancel = null;
+  const taskkillPids = [];
+  const measureAll = () => {
+    measures += 1;
+    if (measures === 1) return base;
+    const current = sample(f.baseline);
+    current.roots[0].bytes += measures === 2 ? limitCharge : limitCharge + 1;
+    return current;
+  };
+  const pending = runSupervisor(loopArgs(f), loopDeps(clock, child, {
+    measureAll,
+    taskkill: (pid) => { taskkillPids.push(pid); return { status: 1 }; },
+    cancelOwnChild: (ownChild, deps) => {
+      measuresAtCancel = measures;
+      return cancelOwnChild(ownChild, deps);
+    },
+  }));
+  clock.tick();
+  clock.tick();
+  const result = await pending;
+
   assert.equal(result.code, 3);
-  assert.equal(fake.killed, true);
   assert.match(result.stderr, /cap/);
-  assert.equal(JSON.parse(fs.readFileSync(f.ledger, 'utf8')).status, 'blocked');
+  assert.equal(measuresAtCancel, 3, 'cancelamento ocorre na amostra que cruzou, antes da final');
+  assert.equal(measures, 4, 'nenhuma amostra de intervalo após o bloqueio; só a final');
+  assert.deepEqual(taskkillPids, [777]);
+  assert.equal(child.killed, true);
+  assert.equal(clock.intervalCount(), 0);
+  assert.equal(clock.timeoutCount(), 0);
+
+  const ledger = JSON.parse(fs.readFileSync(f.ledger, 'utf8'));
+  assert.equal(ledger.status, 'blocked');
+  assert.equal(ledger.charged_bytes, limitCharge + 1, 'cobrança da amostra que cruzou é preservada');
+  assert.deepEqual(ledger.history.map((entry) => entry.status), ['running', 'blocked', 'blocked']);
+  assert.equal(ledger.history[1].charged_bytes, limitCharge + 1);
+  assert.equal(ledger.history[1].error, 'cap');
+});
+
+test('loop real: amostra que cruza o piso bloqueia e cancela na mesma passagem', async () => {
+  const f = fixture();
+  const clock = fakeClock();
+  const child = fakeChild();
+  const base = sample(f.baseline);
+  let measures = 0;
+  const measureAll = () => {
+    measures += 1;
+    if (measures === 1) return base;
+    const current = sample(f.baseline, FLOOR_BYTES + RESERVE_BYTES - 1);
+    current.roots[0].bytes += 10;
+    return current;
+  };
+  const pending = runSupervisor(loopArgs(f), loopDeps(clock, child, {
+    measureAll,
+    taskkill: () => ({ status: 1 }),
+  }));
+  clock.tick();
+  const result = await pending;
+
+  assert.equal(result.code, 3);
+  assert.match(result.stderr, /floor/);
+  assert.equal(child.killed, true);
+  const ledger = JSON.parse(fs.readFileSync(f.ledger, 'utf8'));
+  assert.equal(ledger.status, 'blocked');
+  assert.equal(ledger.charged_bytes, 10);
+  assert.deepEqual(ledger.history.map((entry) => entry.status), ['blocked', 'blocked']);
+  assert.equal(ledger.history[0].error, 'floor');
+});
+
+test('loop real: falha de fonte cancela e termina em erro sem seguir amostrando', async () => {
+  const f = fixture();
+  const clock = fakeClock();
+  const child = fakeChild();
+  const base = sample(f.baseline);
+  let measures = 0;
+  let measuresAtCancel = null;
+  const measureAll = () => {
+    measures += 1;
+    if (measures === 1) return base;
+    const error = new Error('fonte sumiu');
+    error.code = 'source';
+    throw error;
+  };
+  const pending = runSupervisor(loopArgs(f), loopDeps(clock, child, {
+    measureAll,
+    taskkill: () => ({ status: 1 }),
+    cancelOwnChild: (ownChild, deps) => {
+      measuresAtCancel = measures;
+      return cancelOwnChild(ownChild, deps);
+    },
+  }));
+  clock.tick();
+  const result = await pending;
+
+  assert.equal(result.code, 4);
+  assert.match(result.stderr, /fonte sumiu/);
+  assert.equal(measuresAtCancel, 3);
+  assert.equal(measures, 4, 'sem ticks de intervalo após a falha; só a medição final');
+  assert.equal(child.killed, true);
+  assert.equal(JSON.parse(fs.readFileSync(f.ledger, 'utf8')).status, 'error');
+});
+
+test('loop real: child já terminado não recebe cancelamento', async () => {
+  const f = fixture();
+  const clock = fakeClock();
+  const child = fakeChild();
+  let taskkillCalls = 0;
+  const result = await runSupervisor(loopArgs(f), loopDeps(clock, child, {
+    measureAll: () => sample(f.baseline),
+    spawn: () => {
+      queueMicrotask(() => { child.exitCode = 0; child.emit('exit', 0, null); });
+      return child;
+    },
+    taskkill: () => { taskkillCalls += 1; return { status: 0 }; },
+  }));
+
+  assert.equal(result.code, 0);
+  assert.equal(taskkillCalls, 0);
+  assert.equal(child.killed, false);
+  assert.equal(JSON.parse(fs.readFileSync(f.ledger, 'utf8')).status, 'ok');
+});
+
+test('loop real: ledger já bloqueado não inicia child', async () => {
+  const f = fixture();
+  const over = sample(f.baseline);
+  over.roots[0].bytes += CAP_BYTES;
+  const first = await runSupervisor(loopArgs(f), { measureAll: () => over });
+  assert.equal(first.code, 3);
+  let spawned = 0;
+  const second = await runSupervisor(loopArgs(f), {
+    measureAll: () => over,
+    spawn: () => { spawned += 1; return fakeChild(); },
+  });
+  assert.equal(second.code, 3);
+  assert.equal(spawned, 0);
 });
