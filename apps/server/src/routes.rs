@@ -1331,17 +1331,13 @@ mod tests {
 
     /// Banco de teste isolado.
     ///
-    /// Usa o mesmo helper de `integration_db`: cada teste ganha um schema
-    /// temporário próprio, com as migrações aplicadas ali dentro. Nenhum teste
-    /// cria tabela no schema `public` do banco apontado por `DATABASE_URL`.
-    async fn test_db() -> Option<crate::integration_db::BancoTemporario> {
-        match crate::integration_db::abrir_banco().await {
-            crate::integration_db::Banco::Pronto(banco) => Some(banco),
-            crate::integration_db::Banco::Ausente(motivo) => {
-                eprintln!("teste pulado: banco de dados de teste indisponivel ({motivo})");
-                None
-            }
-        }
+    /// Usa o mesmo helper de `integration_db`: exige `TEST_DATABASE_URL`
+    /// explícita, com host literal de loopback e banco `previdenciar_test_*`.
+    /// Sem banco válido o teste falha antes de SQL; não pula.
+    async fn test_db() -> crate::integration_db::BancoTemporario {
+        crate::integration_db::abrir_banco()
+            .await
+            .expect("TEST_DATABASE_URL de banco isolado válido é obrigatória")
     }
 
     #[tokio::test]
@@ -1581,9 +1577,7 @@ mod tests {
 
     #[tokio::test]
     async fn cadastro_novo_respeita_limite_por_ip() {
-        let Some(banco) = test_db().await else {
-            return;
-        };
+        let banco = test_db().await;
         let base = spawn_server(test_state_with_db(
             config::Config::for_tests(),
             banco.pool().clone(),
@@ -1615,9 +1609,7 @@ mod tests {
 
     #[tokio::test]
     async fn admin_com_permissao_lista_usuarios() {
-        let Some(banco) = test_db().await else {
-            return;
-        };
+        let banco = test_db().await;
         let base = spawn_server(test_state_with_db(
             config::Config::for_tests(),
             banco.pool().clone(),

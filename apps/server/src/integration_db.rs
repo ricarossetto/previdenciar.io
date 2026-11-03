@@ -5,17 +5,15 @@
 //! (`tmp_teste_previdenciar_<uuid>`), aplica as migrações de `migrations/` e,
 //! no fim, apaga o schema com `CASCADE`. Nada é gravado no schema `public`.
 //!
-//! Quando não há banco configurado, o teste não falha: ele imprime um aviso
-//! em `stderr` e retorna. Para rodar de verdade, defina `TEST_DATABASE_URL`
-//! apontando para um Postgres local, por exemplo:
+//! `TEST_DATABASE_URL` é **obrigatória** e precisa apontar, literalmente, para
+//! `127.0.0.1` ou `::1` em porta e banco dedicado `previdenciar_test_<id>`.
+//! Não há fallback para `DATABASE_URL`, `.env`, `localhost` ou defaults de
+//! usuário/banco. Sem URL válida o teste falha antes de qualquer conexão, SQL
+//! ou DDL; não existe skip, `#[ignore]` ou retorno antecipado verde.
 //!
-//! ```text
-//! TEST_DATABASE_URL=postgres://postgres:dev@127.0.0.1:55432/postgres \
-//!   cargo test -p previdenciar-web-server --locked -j 2 -- --nocapture
-//! ```
-//!
-//! Como alternativa, `DATABASE_URL` é aceita quando o host é de loopback, o
-//! que cobre o `.env` de desenvolvimento do próprio projeto.
+//! A URL é validada antes de abrir pool: host literal de loopback, porta e
+//! banco explícitos, sem query/host override, multi-host ou `sslmode` de
+//! ambiente. O valor bruto nunca é impresso no erro do teste.
 //!
 //! Se um teste falhar no meio, o schema pode sobrar. A limpeza manual é:
 //!
@@ -31,6 +29,7 @@
 
 use crate::config::Config;
 use crate::limits::RateLimiter;
+use crate::storage::S3Store;
 use crate::{auth, blocking::BlockingGate, db, routes, AppState};
 use axum::http::{header, HeaderMap};
 use serde_json::{json, Value};
@@ -40,12 +39,6 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 use uuid::Uuid;
-
-/// Resultado da tentativa de abrir o banco de teste.
-pub(crate) enum Banco {
-    Pronto(BancoTemporario),
-    Ausente(String),
-}
 
 /// Schema temporário isolado, com o pool apontando para ele.
 ///
@@ -72,52 +65,109 @@ impl BancoTemporario {
     }
 }
 
-/// Pula o teste com aviso quando o banco não estiver disponível.
-macro_rules! banco_ou_pular {
+/// Exige banco isolado; ausência ou URL inválida falha o teste antes de SQL.
+macro_rules! banco_do_teste {
     () => {
         match crate::integration_db::abrir_banco().await {
-            crate::integration_db::Banco::Pronto(banco) => banco,
-            crate::integration_db::Banco::Ausente(motivo) => {
-                eprintln!(
-                    "[pulado] banco de teste indisponível: {motivo}. \
-                     Defina TEST_DATABASE_URL (ex.: \
-                     postgres://postgres:dev@127.0.0.1:55432/postgres) para executar este teste."
-                );
-                return;
-            }
+            Ok(banco) => banco,
+            Err(motivo) => panic!("banco de teste isolado exigido: {motivo}"),
         }
     };
 }
 
-/// URL do banco de teste. `TEST_DATABASE_URL` tem precedência; `DATABASE_URL`
-/// só é aceita quando aponta para loopback, para nunca criar schema em banco
-/// remoto por acidente.
-fn url_de_teste() -> Option<String> {
-    let _ = dotenvy::from_path(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(".env"));
-    if let Ok(url) = std::env::var("TEST_DATABASE_URL") {
-        let url = url.trim();
-        if !url.is_empty() {
-            return Some(url.to_owned());
-        }
+/// Valida a URL de teste sem conectar. Exportada para teste puro e para o
+/// harness Node compartilhar as mesmas regras (host literal, porta e banco).
+pub(crate) fn validar_url_teste(raw: &str) -> Result<PgConnectOptions, String> {
+    let value = raw.trim();
+    if value.is_empty() {
+        return Err("TEST_DATABASE_URL vazia".to_owned());
     }
-    let url = std::env::var("DATABASE_URL").ok()?;
-    let options: PgConnectOptions = url.parse().ok()?;
-    let host = options.get_host().to_lowercase();
-    let loopback = matches!(host.as_str(), "127.0.0.1" | "localhost" | "::1" | "[::1]");
-    loopback.then_some(url)
+    if value.chars().any(|ch| ch.is_control() || ch.is_whitespace()) {
+        return Err("TEST_DATABASE_URL com espaço ou caractere de controle".to_owned());
+    }
+    let Some((scheme, rest)) = value.split_once("://") else {
+        return Err("TEST_DATABASE_URL sem esquema postgres".to_owned());
+    };
+    if scheme != "postgres" && scheme != "postgresql" {
+        return Err("TEST_DATABASE_URL deve usar postgres:// ou postgresql://".to_owned());
+    }
+    if rest.chars().any(|ch| matches!(ch, '?' | '#' | '\\' | ',')) {
+        return Err("TEST_DATABASE_URL não aceita query, fragmento, multi-host ou escape".to_owned());
+    }
+    let Some((authority, database)) = rest.split_once('/') else {
+        return Err("TEST_DATABASE_URL sem banco explícito".to_owned());
+    };
+    if database.is_empty() || database.contains('/') || database.contains('%') {
+        return Err("TEST_DATABASE_URL precisa de um único banco explícito".to_owned());
+    }
+    if !database.starts_with("previdenciar_test_")
+        || database.len() <= "previdenciar_test_".len()
+        || !database["previdenciar_test_".len()..]
+            .chars()
+            .all(|ch| ch.is_ascii_alphanumeric() || ch == '_' || ch == '-')
+    {
+        return Err("TEST_DATABASE_URL deve usar banco previdenciar_test_<id>".to_owned());
+    }
+    let Some((userinfo, hostport)) = authority.rsplit_once('@') else {
+        return Err("TEST_DATABASE_URL exige usuário explícito".to_owned());
+    };
+    let username = userinfo.split(':').next().unwrap_or_default();
+    if username.is_empty() || username.contains('%') {
+        return Err("TEST_DATABASE_URL exige usuário explícito".to_owned());
+    }
+    let (host, port) = if let Some(rest) = hostport.strip_prefix('[') {
+        let Some(end) = rest.find(']') else {
+            return Err("TEST_DATABASE_URL com IPv6 inválido".to_owned());
+        };
+        let host = &rest[..end];
+        let after = &rest[end + 1..];
+        let Some(port) = after.strip_prefix(':') else {
+            return Err("TEST_DATABASE_URL exige porta explícita".to_owned());
+        };
+        (host, port)
+    } else {
+        let Some((host, port)) = hostport.rsplit_once(':') else {
+            return Err("TEST_DATABASE_URL exige porta explícita".to_owned());
+        };
+        (host, port)
+    };
+    if !matches!(host, "127.0.0.1" | "::1") {
+        return Err("TEST_DATABASE_URL recusa host não local (use 127.0.0.1 ou ::1)".to_owned());
+    }
+    let port: u16 = port
+        .parse()
+        .map_err(|_| "TEST_DATABASE_URL com porta inválida".to_owned())?;
+    if port == 0 {
+        return Err("TEST_DATABASE_URL com porta inválida".to_owned());
+    }
+    let options: PgConnectOptions = value
+        .parse()
+        .map_err(|_| "TEST_DATABASE_URL inválida".to_owned())?;
+    let parsed_host = options.get_host();
+    let parsed_host = parsed_host
+        .strip_prefix('[')
+        .and_then(|value| value.strip_suffix(']'))
+        .unwrap_or(parsed_host);
+    if parsed_host != host
+        || options.get_port() != port
+        || options.get_username() != username
+        || options.get_database().unwrap_or_default() != database
+    {
+        return Err("TEST_DATABASE_URL com componente não reconhecido".to_owned());
+    }
+    Ok(options)
+}
+
+fn url_de_teste() -> Result<PgConnectOptions, String> {
+    let raw = std::env::var("TEST_DATABASE_URL")
+        .map_err(|_| "TEST_DATABASE_URL não definida; banco isolado explícito é obrigatório".to_owned())?;
+    validar_url_teste(&raw)
 }
 
 /// Abre um schema temporário próprio. Público dentro do crate porque
 /// `routes::tests` usa o mesmo helper — nenhum teste pode migrar em `public`.
-pub(crate) async fn abrir_banco() -> Banco {
-    let Some(url) = url_de_teste() else {
-        return Banco::Ausente(
-            "nenhuma variável TEST_DATABASE_URL ou DATABASE_URL local definida".to_owned(),
-        );
-    };
-    let Ok(options) = url.parse::<PgConnectOptions>() else {
-        return Banco::Ausente("TEST_DATABASE_URL não é uma URL do Postgres válida".to_owned());
-    };
+pub(crate) async fn abrir_banco() -> Result<BancoTemporario, String> {
+    let options = url_de_teste()?;
     let admin = match PgPoolOptions::new()
         .max_connections(1)
         .acquire_timeout(Duration::from_secs(3))
@@ -125,7 +175,7 @@ pub(crate) async fn abrir_banco() -> Banco {
         .await
     {
         Ok(pool) => pool,
-        Err(error) => return Banco::Ausente(format!("não foi possível conectar ({error})")),
+        Err(error) => return Err(format!("não foi possível conectar ({error})")),
     };
 
     // Nome só com caractere seguro: entra em DDL sem bind.
@@ -135,7 +185,7 @@ pub(crate) async fn abrir_banco() -> Banco {
         .await
     {
         admin.close().await;
-        return Banco::Ausente(format!(
+        return Err(format!(
             "o usuário do banco não pode criar schema temporário ({error})"
         ));
     }
@@ -155,7 +205,7 @@ pub(crate) async fn abrir_banco() -> Banco {
                 .execute(&admin)
                 .await;
             admin.close().await;
-            return Banco::Ausente(format!(
+            return Err(format!(
                 "não foi possível conectar ao schema temporário ({error})"
             ));
         }
@@ -176,7 +226,7 @@ pub(crate) async fn abrir_banco() -> Banco {
         .await
         .expect("migrações aplicadas no schema temporário de teste");
 
-    Banco::Pronto(BancoTemporario {
+    Ok(BancoTemporario {
         pool,
         admin,
         schema,
@@ -184,12 +234,16 @@ pub(crate) async fn abrir_banco() -> Banco {
 }
 
 fn estado(config: Config, pool: PgPool) -> AppState {
+    estado_com_storage(config, pool, None)
+}
+
+fn estado_com_storage(config: Config, pool: PgPool, storage: Option<Arc<S3Store>>) -> AppState {
     AppState {
         config: Arc::new(config),
         db: pool,
         http: reqwest::Client::new(),
         jwks: Arc::new(tokio::sync::RwLock::new(None)),
-        storage: None,
+        storage,
         limits: Arc::new(RateLimiter::new()),
         blocking: Arc::new(BlockingGate::new()),
     }
@@ -243,7 +297,7 @@ async fn bootstrap(servidor: &str, email: &str) -> Value {
 
 #[tokio::test]
 async fn usuario_e_workspace_persistem_entre_chamadas() {
-    let banco = banco_ou_pular!();
+    let banco = banco_do_teste!();
 
     let primeiro = db::ensure_user(&banco.pool, &usuario("persistencia@teste.local"))
         .await
@@ -317,7 +371,7 @@ async fn usuario_e_workspace_persistem_entre_chamadas() {
 
 #[tokio::test]
 async fn save_workspace_recusa_revisao_antiga_pelo_http() {
-    let banco = banco_ou_pular!();
+    let banco = banco_do_teste!();
     let servidor = subir_servidor(estado(Config::for_tests(), banco.pool.clone())).await;
     let cliente = reqwest::Client::new();
     let email = "revisao@teste.local";
@@ -380,7 +434,7 @@ async fn save_workspace_recusa_revisao_antiga_pelo_http() {
 
 #[tokio::test]
 async fn workspace_de_um_usuario_nao_vaza_para_outro() {
-    let banco = banco_ou_pular!();
+    let banco = banco_do_teste!();
     let servidor = subir_servidor(estado(Config::for_tests(), banco.pool.clone())).await;
     let cliente = reqwest::Client::new();
 
@@ -439,7 +493,7 @@ async fn workspace_de_um_usuario_nao_vaza_para_outro() {
 
 #[tokio::test]
 async fn auditoria_de_login_nao_guarda_dados_pessoais() {
-    let banco = banco_ou_pular!();
+    let banco = banco_do_teste!();
     let servidor = subir_servidor(estado(Config::for_tests(), banco.pool.clone())).await;
     let email = "auditoria@teste.local";
 
@@ -475,7 +529,7 @@ async fn auditoria_de_login_nao_guarda_dados_pessoais() {
 
 #[tokio::test]
 async fn auditoria_admin_respeita_o_teto_de_200_eventos() {
-    let banco = banco_ou_pular!();
+    let banco = banco_do_teste!();
     let servidor = subir_servidor(estado(Config::for_tests(), banco.pool.clone())).await;
     let cliente = reqwest::Client::new();
 
@@ -513,7 +567,7 @@ async fn auditoria_admin_respeita_o_teto_de_200_eventos() {
 
 #[tokio::test]
 async fn admin_users_respeita_o_teto_de_500_usuarios() {
-    let banco = banco_ou_pular!();
+    let banco = banco_do_teste!();
     let servidor = subir_servidor(estado(Config::for_tests(), banco.pool.clone())).await;
 
     sqlx::query(
@@ -547,7 +601,7 @@ async fn admin_users_respeita_o_teto_de_500_usuarios() {
 
 #[tokio::test]
 async fn reports_saved_ignora_expirados_e_respeita_o_teto_de_100() {
-    let banco = banco_ou_pular!();
+    let banco = banco_do_teste!();
     let servidor = subir_servidor(estado(Config::for_tests(), banco.pool.clone())).await;
     let email = "relatorios@teste.local";
 
@@ -623,7 +677,7 @@ async fn reports_saved_ignora_expirados_e_respeita_o_teto_de_100() {
 
 #[tokio::test]
 async fn admin_entitlement_atualiza_o_usuario_alvo_no_banco() {
-    let banco = banco_ou_pular!();
+    let banco = banco_do_teste!();
     let servidor = subir_servidor(estado(Config::for_tests(), banco.pool.clone())).await;
     let cliente = reqwest::Client::new();
     let alvo = "alvo@teste.local";
@@ -691,7 +745,7 @@ async fn admin_entitlement_atualiza_o_usuario_alvo_no_banco() {
 
 #[tokio::test]
 async fn aceite_de_termos_e_idempotente_e_aparece_no_perfil() {
-    let banco = banco_ou_pular!();
+    let banco = banco_do_teste!();
     let servidor = subir_servidor(estado(Config::for_tests(), banco.pool.clone())).await;
     let cliente = reqwest::Client::new();
     let email = "termos@teste.local";
@@ -737,7 +791,7 @@ async fn aceite_de_termos_e_idempotente_e_aparece_no_perfil() {
 
 #[tokio::test]
 async fn auditoria_nao_expoe_chave_de_api_do_workspace() {
-    let banco = banco_ou_pular!();
+    let banco = banco_do_teste!();
     let servidor = subir_servidor(estado(Config::for_tests(), banco.pool.clone())).await;
     let cliente = reqwest::Client::new();
     let email = "segredo@teste.local";
@@ -867,4 +921,252 @@ async fn erro_de_banco_nao_vaza_detalhe_tecnico_para_o_cliente() {
             "a mensagem vazou detalhe técnico: {texto}"
         );
     }
+}
+
+// ---------------------------------------------------------------------------
+// Contratos aprovados — rotas reais + Postgres real
+// ---------------------------------------------------------------------------
+
+#[test]
+fn url_de_teste_usa_fixture_compartilhada() {
+    let fixture: Value = serde_json::from_str(include_str!("../../../scripts/test-db-url-cases.json"))
+        .expect("fixture de URLs de teste");
+    for url in fixture["valid"].as_array().expect("URLs válidas") {
+        let url = url.as_str().expect("string");
+        assert!(validar_url_teste(url).is_ok(), "URL deveria ser aceita: {url}");
+    }
+    for url in fixture["invalid"].as_array().expect("URLs inválidas") {
+        let url = url.as_str().expect("string");
+        assert!(validar_url_teste(url).is_err(), "URL deveria ser recusada: {url}");
+    }
+}
+
+#[tokio::test]
+async fn bootstrap_concorrente_deve_criar_um_unico_workspace() {
+    let banco = banco_do_teste!();
+    sqlx::query(
+        "CREATE FUNCTION atrasar_insert_workspace() RETURNS trigger AS $$
+         BEGIN
+           PERFORM pg_sleep(1);
+           RETURN NEW;
+         END;
+         $$ LANGUAGE plpgsql",
+    )
+    .execute(&banco.pool)
+    .await
+    .expect("função de sincronização de insert no schema de teste");
+    sqlx::query(
+        "CREATE TRIGGER atrasar_insert_workspace
+         BEFORE INSERT ON workspaces
+         FOR EACH ROW EXECUTE FUNCTION atrasar_insert_workspace()",
+    )
+    .execute(&banco.pool)
+    .await
+    .expect("trigger de sincronização de insert no schema de teste");
+
+    let email = format!("bootstrap-concorrente-{}@teste.local", Uuid::new_v4());
+    let estado = estado(Config::for_tests(), banco.pool.clone());
+    let servidor_a = subir_servidor(estado.clone()).await;
+    let servidor_b = subir_servidor(estado).await;
+    let barreira = Arc::new(tokio::sync::Barrier::new(3));
+
+    let a_email = email.clone();
+    let a_barreira = barreira.clone();
+    let tarefa_a = tokio::spawn(async move {
+        a_barreira.wait().await;
+        reqwest::Client::new()
+            .get(format!("{servidor_a}/api/bootstrap"))
+            .header("x-dev-user", a_email)
+            .send()
+            .await
+            .expect("resposta A")
+    });
+    let b_email = email.clone();
+    let b_barreira = barreira.clone();
+    let tarefa_b = tokio::spawn(async move {
+        b_barreira.wait().await;
+        reqwest::Client::new()
+            .get(format!("{servidor_b}/api/bootstrap"))
+            .header("x-dev-user", b_email)
+            .send()
+            .await
+            .expect("resposta B")
+    });
+    barreira.wait().await;
+    let (resposta_a, resposta_b) = tokio::join!(tarefa_a, tarefa_b);
+    let resposta_a = resposta_a.expect("tarefa A");
+    let resposta_b = resposta_b.expect("tarefa B");
+    let status_a = resposta_a.status();
+    let status_b = resposta_b.status();
+    let corpo_a: Value = resposta_a.json().await.expect("json A");
+    let corpo_b: Value = resposta_b.json().await.expect("json B");
+    let total: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM workspaces w
+         JOIN users u ON u.id = w.owner_id
+         WHERE u.cognito_sub = $1",
+    )
+    .bind(format!("dev:{email}"))
+    .fetch_one(&banco.pool)
+    .await
+    .expect("contagem de workspaces");
+    banco.descartar().await;
+
+    assert_eq!(status_a, 200);
+    assert_eq!(status_b, 200);
+    assert_eq!(
+        corpo_a["workspace"], corpo_b["workspace"],
+        "as duas respostas devem apontar o mesmo documento"
+    );
+    assert_eq!(total, 1, "o primeiro acesso não pode criar dois workspaces");
+}
+
+#[tokio::test]
+async fn duas_put_com_mesma_revisao_uma_vence_sem_perda_parcial() {
+    let banco = banco_do_teste!();
+    let servidor = subir_servidor(estado(Config::for_tests(), banco.pool.clone())).await;
+    let email = format!("cas-concorrente-{}@teste.local", Uuid::new_v4());
+    let inicial = bootstrap(&servidor, &email).await;
+    let base = inicial["workspace"].clone();
+    let mut primeira = base.clone();
+    primeira["settings"]["office_name"] = json!("Vencedora A");
+    let mut segunda = base;
+    segunda["settings"]["office_name"] = json!("Vencedora B");
+
+    let barreira = Arc::new(tokio::sync::Barrier::new(3));
+    let a_email = email.clone();
+    let a_servidor = servidor.clone();
+    let a_barreira = barreira.clone();
+    let tarefa_a = tokio::spawn(async move {
+        a_barreira.wait().await;
+        reqwest::Client::new()
+            .put(format!("{a_servidor}/api/workspace"))
+            .header("x-dev-user", a_email)
+            .json(&json!({ "workspace": primeira }))
+            .send()
+            .await
+            .expect("PUT A")
+    });
+    let b_email = email.clone();
+    let b_servidor = servidor;
+    let b_barreira = barreira.clone();
+    let tarefa_b = tokio::spawn(async move {
+        b_barreira.wait().await;
+        reqwest::Client::new()
+            .put(format!("{b_servidor}/api/workspace"))
+            .header("x-dev-user", b_email)
+            .json(&json!({ "workspace": segunda }))
+            .send()
+            .await
+            .expect("PUT B")
+    });
+    barreira.wait().await;
+    let (resposta_a, resposta_b) = tokio::join!(tarefa_a, tarefa_b);
+    let resposta_a = resposta_a.expect("tarefa A");
+    let resposta_b = resposta_b.expect("tarefa B");
+    let status_a = resposta_a.status();
+    let status_b = resposta_b.status();
+    let corpo_a = resposta_a.text().await.expect("corpo A");
+    let corpo_b = resposta_b.text().await.expect("corpo B");
+    let doc: Value = sqlx::query_scalar(
+        "SELECT w.document FROM workspaces w
+         JOIN users u ON u.id = w.owner_id
+         WHERE u.cognito_sub = $1
+         ORDER BY w.created_at ASC LIMIT 1",
+    )
+    .bind(format!("dev:{email}"))
+    .fetch_one(&banco.pool)
+    .await
+    .expect("documento final");
+    banco.descartar().await;
+
+    let mut status = [status_a.as_u16(), status_b.as_u16()];
+    status.sort();
+    assert_eq!(status, [200, 409], "exatamente uma escrita deve vencer");
+    let vencedor = if status_a == 200 {
+        serde_json::from_str::<Value>(&corpo_a).expect("json vencedor A")
+    } else {
+        serde_json::from_str::<Value>(&corpo_b).expect("json vencedor B")
+    };
+    assert_eq!(
+        doc["settings"]["office_name"],
+        vencedor["settings"]["office_name"],
+        "o documento gravado deve ser exatamente o da resposta 200"
+    );
+}
+
+#[tokio::test]
+async fn relatorio_de_outro_owner_nao_expoe_metadado_nem_url() {
+    let banco = banco_do_teste!();
+    let storage = Arc::new(S3Store::for_tests());
+    let servidor = subir_servidor(estado_com_storage(
+        Config::for_tests(),
+        banco.pool.clone(),
+        Some(storage),
+    ))
+    .await;
+    let alice = format!("relatorio-alice-{}@teste.local", Uuid::new_v4());
+    let bruno = format!("relatorio-bruno-{}@teste.local", Uuid::new_v4());
+    bootstrap(&servidor, &alice).await;
+    bootstrap(&servidor, &bruno).await;
+    let row = sqlx::query(
+        "SELECT u.id, w.id FROM users u
+         JOIN workspaces w ON w.owner_id = u.id
+         WHERE u.cognito_sub = $1 LIMIT 1",
+    )
+    .bind(format!("dev:{bruno}"))
+    .fetch_one(&banco.pool)
+    .await
+    .expect("owner e workspace de Bruno");
+    let bruno_id: Uuid = row.get(0);
+    let workspace_id: Uuid = row.get(1);
+    let report_id = Uuid::new_v4();
+    let chave = format!("reports/{bruno_id}/{report_id}.pdf");
+    sqlx::query(
+        "INSERT INTO report_artifacts
+           (id, workspace_id, owner_id, calculation_id, format, s3_key, size_bytes, sha256)
+         VALUES ($1, $2, $3, 42, 'pdf_resumo', $4, 1234, repeat('a', 64))",
+    )
+    .bind(report_id)
+    .bind(workspace_id)
+    .bind(bruno_id)
+    .bind(&chave)
+    .execute(&banco.pool)
+    .await
+    .expect("relatório de Bruno");
+    let cliente = reqwest::Client::new();
+    let resposta = cliente
+        .get(format!("{servidor}/api/reports/saved/{report_id}"))
+        .header("x-dev-user", &alice)
+        .send()
+        .await
+        .expect("GET alheio");
+    let status_get = resposta.status();
+    let texto_get = resposta.text().await.expect("corpo GET alheio");
+    let resposta = cliente
+        .delete(format!("{servidor}/api/reports/saved/{report_id}"))
+        .header("x-dev-user", &alice)
+        .send()
+        .await
+        .expect("DELETE alheio");
+    let status_delete = resposta.status();
+    let row = sqlx::query(
+        "SELECT COUNT(*)::bigint AS n, owner_id FROM report_artifacts
+         WHERE id = $1 GROUP BY owner_id",
+    )
+    .bind(report_id)
+    .fetch_one(&banco.pool)
+    .await
+    .expect("linha de Bruno depois do acesso alheio");
+    let linhas: i64 = row.get("n");
+    let owner: Uuid = row.get("owner_id");
+    drop(cliente);
+    banco.descartar().await;
+
+    assert_eq!(status_get, 404);
+    assert_eq!(status_delete, 404);
+    assert_eq!(linhas, 1, "o relatório de outro owner deve permanecer");
+    assert_eq!(owner, bruno_id);
+    assert!(!texto_get.contains(&chave));
+    assert!(!texto_get.contains("/api/reports/saved/"));
+    assert!(!texto_get.contains("https://"));
 }

@@ -84,6 +84,23 @@ impl S3Store {
     }
 }
 
+#[cfg(test)]
+impl S3Store {
+    /// Cliente local sem rede para testar a ordem de autorização das rotas.
+    /// Não é usado em produção; nenhuma chamada de presign/S3 é feita aqui.
+    pub(crate) fn for_tests() -> Self {
+        use aws_sdk_s3::config::Region;
+        let config = aws_sdk_s3::Config::builder()
+            .region(Region::new("sa-east-1"))
+            .build();
+        Self {
+            client: aws_sdk_s3::Client::from_conf(config),
+            bucket: "bucket-teste".to_owned(),
+            region: "sa-east-1".to_owned(),
+        }
+    }
+}
+
 fn entry_path_is_safe(raw: &Path) -> bool {
     let mut depth: i32 = 0;
     for component in raw.components() {

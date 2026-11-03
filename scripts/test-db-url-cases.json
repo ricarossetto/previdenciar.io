@@ -1,0 +1,15 @@
+{
+  "valid": [
+    "postgres://teste:senha@127.0.0.1:55432/previdenciar_test_1",
+    "postgres://teste:senha@[::1]:55432/previdenciar_test_1"
+  ],
+  "invalid": [
+    "postgres://teste:senha@localhost:55432/previdenciar_test_1",
+    "postgres://teste:senha@192.0.2.1:55432/previdenciar_test_1",
+    "postgres://teste:senha@127.0.0.1/previdenciar_test_1",
+    "postgres://teste:senha@127.0.0.1:55432/postgres",
+    "postgres://teste:senha@127.0.0.1:55432/previdenciar_test_1?host=192.0.2.1",
+    "postgres://teste:senha@127.0.0.1:55432/previdenciar_test_1,127.0.0.1:55433/previdenciar_test_1",
+    "postgres://teste:senha@127.0.0.1:55432/previdenciar_test_1/extra"
+  ]
+}
