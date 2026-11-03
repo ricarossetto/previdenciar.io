@@ -19,7 +19,7 @@ O ledger é **estado de ambiente**, fora do Git, sob a saga. Ele não é prova p
 |---|---:|---|
 | Cobrança inicial | 67.108.864 B (64 MiB) | decisão conservadora autorizada em 03/11/2026 |
 | Incerteza do baseline | 10.737.418 B (0,01 GiB) | `baseline-orcamento-20261102.json` |
-| Scripts/docs desta tarefa | ~60 kB (três arquivos) | `git show --stat f6d99ca` + `cd46fb0` |
+| Scripts/docs desta tarefa | ~76 kB (três arquivos) | `git show --stat f6d99ca` + `cd46fb0` + `2839cea` |
 | Saga/testes/ledger/provas conhecidos | até ordem de MiB | `tmp-historico/`, `tmp-orcamento-*`, ledger, logs, `AUDITORIA.md` |
 | Cap total | 2.147.483.648 B | política preservada |
 
