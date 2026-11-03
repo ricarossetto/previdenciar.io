@@ -18,8 +18,10 @@ fn tipo_do_vinculo(afiliacao: Option<&str>) -> String {
         "rural"
     } else if texto.contains("servidor") {
         "servidor"
-    } else {
+    } else if texto.contains("empregado") || texto.contains("agente") {
         "empregado"
+    } else {
+        ""
     }
     .to_string()
 }

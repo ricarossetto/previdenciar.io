@@ -8,6 +8,7 @@ pub mod guided;
 pub mod contracts;
 pub use bridge::{calculate_case, project_case};
 pub use guided::prepare_from_cnis;
+use chrono::NaiveDate;
 use contracts::*;
 use rgps_core::{RgpsEntrada, RgpsOpcoes};
 use rgps_core::calendar::{Competencia, IsoDate};
@@ -20,6 +21,25 @@ pub const POLICY_VERSION: &str = "rgps-core-observational-v1";
 pub const PUBLIC_ECONOMIC_JSON: &str = include_str!("public-economic.json");
 const MAX_LINKS: usize = 2000;
 const MAX_WAGES: usize = 2400;
+
+/// DIB accepts the workspace ISO date or the legacy Brazilian format; the
+/// effective date is never inferred from an invalid string.
+pub(crate) fn parse_dib_date(value: &str) -> Option<NaiveDate> {
+    NaiveDate::parse_from_str(value.trim(), "%Y-%m-%d")
+        .ok()
+        .or_else(|| NaiveDate::parse_from_str(value.trim(), "%d/%m/%Y").ok())
+}
+
+/// IN PRES/INSS 128/2022, art. 222, I e §1º (DOU 29/03/2022, Seção 1,
+/// p. 132): o término do PBC é o mês imediatamente anterior à DER/DIB.
+/// EC 103/2019, art. 26, caput: a média usa 100% do período contributivo
+/// desde 07/1994 (ou início posterior). This helper applies the official
+/// boundary; the reference case's 327/310 counts are not used as a rule.
+pub(crate) fn competencia_pbc_anterior(dib: &str) -> Option<String> {
+    let date = parse_dib_date(dib)?;
+    let first = date.with_day(1)?;
+    Some(first.pred_opt()?.format("%Y-%m").to_string())
+}
 
 /// Machine-readable UI template. Null review/category/currency/options are
 /// intentional blockers until explicit operator action; this is NOT approval.
@@ -128,11 +148,12 @@ fn calculate_input(r: CalculationInput) -> Result<Value, String> {
         issue(&mut b,"sex_unconfirmed","segurado.sexo","Sexo cadastral obrigatório; não inferir pelo nome.");
     }
     let disability = r.segurado.deficiencia.as_deref().unwrap_or("").trim().to_lowercase();
-    if !["nao", "não", "none", "sem_deficiencia", "não possui deficiência", "nao possui deficiencia"].contains(&disability.as_str()) {
+    if !["nao", "não", "none", "sem_deficiencia", "sem deficiência declarada", "sem deficiencia declarada", "não possui deficiência", "nao possui deficiencia"].contains(&disability.as_str()) {
         issue(&mut b, if disability.is_empty() {"disability_unconfirmed"} else {"disability_rules_unsupported"},"segurado.deficiencia","Ausência de deficiência deve ser explicitamente confirmada; regras PcD não implementadas neste adaptador.");
     }
     let birth = date(&r.segurado.data_nascimento,"segurado.dataNascimento",&mut b);
     let dib = date(&r.data_referencia,"dataReferencia",&mut b);
+    let pbc_end = competencia_pbc_anterior(r.data_referencia.as_deref().unwrap_or(""));
     if let (Some(birth),Some(dib)) = (birth,dib) {
         if birth >= dib { issue(&mut b,"birth_after_dib","segurado.dataNascimento","Nascimento deve anteceder a DIB."); }
         if dib < (IsoDate {ano:2019,mes:11,dia:13}) {
@@ -185,6 +206,13 @@ fn calculate_input(r: CalculationInput) -> Result<Value, String> {
         let f = format!("competencias[{i}]");
         let Some(c) = month(&w.competencia,&f,&mut b) else { continue; };
         if c < (Competencia {ano:1994,mes:7}) { pre94+=1; continue; }
+        let c_month = format!("{:04}-{:02}", c.ano, c.mes);
+        if pbc_end.as_deref().is_some_and(|end| c_month.as_str() > end) {
+            let after_dib = dib.is_some_and(|d| c > (Competencia {ano:d.ano as u16,mes:d.mes}));
+            if !after_dib {
+                issue(&mut b,"wage_in_dib_month",&f,"Competência da DIB não integra o PBC: o término é o mês imediatamente anterior à DER (IN PRES/INSS 128/2022, art. 222, I e §1º).");
+            }
+        }
         if w.moeda.as_deref() != Some("BRL") { issue(&mut b,"currency_unverified",&f,"PBC desde 07/1994 exige remuneração nominal BRL explicitamente conferida; não converter moeda histórica."); }
         if !w.confirmada { issue(&mut b,"wage_unconfirmed",&f,"Salário nominal exige confirmação documental."); }
         if !w.indicadores.is_empty() { issue(&mut b,"wage_indicators_unresolved",&f,"Indicadores de remuneração exigem resolução documentada."); }
@@ -262,6 +290,7 @@ fn calculate_input(r: CalculationInput) -> Result<Value, String> {
         "input_wages": r.competencias.len(),
         "pre_1994_excluded": pre94,
         "below_minimum_excluded": abaixo_do_minimo.len(),
+        "pbc_end": pbc_end,
         "pbc_wages": wages.len(),
         "confirmed_links": links.len()
     });
