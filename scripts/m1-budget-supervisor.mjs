@@ -12,8 +12,9 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
-import { spawn, spawnSync } from 'node:child_process';
+import { execFile, spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { Worker, isMainThread } from 'node:worker_threads';
 import { measureTree } from './run-with-disk-budget.mjs';
 
 export const MIB = 1024 * 1024;
@@ -56,7 +57,7 @@ function inside(child, parent) {
   return rel !== '' && !rel.startsWith('..') && !path.isAbsolute(rel);
 }
 
-function rootsFromBaseline(baseline) {
+export function rootsFromBaseline(baseline) {
   if (!Array.isArray(baseline.roots) || baseline.roots.length === 0) fail('baseline', 'roots ausentes');
   return baseline.roots.map((root) => {
     if (!root || typeof root.name !== 'string' || typeof root.path !== 'string' || !Number.isSafeInteger(root.start_bytes)) {
@@ -106,6 +107,71 @@ export function measureFree() {
   const bytes = stat.bavail * stat.bsize;
   if (!Number.isSafeInteger(bytes) || bytes < 0) fail('source', 'C: livre inválido');
   return bytes;
+}
+
+const PAGEFILE_COMMAND = "$p=Get-CimInstance Win32_PageFileUsage -ErrorAction SilentlyContinue | Select-Object -First 1; if($p){[pscustomobject]@{alloc=$p.AllocatedBaseSize}|ConvertTo-Json -Compress}else{'{}'}";
+
+export function measurePagefilePowerShellAsync(timeoutMs = 2500) {
+  return new Promise((resolve, reject) => {
+    execFile('powershell', ['-NoProfile', '-Command', PAGEFILE_COMMAND], { encoding: 'utf8', timeout: timeoutMs, windowsHide: true }, (error, stdout) => {
+      if (error) {
+        const failure = new Error('pagefile: medição não concluída');
+        failure.code = error.killed || error.signal ? 'measure-timeout' : 'source';
+        reject(failure);
+        return;
+      }
+      let value;
+      try { value = JSON.parse(stdout || '{}'); } catch { value = null; }
+      if (!value || !Number.isSafeInteger(value.alloc) || value.alloc <= 0) {
+        const failure = new Error('pagefile indisponível');
+        failure.code = 'source';
+        reject(failure);
+        return;
+      }
+      resolve(value.alloc * MIB);
+    });
+  });
+}
+
+export function measureFastDefault(deps = {}) {
+  return Promise.resolve((deps.measureFree ?? measureFree)()).then(async free => ({
+    free,
+    pagefile_alloc_bytes: await (deps.measurePagefileAsync ?? measurePagefilePowerShellAsync)(),
+  }));
+}
+
+export function measureSlowDefault(baseline, deps = {}) {
+  const timeoutMs = deps.measureTimeoutMs ?? 5000;
+  let worker;
+  let timer;
+  const promise = new Promise((resolve, reject) => {
+    const createWorker = deps.createWorker ?? ((url, options) => new Worker(url, options));
+    worker = createWorker(new URL('./m1-budget-measure-worker.mjs', import.meta.url), { workerData: { baseline } });
+    timer = (deps.setTimeout ?? setTimeout)(() => {
+      const failure = new Error('varredura de árvores excedeu o tempo');
+      failure.code = 'measure-timeout';
+      worker.terminate();
+      reject(failure);
+    }, timeoutMs);
+    worker.once('message', message => {
+      clearTimeout(timer);
+      worker.terminate();
+      if (message.ok) resolve({ roots: message.roots, vhd: message.vhd });
+      else {
+        const failure = new Error(message.message);
+        failure.code = message.code ?? 'source';
+        reject(failure);
+      }
+    });
+    worker.once('error', error => {
+      clearTimeout(timer);
+      const failure = new Error(error.message || 'worker de medição falhou');
+      failure.code = 'source';
+      reject(failure);
+    });
+  });
+  promise.cancel = () => worker?.terminate();
+  return promise;
 }
 
 export function measureAll(baseline, deps = {}) {
@@ -248,6 +314,50 @@ export function accumulate(ledger, sample) {
   return delta;
 }
 
+export function accumulateFast(ledger, sample) {
+  const delta = advanceSegment(ledger.pagefile, sample.pagefile_alloc_bytes, 'pagefile');
+  ledger.charged_bytes += delta;
+  ledger.updated_at = new Date().toISOString();
+  return delta;
+}
+
+export function accumulateSlow(ledger, sample) {
+  let delta = 0;
+  for (const root of sample.roots) delta += advanceSegment(ledger.roots[root.name], root.bytes, `raiz ${root.name}`);
+  for (const item of sample.vhd) delta += advanceSegment(ledger.vhd[item.name], item.bytes, `VHD ${item.name}`);
+  ledger.charged_bytes += delta;
+  ledger.updated_at = new Date().toISOString();
+  return delta;
+}
+
+function rootsBytes(sample) {
+  return sample.roots.reduce((sum, root) => sum + root.bytes, 0) + sample.vhd.reduce((sum, item) => sum + item.bytes, 0);
+}
+
+/** Observed positive peaks per segment; legacy history falls back to charged deltas. */
+export function observedHeadroomBytes(ledger) {
+  const history = Array.isArray(ledger.history) ? ledger.history : [];
+  let maxPagefile = 0, maxRoots = 0, legacy = 0, hasSegments = false;
+  for (let index = 1; index < history.length; index += 1) {
+    const previous = history[index - 1], current = history[index];
+    if ([previous.pagefile_bytes, current.pagefile_bytes, previous.roots_bytes, current.roots_bytes].every(Number.isSafeInteger)) {
+      hasSegments = true;
+      maxPagefile = Math.max(maxPagefile, current.pagefile_bytes - previous.pagefile_bytes);
+      maxRoots = Math.max(maxRoots, current.roots_bytes - previous.roots_bytes);
+    } else if (Number.isSafeInteger(previous.charged_bytes) && Number.isSafeInteger(current.charged_bytes)) {
+      legacy = Math.max(legacy, current.charged_bytes - previous.charged_bytes);
+    }
+  }
+  return hasSegments ? Math.max(0, maxPagefile) + Math.max(0, maxRoots) : Math.max(0, legacy);
+}
+
+export function startHeadroomIssue(ledger) {
+  const cap = ledger.cap_bytes ?? CAP_BYTES;
+  const useful = cap - ledger.charged_bytes - RESERVE_BYTES;
+  const observed = observedHeadroomBytes(ledger);
+  return useful < observed ? 'headroom' : null;
+}
+
 export function checkLimits(ledger, freeBytes, capBytes = hasOwn(ledger, 'cap_bytes') ? ledger.cap_bytes : CAP_BYTES) {
   const cap = validateCapBytes(capBytes, hasOwn(ledger, 'cap_bytes') ? 'ledger' : 'config');
   if (ledger.charged_bytes + RESERVE_BYTES > cap) return 'cap';
@@ -338,13 +448,157 @@ function persistSample(ledgerPath, ledger, sample, status = 'running', lastError
     at: ledger.updated_at,
     free_bytes: sample.free,
     charged_bytes: ledger.charged_bytes,
+    pagefile_bytes: sample.pagefile_alloc_bytes,
+    roots_bytes: rootsBytes(sample),
     status,
     ...(lastError ? { error: lastError } : {}),
   });
   persistLedger(ledgerPath, ledger);
 }
 
+function persistMeasureError(ledgerPath, ledger, error) {
+  ledger.status = 'error';
+  ledger.updated_at = new Date().toISOString();
+  ledger.history.push({ at: ledger.updated_at, charged_bytes: ledger.charged_bytes, status: 'error', error: error.message || 'measure' });
+  persistLedger(ledgerPath, ledger);
+}
+
+async function runSupervisorAsync(parsed, deps = {}) {
+  const { baseline, ledger } = loadOrCreateLedger(parsed.baseline, parsed.ledger, parsed.capBytes ?? undefined);
+  const measureFast = deps.measureFast ?? (base => measureFastDefault(deps));
+  const measureSlow = deps.measureSlow ?? (base => measureSlowDefault(base, deps));
+  const combined = () => ({ ...lastFast, roots: lastSlow.roots, vhd: lastSlow.vhd });
+  let lastFast;
+  let lastSlow;
+  try {
+    lastFast = await measureFast(baseline);
+  } catch (error) {
+    persistMeasureError(parsed.ledger, ledger, error);
+    return { code: 4, stderr: `supervisor: ${error.code ?? 'measure'}\n` };
+  }
+  accumulateFast(ledger, lastFast);
+  const fastLimit = checkLimits(ledger, lastFast.free);
+  if (fastLimit) {
+    persistSample(parsed.ledger, ledger, { ...lastFast, roots: [], vhd: [] }, 'blocked', fastLimit);
+    return { code: 3, stderr: `bloqueado: ${fastLimit}\n` };
+  }
+  try {
+    lastSlow = await measureSlow(baseline);
+  } catch (error) {
+    persistMeasureError(parsed.ledger, ledger, error);
+    return { code: 4, stderr: `supervisor: ${error.code ?? 'measure'}\n` };
+  }
+  accumulateSlow(ledger, lastSlow);
+  const slowLimit = checkLimits(ledger, lastFast.free);
+  if (slowLimit) {
+    persistSample(parsed.ledger, ledger, combined(), 'blocked', slowLimit);
+    return { code: 3, stderr: `bloqueado: ${slowLimit}\n` };
+  }
+  const headroom = startHeadroomIssue(ledger);
+  if (headroom) {
+    persistSample(parsed.ledger, ledger, combined(), 'blocked', headroom);
+    return { code: 3, stderr: `bloqueado: ${headroom}\n` };
+  }
+  if (parsed.check) {
+    persistSample(parsed.ledger, ledger, combined(), 'ok');
+    return { code: 0, stdout: `${JSON.stringify({ status: 'ok', charged_bytes: ledger.charged_bytes, free_bytes: lastFast.free })}\n` };
+  }
+
+  const scheduleInterval = deps.setInterval ?? setInterval;
+  const clearScheduledInterval = deps.clearInterval ?? clearInterval;
+  const scheduleTimeout = deps.setTimeout ?? setTimeout;
+  const clearScheduledTimeout = deps.clearTimeout ?? clearTimeout;
+  const child = (deps.spawn ?? spawn)(parsed.command, parsed.args, { stdio: 'inherit', windowsHide: true });
+  let stopped = false;
+  let fastPending = false;
+  let slowPending = null;
+  let interval = null;
+  let timer = null;
+  let finalCode = 0;
+  let failure = null;
+  let finish;
+  const stoppedPromise = new Promise(resolve => { finish = resolve; });
+  const stop = (reason, alreadyRecorded = false) => {
+    if (stopped) return;
+    stopped = true;
+    finalCode = 3;
+    failure = reason;
+    if (slowPending?.cancel) slowPending.cancel();
+    if (!alreadyRecorded) {
+      try { persistSample(parsed.ledger, ledger, combined(), 'blocked', reason); } catch {}
+    }
+    (deps.cancelOwnChild ?? cancelOwnChild)(child, deps);
+  };
+  const runFast = async () => {
+    if (stopped || fastPending) return;
+    fastPending = true;
+    try {
+      const fast = await measureFast(baseline);
+      if (stopped) return;
+      lastFast = fast;
+      accumulateFast(ledger, fast);
+      const limit = checkLimits(ledger, fast.free);
+      if (limit) {
+        persistSample(parsed.ledger, ledger, combined(), 'blocked', limit);
+        stop(limit, true);
+        return;
+      }
+      persistSample(parsed.ledger, ledger, combined(), 'running');
+    } catch (error) {
+      stop(error.code === 'measure-timeout' ? 'measure-timeout' : (error.message || 'measure'));
+    } finally {
+      fastPending = false;
+    }
+  };
+  const runSlow = () => {
+    if (stopped || slowPending) return;
+    const pending = Promise.resolve(measureSlow(baseline));
+    slowPending = pending;
+    pending.then(slow => {
+      if (stopped) return;
+      lastSlow = slow;
+      accumulateSlow(ledger, slow);
+      const limit = checkLimits(ledger, lastFast.free);
+      if (limit) {
+        persistSample(parsed.ledger, ledger, combined(), 'blocked', limit);
+        stop(limit, true);
+        return;
+      }
+      persistSample(parsed.ledger, ledger, combined(), 'running');
+    }).catch(error => {
+      if (!stopped) stop(error.code === 'measure-timeout' ? 'measure-timeout' : (error.message || 'measure'));
+    }).finally(() => { if (slowPending === pending) slowPending = null; });
+  };
+  interval = scheduleInterval(() => { void runFast(); runSlow(); }, parsed.interval * 1000);
+  timer = scheduleTimeout(() => stop('timeout'), parsed.timeout * 1000);
+  child.once('error', error => { failure = error.message; finalCode = 4; finish(); });
+  child.once('exit', (code, signal) => {
+    if (!stopped) finalCode = signal ? 4 : (code ?? 4);
+    finish();
+  });
+  await stoppedPromise;
+  clearScheduledInterval(interval);
+  clearScheduledTimeout(timer);
+  if (slowPending?.cancel) slowPending.cancel();
+  try {
+    const finalLimit = checkLimits(ledger, lastFast.free);
+    persistSample(parsed.ledger, ledger, combined(), finalLimit || stopped ? 'blocked' : (finalCode === 0 ? 'ok' : 'command-failed'), finalLimit || failure);
+    if (finalLimit && !stopped) finalCode = 3;
+  } catch (error) {
+    persistMeasureError(parsed.ledger, ledger, error);
+    finalCode = 4;
+  }
+  return { code: finalCode, stderr: failure ? `supervisor: ${failure}\n` : '' };
+}
+
 export async function runSupervisor(argv, deps = {}) {
+  const parsed = parseArgs(argv);
+  if (parsed.help) return { code: 0, stdout: `${usage()}\n` };
+  if (deps.measureAll && !deps.measureFast && !deps.measureSlow) return runSupervisorLegacy(argv, deps);
+  return runSupervisorAsync(parsed, deps);
+}
+
+async function runSupervisorLegacy(argv, deps = {}) {
   const parsed = parseArgs(argv);
   if (parsed.help) return { code: 0, stdout: `${usage()}\n` };
   const { baseline, ledger } = loadOrCreateLedger(parsed.baseline, parsed.ledger, parsed.capBytes ?? undefined);
@@ -424,7 +678,7 @@ export async function runSupervisor(argv, deps = {}) {
   return { code: finalCode, stderr: failure ? `supervisor: ${failure}\n` : '' };
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url))) {
+if (isMainThread && process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url))) {
   try {
     const result = await runSupervisor(process.argv.slice(2));
     if (result.stdout) process.stdout.write(result.stdout);

@@ -12,13 +12,17 @@ import {
   GIB,
   RESERVE_BYTES,
   accumulate,
+  accumulateFast,
+  accumulateSlow,
   cancelOwnChild,
   checkLimits,
   evaluateSample,
   loadOrCreateLedger,
   measureRoots,
+  measureSlowDefault,
   persistLedger,
   runSupervisor,
+  startHeadroomIssue,
 } from './m1-budget-supervisor.mjs';
 
 function fixture(capBytes) {
@@ -580,4 +584,113 @@ test('loop real: cap 2 GiB bloqueia e cancela na mesma amostra', async () => {
   assert.equal(ledger.charged_bytes, limitCharge + 1);
   assert.deepEqual(ledger.history.map((entry) => entry.status), ['running', 'blocked', 'blocked']);
   assert.equal(ledger.history[1].error, 'cap');
+});
+
+test('fast cancela antes da varredura lenta resolver', async () => {
+  const f = fixture(2 * GIB);
+  const child = fakeChild();
+  const baseSlow = { roots: sample(f.baseline).roots, vhd: sample(f.baseline).vhd };
+  const baseFast = { free: 100 * GIB, pagefile_alloc_bytes: 6000 };
+  let fastCalls = 0;
+  let slowCalls = 0;
+  let slowCanceled = false;
+  const pendingSlow = new Promise(() => {});
+  pendingSlow.cancel = () => { slowCanceled = true; };
+  const measureFast = () => {
+    fastCalls += 1;
+    return Promise.resolve(fastCalls === 1 ? baseFast : { ...baseFast, pagefile_alloc_bytes: 6000 + 2 * GIB });
+  };
+  const measureSlow = () => {
+    slowCalls += 1;
+    return slowCalls === 1 ? Promise.resolve(baseSlow) : pendingSlow;
+  };
+  const result = await runSupervisor(loopArgs(f), {
+    measureFast,
+    measureSlow,
+    spawn: () => child,
+    taskkill: () => ({ status: 1 }),
+  });
+  assert.equal(result.code, 3);
+  assert.match(result.stderr, /cap/);
+  assert.equal(slowCalls, 2);
+  assert.equal(slowCanceled, true);
+  assert.equal(child.killed, true);
+  const ledger = JSON.parse(fs.readFileSync(f.ledger, 'utf8'));
+  assert.equal(ledger.status, 'blocked');
+  assert.equal(ledger.history.at(-1).status, 'blocked');
+  assert.equal(ledger.history.at(-1).error, 'cap');
+});
+
+test('measureSlowDefault worker mede caminhos locais conhecidos sem recursão', async () => {
+  const baseline = {
+    roots: [{ name: 'scripts', path: path.resolve('scripts'), start_bytes: 0 }],
+    vhd: [{ name: 'cargo', path: path.resolve('Cargo.toml'), start_bytes: 0 }],
+  };
+  const slow = await measureSlowDefault(baseline, { measureTimeoutMs: 5000 });
+  assert.equal(slow.roots.length, 1);
+  assert.equal(slow.vhd.length, 1);
+  assert.ok(slow.roots[0].bytes > 0);
+});
+
+test('measureSlowDefault timeout falha fechado e encerra worker', async () => {
+  let terminated = false;
+  const worker = { once() { return worker; }, terminate() { terminated = true; } };
+  const f = fixture();
+  await assert.rejects(
+    measureSlowDefault(f.baseline, { createWorker: () => worker, measureTimeoutMs: 10 }),
+    (error) => error.code === 'measure-timeout',
+  );
+  assert.equal(terminated, true);
+});
+
+test('timeout de medição antes do spawn não inicia child', async () => {
+  const f = fixture();
+  let spawned = 0;
+  const result = await runSupervisor(loopArgs(f), {
+    measureFast: () => Promise.resolve({ free: 100 * GIB, pagefile_alloc_bytes: 6000 }),
+    measureSlow: () => Promise.reject(Object.assign(new Error('slow'), { code: 'measure-timeout' })),
+    spawn: () => { spawned += 1; return fakeChild(); },
+  });
+  assert.equal(result.code, 4);
+  assert.match(result.stderr, /measure-timeout/);
+  assert.equal(spawned, 0);
+  assert.equal(JSON.parse(fs.readFileSync(f.ledger, 'utf8')).status, 'error');
+});
+
+test('headroom observado insuficiente bloqueia antes do spawn', async () => {
+  const f = fixture(2 * GIB);
+  const { ledger } = loadOrCreateLedger(f.baselinePath, f.ledger);
+  ledger.charged_bytes = 2 * GIB - RESERVE_BYTES - 1;
+  ledger.history = [
+    { pagefile_bytes: 100, roots_bytes: 100, charged_bytes: 0 },
+    { pagefile_bytes: 600, roots_bytes: 700, charged_bytes: 0 },
+  ];
+  persistLedger(f.ledger, ledger);
+  let spawned = 0;
+  const result = await runSupervisor(loopArgs(f), {
+    measureFast: () => Promise.resolve({ free: 100 * GIB, pagefile_alloc_bytes: 6000 }),
+    measureSlow: () => Promise.resolve({ roots: sample(f.baseline).roots, vhd: sample(f.baseline).vhd }),
+    spawn: () => { spawned += 1; return fakeChild(); },
+  });
+  assert.equal(result.code, 3);
+  assert.match(result.stderr, /headroom/);
+  assert.equal(spawned, 0);
+  assert.equal(startHeadroomIssue(ledger), 'headroom');
+});
+
+test('fast e slow cobram segmentos distintos sem dupla contagem', () => {
+  const f = fixture();
+  const { ledger } = loadOrCreateLedger(f.baselinePath, f.ledger);
+  const base = sample(f.baseline);
+  const fast = { free: base.free, pagefile_alloc_bytes: base.pagefile_alloc_bytes + 100 };
+  const slow = {
+    roots: base.roots.map((root, index) => index === 0 ? { ...root, bytes: root.bytes + 10 } : root),
+    vhd: base.vhd.map((item, index) => index === 0 ? { ...item, bytes: item.bytes + 20 } : item),
+  };
+  assert.equal(accumulateFast(ledger, fast), 100);
+  assert.equal(accumulateSlow(ledger, slow), 30);
+  assert.equal(ledger.charged_bytes, 130);
+  assert.equal(accumulateFast(ledger, fast), 0);
+  assert.equal(accumulateSlow(ledger, slow), 0);
+  assert.equal(ledger.charged_bytes, 130);
 });
