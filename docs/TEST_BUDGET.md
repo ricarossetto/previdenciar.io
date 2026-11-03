@@ -48,7 +48,7 @@ node scripts/run-with-disk-budget.mjs \
 - `target`, `repo` e `saga` são obrigatórios; `temp` e `pg` são opcionais.
 - `target` precisa estar dentro de `repo`; `repo` exclui `target` da soma para não contar duas vezes. Raízes aninhadas são excluídas umas das outras.
 - `--cache` deve apontar para cache **preexistente**; o wrapper não cria cache, não baixa e não instala. Caches não declarados não entram no ledger e não têm garantia.
-- `--volume` acrescenta um volume ao piso de 10 GiB + reserva. Todos os segmentos (`roots`, `caches` e `pg`) são verificados no volume em que estão; a deduplicação usa `dev` quando disponível e a raiz do caminho apenas como fallback de chave, sem inferir letra de forma frágil.
+- `--volume` acrescenta um volume ao piso de 10 GiB + reserva. Todos os segmentos (`roots`, `caches` e `pg`) são verificados no volume em que estão; a deduplicação usa `dev` quando disponível e o próprio caminho como fallback de chave, sem inferir letra nem colapsar mount points.
 - `--cwd` é o diretório do filho; não é impresso no resultado.
 - O comando é executado **sem shell**, com `stdio` herdado. O wrapper não interpola strings, não usa `Invoke-Expression` e não imprime `argv`.
 - Use `--init-ledger` apenas no primeiro uso, com todas as raízes já definidas. Ledger v1 existente usa `--reconcile-initial`; não há reset por medição.

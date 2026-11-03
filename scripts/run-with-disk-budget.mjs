@@ -682,9 +682,9 @@ function volumeKeyFor(value) {
     const stat = fs.statSync(absolute);
     if (Number.isSafeInteger(stat.dev) && stat.dev !== 0) return `dev:${stat.dev}`;
   } catch {
-    // usa a raiz do caminho somente como chave de deduplicação
+    // usa o próprio caminho como chave; não infere volume pela letra
   }
-  return `root:${normalize(path.parse(absolute).root)}`;
+  return `path:${normalize(absolute)}`;
 }
 
 function checkFree({ config, policy, freeBytes, volumeKey = volumeKeyFor }) {
