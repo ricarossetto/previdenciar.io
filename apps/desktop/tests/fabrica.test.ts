@@ -24,6 +24,57 @@ function case41() {
   return c;
 }
 
+function withKind(kind: string) {
+  const c = case41();
+  const policy = JSON.parse(c.options.rule_policy);
+  policy.manual_link_kind = kind;
+  c.options.rule_policy = JSON.stringify(policy);
+  return c;
+}
+
+function withRuralSources(affiliations: string[]) {
+  const c = withKind('rural');
+  const years = affiliations.length === 1
+    ? [['1994-07-01','2019-06-30']]
+    : [['1994-07-01','1999-12-31'],['2000-01-01','2019-06-30']];
+  c.cnis = {
+    metadata: {page_count: 1, source_sha256: 'synthetic', extractor: 'synthetic'},
+    identity: {...c.identity},
+    salary_entries: [],
+    salary_months: {},
+    links: affiliations.map((affiliation, index) => ({
+      sequence: index + 1,
+      raw_employer: 'Origem ' + (index + 1),
+      affiliation,
+      start_date: years[index][0],
+      end_date: years[index][1],
+      prpps: false,
+      indicators: [],
+      reported_last_salary_month: null,
+      inferred_last_salary_end: null,
+      source: {page: 1},
+    })),
+    benefits: [],
+    warnings: [],
+    findings: [],
+  };
+  c.manual_links = affiliations.map((_, index) => ({
+    id: index + 1,
+    employer: 'Origem ' + (index + 1),
+    start_date: years[index][0],
+    end_date: years[index][1],
+    regime: 'RGPS',
+    indicators: '',
+    confirmed: true,
+    source_review: {sequence: index + 1, source_sha256: 'synthetic', excluded: false, history: []},
+  }));
+  c.manual_salaries = [
+    {id: 1, competence: '1994-07', amount: '2000.00', indicators: '', confirmed: true},
+    {id: 2, competence: '2019-06', amount: '3000.00', indicators: '', confirmed: true},
+  ];
+  return c;
+}
+
 describe('conferência na Fábrica de Cálculos', () => {
   it('monta o payload só com datas, sexo, espécie e salários revisados', () => {
     const built = buildFabricaInput(case41());
@@ -66,15 +117,39 @@ describe('conferência na Fábrica de Cálculos', () => {
   });
 
   it('não converte categoria legada ou não suportada em COMUM', () => {
-    for (const kind of ['normal','individual','rural','especial','servidor']) {
-      const legacy = case41();
-      const policy = JSON.parse(legacy.options.rule_policy);
-      policy.manual_link_kind = kind;
-      legacy.options.rule_policy = JSON.stringify(policy);
-      const built = buildFabricaInput(legacy);
+    for (const kind of ['normal','individual','especial','servidor']) {
+      const built = buildFabricaInput(withKind(kind));
       expect(built.input).toBeNull();
       expect(built.issues.join(' ')).toContain('não suportada');
     }
+  });
+
+  it('preserva RURICOLA quando a declaração rural é explícita e os vínculos estão confirmados', () => {
+    const built = buildFabricaInput(withKind('rural'));
+    expect(built.issues).toEqual([]);
+    expect(built.input?.tipo).toBe('RURICOLA');
+  });
+
+  it('recusa rural sem confirmação dos vínculos', () => {
+    const rural = withKind('rural');
+    rural.manual_links[0].confirmed = false;
+    const built = buildFabricaInput(rural);
+    expect(built.input).toBeNull();
+    expect(built.issues.join(' ')).toContain('Confirme todos os vínculos');
+  });
+
+  it('aceita RURICOLA com origem rural comprovada e recusa mistura ambígua', () => {
+    const rural = buildFabricaInput(withRuralSources(['Empregado rural']));
+    expect(rural.issues).toEqual([]);
+    expect(rural.input?.tipo).toBe('RURICOLA');
+
+    const mixed = buildFabricaInput(withRuralSources(['Empregado rural','Empregado']));
+    expect(mixed.input).toBeNull();
+    expect(mixed.issues.join(' ')).toContain('rural');
+
+    const missing = buildFabricaInput(withRuralSources(['Empregado rural','']));
+    expect(missing.input).toBeNull();
+    expect(missing.issues.join(' ')).toContain('rural');
   });
 
   it('recusa PcD e períodos sobrepostos na conferência comum', () => {

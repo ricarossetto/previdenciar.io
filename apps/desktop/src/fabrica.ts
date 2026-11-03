@@ -1,5 +1,6 @@
 import type {Calculation, Json} from './model';
 import {isoDate, parseMoney} from './model';
+import {LINK_KINDS} from './assistantReview';
 
 export interface FabricaSalario { competencia: string; valor: string }
 export interface FabricaPeriodo { dataInicial: string; dataFinal: string; salarios: FabricaSalario[] }
@@ -108,6 +109,26 @@ function inside(competence: string, start: string, end: string): boolean {
   const month = competence.slice(0, 7);
   return month >= start.slice(0, 7) && month <= end.slice(0, 7);
 }
+
+/**
+ * The provider's `tipo` is global (`dadosSegurado.tipo`), not per link. A rural
+ * declaration is sent only when every source-reviewed link proves rural
+ * affiliation and none mixes another category. Manual-only links are covered
+ * by the explicit global declaration.
+ */
+function ruralScopeConfirmed(c: Calculation): boolean {
+  const sources = new Map((c.cnis?.links ?? []).map(link => [link.sequence, link]));
+  for (const link of c.manual_links.filter(item => !item.source_review?.excluded)) {
+    const sequence = link.source_review?.sequence;
+    if (sequence === undefined) continue;
+    const source = sources.get(sequence);
+    if (!source || source.prpps) return false;
+    const affiliation = (source.affiliation ?? '').trim().toLowerCase();
+    if (!affiliation.includes('rural')) return false;
+    if (['dom','individual','avulso','facultativo','servidor','rpps','especial'].some(term => affiliation.includes(term))) return false;
+  }
+  return true;
+}
 /**
  * Builds the Fábrica de Cálculos payload from the reviewed case. It never reads
  * name, CPF, NIT, CNIS or notes. Any gap returns issues and no partial payload.
@@ -171,11 +192,15 @@ export function buildFabricaInput(c: Calculation): { input: FabricaInput|null; i
     }
   }
   const kind = typeof policy?.manual_link_kind === 'string' ? policy.manual_link_kind : '';
-  // A Fábrica usa um campo grosseiro (COMUM/RURICOLA). Só os cinco tipos RGPS
-  // aceitos pelo adaptador local entram em COMUM; rural, especial e legado
-  // ficam pendentes em vez de virarem COMUM silenciosamente.
-  const tipo: 'COMUM'|null = ['empregado','empregado_domestico','contribuinte_individual','avulso','facultativo'].includes(kind) ? 'COMUM' : null;
-  if (!tipo) push('Categoria manual ausente ou não suportada; escolha uma categoria reconhecida antes da conferência online.');
+  // COMUM recebe só os cinco tipos RGPS do adaptador local. RURICOLA exige a
+  // declaração global `rural` e prova rural em cada vínculo de origem; especial,
+  // servidor e legado continuam pendentes.
+  const tipo: 'COMUM'|'RURICOLA'|null = kind === 'rural'
+    ? (ruralScopeConfirmed(c) ? 'RURICOLA' : null)
+    : LINK_KINDS.includes(kind) ? 'COMUM' : null;
+  if (!tipo) push(kind === 'rural'
+    ? 'Declaração rural global sem prova de que todos os vínculos de origem são rurais; separe o caso ou revise a categoria.'
+    : 'Categoria manual ausente ou não suportada; escolha uma categoria reconhecida antes da conferência online.');
   if (issues.length || !nascimento || !dib || !sexo || !tipo) return { input: null, issues };
   const native = policy?.native_options && typeof policy.native_options === 'object'
     ? policy.native_options as Record<string, unknown>
