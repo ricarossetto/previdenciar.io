@@ -1329,19 +1329,19 @@ mod tests {
         body
     }
 
-    async fn test_pool() -> Option<sqlx::PgPool> {
-        let _ = dotenvy::from_path(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(".env"));
-        let url = std::env::var("TEST_DATABASE_URL")
-            .or_else(|_| std::env::var("DATABASE_URL"))
-            .ok()?;
-        let pool = sqlx::postgres::PgPoolOptions::new()
-            .max_connections(2)
-            .acquire_timeout(Duration::from_secs(3))
-            .connect(&url)
-            .await
-            .ok()?;
-        sqlx::migrate!("./migrations").run(&pool).await.ok()?;
-        Some(pool)
+    /// Banco de teste isolado.
+    ///
+    /// Usa o mesmo helper de `integration_db`: cada teste ganha um schema
+    /// temporário próprio, com as migrações aplicadas ali dentro. Nenhum teste
+    /// cria tabela no schema `public` do banco apontado por `DATABASE_URL`.
+    async fn test_db() -> Option<crate::integration_db::BancoTemporario> {
+        match crate::integration_db::abrir_banco().await {
+            crate::integration_db::Banco::Pronto(banco) => Some(banco),
+            crate::integration_db::Banco::Ausente(motivo) => {
+                eprintln!("teste pulado: banco de dados de teste indisponivel ({motivo})");
+                None
+            }
+        }
     }
 
     #[tokio::test]
@@ -1581,11 +1581,14 @@ mod tests {
 
     #[tokio::test]
     async fn cadastro_novo_respeita_limite_por_ip() {
-        let Some(pool) = test_pool().await else {
-            eprintln!("teste pulado: banco de dados de teste indisponivel");
+        let Some(banco) = test_db().await else {
             return;
         };
-        let base = spawn_server(test_state_with_db(config::Config::for_tests(), pool)).await;
+        let base = spawn_server(test_state_with_db(
+            config::Config::for_tests(),
+            banco.pool().clone(),
+        ))
+        .await;
         let client = reqwest::Client::new();
         for attempt in 0..CADASTRO_IP_WINDOW.max {
             let email = format!("novo-{}@teste.local", Uuid::new_v4());
@@ -1606,15 +1609,20 @@ mod tests {
         assert_eq!(response.status(), 429);
         let body: Value = response.json().await.expect("erro em json");
         assert_eq!(error_message(&body), CADASTRO_IP_WINDOW.message);
+
+        banco.descartar().await;
     }
 
     #[tokio::test]
     async fn admin_com_permissao_lista_usuarios() {
-        let Some(pool) = test_pool().await else {
-            eprintln!("teste pulado: banco de dados de teste indisponivel");
+        let Some(banco) = test_db().await else {
             return;
         };
-        let base = spawn_server(test_state_with_db(config::Config::for_tests(), pool)).await;
+        let base = spawn_server(test_state_with_db(
+            config::Config::for_tests(),
+            banco.pool().clone(),
+        ))
+        .await;
         let response = reqwest::Client::new()
             .get(format!("{base}/api/admin/users"))
             .header("x-dev-user", "admin@teste.local")
@@ -1624,6 +1632,8 @@ mod tests {
         assert_eq!(response.status(), 200);
         let body: Value = response.json().await.expect("lista em json");
         assert!(body.get("users").is_some_and(Value::is_array));
+
+        banco.descartar().await;
     }
 
     #[tokio::test]
