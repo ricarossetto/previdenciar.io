@@ -112,7 +112,7 @@ test('--run valida e sanitiza antes do wrapper, sem Cargo real', async () => {
   const pathKey = Object.keys(calls[0].options.env).find((key) => key.toLowerCase() === 'path');
   assert.ok(pathKey, 'PATH preservado');
   assert.equal(calls[0].options.env[pathKey], env[pathKey]);
-  assert.doesNotMatch(JSON.stringify(result), /senha-sintetica|192\\.0\\.2\\.1/);
+  assert.doesNotMatch(JSON.stringify(result), /senha-sintetica|192\.0\.2\.1/);
 });
 
 test('sem TEST_DATABASE_URL o comando de check falha antes de Cargo', () => {
