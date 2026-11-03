@@ -6,6 +6,9 @@ mod limits;
 mod routes;
 mod storage;
 
+#[cfg(test)]
+mod integration_db;
+
 use axum::extract::Request;
 use axum::http::{header, HeaderName, HeaderValue, Method};
 use axum::middleware::{self, Next};
