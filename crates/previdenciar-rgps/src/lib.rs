@@ -8,7 +8,7 @@ pub mod guided;
 pub mod contracts;
 pub use bridge::{calculate_case, project_case};
 pub use guided::prepare_from_cnis;
-use chrono::NaiveDate;
+use chrono::{Datelike, NaiveDate};
 use contracts::*;
 use rgps_core::{RgpsEntrada, RgpsOpcoes};
 use rgps_core::calendar::{Competencia, IsoDate};
