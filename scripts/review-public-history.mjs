@@ -22,11 +22,13 @@
  * índice/refs/HEAD ou alteração de arquivos. O scan cobre o histórico local
  * alcançável por HEAD; refs remotas podem estar velhas e não são buscadas.
  */
+import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
+import crypto from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { classifyPath, scanText } from './review-public-source.mjs';
+import { ALLOWLIST, classifyPath, redactText, scanText } from './review-public-source.mjs';
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(SCRIPT_DIR, '..');
@@ -62,11 +64,16 @@ function fail(message) {
 
 function git(repo, args, { encoding = 'utf8', maxBuffer = 64 * 1024 * 1024 } = {}) {
   try {
-    return execFileSync('git', ['-C', repo, ...args], {
+    return execFileSync('git', ['--no-optional-locks', '-C', repo, ...args], {
       encoding,
       maxBuffer,
       windowsHide: true,
       stdio: ['ignore', 'pipe', 'pipe'],
+      env: {
+        ...process.env,
+        GIT_NO_LAZY_FETCH: '1',
+        GIT_NO_REPLACE_OBJECTS: '1',
+      },
     });
   } catch (error) {
     fail(`git ${args[0] ?? ''} falhou; revisão ou repositório não pôde ser lido`);
@@ -104,27 +111,75 @@ function shortHash(hash) {
   return hash.slice(0, 12);
 }
 
-function parseTreeEntries(buffer) {
+function sha256Buffer(buffer) {
+  return crypto.createHash('sha256').update(buffer).digest('hex');
+}
+
+export function parseTreeEntries(buffer) {
   const entries = [];
-  const text = buffer.toString('utf8');
-  for (const raw of text.split('\0')) {
-    if (!raw) continue;
-    const match = /^(\d{6}) (blob|commit) ([0-9a-f]+) +(\d+|-)\t(.*)$/.exec(raw);
+  let start = 0;
+  while (start < buffer.length) {
+    const end = buffer.indexOf(0, start);
+    if (end === -1) fail('entrada de árvore sem terminador NUL');
+    if (end === start) {
+      start = end + 1;
+      continue;
+    }
+    const raw = buffer.subarray(start, end);
+    const tab = raw.indexOf(9);
+    if (tab < 0) fail('entrada de árvore sem separador de path');
+    const header = raw.subarray(0, tab).toString('ascii');
+    const match = /^(\d{6}) (blob|commit) ([0-9a-f]+) +(\d+|-)$/.exec(header);
     if (!match) fail('entrada de árvore em formato inesperado');
+    const pathBytes = Buffer.from(raw.subarray(tab + 1));
+    let pathText = null;
+    let pathValid = true;
+    try {
+      pathText = new TextDecoder('utf-8', { fatal: true }).decode(pathBytes);
+      if (!Buffer.from(pathText, 'utf8').equals(pathBytes)) pathValid = false;
+    } catch {
+      pathValid = false;
+    }
     entries.push({
       mode: match[1],
       type: match[2],
       oid: match[3],
       size: match[4] === '-' ? 0 : Number(match[4]),
-      path: match[5],
+      pathBytes,
+      pathText,
+      pathValid,
+      pathHash: sha256Buffer(pathBytes),
     });
+    start = end + 1;
   }
   return entries;
+}
+
+function displayPath(pathText) {
+  const pathScan = scanText(pathText, { file: '<history-path>', allowlist: [] });
+  if (!pathScan.findings.length) {
+    return {
+      text: pathText,
+      redacted: false,
+      rules: [],
+      complete: true,
+      findings: [],
+    };
+  }
+  const redacted = redactText(pathText);
+  return {
+    text: redacted.complete ? redacted.text : '[REDACTADO:path]',
+    redacted: true,
+    rules: redacted.rules,
+    complete: redacted.complete,
+    findings: pathScan.findings,
+  };
 }
 
 function addFinding(map, finding) {
   const key = [
     finding.commit,
+    finding.pathHash ?? '',
     finding.path,
     finding.rule,
     finding.line,
@@ -139,6 +194,38 @@ function addLimitation(coverage, category, count = 1) {
   coverage.limitations.push({ category, count });
 }
 
+function gitMaybe(repo, args) {
+  try {
+    return String(git(repo, args)).trim();
+  } catch {
+    return null;
+  }
+}
+
+function detectHistoryControls(repository) {
+  const controls = {
+    shallow: false,
+    replaceRefs: 0,
+    grafts: false,
+    partialClone: false,
+    promisor: false,
+  };
+  controls.shallow = gitMaybe(repository, ['rev-parse', '--is-shallow-repository']) === 'true';
+  const refs = gitMaybe(repository, ['for-each-ref', 'refs/replace', '--format=%(refname)']);
+  controls.replaceRefs = refs ? refs.split(/\r?\n/).filter(Boolean).length : 0;
+
+  const graftPath = gitMaybe(repository, ['rev-parse', '--git-path', 'info/grafts']);
+  if (graftPath) {
+    const resolved = path.isAbsolute(graftPath) ? graftPath : path.resolve(repository, graftPath);
+    controls.grafts = fs.existsSync(resolved);
+  }
+  const partial = gitMaybe(repository, ['config', '--get', 'extensions.partialClone']);
+  const filter = gitMaybe(repository, ['config', '--get', 'remote.origin.partialclonefilter']);
+  controls.partialClone = Boolean((partial && partial.length) || (filter && filter.length));
+  controls.promisor = gitMaybe(repository, ['config', '--get', 'remote.origin.promisor']) === 'true';
+  return controls;
+}
+
 /**
  * Executa a varredura. Exportado para testes; `repo` é usado apenas pelo teste
  * sintético e nunca exposto na CLI pública.
@@ -151,6 +238,7 @@ export function runHistoryScan({
   maxTotalBlobBytes = DEFAULT_MAX_TOTAL_BLOB_BYTES,
   maxAssociations = DEFAULT_MAX_ASSOCIATIONS,
   maxFindings = DEFAULT_MAX_FINDINGS,
+  maxAllowedEntries = 2_000,
 } = {}) {
   const repository = path.resolve(repo);
   const revision = validateRev(rev);
@@ -158,6 +246,7 @@ export function runHistoryScan({
   if (!Number.isSafeInteger(maxTotalBlobBytes) || maxTotalBlobBytes <= 0) fail('maxTotalBlobBytes inválido');
   if (!Number.isSafeInteger(maxAssociations) || maxAssociations <= 0) fail('maxAssociations inválido');
   if (!Number.isSafeInteger(maxFindings) || maxFindings <= 0) fail('maxFindings inválido');
+  if (!Number.isSafeInteger(maxAllowedEntries) || maxAllowedEntries <= 0) fail('maxAllowedEntries inválido');
 
   const startedAt = new Date().toISOString();
   const head = String(git(repository, ['rev-parse', '--verify', 'HEAD'])).trim();
@@ -185,14 +274,50 @@ export function runHistoryScan({
     skippedGitlink: 0,
     skippedType: 0,
     readErrors: 0,
+    invalidPaths: 0,
+    historyControls: detectHistoryControls(repository),
     limitations: [],
   };
+  if (coverage.historyControls.shallow) {
+    coverage.complete = false;
+    addLimitation(coverage, 'repositório shallow: histórico limitado', 1);
+  }
+  if (coverage.historyControls.replaceRefs > 0) {
+    coverage.complete = false;
+    addLimitation(coverage, 'refs/replace presentes: histórico substituído', coverage.historyControls.replaceRefs);
+  }
+  if (coverage.historyControls.grafts) {
+    coverage.complete = false;
+    addLimitation(coverage, 'grafts presentes: histórico alterado', 1);
+  }
+  if (coverage.historyControls.partialClone || coverage.historyControls.promisor) {
+    coverage.complete = false;
+    addLimitation(coverage, 'clone parcial/promisor: objetos podem faltar', 1);
+  }
 
   const associations = new Map();
   const pathFindings = new Map();
+  const pathDisplays = new Map();
   const pathSet = new Set();
   const blobSizes = new Map();
   let truncated = false;
+
+  function displayFor(entry) {
+    const cached = pathDisplays.get(entry.pathHash);
+    if (cached) return cached;
+    const display = displayPath(entry.pathText);
+    if (!display.complete) {
+      coverage.complete = false;
+      addLimitation(coverage, 'redação de path incompleta', 1);
+    }
+    const result = {
+      ...display,
+      pathHash: entry.pathHash,
+      pathBytes: entry.pathBytes.length,
+    };
+    pathDisplays.set(entry.pathHash, result);
+    return result;
+  }
 
   for (let index = 0; index < commits.length; index += 1) {
     const commit = commits[index];
@@ -202,7 +327,13 @@ export function runHistoryScan({
     });
     const entries = parseTreeEntries(tree);
     for (const entry of entries) {
-      pathSet.add(entry.path);
+      if (!entry.pathValid) {
+        coverage.invalidPaths += 1;
+        coverage.complete = false;
+        addLimitation(coverage, 'path não decodifica em UTF-8 estrito', 1);
+        continue;
+      }
+      pathSet.add(entry.pathHash);
       if (entry.mode === '160000' || entry.type === 'commit') {
         coverage.skippedGitlink += 1;
         coverage.complete = false;
@@ -228,15 +359,18 @@ export function runHistoryScan({
         continue;
       }
       blobSizes.set(entry.oid, entry.size);
+      const display = displayFor(entry);
 
-      const key = `${entry.path}\u0000${entry.oid}`;
+      const key = `${entry.pathHash}\u0000${entry.oid}`;
       const existing = associations.get(key);
       if (existing) {
         existing.commits.add(index);
       } else {
         if (associations.size >= maxAssociations) fail('limite de associações path+blob excedido');
         associations.set(key, {
-          path: entry.path,
+          pathText: entry.pathText,
+          pathHash: entry.pathHash,
+          pathBytes: entry.pathBytes.length,
           oid: entry.oid,
           size: entry.size,
           firstIndex: index,
@@ -244,9 +378,35 @@ export function runHistoryScan({
         });
       }
 
-      const pathRule = classifyPath(entry.path);
+      for (const finding of display.findings) {
+        const pathContentKey = `${entry.pathHash}\u0000${finding.rule}\u0000${finding.line}\u0000${finding.excerpt}`;
+        const existing = pathFindings.get(pathContentKey);
+        if (existing) {
+          existing.commits.add(index);
+          existing.blobs.add(entry.oid);
+        } else {
+          pathFindings.set(pathContentKey, {
+            commit: shortHash(commit),
+            commitIndex: index,
+            commitsFromHead: commits.length - 1 - index,
+            path: display.text,
+            pathHash: entry.pathHash,
+            pathBytes: entry.pathBytes.length,
+            pathRedacted: display.redacted,
+            line: finding.line,
+            rule: finding.rule,
+            reason: finding.reason,
+            hint: finding.hint,
+            excerpt: finding.excerpt,
+            commits: new Set([index]),
+            blobs: new Set([entry.oid]),
+          });
+        }
+      }
+
+      const pathRule = classifyPath(entry.pathText);
       if (pathRule?.rule) {
-        const pathKey = `${entry.path}\u0000${pathRule.rule}`;
+        const pathKey = `${entry.pathHash}\u0000${pathRule.rule}`;
         const pathFinding = pathFindings.get(pathKey);
         if (pathFinding) {
           pathFinding.commits.add(index);
@@ -256,7 +416,11 @@ export function runHistoryScan({
             commit: shortHash(commit),
             commitIndex: index,
             commitsFromHead: commits.length - 1 - index,
-            path: entry.path,
+            path: display.text,
+            pathHash: entry.pathHash,
+            pathBytes: entry.pathBytes.length,
+            pathRedacted: display.redacted,
+            line: 0,
             rule: pathRule.rule,
             reason: pathRule.reason,
             hint: pathRule.hint,
@@ -282,28 +446,43 @@ export function runHistoryScan({
 
   const findings = new Map();
   const allowedCounts = new Map();
+
+  function addFindingWithLimit(finding) {
+    if (findings.size >= maxFindings) {
+      coverage.complete = false;
+      addLimitation(coverage, 'limite de achados excedido', 1);
+      truncated = true;
+      return false;
+    }
+    addFinding(findings, finding);
+    return true;
+  }
+
   for (const association of pathFindings.values()) {
-    addFinding(findings, {
+    if (!addFindingWithLimit({
       commit: association.commit,
       commitIndex: association.commitIndex,
       commitsFromHead: association.commitsFromHead,
       path: association.path,
-      line: 0,
+      pathHash: association.pathHash,
+      pathBytes: association.pathBytes,
+      pathRedacted: association.pathRedacted,
+      line: association.line,
       rule: association.rule,
       reason: association.reason,
       hint: association.hint,
       excerpt: association.excerpt,
       commits: association.commits.size,
       blobs: association.blobs.size,
-    });
+    })) break;
   }
 
   if (!truncated) {
     const blobs = new Map();
-    for (const association of associations.values()) {
+    for (const [associationKey, association] of associations) {
       const existing = blobs.get(association.oid);
-      if (existing) existing.paths.add(association.path);
-      else blobs.set(association.oid, { size: association.size, paths: new Set([association.path]) });
+      if (existing) existing.associations.add(associationKey);
+      else blobs.set(association.oid, { size: association.size, associations: new Set([associationKey]) });
     }
 
     for (const [oid, blob] of blobs) {
@@ -328,17 +507,24 @@ export function runHistoryScan({
         coverage.complete = false;
         addLimitation(coverage, 'ponteiro LFS', 1);
       }
-      for (const filePath of blob.paths) {
-        const pathRule = classifyPath(filePath);
+      for (const associationKey of blob.associations) {
+        const association = associations.get(associationKey);
+        const display = pathDisplays.get(association.pathHash);
+        const pathRule = classifyPath(association.pathText);
         if (pathRule?.skipContent) coverage.contentPolicyScanned += 1;
-        const result = scanText(text, strict ? { file: filePath, allowlist: [] } : { file: filePath });
+        const result = scanText(
+          text,
+          strict ? { file: association.pathText, allowlist: [] } : { file: association.pathText },
+        );
         for (const finding of result.findings) {
-          const association = associations.get(`${filePath}\u0000${oid}`);
-          addFinding(findings, {
+          if (!addFindingWithLimit({
             commit: shortHash(commits[association.firstIndex]),
             commitIndex: association.firstIndex,
             commitsFromHead: commits.length - 1 - association.firstIndex,
-            path: filePath,
+            path: display.text,
+            pathHash: association.pathHash,
+            pathBytes: association.pathBytes,
+            pathRedacted: display.redacted,
             line: finding.line,
             rule: finding.rule,
             reason: finding.reason,
@@ -346,43 +532,70 @@ export function runHistoryScan({
             excerpt: finding.excerpt,
             commits: association.commits.size,
             blobs: 1,
-          });
+          })) break;
         }
         for (const allowed of result.allowed) {
-          const key = `${allowed.file}\u0000${allowed.rule}`;
+          const policy = ALLOWLIST.find((entry) => entry.file === association.pathText
+            && entry.rule === allowed.rule);
+          const key = `${association.pathHash}\u0000${allowed.rule}`;
           const existing = allowedCounts.get(key);
-          if (existing) existing.count += 1;
-          else allowedCounts.set(key, { file: allowed.file, rule: allowed.rule, count: 1 });
+          if (!existing && allowedCounts.size >= maxAllowedEntries) {
+            coverage.complete = false;
+            addLimitation(coverage, 'limite de allowed excedido', 1);
+            truncated = true;
+            break;
+          }
+          if (existing) {
+            existing.occurrences += 1;
+            existing.pathBlobs.add(`${association.pathHash}\u0000${oid}`);
+          } else {
+            allowedCounts.set(key, {
+              id: policy?.id ?? null,
+              file: display.text,
+              fileHash: association.pathHash,
+              rule: allowed.rule,
+              reason: policy?.reason ?? null,
+              scope: policy?.scope ?? null,
+              source: 'scripts/review-public-source.mjs',
+              occurrences: 1,
+              pathBlobs: new Set([`${association.pathHash}\u0000${oid}`]),
+            });
+          }
+          if (!policy) {
+            coverage.complete = false;
+            addLimitation(coverage, 'ocorrência liberada sem metadado de política', 1);
+          }
         }
-        if (findings.size > maxFindings) {
-          coverage.complete = false;
-          addLimitation(coverage, 'limite de achados excedido', 1);
-          break;
-        }
+        if (truncated) break;
       }
-      if (findings.size > maxFindings) break;
+      if (truncated) break;
     }
   }
 
   const historyFindings = [...findings.values()].sort((a, b) =>
-    a.commitIndex - b.commitIndex || a.path.localeCompare(b.path) || a.line - b.line || a.rule.localeCompare(b.rule),
+    a.commitIndex - b.commitIndex
+    || a.path.localeCompare(b.path)
+    || a.line - b.line
+    || a.rule.localeCompare(b.rule),
   );
-  const allowed = [...allowedCounts.values()].sort((a, b) =>
-    a.file.localeCompare(b.file) || a.rule.localeCompare(b.rule),
-  );
+  const allowed = [...allowedCounts.values()]
+    .map(({ pathBlobs, ...entry }) => ({ ...entry, pathBlobs: pathBlobs.size }))
+    .sort((a, b) => a.file.localeCompare(b.file) || a.rule.localeCompare(b.rule));
   const status = historyFindings.length || !coverage.complete ? 'blocked' : 'passed';
+  const checkedAt = new Date().toISOString();
   return {
     status,
     exitCode: status === 'passed' ? 0 : 1,
     rev: revision,
     head,
+    checkedAt,
     strict,
     commitsScanned: coverage.commitsScanned,
     historyFindings,
     allowed,
     coverage,
     startedAt,
-    finishedAt: new Date().toISOString(),
+    finishedAt: checkedAt,
   };
 }
 

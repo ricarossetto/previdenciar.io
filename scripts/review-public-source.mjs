@@ -58,22 +58,28 @@ const CARGO_HOME_PREFIX = [
  * tempo de execução no cliente, sem conceder privilégio (não é segredo).
  * O modo `--strict` desliga esta lista para auditoria antes de publicar.
  */
-const ALLOWLIST = [
+export const ALLOWLIST = [
   {
+    id: 'EX-01',
     file: 'apps/desktop/src/auth-web.tsx',
     match: PUBLISHED_ACCOUNT_ID,
     rule: 'aws-account-id',
+    scope: 'par exato arquivo+valor; o mesmo valor em outro path continua bloqueado',
     reason: 'ID da conta na URL pública do domínio Cognito; já publicado e sem credencial associada.',
   },
   {
+    id: 'EX-02',
     file: 'apps/desktop/src/auth-web.tsx',
     match: PUBLISHED_CLIENT_ID,
     rule: 'cognito-client-id',
+    scope: 'par exato arquivo+valor; o mesmo valor em outro path continua bloqueado',
     reason: 'ID público do app client Cognito usado no fluxo OAuth do SPA; não concede privilégio.',
   },
   {
+    id: 'EX-03',
     file: 'web/engine.wasm',
     rule: 'personal-local-path',
+    scope: 'somente web/engine.wasm e o contexto de cache Cargo; outro path/contexto continua bloqueado',
     // A regra acusa só o prefixo de perfil do usuário. A exceção exige que o
     // texto logo depois seja o cache de origem do Cargo, com nome e versão de
     // crate de terceiro; qualquer outro caminho pessoal no mesmo arquivo
@@ -334,6 +340,29 @@ export function scanText(text, { file = '<fixture>', allowlist = ALLOWLIST } = {
 }
 
 /**
+ * Substitui toda ocorrência das regras de conteúdo por marcador, sem consultar
+ * a allowlist. Usado para sanitizar paths que serão exibidos em relatório.
+ */
+export function redactText(text) {
+  const hits = [];
+  for (const rule of RULES) {
+    for (const hit of occurrences(rule, text)) {
+      hits.push({ index: hit.index, end: hit.index + hit.value.length, rule: rule.id });
+    }
+  }
+  if (!hits.length) return { text, rules: [], complete: true };
+  const sorted = [...hits].sort((a, b) => b.index - a.index || b.end - a.end);
+  let result = text;
+  for (const hit of sorted) {
+    result = `${result.slice(0, hit.index)}[REDACTADO:${hit.rule}]${result.slice(hit.end)}`;
+  }
+  const rules = [...new Set(hits.map((hit) => hit.rule))];
+  const remaining = scanText(result, { file: '<path>', allowlist: [] }).findings;
+  if (remaining.length) return { text: '[REDACTADO:path]', rules, complete: false };
+  return { text: result, rules, complete: true };
+}
+
+/**
  * Agrupa ocorrências idênticas (mesmo arquivo, regra e excerto) para não repetir
  * a mesma linha doze vezes em arquivo binário. Continua bloqueando: o achado
  * passa a trazer `occurrences`.
@@ -388,6 +417,19 @@ function run() {
     return;
   }
 
+  let head;
+  try {
+    head = execFileSync('git', ['rev-parse', '--verify', 'HEAD'], {
+      cwd: root,
+      encoding: 'utf8',
+    }).trim();
+    if (!/^[0-9a-f]{40,64}$/.test(head)) throw new Error('HEAD inválido');
+  } catch {
+    console.error('Não foi possível resolver HEAD; a varredura não foi vinculada a um commit.');
+    process.exitCode = 1;
+    return;
+  }
+
   const blocked = [];
   const allowed = [];
 
@@ -424,6 +466,8 @@ function run() {
   }
 
   const report = {
+    head,
+    checkedAt: new Date().toISOString(),
     trackedFiles: files.length,
     rules: RULES.map((rule) => rule.id),
     findings: collapse(blocked),
