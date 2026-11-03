@@ -41,6 +41,7 @@ const CACHE_NAME = /^[a-z][a-z0-9_-]{0,31}$/;
 const DEFAULT_ROOT_SAMPLE_MS = 5_000;
 const DEFAULT_FREE_SAMPLE_MS = 1_000;
 const DEFAULT_STOP_GRACE_MS = 3_000;
+const DEFAULT_TIMEOUT_SECONDS = 3_600;
 
 export const POLICY = Object.freeze({
   totalCapBytes: AUTHORIZED_CAP_BYTES,
@@ -159,9 +160,14 @@ export function parseArgs(argv) {
     caches: [],
     volumes: [],
     cwd: process.cwd(),
-    timeoutSeconds: 0,
+    timeoutSeconds: DEFAULT_TIMEOUT_SECONDS,
     command: null,
     args: [],
+  };
+  const seenOptions = new Set();
+  const onceOption = (name) => {
+    if (seenOptions.has(name)) fail('config', 'argumento repetido');
+    seenOptions.add(name);
   };
   let index = 0;
   while (index < argv.length) {
@@ -178,17 +184,20 @@ export function parseArgs(argv) {
       continue;
     }
     if (arg === '--init-ledger') {
+      onceOption('--init-ledger');
       parsed.initLedger = true;
       index += 1;
       continue;
     }
     if (arg === '--reconcile-initial') {
+      onceOption('--reconcile-initial');
       parsed.reconcileInitial = true;
       index += 1;
       continue;
     }
     const value = argv[index + 1];
     if (value === undefined) fail('config', `${arg} exige um valor`);
+    if (!['--root', '--cache', '--volume'].includes(arg)) onceOption(arg);
     if (arg === '--ledger') parsed.ledger = path.resolve(value);
     else if (arg === '--baseline') parsed.baseline = path.resolve(value);
     else if (arg === '--root') parsed.roots.push(parseRootSpec(value, '--root'));
@@ -353,6 +362,8 @@ function readBaseline(input, targetPath) {
     approx: parsed.approx,
     uncertaintyBytes,
     effectiveBytes,
+    createdAt: parsed.createdAt,
+    resumptionId: parsed.resumptionId,
   };
 }
 
@@ -391,7 +402,7 @@ export function buildLedger({ config, baseline, measured, policy = POLICY, now =
     schema: SCHEMA,
     created_at: created,
     updated_at: created,
-    resumption_id: `2026-11-03:${crypto.randomUUID()}`,
+    resumption_id: `${baseline.resumptionId ?? baseline.createdAt ?? 'origem-desconhecida'}:${created}`,
     ledger_path: config.ledger,
     repo_root: config.repoRoot,
     target_root: config.targetRoot,
@@ -621,6 +632,7 @@ function migrateLedgerV1(legacy, { config, baseline, policy, now = Date.now() })
     ...legacy,
     schema: SCHEMA,
     updated_at: nowIso(now),
+    resumption_id: `${baseline.resumptionId ?? baseline.createdAt ?? 'origem-desconhecida'}:${legacy.created_at}`,
     initial_charge_bytes: initial,
     initial_charge_at: nowIso(now),
     initial_charge_basis: `reconciliação autorizada em 2026-11-03; cobrança conservadora de ${initial} bytes para artefatos anteriores e incerteza do baseline; não cria novo cap`,

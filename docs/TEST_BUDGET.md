@@ -23,7 +23,7 @@ O ledger é **estado de ambiente**, fora do Git, sob a saga. Ele não é prova p
 | Saga/testes/ledger/provas conhecidos | até ordem de MiB | `tmp-historico/`, `tmp-orcamento-*`, ledger, logs, `AUDITORIA.md` |
 | Cap total | 2.147.483.648 B | política preservada |
 
-O inventário é conservador, não uma promessa de contagem exata de todo byte histórico. A cobrança de 64 MiB cobre os artefatos conhecidos e a incerteza; não autoriza apagar, renovar cap ou ignorar o baseline antigo. O saldo efetivo é `used = carried_charge + cobranças positivas`; `remaining = cap - used - reserva`.
+O inventário é conservador, não uma promessa de contagem exata de todo byte histórico. A cobrança de 64 MiB cobre os artefatos conhecidos e a incerteza; não autoriza apagar, renovar cap ou ignorar o baseline antigo. O saldo efetivo é `used = carried_charge + cobranças positivas`; `remaining = cap - used - reserva`. O `resumption_id` usa a origem histórica do baseline (`resumptionId`/`createdAt`) e o instante do ledger, não uma data fixa enganosa.
 
 ## Uso
 
@@ -50,6 +50,7 @@ node scripts/run-with-disk-budget.mjs \
 - `--cache` deve apontar para cache **preexistente**; o wrapper não cria cache, não baixa e não instala. Caches não declarados não entram no ledger e não têm garantia.
 - `--volume` acrescenta um volume ao piso de 10 GiB + reserva. Todos os segmentos (`roots`, `caches` e `pg`) são verificados no volume em que estão; a deduplicação usa `dev` quando disponível e o próprio caminho como fallback de chave, sem inferir letra nem colapsar mount points.
 - `--cwd` é o diretório do filho; não é impresso no resultado.
+- `--timeout-seconds` é positivo; o padrão é 3600 s. `0` é recusado, não há execução indefinida por omissão. Opções singulares repetidas são recusadas.
 - O comando é executado **sem shell**, com `stdio` herdado. O wrapper não interpola strings, não usa `Invoke-Expression` e não imprime `argv`.
 - Use `--init-ledger` apenas no primeiro uso, com todas as raízes já definidas. Ledger v1 existente usa `--reconcile-initial`; não há reset por medição.
 

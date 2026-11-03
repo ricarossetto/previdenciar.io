@@ -556,8 +556,10 @@ test('erro de medição e lock existente falham sem sucesso aparente', async () 
   assert.equal(blocked.status, 'error');
 });
 
-test('CLI recusa argumento desconhecido e flag de afrouxamento', async () => {
+test('CLI recusa argumento desconhecido, repetido, timeout zero e flag de afrouxamento', async () => {
   assert.equal((await runCli(['--check'])).code, 4);
   assert.equal((await runCli(['--ledger', 'x'])).code, 4);
   assert.equal((await runCli(['--growth-cap-gb', '4'])).code, 4);
+  assert.equal((await runCli(['--ledger', 'a', '--ledger', 'b'])).code, 4);
+  assert.equal((await runCli(['--timeout-seconds', '0'])).code, 4);
 });
