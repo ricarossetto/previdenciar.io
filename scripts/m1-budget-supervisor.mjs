@@ -13,6 +13,7 @@ import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 import { spawn, spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { measureTree } from './run-with-disk-budget.mjs';
 
 export const MIB = 1024 * 1024;
@@ -316,7 +317,7 @@ export async function runSupervisor(argv, deps = {}) {
   return { code: finalCode, stderr: failure ? `supervisor: ${failure}\n` : '' };
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1'))) {
+if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url))) {
   try {
     const result = await runSupervisor(process.argv.slice(2));
     if (result.stdout) process.stdout.write(result.stdout);

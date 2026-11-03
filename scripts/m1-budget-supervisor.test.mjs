@@ -1,9 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   CAP_BYTES,
   FLOOR_BYTES,
@@ -148,6 +150,13 @@ test('--check preserva o ledger antigo e não iniciar child', async () => {
   assert.equal(result.code, 0);
   assert.equal(before, after);
   assert.equal(JSON.parse(fs.readFileSync(f.ledger, 'utf8')).charged_bytes, 0);
+});
+
+test('CLI direto funciona em caminho com espaço', () => {
+  const script = path.join(path.dirname(fileURLToPath(import.meta.url)), 'm1-budget-supervisor.mjs');
+  const result = spawnSync(process.execPath, [script, '--help'], { encoding: 'utf8' });
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /Uso: node scripts\/m1-budget-supervisor\.mjs/);
 });
 
 test('teto durante execução cancela somente o child próprio', async () => {
