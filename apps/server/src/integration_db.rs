@@ -11,9 +11,12 @@
 //! usuário/banco. Sem URL válida o teste falha antes de qualquer conexão, SQL
 //! ou DDL; não existe skip, `#[ignore]` ou retorno antecipado verde.
 //!
-//! A URL é validada antes de abrir pool: host literal de loopback, porta e
-//! banco explícitos, sem query/host override, multi-host ou `sslmode` de
-//! ambiente. O valor bruto nunca é impresso no erro do teste.
+//! A URL é validada antes de abrir pool: host literal de loopback, porta,
+//! usuário, senha e banco explícitos, sem query/host override nem multi-host.
+//! O `PgConnectOptions` do SQLx ainda pode ler variáveis `PG*`/`pgpass` do
+//! processo; por isso o caminho suportado é `scripts/test-integration.mjs
+//! --run`, que remove `PG*` e `DATABASE_URL` do ambiente do filho antes do
+//! wrapper. Cargo direto não tem essa garantia. O valor bruto nunca é impresso.
 //!
 //! Se um teste falhar no meio, o schema pode sobrar. A limpeza manual é:
 //!
@@ -109,17 +112,22 @@ pub(crate) fn validar_url_teste(raw: &str) -> Result<PgConnectOptions, String> {
         return Err("TEST_DATABASE_URL deve usar banco previdenciar_test_<id>".to_owned());
     }
     let Some((userinfo, hostport)) = authority.rsplit_once('@') else {
-        return Err("TEST_DATABASE_URL exige usuário explícito".to_owned());
+        return Err("TEST_DATABASE_URL exige usuário e senha explícitos".to_owned());
     };
-    let username = userinfo.split(':').next().unwrap_or_default();
-    if username.is_empty() || username.contains('%') {
-        return Err("TEST_DATABASE_URL exige usuário explícito".to_owned());
+    let Some((username, password)) = userinfo.split_once(':') else {
+        return Err("TEST_DATABASE_URL exige usuário e senha explícitos".to_owned());
+    };
+    if username.is_empty() || password.is_empty() || username.contains('%') {
+        return Err("TEST_DATABASE_URL exige usuário e senha explícitos".to_owned());
     }
     let (host, port) = if let Some(rest) = hostport.strip_prefix('[') {
         let Some(end) = rest.find(']') else {
             return Err("TEST_DATABASE_URL com IPv6 inválido".to_owned());
         };
         let host = &rest[..end];
+        if host.contains('.') {
+            return Err("TEST_DATABASE_URL não aceita IPv4 entre colchetes".to_owned());
+        }
         let after = &rest[end + 1..];
         let Some(port) = after.strip_prefix(':') else {
             return Err("TEST_DATABASE_URL exige porta explícita".to_owned());
@@ -129,6 +137,9 @@ pub(crate) fn validar_url_teste(raw: &str) -> Result<PgConnectOptions, String> {
         let Some((host, port)) = hostport.rsplit_once(':') else {
             return Err("TEST_DATABASE_URL exige porta explícita".to_owned());
         };
+        if host.contains(':') {
+            return Err("TEST_DATABASE_URL exige IPv6 entre colchetes".to_owned());
+        }
         (host, port)
     };
     if !matches!(host, "127.0.0.1" | "::1") {

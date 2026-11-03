@@ -9,6 +9,7 @@ import {
   fixtureCases,
   parseDbUrl,
   runCli,
+  sanitizedEnv,
 } from './test-integration.mjs';
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
@@ -45,11 +46,79 @@ test('host literal de loopback e banco dedicado são obrigatórios', () => {
   assert.throws(() => parseDbUrl('postgres://u:p@127.0.0.1:55432/previdenciar_test_1?host=x'), /query/);
 });
 
+test('rejeita IPv4 entre colchetes e IPv6 sem colchetes nos dois validadores', () => {
+  assert.throws(() => parseDbUrl('postgres://u:p@[127.0.0.1]:55432/previdenciar_test_1'), /IPv4 entre colchetes/);
+  assert.throws(() => parseDbUrl('postgres://u:p@::1:55432/previdenciar_test_1'), /IPv6 entre colchetes/);
+});
+
+test('env do filho remove PG* e DATABASE_URL e preserva TEST_DATABASE_URL/PATH', () => {
+  const env = {
+    PATH: 'C:\\synthetic-path',
+    TEST_DATABASE_URL: 'postgres://u:p@127.0.0.1:55432/previdenciar_test_1',
+    DATABASE_URL: 'postgres://u:p@192.0.2.1:55432/outro',
+    PGHOST: '192.0.2.1',
+    PGOPTIONS: '-c search_path=public',
+    PGPASSWORD: 'sintetica',
+    PGPASSFILE: 'sintetico',
+    PGSERVICE: 'sintetico',
+  };
+  const clean = sanitizedEnv(env);
+  assert.equal(clean.TEST_DATABASE_URL, env.TEST_DATABASE_URL);
+  assert.equal(clean.PATH, env.PATH);
+  assert.equal(clean.DATABASE_URL, undefined);
+  for (const key of Object.keys(clean)) {
+    assert.doesNotMatch(key, /^PG/i);
+  }
+});
+
+test('--run valida e sanitiza antes do wrapper, sem Cargo real', async () => {
+  const calls = [];
+  const fake = {
+    once(event, callback) {
+      if (event === 'exit') queueMicrotask(() => callback(0, null));
+      return this;
+    },
+  };
+  const env = {
+    ...process.env,
+    TEST_DATABASE_URL: 'postgres://u:senha-sintetica@127.0.0.1:55432/previdenciar_test_1',
+    DATABASE_URL: 'postgres://u:senha-sintetica@192.0.2.1:55432/outro',
+    PGHOST: '192.0.2.1',
+    PGOPTIONS: '-c search_path=public',
+    PGPASSWORD: 'sintetica',
+  };
+  const result = await runCli([
+    '--run',
+    '--ledger', 'ledger.json',
+    '--baseline', 'baseline.json',
+    '--saga', '.',
+    '--target', 'target',
+    '--repo', '.',
+  ], {
+    env,
+    spawnImpl: (command, args, options) => {
+      calls.push({ command, args, options });
+      return fake;
+    },
+  });
+  assert.equal(result.code, 0);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].options.env.TEST_DATABASE_URL, env.TEST_DATABASE_URL);
+  assert.equal(calls[0].options.env.DATABASE_URL, undefined);
+  assert.equal(calls[0].options.env.PGHOST, undefined);
+  assert.equal(calls[0].options.env.PGPASSWORD, undefined);
+  const pathKey = Object.keys(calls[0].options.env).find((key) => key.toLowerCase() === 'path');
+  assert.ok(pathKey, 'PATH preservado');
+  assert.equal(calls[0].options.env[pathKey], env[pathKey]);
+  assert.doesNotMatch(JSON.stringify(result), /senha-sintetica|192\\.0\\.2\\.1/);
+});
+
 test('sem TEST_DATABASE_URL o comando de check falha antes de Cargo', () => {
   const result = childCheck({ TEST_DATABASE_URL: '' });
   assert.equal(result.status, 2);
   assert.match(result.stderr, /TEST_DATABASE_URL/);
   assert.doesNotMatch(result.stderr, /cargo/i);
+  assert.doesNotMatch(`${result.stdout}${result.stderr}`, /postgres:\/\//);
 });
 
 test('host remoto no comando de check falha antes de conexão/Cargo', () => {
@@ -59,6 +128,7 @@ test('host remoto no comando de check falha antes de conexão/Cargo', () => {
   assert.equal(result.status, 2);
   assert.match(result.stderr, /host não local/);
   assert.doesNotMatch(result.stderr, /cargo/i);
+  assert.doesNotMatch(`${result.stdout}${result.stderr}`, /postgres:\/\/|192\.0\.2\.1/);
 });
 
 test('URL local válida no check não imprime senha nem executa Cargo', () => {
@@ -66,9 +136,10 @@ test('URL local válida no check não imprime senha nem executa Cargo', () => {
     TEST_DATABASE_URL: 'postgres://u:segredo-sintetico@127.0.0.1:55432/previdenciar_test_1',
   });
   assert.equal(result.status, 0);
-  assert.match(result.stdout, /not-executed/);
+  assert.match(result.stdout, /valid-config/);
   assert.doesNotMatch(result.stdout, /segredo-sintetico/);
   assert.doesNotMatch(result.stderr, /segredo-sintetico/);
+  assert.doesNotMatch(`${result.stdout}${result.stderr}`, /postgres:\/\//);
 });
 
 test('run sem roots falha antes de wrapper e Cargo', async () => {

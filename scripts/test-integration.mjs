@@ -72,14 +72,20 @@ export function parseDbUrl(raw) {
   if (at <= 0) fail('TEST_DATABASE_URL exige usuário explícito');
   const userinfo = authority.slice(0, at);
   const hostport = authority.slice(at + 1);
-  const username = userinfo.split(':')[0];
-  if (!username || username.includes('%')) fail('TEST_DATABASE_URL exige usuário explícito');
+  const separator = userinfo.indexOf(':');
+  if (separator <= 0) fail('TEST_DATABASE_URL exige usuário e senha explícitos');
+  const username = userinfo.slice(0, separator);
+  const password = userinfo.slice(separator + 1);
+  if (!username || !password || username.includes('%')) {
+    fail('TEST_DATABASE_URL exige usuário e senha explícitos');
+  }
   let host;
   let port;
   if (hostport.startsWith('[')) {
     const end = hostport.indexOf(']');
     if (end < 0) fail('TEST_DATABASE_URL com IPv6 inválido');
     host = hostport.slice(1, end);
+    if (host.includes('.')) fail('TEST_DATABASE_URL não aceita IPv4 entre colchetes');
     const after = hostport.slice(end + 1);
     if (!after.startsWith(':')) fail('TEST_DATABASE_URL exige porta explícita');
     port = after.slice(1);
@@ -87,6 +93,7 @@ export function parseDbUrl(raw) {
     const colon = hostport.lastIndexOf(':');
     if (colon <= 0) fail('TEST_DATABASE_URL exige porta explícita');
     host = hostport.slice(0, colon);
+    if (host.includes(':')) fail('TEST_DATABASE_URL exige IPv6 entre colchetes');
     port = hostport.slice(colon + 1);
   }
   if (host !== '127.0.0.1' && host !== '::1') {
@@ -98,8 +105,17 @@ export function parseDbUrl(raw) {
   return { host, port: Number(port), database, username };
 }
 
-function readEnvUrl() {
-  return process.env.TEST_DATABASE_URL ?? '';
+function readEnvUrl(env) {
+  return env.TEST_DATABASE_URL ?? '';
+}
+
+export function sanitizedEnv(env = process.env) {
+  const clean = {};
+  for (const [key, value] of Object.entries(env)) {
+    if (/^PG/i.test(key) || key.toUpperCase() === 'DATABASE_URL') continue;
+    clean[key] = value;
+  }
+  return clean;
 }
 
 function parseArgs(argv) {
@@ -164,13 +180,15 @@ function validateForRun(parsed) {
   }
 }
 
-export function checkEnvironment() {
-  const parsed = parseDbUrl(readEnvUrl());
+export function checkEnvironment(env = process.env) {
+  const url = parseDbUrl(readEnvUrl(env));
   return {
-    status: 'ready',
+    status: 'valid-config',
+    connection: 'not-opened',
+    ownership: 'not-verified',
     hostClass: 'loopback',
     databaseClass: `${DB_PREFIX}*`,
-    port: parsed.port,
+    port: url.port,
     cargo: 'not-executed',
   };
 }
@@ -192,20 +210,20 @@ function wrapperArgs(parsed) {
   return args;
 }
 
-export async function runCli(argv, { spawnImpl = spawn } = {}) {
+export async function runCli(argv, { spawnImpl = spawn, env = process.env } = {}) {
   try {
     const parsed = parseArgs(argv);
     if (parsed.help) return { code: 0, stdout: `${USAGE}\n`, stderr: '' };
     if (parsed.check) {
-      const result = checkEnvironment();
+      const result = checkEnvironment(env);
       return { code: 0, stdout: `${JSON.stringify(result)}\n`, stderr: '' };
     }
     validateForRun(parsed);
-    parseDbUrl(readEnvUrl());
+    parseDbUrl(readEnvUrl(env));
     return await new Promise((resolve) => {
       const child = spawnImpl(process.execPath, [WRAPPER, ...wrapperArgs(parsed)], {
         stdio: 'inherit',
-        env: process.env,
+        env: sanitizedEnv(env),
         windowsHide: true,
       });
       child.once('error', () => resolve({ code: 4, stdout: '', stderr: 'falha ao iniciar o wrapper\n' }));

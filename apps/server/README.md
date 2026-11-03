@@ -55,10 +55,10 @@ node scripts/test-integration.mjs --run --ledger <json> --baseline <json> `
   [--cache cargo=<dir>] --timeout-seconds 3600
 ```
 
-- `--check` só valida `TEST_DATABASE_URL` e o plano; não executa Cargo, não abre banco e não imprime a URL.
-- `--run` usa `scripts/run-with-disk-budget.mjs`, ledger persistente (sem reset/init), Cargo **offline**, `-j 1`, apenas `previdenciar-web-server`, e exige revisão prévia. Não use Docker/PG/Cargo antes dessa revisão.
-- `TEST_DATABASE_URL` é obrigatória e explícita. Host literal `127.0.0.1` ou `::1`, porta explícita, usuário explícito e banco `previdenciar_test_<id>`. Não há fallback para `DATABASE_URL`, `.env` ou `localhost`.
-- Host remoto, query/`host` override, multi-host, banco padrão ou porta ausente são recusados antes de conexão/SQL. Sem banco isolado válido o teste falha; não há `[pulado]`, `#[ignore]` ou retorno antecipado verde.
+- `--check` só valida `TEST_DATABASE_URL` e o plano; não executa Cargo, não abre banco, não comprova que o banco é descartável e não imprime a URL.
+- `--run` usa `scripts/run-with-disk-budget.mjs`, ledger persistente (sem reset/init), Cargo **offline**, `-j 1`, apenas `previdenciar-web-server`, e exige revisão prévia. Ele remove `PG*` e `DATABASE_URL` do ambiente do wrapper/Cargo, preserva `TEST_DATABASE_URL` e `PATH`. Cargo direto não tem essa garantia.
+- `TEST_DATABASE_URL` é obrigatória e explícita. Host literal `127.0.0.1` ou `::1`, porta, usuário, senha e banco `previdenciar_test_<id>` explícitos. Não há fallback para `DATABASE_URL`, `.env`, `localhost` ou `pgpass`.
+- Host remoto, IPv4 entre colchetes, IPv6 sem colchetes, query/`host` override, multi-host, banco padrão ou porta ausente são recusados antes de conexão/SQL. Sem banco isolado válido o teste falha; não há `[pulado]`, `#[ignore]` ou retorno antecipado verde.
 - Cada teste cria schema `tmp_teste_previdenciar_<uuid>`, aplica somente as migrações existentes `0001`/`0002` e apaga o schema; `public` não é tocado. Nenhuma migração nova é aplicada.
 - `x-dev-user` com `APP_ENV=test` simula o emissor externo para as rotas; isso **não** cobre JWKS/Cognito real.
 - O teste de isolamento de relatório usa um cliente S3 de teste local sem rede; não usa MinIO, download ou objeto real.
