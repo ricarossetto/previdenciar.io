@@ -103,10 +103,12 @@ test('--run valida e sanitiza antes do wrapper, sem Cargo real', async () => {
   });
   assert.equal(result.code, 0);
   assert.equal(calls.length, 1);
+  assert.equal(calls[0].command, process.execPath);
+  assert.ok(calls[0].args[0].endsWith('run-with-disk-budget.mjs'));
+  assert.equal(calls.filter((call) => /(^|[\\/])cargo(\.exe)?$/i.test(call.command)).length, 0);
   assert.equal(calls[0].options.env.TEST_DATABASE_URL, env.TEST_DATABASE_URL);
   assert.equal(calls[0].options.env.DATABASE_URL, undefined);
-  assert.equal(calls[0].options.env.PGHOST, undefined);
-  assert.equal(calls[0].options.env.PGPASSWORD, undefined);
+  assert.deepEqual(Object.keys(calls[0].options.env).filter((key) => /^PG/i.test(key)), []);
   const pathKey = Object.keys(calls[0].options.env).find((key) => key.toLowerCase() === 'path');
   assert.ok(pathKey, 'PATH preservado');
   assert.equal(calls[0].options.env[pathKey], env[pathKey]);

@@ -13,10 +13,12 @@
 //!
 //! A URL é validada antes de abrir pool: host literal de loopback, porta,
 //! usuário, senha e banco explícitos, sem query/host override nem multi-host.
-//! O `PgConnectOptions` do SQLx ainda pode ler variáveis `PG*`/`pgpass` do
-//! processo; por isso o caminho suportado é `scripts/test-integration.mjs
-//! --run`, que remove `PG*` e `DATABASE_URL` do ambiente do filho antes do
-//! wrapper. Cargo direto não tem essa garantia. O valor bruto nunca é impresso.
+//! O `PgConnectOptions` do SQLx herda do processo `PGSSLMODE`, `PGOPTIONS`,
+//! `PGAPPNAME` e certificados `PGSSL*`; host/porta/usuário/senha/banco da URL
+//! têm precedência e `pgpass` não é lido nesse caminho. O caminho suportado é
+//! `scripts/test-integration.mjs --run`, que remove `PG*` e `DATABASE_URL` do
+//! ambiente do filho antes do wrapper; Cargo direto não tem essa garantia.
+//! O valor bruto nunca é impresso.
 //!
 //! Se um teste falhar no meio, o schema pode sobrar. A limpeza manual é:
 //!
