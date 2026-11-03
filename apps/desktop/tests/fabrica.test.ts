@@ -156,16 +156,11 @@ describe('conferência na Fábrica de Cálculos', () => {
     }
   });
 
-  it('aceita os cinco tipos locais como COMUM e AVRC-DEF como informativo', () => {
+  it('aceita os cinco tipos locais como COMUM', () => {
     for (const kind of LINK_KINDS) {
       const built = buildFabricaInput(withKind(kind));
       expect(built.input?.tipo).toBe('COMUM');
     }
-    const informative = case41();
-    informative.manual_links[0].indicators = 'AVRC-DEF';
-    const built = buildFabricaInput(informative);
-    expect(built.issues).toEqual([]);
-    expect(built.input?.tipo).toBe('COMUM');
   });
 
   it('bloqueia indicador pendente ou desconhecido mesmo com confirmed=true', () => {
@@ -181,6 +176,20 @@ describe('conferência na Fábrica de Cálculos', () => {
     const built = buildFabricaInput(salary);
     expect(built.input).toBeNull();
     expect(built.issues.join(' ')).toContain('pendente');
+  });
+
+  it('bloqueia AVRC-DEF no vínculo e no salário', () => {
+    const link = case41();
+    link.manual_links[0].indicators = 'AVRC-DEF';
+    const linkBuilt = buildFabricaInput(link);
+    expect(linkBuilt.input).toBeNull();
+    expect(linkBuilt.issues.join(' ')).toContain('pendente');
+
+    const salary = case41();
+    salary.manual_salaries[0].indicators = 'AVRC-DEF';
+    const salaryBuilt = buildFabricaInput(salary);
+    expect(salaryBuilt.input).toBeNull();
+    expect(salaryBuilt.issues.join(' ')).toContain('pendente');
   });
 
   it('bloqueia regime não RGPS ou ausente sem alterar o regime', () => {

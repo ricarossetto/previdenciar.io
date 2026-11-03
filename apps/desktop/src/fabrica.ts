@@ -110,11 +110,12 @@ function inside(competence: string, start: string, end: string): boolean {
   return month >= start.slice(0, 7) && month <= end.slice(0, 7);
 }
 
-// Códigos oficiais usados pelo adaptador local. PRPPS/CTC, PREC-MENOR-MIN,
-// IREM/IREC-INDPEND, PREM-EMPR/PREM-FVIN e PEXT são pendências de revisão.
-// AVRC-DEF é o acerto extemporâneo deferido: alerta informativo, não invalidez.
-// Qualquer código não catalogado falha fechado.
-const KNOWN_PENDING_INDICATORS = new Set([
+// Códigos catalogados no contrato local. Nenhum código libera resultado
+// automaticamente: a semântica financeira de AVRC-DEF e dos demais não está
+// confirmada neste fluxo. Indicador é alerta, não prova de invalidez; a
+// pendência documental precisa ser resolvida antes do envio. Código fora da
+// lista também falha fechado.
+const KNOWN_INDICATORS = new Set([
   'PRPPS',
   'PREC-MENOR-MIN',
   'IREM-INDPEND',
@@ -122,25 +123,21 @@ const KNOWN_PENDING_INDICATORS = new Set([
   'PREM-EMPR',
   'PREM-FVIN',
   'PEXT',
+  'AVRC-DEF',
 ]);
-const INFORMATIVE_INDICATORS = new Set(['AVRC-DEF']);
 
 function indicatorCodes(value: string): string[] {
   return value.split(/[\s,;]+/).map(code => code.trim().toUpperCase()).filter(Boolean);
 }
 
-function indicatorIssue(value: string, allowInformative: boolean): string | null {
+function indicatorIssue(value: string): string | null {
   const codes = indicatorCodes(value);
   if (!codes.length) return null;
-  const unknown = codes.filter(code => !KNOWN_PENDING_INDICATORS.has(code) && !INFORMATIVE_INDICATORS.has(code));
+  const unknown = codes.filter(code => !KNOWN_INDICATORS.has(code));
   if (unknown.length) {
     return `Indicador(es) ${unknown.join(', ')} não catalogado(s); revise a origem e registre a resolução documental antes do envio.`;
   }
-  const pending = codes.filter(code => !allowInformative || !INFORMATIVE_INDICATORS.has(code));
-  if (pending.length) {
-    return `Indicador(es) ${pending.join(', ')} pendente(s) de revisão documental; o indicador é alerta, não invalidez. Resolva e limpe a pendência no vínculo antes do envio.`;
-  }
-  return null;
+  return `Indicador(es) ${codes.join(', ')} pendente(s) de revisão documental; código catalogado não tem semântica financeira confirmada neste fluxo e não libera resultado. Resolva a pendência documental antes do envio.`;
 }
 
 /**
@@ -192,7 +189,7 @@ export function buildFabricaInput(c: Calculation): { input: FabricaInput|null; i
     if (regime !== 'RGPS') {
       push(`Vínculo com regime ${link.regime.trim() || 'ausente'} não é RGPS; confirme o regime com documento próprio antes do envio.`);
     }
-    const linkIndicators = indicatorIssue(link.indicators, true);
+    const linkIndicators = indicatorIssue(link.indicators);
     if (linkIndicators) push(linkIndicators);
     const sequence = link.source_review?.sequence;
     if (sequence !== undefined) {
@@ -226,7 +223,7 @@ export function buildFabricaInput(c: Calculation): { input: FabricaInput|null; i
   const orphans: string[] = [];
   for (const salary of c.manual_salaries) {
     if (!salary.confirmed) push('Confirme todas as remunerações usadas na conferência.');
-    const salaryIndicators = indicatorIssue(salary.indicators, false);
+    const salaryIndicators = indicatorIssue(salary.indicators);
     if (salaryIndicators) push(salaryIndicators);
     const competence = salary.competence.trim();
     if (!ISO_MONTH.test(competence)) { push('Há competência de remuneração inválida.'); continue; }
