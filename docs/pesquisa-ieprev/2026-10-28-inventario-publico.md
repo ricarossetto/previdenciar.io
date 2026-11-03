@@ -36,7 +36,7 @@ ou em uma rota.
 ## Bloqueio de sessão
 
 O navegador do conector `chrome-devtools-mcp` já está em execução no perfil
-`C:\Users\Ricardo PC\.cache\chrome-devtools-mcp\chrome-profile`. Uma segunda
+`<perfil-do-usuário>/.cache/chrome-devtools-mcp/chrome-profile`. Uma segunda
 instância foi recusada; o perfil está bloqueado por outro processo e o arquivo
 `Default/Network/Cookies` não pôde ser copiado. Os perfis Chrome normais foram
 verificados e não contêm cookies de `ieprev.com.br`. As credenciais não foram

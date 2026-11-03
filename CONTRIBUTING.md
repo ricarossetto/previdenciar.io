@@ -5,8 +5,9 @@ Please read README.md, docs/LIMITATIONS.md and docs/PRIVACY.md first.
 1. Open an issue describing the expected behavior using synthetic data only.
 2. Use a small branch and focused changes. Keep API/model contracts stable unless the issue calls for a migration.
 3. Add tests for exact cents, source preservation, missing values, blocked outcomes and cancellation/error states.
-4. Run cargo test --workspace --locked and, in apps/desktop, npm ci, npm run build and npm test. Run browser tests with an installed Playwright Chromium.
-5. Submit a pull request explaining scope, tests, limitations and any changes to calculation rules.
+4. Run cargo test --workspace --locked and, in apps/desktop, npm ci, npm run build and npm test. Run browser tests with an installed Playwright Chromium. Count the tests with `node scripts/count-tests.mjs`; do not hand-edit test counts in README.md or docs, since the script is the single source of those numbers.
+5. Run `node scripts/review-public-source.mjs` (and `--self-test`) before publishing. It blocks credentials, AWS account IDs and ARNs, Cognito pool and client IDs, subnet/security-group/EC2/AMI identifiers, tunnel and internal hostnames, personal paths and private binaries.
+6. Submit a pull request explaining scope, tests, limitations and any changes to calculation rules.
 
 Do not copy another application's source, databases, binaries, icons, fonts or private documents into the project. Do not use a client CNIS as a test fixture. Only submit assets you have permission to distribute and preserve their notices.
 

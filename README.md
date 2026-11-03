@@ -94,9 +94,9 @@ Nenhuma espécie é aproximada por outra. As demais prestações bloqueiam com `
 
 ## O que foi conferido
 
-- 620 testes Rust (2 ignorados), 248 testes de interface e 37 testes de navegador (33 passaram; 4 falhas conhecidas, em correção em outra frente).
+- 657 testes Rust (655 passaram, 2 ignorados), 248 testes de interface e 38 testes de navegador. A contagem é de 02/11/2026 e foi gerada por `node scripts/count-tests.mjs --run`, a fonte única desses números; a execução do cargo terminou sem falha.
 - Verificação nativa em perfil isolado: importação, cálculo, as oito prévias de PDF, gravação cifrada e reabertura, sem tocar na base normal.
-- Revisão de fonte pública sem achados.
+- Revisão de fonte pública: `node scripts/review-public-source.mjs` é a barreira que roda no CI antes de publicar. Ela bloqueia token, chave privada, ID de conta AWS, ARN, ID de pool e de client Cognito, identificadores de subnet, security group, instância EC2 e AMI, URL de túnel ou host interno, caminho pessoal e binário/arquivo privado. A varredura completa de 02/11/2026 passou sem achados. Restam duas exceções estreitas, declaradas no próprio script: o ID público do app client Cognito já publicado em `apps/desktop/src/auth-web.tsx` e o caminho do cache local do Cargo embutido em `web/engine.wasm`, liberado apenas quando o trecho é um diretório de crate de terceiro; `--strict` desliga as exceções.
 - Um CNIS real de 23 páginas, conferido fora do repositório, passou a ser lido com 610 lançamentos e nenhuma diferença de salário por competência contra o relatório de um software de referência.
 - Com o snapshot público da Fábrica de Cálculos, o mesmo caso chegou a R$ 5.161,10 contra R$ 5.200,89 do software de referência, uma diferença de 0,77%. Ela vem de sete competências que o CNIS lista apenas na visão "Contribuições" e que este programa mantém no período básico de cálculo. A escolha entre as duas leituras é profissional e está documentada.
 
@@ -154,6 +154,30 @@ npm run check:health
 ```
 
 O comando consulta `https://previdenciario.atrium.adv.br/api/health` e falha com código 1 quando a resposta não for JSON com `status: "ok"`. Aceita outra URL como argumento: `npm run check:health -- https://exemplo/api/health`. A regra de aprovação está em `scripts/health-core.mjs`, o mesmo módulo usado pelos testes da interface.
+
+### Contagem de testes
+
+A contagem publicada neste README vem de um único lugar: o script `scripts/count-tests.mjs`. Ele pergunta às próprias ferramentas quantos testes existem, em vez de manter números copiados em documentos.
+
+```powershell
+node scripts/count-tests.mjs              # tabela com Rust, vitest e Playwright
+node scripts/count-tests.mjs --markdown   # bloco pronto para colar neste README
+node scripts/count-tests.mjs --run        # executa a suíte Rust e conta ignorados
+```
+
+Funciona da raiz do repositório ou de `apps/desktop`. O `cargo test --list` compila o workspace e exige `apps/desktop/dist`; quando a pasta não existe, o script compila o frontend antes (use `--skip-build` para desligar). O `--list` conta os testes, mas não informa quantos são ignorados: isso só sai de uma execução real do `cargo test`, habilitada por `--run`. Os números em [O que foi conferido](#o-que-foi-conferido) são de 02/11/2026 e devem ser regerados com o script depois de qualquer mudança na suíte.
+
+### Revisão de fonte pública
+
+Antes de publicar, rode a barreira que impede segredo e identificador de infraestrutura de entrarem no repositório:
+
+```powershell
+node scripts/review-public-source.mjs             # varre os arquivos versionados
+node scripts/review-public-source.mjs --self-test # autoverificação com fixtures sintéticas
+node scripts/review-public-source.mjs --strict    # ignora a lista de exceções
+```
+
+Além de tokens e chaves privadas, ela bloqueia ID de conta AWS, ARN, ID de pool e de client Cognito, identificadores de subnet, security group, instância EC2 e AMI, e URL de túnel ou host interno. As exceções são estreitas: valem para o par exato de arquivo e valor, e o `--strict` as desliga antes da publicação.
 
 ## Documentação
 
