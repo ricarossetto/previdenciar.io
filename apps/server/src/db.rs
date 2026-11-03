@@ -17,16 +17,31 @@ pub async fn ensure_user(pool: &PgPool, user: &AuthUser) -> Result<Uuid, sqlx::E
 }
 
 pub async fn bootstrap_workspace(pool: &PgPool, owner_id: Uuid) -> Result<(Uuid, Value, i64), sqlx::Error> {
+    let mut tx = pool.begin().await?;
+
+    // Serializa somente o primeiro acesso do mesmo usuário. A linha de users
+    // já existe (ensure_user) e é o ponto de coordenação sem nova migration.
+    let owner = sqlx::query("SELECT id FROM users WHERE id = $1 FOR UPDATE")
+        .bind(owner_id)
+        .fetch_optional(&mut *tx)
+        .await?;
+    if owner.is_none() {
+        return Err(sqlx::Error::RowNotFound);
+    }
+
     if let Some(row) = sqlx::query(
         "SELECT id, document, revision FROM workspaces
          WHERE owner_id = $1 ORDER BY created_at ASC LIMIT 1",
     )
     .bind(owner_id)
-    .fetch_optional(pool)
+    .fetch_optional(&mut *tx)
     .await?
     {
-        return Ok((row.get("id"), row.get("document"), row.get("revision")));
+        let result = (row.get("id"), row.get("document"), row.get("revision"));
+        tx.commit().await?;
+        return Ok(result);
     }
+
     let document = serde_json::to_value(previdenciar_workspace::Workspace::default())
         .map_err(|error| sqlx::Error::Protocol(error.to_string()))?;
     let row = sqlx::query(
@@ -35,9 +50,11 @@ pub async fn bootstrap_workspace(pool: &PgPool, owner_id: Uuid) -> Result<(Uuid,
     )
     .bind(owner_id)
     .bind(&document)
-    .fetch_one(pool)
+    .fetch_one(&mut *tx)
     .await?;
-    Ok((row.get("id"), row.get("document"), row.get("revision")))
+    let result = (row.get("id"), row.get("document"), row.get("revision"));
+    tx.commit().await?;
+    Ok(result)
 }
 
 pub async fn save_workspace(
