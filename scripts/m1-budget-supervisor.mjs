@@ -30,6 +30,23 @@ const fail = (code, message) => {
   throw error;
 };
 
+const hasOwn = (value, key) => Object.prototype.hasOwnProperty.call(value, key);
+
+/** Cap explícito: inteiro seguro, com headroom para a reserva e sem ampliar o teto legado. */
+function validateCapBytes(value, code = 'config') {
+  if (!Number.isSafeInteger(value) || value <= RESERVE_BYTES || value > CAP_BYTES) {
+    fail(code, 'cap deve ser inteiro seguro, maior que a reserva e no máximo 4 GiB');
+  }
+  return value;
+}
+
+function parseCapBytes(value) {
+  if (typeof value !== 'string' || !/^[0-9]+$/.test(value)) {
+    fail('config', '--cap-bytes deve ser inteiro decimal positivo');
+  }
+  return validateCapBytes(Number(value), 'config');
+}
+
 const expand = (value) => String(value).replace(/%([^%]+)%/g, (_, name) => process.env[name] ?? `%${name}%`);
 const sha256 = (data) => crypto.createHash('sha256').update(data).digest('hex');
 const readJson = (file) => JSON.parse(fs.readFileSync(file, 'utf8'));
@@ -101,7 +118,7 @@ export function measureAll(baseline, deps = {}) {
   };
 }
 
-function newLedger(baseline, baselineBytes) {
+function newLedger(baseline, baselineBytes, capBytes) {
   const roots = rootsFromBaseline(baseline);
   const vhd = Array.isArray(baseline.vhd) ? baseline.vhd : [];
   if (!baseline.authorization_id || !baseline.authorized_at) fail('baseline', 'identidade da autorização ausente');
@@ -111,6 +128,7 @@ function newLedger(baseline, baselineBytes) {
     schema: SCHEMA,
     authorization_id: baseline.authorization_id,
     authorized_at: baseline.authorized_at,
+    cap_bytes: capBytes,
     baseline_sha256: sha256(baselineBytes),
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
@@ -144,18 +162,30 @@ function migrateLedgerV1(ledger) {
   return migrated;
 }
 
-export function loadOrCreateLedger(baselinePath, ledgerPath) {
+export function loadOrCreateLedger(baselinePath, ledgerPath, requestedCapBytes) {
   const baselineBytes = fs.readFileSync(baselinePath);
   const baseline = JSON.parse(baselineBytes.toString('utf8'));
   const baselineHash = sha256(baselineBytes);
+  if (path.resolve(baselinePath) === path.resolve(ledgerPath)) fail('identity', 'baseline e ledger devem usar caminhos distintos');
   if (!baseline.pagefile || !Number.isSafeInteger(baseline.pagefile.start_alloc_bytes)) fail('baseline', 'pagefile inicial ausente');
-  if (baseline.old_ledger_path && path.resolve(expand(baseline.old_ledger_path)) === path.resolve(ledgerPath)) {
+  const oldLedger = baseline.old_ledger_path ? path.resolve(expand(baseline.old_ledger_path)) : null;
+  if (oldLedger && oldLedger === path.resolve(ledgerPath)) {
     fail('identity', 'o ledger antigo de 2 GiB não pode ser reutilizado como ledger novo');
   }
+  if (oldLedger && oldLedger === path.resolve(baselinePath)) fail('identity', 'baseline não pode ser o ledger antigo');
+  const baselineHasCap = hasOwn(baseline, 'cap_bytes');
+  if (hasOwn(baseline, 'task_id') && !baselineHasCap) fail('baseline', 'baseline com task_id exige cap_bytes');
+  const baselineCap = baselineHasCap ? validateCapBytes(baseline.cap_bytes, 'baseline') : null;
+  const requestedCap = requestedCapBytes === undefined ? null : validateCapBytes(requestedCapBytes, 'config');
+  if (requestedCap !== null) {
+    if (!baselineHasCap) fail('cap', '--cap-bytes exige cap_bytes na baseline');
+    if (requestedCap !== baselineCap) fail('cap', 'cap do CLI difere da baseline');
+  }
+  const capBytes = baselineHasCap ? baselineCap : CAP_BYTES;
   if (!fs.existsSync(ledgerPath)) {
-    const ledger = newLedger(baseline, baselineBytes);
+    const ledger = newLedger(baseline, baselineBytes, capBytes);
     persistLedger(ledgerPath, ledger);
-    return { baseline, ledger };
+    return { baseline, ledger, capBytes };
   }
   let ledger = readJson(ledgerPath);
   if (ledger.schema === LEGACY_SCHEMA) {
@@ -163,6 +193,12 @@ export function loadOrCreateLedger(baselinePath, ledgerPath) {
     persistLedger(ledgerPath, ledger);
   }
   if (ledger.schema !== SCHEMA) fail('identity', 'schema do ledger novo difere');
+  if (hasOwn(ledger, 'cap_bytes')) {
+    const ledgerCap = validateCapBytes(ledger.cap_bytes, 'ledger');
+    if (ledgerCap !== capBytes) fail('cap', 'cap do ledger difere da baseline');
+  } else if (capBytes !== CAP_BYTES) {
+    fail('cap', 'ledger legado sem cap não pode ser reutilizado com cap explícito');
+  }
   for (const group of [ledger.roots, ledger.vhd]) {
     for (const [name, state] of Object.entries(group ?? {})) {
       if (!Number.isSafeInteger(state.last_observed_bytes) || !Number.isSafeInteger(state.high_water_bytes)) fail('identity', `estado sem last/high-water: ${name}`);
@@ -179,7 +215,7 @@ export function loadOrCreateLedger(baselinePath, ledgerPath) {
     if (ledger.vhd?.[item.name]?.path !== file || ledger.vhd[item.name].start_bytes !== item.start_bytes) fail('identity', `VHD ${item.name} difere`);
   }
   if (ledger.pagefile?.start_bytes !== baseline.pagefile.start_alloc_bytes) fail('identity', 'pagefile inicial difere');
-  return { baseline, ledger };
+  return { baseline, ledger, capBytes };
 }
 
 function advanceSegment(state, bytes, name) {
@@ -212,8 +248,9 @@ export function accumulate(ledger, sample) {
   return delta;
 }
 
-export function checkLimits(ledger, freeBytes) {
-  if (ledger.charged_bytes + RESERVE_BYTES > CAP_BYTES) return 'cap';
+export function checkLimits(ledger, freeBytes, capBytes = hasOwn(ledger, 'cap_bytes') ? ledger.cap_bytes : CAP_BYTES) {
+  const cap = validateCapBytes(capBytes, hasOwn(ledger, 'cap_bytes') ? 'ledger' : 'config');
+  if (ledger.charged_bytes + RESERVE_BYTES > cap) return 'cap';
   if (freeBytes < FLOOR_BYTES + RESERVE_BYTES) return 'floor';
   return null;
 }
@@ -257,15 +294,16 @@ export function cancelOwnChild(child, deps = {}) {
 }
 
 function usage() {
-  return `Uso: node scripts/m1-budget-supervisor.mjs --baseline <json> --ledger <json> [--check] [--interval-seconds 5] [--timeout-seconds 3600] -- <comando> [args...]
+  return `Uso: node scripts/m1-budget-supervisor.mjs --baseline <json> --ledger <json> [--cap-bytes N] [--check] [--interval-seconds 5] [--timeout-seconds 3600] -- <comando> [args...]
 
 Mede roots/VHD/pagefile e cobra apenas o crescimento positivo desde a última amostra; high-water é metadado.
-Teto: 4 GiB - 256 MiB de reserva. Piso: C: 10 GiB + 256 MiB.
+Teto padrão: 4 GiB; cap explícito exige cap_bytes na baseline e no ledger e não pode ampliar 4 GiB.
+Reserva: 256 MiB. Piso: C: 10 GiB + 256 MiB.
 O ledger antigo de 2 GiB não é lido nem alterado.`;
 }
 
 function parseArgs(argv) {
-  const parsed = { baseline: null, ledger: null, check: false, interval: 5, timeout: 3600, command: null, args: [] };
+  const parsed = { baseline: null, ledger: null, capBytes: null, check: false, interval: 5, timeout: 3600, command: null, args: [] };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === '--help' || arg === '-h') { parsed.help = true; continue; }
@@ -275,6 +313,7 @@ function parseArgs(argv) {
     if (value === undefined) fail('config', `${arg} exige valor`);
     if (arg === '--baseline') parsed.baseline = path.resolve(value);
     else if (arg === '--ledger') parsed.ledger = path.resolve(value);
+    else if (arg === '--cap-bytes') parsed.capBytes = parseCapBytes(value);
     else if (arg === '--interval-seconds') parsed.interval = Number(value);
     else if (arg === '--timeout-seconds') parsed.timeout = Number(value);
     else fail('config', `argumento desconhecido: ${arg}`);
@@ -308,7 +347,7 @@ function persistSample(ledgerPath, ledger, sample, status = 'running', lastError
 export async function runSupervisor(argv, deps = {}) {
   const parsed = parseArgs(argv);
   if (parsed.help) return { code: 0, stdout: `${usage()}\n` };
-  const { baseline, ledger } = loadOrCreateLedger(parsed.baseline, parsed.ledger);
+  const { baseline, ledger } = loadOrCreateLedger(parsed.baseline, parsed.ledger, parsed.capBytes ?? undefined);
   const sample = (deps.measureAll ?? ((b) => measureAll(b, deps)))(baseline);
   const initialLimit = evaluateSample(ledger, sample);
   if (initialLimit) {

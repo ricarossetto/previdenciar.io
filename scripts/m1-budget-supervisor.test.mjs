@@ -21,7 +21,7 @@ import {
   runSupervisor,
 } from './m1-budget-supervisor.mjs';
 
-function fixture() {
+function fixture(capBytes) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'tmp-m1-budget-'));
   const repo = path.join(root, 'repo');
   const target = path.join(repo, 'target');
@@ -47,6 +47,7 @@ function fixture() {
     vhd: [{ name: 'docker_data', path: vhd, start_bytes: 5000 }],
     pagefile: { start_alloc_bytes: 6000 },
   };
+  if (capBytes !== undefined) baseline.cap_bytes = capBytes;
   const baselinePath = path.join(root, 'baseline.json');
   fs.writeFileSync(baselinePath, JSON.stringify(baseline, null, 2), 'utf8');
   return { root, baseline, baselinePath, ledger: path.join(root, 'ledger.json'), oldLedger };
@@ -140,6 +141,81 @@ test('teto e piso param antes de exceder reserva', () => {
   assert.equal(checkLimits({ charged_bytes: 0 }, FLOOR_BYTES + RESERVE_BYTES - 1), 'floor');
 });
 
+test('cap explícito de 2 GiB é vinculado à autorização e não vira 4 GiB', () => {
+  const f = fixture(2 * GIB);
+  const loaded = loadOrCreateLedger(f.baselinePath, f.ledger);
+  assert.equal(loaded.capBytes, 2 * GIB);
+  assert.equal(loaded.ledger.cap_bytes, 2 * GIB);
+  assert.equal(checkLimits({ ...loaded.ledger, charged_bytes: 2 * GIB - RESERVE_BYTES }, 100 * GIB), null);
+  assert.equal(checkLimits({ ...loaded.ledger, charged_bytes: 2 * GIB - RESERVE_BYTES + 1 }, 100 * GIB), 'cap');
+  assert.equal(checkLimits({ ...loaded.ledger, charged_bytes: 0 }, FLOOR_BYTES + RESERVE_BYTES - 1), 'floor');
+});
+
+test('CLI cap explícito exige baseline e ledger com o mesmo cap', async () => {
+  const f = fixture(2 * GIB);
+  loadOrCreateLedger(f.baselinePath, f.ledger, 2 * GIB);
+  await assert.rejects(
+    runSupervisor(['--baseline', f.baselinePath, '--ledger', f.ledger, '--cap-bytes', String(4 * GIB), '--check'], { measureAll: () => sample(f.baseline) }),
+    (error) => error.code === 'cap',
+  );
+
+  const legacy = fixture();
+  await assert.rejects(
+    runSupervisor(['--baseline', legacy.baselinePath, '--ledger', legacy.ledger, '--cap-bytes', String(2 * GIB), '--check'], { measureAll: () => sample(legacy.baseline) }),
+    (error) => error.code === 'cap',
+  );
+});
+
+test('baseline com cap inválido ou ausente falha fechado', () => {
+  for (const value of [1.5, -1, 0, CAP_BYTES + 1, '2147483648', null, 9007199254740992]) {
+    const f = fixture();
+    f.baseline.cap_bytes = value;
+    fs.writeFileSync(f.baselinePath, JSON.stringify(f.baseline), 'utf8');
+    assert.throws(() => loadOrCreateLedger(f.baselinePath, f.ledger), (error) => error.code === 'baseline', String(value));
+  }
+
+  const missing = fixture();
+  missing.baseline.task_id = 'TASK-NOVA-SEM-CAP';
+  fs.writeFileSync(missing.baselinePath, JSON.stringify(missing.baseline), 'utf8');
+  assert.throws(() => loadOrCreateLedger(missing.baselinePath, missing.ledger), (error) => error.code === 'baseline');
+});
+
+test('ledger com cap inválido ou ausente sob baseline com cap falha fechado', () => {
+  const f = fixture();
+  const { ledger } = loadOrCreateLedger(f.baselinePath, f.ledger);
+  ledger.cap_bytes = 0;
+  fs.writeFileSync(f.ledger, JSON.stringify(ledger), 'utf8');
+  assert.throws(() => loadOrCreateLedger(f.baselinePath, f.ledger), (error) => error.code === 'ledger');
+
+  const f2 = fixture(2 * GIB);
+  const legacy = loadOrCreateLedger(fixture().baselinePath, path.join(f2.root, 'legacy-ledger.json')).ledger;
+  delete legacy.cap_bytes;
+  fs.writeFileSync(f2.ledger, JSON.stringify(legacy), 'utf8');
+  assert.throws(() => loadOrCreateLedger(f2.baselinePath, f2.ledger), (error) => error.code === 'cap');
+});
+
+test('cap inválido falha fechado antes de criar ledger', async () => {
+  for (const value of ['1.5', '-1', 'NaN', '0', String(CAP_BYTES + 1), '9007199254740992', 'abc', '']) {
+    const f = fixture();
+    await assert.rejects(
+      runSupervisor(['--baseline', f.baselinePath, '--ledger', f.ledger, '--cap-bytes', value, '--check'], { measureAll: () => sample(f.baseline) }),
+      (error) => error.code === 'config',
+      value,
+    );
+    assert.equal(fs.existsSync(f.ledger), false, `ledger não deve existir para ${value}`);
+  }
+});
+
+test('paths do baseline, ledger e ledger antigo não podem colidir', () => {
+  const f = fixture();
+  assert.throws(() => loadOrCreateLedger(f.baselinePath, f.baselinePath), (error) => error.code === 'identity');
+
+  const oldCollision = { ...f.baseline, old_ledger_path: f.ledger };
+  const oldCollisionPath = path.join(f.root, 'baseline-old-collision.json');
+  fs.writeFileSync(oldCollisionPath, JSON.stringify(oldCollision), 'utf8');
+  assert.throws(() => loadOrCreateLedger(oldCollisionPath, f.ledger), (error) => error.code === 'identity');
+});
+
 test('avaliação acumula a amostra atual antes de checar o cap', () => {
   const ledger = {
     roots: { repo: { start_bytes: 100, last_observed_bytes: 100, high_water_bytes: 100, charged_bytes: 0 } },
@@ -177,6 +253,34 @@ test('ledger novo retoma high-water e rejeita identidade diferente', () => {
   const badPath = path.join(f.root, 'bad-baseline.json');
   fs.writeFileSync(badPath, JSON.stringify(bad), 'utf8');
   assert.throws(() => loadOrCreateLedger(badPath, f.ledger), /autorização difere/);
+});
+
+test('ledger legado sem cap permanece bloqueado com charged, histórico e hash intactos', () => {
+  const f = fixture();
+  const { ledger } = loadOrCreateLedger(f.baselinePath, f.ledger);
+  delete ledger.cap_bytes;
+  ledger.status = 'blocked';
+  ledger.charged_bytes = 6744564688;
+  ledger.history = [{ at: '2026-11-03T00:00:00.000Z', status: 'blocked', charged_bytes: 6744564688, error: 'cap' }];
+  fs.writeFileSync(f.ledger, `${JSON.stringify(ledger, null, 2)}\n`, 'utf8');
+  const before = crypto.createHash('sha256').update(fs.readFileSync(f.ledger)).digest('hex');
+
+  const loaded = loadOrCreateLedger(f.baselinePath, f.ledger);
+  const after = crypto.createHash('sha256').update(fs.readFileSync(f.ledger)).digest('hex');
+  assert.equal(loaded.capBytes, CAP_BYTES);
+  assert.equal(loaded.ledger.status, 'blocked');
+  assert.equal(loaded.ledger.charged_bytes, 6744564688);
+  assert.equal(loaded.ledger.history.length, 1);
+  assert.equal(before, after);
+});
+
+test('cap do ledger divergente da baseline falha fechado', () => {
+  const f = fixture();
+  loadOrCreateLedger(f.baselinePath, f.ledger);
+  const baseline2 = { ...f.baseline, cap_bytes: 2 * GIB };
+  const baseline2Path = path.join(f.root, 'baseline-cap-2.json');
+  fs.writeFileSync(baseline2Path, JSON.stringify(baseline2), 'utf8');
+  assert.throws(() => loadOrCreateLedger(baseline2Path, f.ledger), (error) => error.code === 'cap');
 });
 
 test('ledger v1 migra preservando charged e inicializa o último', () => {
@@ -420,4 +524,60 @@ test('loop real: ledger já bloqueado não inicia child', async () => {
   });
   assert.equal(second.code, 3);
   assert.equal(spawned, 0);
+});
+
+test('loop real: cap 2 GiB bloqueado não inicia child', async () => {
+  const f = fixture(2 * GIB);
+  const over = sample(f.baseline);
+  over.roots[0].bytes += 2 * GIB;
+  let spawned = 0;
+  const result = await runSupervisor(loopArgs(f), {
+    measureAll: () => over,
+    spawn: () => { spawned += 1; return fakeChild(); },
+  });
+  assert.equal(result.code, 3);
+  assert.match(result.stderr, /cap/);
+  assert.equal(spawned, 0);
+  assert.equal(JSON.parse(fs.readFileSync(f.ledger, 'utf8')).cap_bytes, 2 * GIB);
+});
+
+test('loop real: cap 2 GiB bloqueia e cancela na mesma amostra', async () => {
+  const f = fixture(2 * GIB);
+  const clock = fakeClock();
+  const child = fakeChild();
+  const base = sample(f.baseline);
+  const limitCharge = 2 * GIB - RESERVE_BYTES;
+  let measures = 0;
+  let measuresAtCancel = null;
+  const taskkillPids = [];
+  const measureAll = () => {
+    measures += 1;
+    if (measures === 1) return base;
+    const current = sample(f.baseline);
+    current.roots[0].bytes += measures === 2 ? limitCharge : limitCharge + 1;
+    return current;
+  };
+  const pending = runSupervisor(loopArgs(f), loopDeps(clock, child, {
+    measureAll,
+    taskkill: (pid) => { taskkillPids.push(pid); return { status: 1 }; },
+    cancelOwnChild: (ownChild, deps) => {
+      measuresAtCancel = measures;
+      return cancelOwnChild(ownChild, deps);
+    },
+  }));
+  clock.tick();
+  clock.tick();
+  const result = await pending;
+
+  assert.equal(result.code, 3);
+  assert.match(result.stderr, /cap/);
+  assert.equal(measuresAtCancel, 3, 'cancelamento ocorre na amostra que cruzou');
+  assert.deepEqual(taskkillPids, [777]);
+  assert.equal(child.killed, true);
+  const ledger = JSON.parse(fs.readFileSync(f.ledger, 'utf8'));
+  assert.equal(ledger.cap_bytes, 2 * GIB);
+  assert.equal(ledger.status, 'blocked');
+  assert.equal(ledger.charged_bytes, limitCharge + 1);
+  assert.deepEqual(ledger.history.map((entry) => entry.status), ['running', 'blocked', 'blocked']);
+  assert.equal(ledger.history[1].error, 'cap');
 });
