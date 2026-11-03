@@ -65,6 +65,18 @@ describe('conferência na Fábrica de Cálculos', () => {
     expect(built.issues.join(' ')).toContain('fora dos vínculos');
   });
 
+  it('não converte categoria legada ou não suportada em COMUM', () => {
+    for (const kind of ['normal','individual','rural','especial','servidor']) {
+      const legacy = case41();
+      const policy = JSON.parse(legacy.options.rule_policy);
+      policy.manual_link_kind = kind;
+      legacy.options.rule_policy = JSON.stringify(policy);
+      const built = buildFabricaInput(legacy);
+      expect(built.input).toBeNull();
+      expect(built.issues.join(' ')).toContain('não suportada');
+    }
+  });
+
   it('recusa PcD e períodos sobrepostos na conferência comum', () => {
     const pcd = case41();
     pcd.disability = 'Grave';

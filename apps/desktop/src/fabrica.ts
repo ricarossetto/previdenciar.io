@@ -170,10 +170,13 @@ export function buildFabricaInput(c: Calculation): { input: FabricaInput|null; i
       }
     }
   }
-  if (issues.length || !nascimento || !dib || !sexo) return { input: null, issues };
-
   const kind = typeof policy?.manual_link_kind === 'string' ? policy.manual_link_kind : '';
-  const tipo: 'COMUM'|'RURICOLA' = kind === 'rural' || kind === 'especial' ? 'RURICOLA' : 'COMUM';
+  // A Fábrica usa um campo grosseiro (COMUM/RURICOLA). Só os cinco tipos RGPS
+  // aceitos pelo adaptador local entram em COMUM; rural, especial e legado
+  // ficam pendentes em vez de virarem COMUM silenciosamente.
+  const tipo: 'COMUM'|null = ['empregado','empregado_domestico','contribuinte_individual','avulso','facultativo'].includes(kind) ? 'COMUM' : null;
+  if (!tipo) push('Categoria manual ausente ou não suportada; escolha uma categoria reconhecida antes da conferência online.');
+  if (issues.length || !nascimento || !dib || !sexo || !tipo) return { input: null, issues };
   const native = policy?.native_options && typeof policy.native_options === 'object'
     ? policy.native_options as Record<string, unknown>
     : null;
