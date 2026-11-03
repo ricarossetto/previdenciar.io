@@ -1466,6 +1466,16 @@ mod tests {
         assert_eq!(error_message(&body), oversized_body_message());
     }
 
+    #[test]
+    fn erro_interno_nao_ecoa_chave_sintetica() {
+        let erro = ApiError::internal("falha com CHAVEFABRICAMARCADOR");
+        assert_eq!(
+            erro.message,
+            "Não foi possível concluir a operação."
+        );
+        assert!(!erro.message.contains("CHAVEFABRICAMARCADOR"));
+    }
+
     #[tokio::test]
     async fn admin_sem_permissao_retorna_403_json() {
         let base = spawn_server(test_state(config::Config::for_tests())).await;
