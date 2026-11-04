@@ -25,7 +25,7 @@ export function CnisTimeline({ cnis, dib }: { cnis: Cnis; dib?: string | null })
         <h3>Visão temporal da origem</h3>
         <p>Uma linha por ano; cada coluna é uma competência. A lacuna é ausência na origem; não é salário zero.</p>
       </div>
-      <Badge tone={model.counts.lacunas ? 'review' : 'good'}>{model.counts.lancamentos} com lançamento · {model.counts.lacunas} lacunas</Badge>
+      <Badge tone={model.counts.lacunas ? 'review' : 'good'}>{model.counts.lancamentos} no recorte do PBC · {(model.counts.prePbc + model.counts.posDib)} fora do recorte · {model.counts.lacunas} lacunas</Badge>
     </header>
     <ol className="cnis-timeline__years" aria-label="Competências do CNIS por ano">
       {model.years.map(year => <li key={year.year} className="cnis-timeline__year">

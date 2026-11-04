@@ -51,7 +51,7 @@ export function CnisTemporalView({ cnis, dib, confirmedLinks }: CnisTemporalView
   const issues = temporalIssues(layers).filter(group => group.key !== 'sem_periodo' || hasConfirmedLinks);
   const postDib = layers.filter(layer => layer.relativeToDib === 'after');
   const missing = layers.filter(layer => layer.salaryStatus === 'missing');
-  const calculationLayers = layers.filter(layer => layer.inPbcWindow);
+  const calculationLayers = layers.filter(layer => layer.inPbcWindow && layer.amountCentavos !== null && layer.relativeToDib !== 'after');
   const beforeWindow = layers.filter(layer => layer.pbcStatus === 'before_window' && layer.relativeToDib !== 'after');
   return <Panel title='Visao temporal do CNIS' subtitle='Camada derivada e aditiva: a fonte importada nao e apagada nem reescrita; o recorte de calculo termina na DIB/PBC.'>
     <div className='result-strip' data-testid='temporal-summary'>
@@ -61,7 +61,8 @@ export function CnisTemporalView({ cnis, dib, confirmedLinks }: CnisTemporalView
       <div><span>Sem remuneracao (desconhecida)</span><strong>{summary.missingSalary}</strong></div>
       <div><span>Sem periodo confirmado</span><strong data-testid='temporal-unconfirmed'>{hasConfirmedLinks ? summary.unconfirmed : 'Nao apurado'}</strong></div>
     </div>
-    <Notice>Posterior a DIB permanece na fonte e fica fora do PBC. Competencia sem periodo confirmado fica pendente; competencia sem remuneracao continua desconhecida, nunca zero.</Notice>
+    <Notice>Posterior a DIB permanece na fonte e fica fora do PBC. Competencia sem periodo confirmado fica pendente; competencia sem remuneracao continua desconhecida, nunca zero. As famílias 'posterior a DIB' e 'sem periodo confirmado' sao dimensoes independentes: nao devem ser somadas.</Notice>
+    <p className='form-note' data-testid='temporal-window-note'>A janela do PBC tem {summary.windowMonths || 0} meses; {summary.withSalaryInPbc} competencia(s) com remuneracao no recorte e {summary.missingSalary} sem remuneracao lancada. Mes sem lancamento exige conferencia da origem; nao e lacuna automatica nem salario zero.</p>
     {issues.length > 0 && <div data-testid='temporal-issues'>
       <h3 style={{ fontSize: 14 }}>Pendencias agrupadas e proxima acao</h3>
       <ul className='review-list'>{issues.map(group => <li key={group.key} data-group={group.key}>
@@ -71,7 +72,7 @@ export function CnisTemporalView({ cnis, dib, confirmedLinks }: CnisTemporalView
     </div>}
     <Table title='Posterior a DIB: fora do PBC, preservada na fonte' layers={postDib} open={postDib.length > 0 && postDib.length <= 40} />
     <Table title='Sem remuneracao lancada: valor desconhecido, nao zero' layers={missing} />
-    <Table title='Recorte de calculo: dentro da janela do PBC' layers={calculationLayers} />
+    <Table title='Recorte de calculo: competencias com remuneracao dentro do PBC' layers={calculationLayers} />
     <Table title='Anterior a janela do PBC (antes de 1994-07)' layers={beforeWindow} />
     <p className='form-note'>Fonte preservada: {cnis.salary_entries.length} lancamentos, {cnis.links.length} vinculos e {Object.keys(cnis.salary_months).length} competencias. Esta visao nao altera o documento importado.</p>
   </Panel>;

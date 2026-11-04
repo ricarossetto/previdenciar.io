@@ -108,7 +108,7 @@ export function journeyLayers(draft: Calculation): JourneyLayer[] {
 
 export interface JourneyPendencyGroup { action: JourneyAction; label: string; hint: string; step: number; items: string[] }
 
-const PENDENCY_STEP: Record<JourneyAction, number> = { identificacao: 2, origem: 1, vinculos: 3, salarios: 4, parametros: 5, revisao: 6, execucao: 7 };
+const PENDENCY_STEP: Record<JourneyAction, number> = { identificacao: 0, origem: 1, vinculos: 3, salarios: 4, parametros: 5, revisao: 6, execucao: 7 };
 
 function hasPcd(draft: Calculation): boolean {
   return ['Leve', 'Moderada', 'Grave'].includes(draft.disability ?? '');

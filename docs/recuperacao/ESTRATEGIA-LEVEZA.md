@@ -9,7 +9,7 @@ Este documento consolida os numeros ja medidos em modo somente leitura e descrev
 
 - Proibido: `cargo`/build Rust, Docker, deploy, push, commit, migracao, `cargo clean`, apagar/mover `target`, caches, `.env` ou bancos.
 - Proibido tocar `AUDITORIA.md` e `.opencode/`.
-- Nada de PDF, CNIS ou dado pessoal para servico externo. Numeros reais desta maquina ficam apenas localmente e fora do Git.
+- Nada de PDF, CNIS ou dado pessoal para servico externo. Numeros reais desta maquina ficam apenas localmente; este documento e sanitizado e nao reproduz PII.
 - Qualquer delecao, novo baseline, alteracao de cap/piso ou poda de worktrees exige autorizacao explicita (ver secao 5).
 - O script `scripts/recuperacao/medir-espaco.ps1` e 100% leitura: mede e imprime; nao cria, move, apaga nem compila nada.
 
@@ -58,7 +58,7 @@ So em `debug/` sao 9,51 GiB de PDB em 844 arquivos; `.rlib` com DWARF somam 16,8
 3. **`debug/incremental` = 5,30 GiB** em 18.592 arquivos (3,56 GiB em `.o`): cache incremental puro.
 4. **`debug/examples` = 2,25 GiB em 47 arquivos**: 15 `.exe` (285 MB) + PDBs gigantes; pior razao espaco/utilidade da arvore.
 5. **Duas arvores paralelas**: `debug` quente (deps ate 03/11 20:07), `release` congelado desde 30/10 e `wasm32`. `release/incremental` e `target/tmp` ja estao vazios.
-6. **`.fingerprint`**: ~5 MB, mas 21.101 arquivos; custo de backup/antivirus/indexacao, nao de bytes.
+6. **`.fingerprint`**: ~5 MB, mas 17.403 arquivos; custo de backup/antivirus/indexacao, nao de bytes.
 7. `target/` e o target-dir **padrao** (sem `.cargo/config.toml`, `CARGO_TARGET_DIR` vazio): equivale a 10,3% do volume C: usado e 56% do espaco livre atual.
 
 Observacao sobre PDBs orfaos: os 970 `.pdb` medidos incluem artefatos que deixam de ser referenciados quando o perfil ou as features mudam. Trocar `debug` invalida fingerprints e deixa PDBs antigos orfaos; eles **so** saem com limpeza autorizada, nunca por efeito da configuracao.
@@ -144,7 +144,7 @@ pwsh -NoProfile -File scripts/recuperacao/medir-espaco.ps1 -Json
 
 ## 10. Verificacao da execucao deste bloco
 
-Teste de aceite em 03-04/11/2026, somente leitura, no checkout principal `C:/projetos IA/previdenciar/desktop` (onde existe `target/`):
+Teste de aceite em 03-04/11/2026, somente leitura, no checkout principal `<repo-desktop>` (onde existe `target/`):
 
 - `target` = **44.491.472.441 B / 60.361 arquivos** — identico ao numero da medicao de 04/11.
 - `debug/deps` 28,26 GiB / 11.627; `debug/incremental` 5,30 GiB / 18.592; `debug/examples` 2,25 GiB / 47; `debug/build` 2,01 GiB / 5.020; `.fingerprint` 4,03 MiB / 17.403.

@@ -43,8 +43,8 @@ describe('indicador da jornada no editor', () => {
     expect(within(pendencies).getByText(/item\(ns\) de conferência em/)).toBeInTheDocument();
     await user.click(within(pendencies).getByRole('button', { name: 'Abrir CNIS: Aplicar a origem CNIS' }));
     expect(onStep).toHaveBeenCalledWith(1);
-    await user.click(within(pendencies).getByRole('button', { name: 'Abrir Cenário: Completar identificação' }));
-    expect(onStep).toHaveBeenCalledWith(2);
+    await user.click(within(pendencies).getByRole('button', { name: 'Abrir Identificação: Completar identificação' }));
+    expect(onStep).toHaveBeenCalledWith(0);
   });
 
   it('mantém os detalhes técnicos recolhidos por padrão', () => {

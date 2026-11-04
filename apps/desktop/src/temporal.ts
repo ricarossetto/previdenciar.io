@@ -30,6 +30,7 @@ export type TemporalIssueKey = 'pos_dib' | 'sem_periodo' | 'sem_salario' | 'mes_
 export interface TemporalIssueGroup { key: TemporalIssueKey; title: string; count: number; competences: string[]; nextAction: string }
 export interface TemporalSummary {
   total: number; inPbc: number; postDib: number; missingSalary: number; unconfirmed: number; dibMonth: number;
+  windowMonths: number; withSalaryInPbc: number;
   firstCompetence: string | null; lastCompetence: string | null; window: PbcWindow | null;
 }
 
@@ -142,6 +143,7 @@ export function temporalIssues(layers: readonly CompetenceLayer[]): TemporalIssu
   return groups;
 }
 export function temporalSummary(layers: readonly CompetenceLayer[], window: PbcWindow | null): TemporalSummary {
+  const withSalaryInPbc = layers.filter(item => item.inPbcWindow && item.amountCentavos !== null && item.relativeToDib !== 'after').length;
   return {
     total: layers.length,
     inPbc: layers.filter(item => item.pbcStatus === 'in_pbc' || item.pbcStatus === 'discarded' || item.pbcStatus === 'excluded_below_minimum').length,
@@ -149,6 +151,8 @@ export function temporalSummary(layers: readonly CompetenceLayer[], window: PbcW
     missingSalary: layers.filter(item => item.salaryStatus === 'missing').length,
     unconfirmed: layers.filter(item => item.amountCentavos !== null && (item.periodStatus === 'unconfirmed' || item.periodStatus === 'missing')).length,
     dibMonth: layers.filter(item => item.salaryStatus === 'dib_month').length,
+    windowMonths: window ? monthsBetween(window.from, window.to).length : 0,
+    withSalaryInPbc,
     firstCompetence: layers[0]?.competence ?? null,
     lastCompetence: layers[layers.length - 1]?.competence ?? null,
     window,

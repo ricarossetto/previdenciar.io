@@ -88,7 +88,7 @@ describe('jornada: pendências agrupadas pela próxima ação', () => {
     const groups = journeyPendencies(blankCase());
     const steps = groups.map(group => group.step);
     expect(steps).toEqual([...steps].sort((left, right) => left - right));
-    expect(groups[0]).toMatchObject({ action: 'origem', step: 1 });
+    expect(groups[0]).toMatchObject({ action: 'identificacao', step: 0 });
     expect(groups.some(group => group.action === 'execucao' && group.step === 7)).toBe(true);
   });
 
