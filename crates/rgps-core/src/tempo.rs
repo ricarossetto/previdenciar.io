@@ -260,7 +260,7 @@ pub fn calcular_tempo(
                 marco_ec103.add_days(1)
             };
             if inicio <= *fim_vinculo {
-                (dias_inclusivos(&inicio, fim_vinculo) as f64 * fator).round() as i64
+                (dias_30_360(&inicio, fim_vinculo) as f64 * fator).round() as i64
             } else {
                 0
             }
@@ -328,5 +328,14 @@ mod tests {
         let resultado =
             calcular_tempo(&[vinculo("2015-01-01", "2015-03-31")], None).unwrap();
         assert_eq!(resultado.carencia_meses, 3);
+    }
+    #[test]
+    fn dias_30_360_cobre_mes_cheio_bissexto_e_mesmo_dia() {
+        let d=|a:&str,b:&str| dias_30_360(&IsoDate::parse(a,"t").unwrap(), &IsoDate::parse(b,"t").unwrap());
+        assert_eq!(d("2024-01-01","2024-01-31"),30);
+        assert_eq!(d("2024-02-01","2024-02-29"),30);
+        assert_eq!(d("2023-02-01","2023-02-28"),30);
+        assert_eq!(d("2024-01-31","2024-01-31"),0);
+        assert_eq!(d("2024-01-31","2024-02-01"),1);
     }
 }

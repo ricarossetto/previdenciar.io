@@ -102,6 +102,8 @@ pub struct TransicoesEntrada {
     pub meses_apos_reforma: i64,
     /// Dias excedentes do total 30/360, usados na fração do fator.
     pub dias_totais: i64,
+    /// Total 30/360 pós-descontos; base única de meses e dias do fator.
+    pub tempo_total_360: i64,
     /// Salário de benefício (PBC) para as RMI das regras.
     pub salario_beneficio: Decimal,
     /// Teto/piso aplicados à RMI final da regra (opcional).
@@ -249,7 +251,8 @@ pub fn build_transicoes(entrada: &TransicoesEntrada) -> Result<TransicoesResulta
     let (rmi_fator, rmi_fator_final, observacao_fator) = match entrada.expectativa_sobrevida.or(expectativa_tabelada) {
         Some(es) if aplica50 => {
             let idade_der = idade_meses;
-            let tempo_total_dec = add(Decimal::from(tempo_total), div(Decimal::from(entrada.dias_totais), Decimal::from(30))?);
+            let total_360 = if entrada.tempo_total_360 > 0 { entrada.tempo_total_360 } else { tempo_total * 30 + entrada.dias_totais };
+            let tempo_total_dec = div(Decimal::from(total_360), Decimal::from(30))?;
     let fator = fator_previdenciario(sexo, tempo_total_dec, idade_der, es)?;
             let bruta = mul(entrada.salario_beneficio, fator);
             let (final_valor, limite) = aplicar_limites(bruta, entrada.teto, entrada.piso);
@@ -393,6 +396,7 @@ mod tests {
             meses_ate_reforma: ate_reforma,
             meses_apos_reforma: apos,
             dias_totais: 0,
+            tempo_total_360: 0,
             salario_beneficio: parse_money("2000.00", "sb").unwrap(),
             teto: None,
             piso: None,

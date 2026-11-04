@@ -165,6 +165,7 @@ pub fn projetar(req: &ProjecaoRequisicao) -> Result<ProjecaoResultado> {
             meses_ate_reforma: meses_ate_reforma(&competencias),
             meses_apos_reforma: total - meses_ate_reforma(&competencias),
             dias_totais: 0,
+            tempo_total_360: 0,
             salario_beneficio,
             teto: teto_der,
             piso: req.piso,

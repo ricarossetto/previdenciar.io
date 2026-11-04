@@ -596,6 +596,7 @@ pub fn calcular(entrada: &RgpsEntrada) -> Result<RgpsResultado> {
             meses_ate_reforma,
             meses_apos_reforma,
         dias_totais: tempo.as_ref().map(|t| t.total.dias as i64).unwrap_or(0),
+        tempo_total_360: tempo.as_ref().map(|t| t.total_360).unwrap_or(0),
             salario_beneficio,
             teto: teto_derivado,
             piso: entrada.opcoes.piso,

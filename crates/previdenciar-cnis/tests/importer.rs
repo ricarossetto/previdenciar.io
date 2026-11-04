@@ -392,3 +392,9 @@ fn cooperative_table_with_filantropia_column_still_yields_remuneration() {
     let entry = r.salary_entries.iter().find(|e| e.competence == "2005-10" && e.amount_centavos == 89600).expect("remuneração filantropia");
     assert_eq!(entry.link_sequence, Some(15));
 }
+#[test]
+fn cooperative_layout_under_contribution_heading_is_not_remuneration() {
+    let text = "CNIS\nRelações Previdenciárias\nSeq. NIT Código Emp. Origem do Vínculo Tipo Filiado no Vínculo Data Início Data Fim\n15 111.11111.11-1 90.738.014/0001-08 AGRUPAMENTO FICTICIO Contribuinte Individual 01/10/2005 31/01/2006\nCompetência Contribuição Indicadores\nRemunerações\n10/2005 90.738.014/0001-08 90.738.014/0001-08 90.738.014/0001-08 Filantropia 896,00\n";
+    let r = import_text(text).unwrap();
+    assert!(!r.salary_entries.iter().any(|e| e.amount_centavos == 89600 && e.amount_kind == previdenciar_cnis::AmountKind::Remuneration));
+}

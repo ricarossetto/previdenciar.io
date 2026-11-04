@@ -420,6 +420,7 @@ fn parse_pages(pages: &[String]) -> Result<ImportResult, ImportError> {
     // perder esse contexto descartaria as linhas seguintes.
     let mut table = false;
     let mut amount_kind = AmountKind::Remuneration;
+    let mut remuneration_column = true;
     let mut explicit_salary_column = false;
     for (page_index, raw_page) in pages.iter().enumerate() {
         let page = normalize(raw_page);
@@ -472,10 +473,17 @@ fn parse_pages(pages: &[String]) -> Result<ImportResult, ImportError> {
             }
             if is_table_heading(line) {
                 table = true; relation_expected = false; table_count += 1;
-                explicit_salary_column = lower.contains("salario") && lower.contains("contribuicao");
-                amount_kind = if lower.contains("contribuicao") && !lower.contains("remuneracao") {
-                    AmountKind::ContributionColumnUnresolved
-                } else { AmountKind::Remuneration };
+                // "Remunerações"/"Contribuições" sozinhos são títulos de seção,
+                // não cabeçalhos de coluna: não podem reclassificar a coluna
+                // aberta logo acima.
+                let secao = lower.trim() == "remuneracoes" || lower.trim() == "contribuicoes";
+                if !secao {
+                    explicit_salary_column = lower.contains("salario") && lower.contains("contribuicao");
+                    remuneration_column = lower.contains("remuneracao") || lower.contains("salario");
+                    amount_kind = if lower.contains("contribuicao") && !lower.contains("remuneracao") {
+                        AmountKind::ContributionColumnUnresolved
+                    } else { AmountKind::Remuneration };
+                }
             }
             // O rodapé do CNIS ("O INSS poderá rever...") fecha a página, não a
             // tabela: a continuação na página seguinte segue com o mesmo
@@ -512,7 +520,7 @@ fn parse_pages(pages: &[String]) -> Result<ImportResult, ImportError> {
             // and the remuneration. Any other word between the month and the
             // amount is refused: no arbitrary text/amount guessing.
             static COOPERATIVE: LazyLock<Regex> = LazyLock::new(||Regex::new(r"(?i)\b(0[1-9]|1[0-2])/(\d{4})\s+(?:\d{2}\.\d{3}\.\d{3}(?:/\d{4}-\d{2})?\s+){1,3}(?:(?:normal|cooperado|n[^\W\d_]{0,4}o(?:\s+cooperado)?|terceiriza[^\W\d_]{0,4}o|filantropia)\s+){0,2}(?:R\$\s*)?(-?(?:\d{1,3}(?:\.\d{3})+|\d+),\d{2})\b").unwrap());
-            let cooperative_rows:Vec<_>=if table{COOPERATIVE.captures_iter(line).collect()}else{vec![]};
+            let cooperative_rows:Vec<_>=if table && remuneration_column {COOPERATIVE.captures_iter(line).collect()}else{vec![]};
             for (i,cap) in cooperative_rows.iter().enumerate(){
                 let span=cap.get(0).unwrap();let end=cooperative_rows.get(i+1).map(|next|next.get(0).unwrap().start()).unwrap_or(line.len());
                 let amount_centavos=money(&cap[3])?;if amount_centavos<0{negative_entries+=1;}
