@@ -223,7 +223,7 @@ fn calculate_input(r: CalculationInput) -> Result<Value, String> {
         if let Some(a)=amount(&w.salario,&f,&mut b,Decimal::from(1_000_000_000u64)) {
             // Regra do CNIS: a competência só é reconhecida como tempo quando o
             // valor alcança o salário mínimo vigente. Abaixo disso, fica fora do
-            // PBC até a complementação.
+            // PBC e do tempo até a complementação.
             if let Some(minimo) = salario_minimo_vigente(&c) {
                 if a < minimo { abaixo_do_minimo.push(c.to_string()); continue; }
             }
@@ -233,7 +233,7 @@ fn calculate_input(r: CalculationInput) -> Result<Value, String> {
     if pre94>0 { warnings.push(format!("{pre94} registro(s) pré-07/1994 fora do PBC, sem soma ou conversão monetária histórica; períodos confirmados permanecem separados.")); }
     if !abaixo_do_minimo.is_empty() {
         let lista = abaixo_do_minimo.iter().take(12).cloned().collect::<Vec<_>>().join(", ");
-        warnings.push(format!("{} competência(s) com valor abaixo do salário mínimo não entraram no PBC até a complementação: {lista}{}. O CNIS marca esses meses com PREC-MENOR-MIN.", abaixo_do_minimo.len(), if abaixo_do_minimo.len()>12 {", e outras"} else {""}));
+        warnings.push(format!("{} competência(s) com valor abaixo do salário mínimo não entraram no PBC nem no tempo até a complementação: {lista}{}. O CNIS marca esses meses com PREC-MENOR-MIN.", abaixo_do_minimo.len(), if abaixo_do_minimo.len()>12 {", e outras"} else {""}));
     }
     if wages.is_empty() { issue(&mut b,"pbc_missing","competencias","Nenhuma remuneração confirmada válida desde 07/1994."); }
     let o = &r.opcoes;
@@ -244,7 +244,6 @@ fn calculate_input(r: CalculationInput) -> Result<Value, String> {
     if nonempty(&o.regra_alvo) { issue(&mut b,"rule_target_unsupported","opcoes.regraAlvo","calcular não aplica seleção de regra-alvo; projeção existe somente na API tipada original."); }
     let reference = if o.referencia_correcao.is_some() { month(&o.referencia_correcao,"opcoes.referenciaCorrecao",&mut b) } else { None };
     if let Some(minimo) = o.descartar_menores_minimo {
-        issue(&mut b,"ec103_discard_unsupported","opcoes.descartarMenoresMinimo","Descarte da EC 103 bloqueado: o recálculo do tempo, do coeficiente e dos requisitos após a exclusão ainda não está implementado.");
         if minimo < 1 || minimo > 600 { issue(&mut b,"descartar_menores_minimo_invalid","opcoes.descartarMenoresMinimo","Mínimo de competências deve ficar entre 1 e 600."); }
         if o.corrigir_salarios != Some(true) { issue(&mut b,"descartar_menores_requires_correction","opcoes.descartarMenoresMinimo","O descarte da EC 103 é definido sobre o PBC corrigido; ative corrigirSalarios."); }
         if o.descarte == Some(true) { issue(&mut b,"descartar_menores_conflict","opcoes.descartarMenoresMinimo","Use o descarte dos menores (EC 103) ou o descarte fixo de 20%, não ambos."); }
@@ -295,9 +294,16 @@ fn calculate_input(r: CalculationInput) -> Result<Value, String> {
         "confirmed_links": links.len()
     });
     let dib = dib.expect("validated DIB");
+    let meses_fora_do_tempo: Vec<Competencia> = abaixo_do_minimo
+        .iter()
+        .filter_map(|value| {
+            let mut ignored = Vec::new();
+            month(&Some(value.clone()), "competencia abaixo do minimo", &mut ignored)
+        })
+        .collect();
     let native = RgpsEntrada {
         nome:None, especie:r.segurado.especie.clone(), sexo:sex, data_nascimento:birth, data_referencia:Some(dib), vinculos:links, competencias:wages,
-        opcoes:RgpsOpcoes {corrigir_salarios:o.corrigir_salarios.unwrap(),descarte:o.descarte.unwrap(),divisor_minimo:o.divisor_minimo.unwrap(),descartar_menores_minimo:o.descartar_menores_minimo,referencia_correcao:reference.or(Some(Competencia {ano:dib.ano as u16,mes:dib.mes})),teto:ceiling,piso:floor,aplicar_teto_vigente_der:o.aplicar_teto_vigente_der.unwrap(),expectativa_sobrevida:expectation,periodos_graca:vec![],recolhimentos_atraso:vec![],regra_alvo:None,incapacidade_origem:o.incapacidade_origem.clone(),especial_grau:o.grau_especial.clone(),tempo_especial_meses:o.tempo_especial_meses,especial_antes_reforma:o.especial_antes_reforma,magisterio_meses:o.magisterio_meses,magisterio_exclusivo:o.magisterio_exclusivo,magisterio_antes_reforma:o.magisterio_antes_reforma,perfil_correcao:o.perfil_correcao.clone(),fallback_inpc_documentado:o.fallback_inpc_documentado.unwrap_or(false)}
+        opcoes:RgpsOpcoes {corrigir_salarios:o.corrigir_salarios.unwrap(),descarte:o.descarte.unwrap(),divisor_minimo:o.divisor_minimo.unwrap(),descartar_menores_minimo:o.descartar_menores_minimo,meses_fora_do_tempo,referencia_correcao:reference.or(Some(Competencia {ano:dib.ano as u16,mes:dib.mes})),teto:ceiling,piso:floor,aplicar_teto_vigente_der:o.aplicar_teto_vigente_der.unwrap(),expectativa_sobrevida:expectation,periodos_graca:vec![],recolhimentos_atraso:vec![],regra_alvo:None,incapacidade_origem:o.incapacidade_origem.clone(),especial_grau:o.grau_especial.clone(),tempo_especial_meses:o.tempo_especial_meses,especial_antes_reforma:o.especial_antes_reforma,magisterio_meses:o.magisterio_meses,magisterio_exclusivo:o.magisterio_exclusivo,magisterio_antes_reforma:o.magisterio_antes_reforma,perfil_correcao:o.perfil_correcao.clone(),fallback_inpc_documentado:o.fallback_inpc_documentado.unwrap_or(false)}
     };
     // The copied core is kept byte-identical; overflow/panic never becomes a zero result.
     let result = std::panic::catch_unwind(|| rgps_core::calcular(&native))

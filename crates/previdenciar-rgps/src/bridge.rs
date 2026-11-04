@@ -127,7 +127,7 @@ pub fn calculate_case(case: &Calculation) -> Result<Value,String> {
         segurado:InsuredInput {sexo:case.sex.clone(),data_nascimento:case.identity.birth_date.clone(),deficiencia:case.disability.clone(),especie:case.especie.clone()},
         data_referencia:Some(case.dib.clone()),
         vinculos:case.manual_links.iter().filter(|l|!l.source_review.as_ref().is_some_and(|r|r.excluded)).map(|l|LinkInput {
-            inicio:Some(l.start_date.clone()),fim:Some(l.end_date.clone()),tipo:l.source_review.as_ref().and_then(|review| tipos.get(&review.sequence).cloned()).or_else(|| policy.manual_link_kind.clone()),
+            inicio:Some(l.start_date.clone()),fim:Some(l.end_date.clone()),tipo:l.source_review.as_ref().and_then(|review| tipos.get(&review.sequence).cloned()).filter(|value| !value.trim().is_empty()).or_else(|| policy.manual_link_kind.clone()),
             regime:Some(l.regime.clone()),confirmado:l.confirmed,evidencia:policy.review_evidence.clone(),
             indicadores:if l.indicators.trim().is_empty(){vec![]}else{vec!["manual_indicator_unresolved".into()]},
             origem:Some("manual_documentado".into()),prpps:l.regime.trim().eq_ignore_ascii_case("PRPPS") || l.regime.trim().eq_ignore_ascii_case("RPPS"),

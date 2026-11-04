@@ -106,9 +106,10 @@ fn imported_case()->Calculation {
 #[test] fn source_exclusion_needs_explicit_document_and_uses_only_manual_rows() {let mut c=imported_case();let mut p:Value=serde_json::from_str(&c.options.rule_policy).unwrap();p["exclude_imported_source"]=json!(true);p["source_exclusion_evidence"]=json!("synthetic-source-review-v1");c.options.rule_policy=p.to_string();let before=serde_json::to_vec(&c).unwrap();let r=calculate_case(&c).unwrap();assert_eq!(r["status"],"experimental","{r}");assert_eq!(r["data"]["native_result"]["resumo"]["competencias"],300);assert_eq!(before,serde_json::to_vec(&c).unwrap());assert!(c.cnis.as_ref().unwrap().links[0].prpps);assert!(c.cnis.as_ref().unwrap().links[0].end_date.is_none());}
 #[test] fn missing_expected_survival_does_not_manufacture_ibge_number() {let r=evaluate(fixture());assert!(r["warnings"].as_array().unwrap().iter().any(|w|w.as_str().unwrap().contains("IBGE")));}
 #[test] fn correction_reference_cannot_differ_from_dib() {let mut v=fixture();v["opcoes"]["corrigirSalarios"]=json!(true);v["opcoes"]["referenciaCorrecao"]=json!("2024-12");blocker(v,"correction_reference_mismatch");}
-#[test] fn below_minimum_wage_is_excluded_from_pbc_with_warning() {let mut v=fixture();v["competencias"][0]["salario"]=json!("10.00");let r=evaluate(v);assert_eq!(r["status"],"experimental","{r}");let warnings=r["warnings"].as_array().unwrap();assert!(warnings.iter().any(|w|w.as_str().unwrap_or("").contains("abaixo do salário mínimo")),"{r}");assert!(warnings.iter().any(|w|w.as_str().unwrap_or("").contains("1994-07")),"{r}");assert_eq!(r["data"]["source_reconciliation"]["below_minimum_excluded"],1);assert_eq!(r["data"]["source_reconciliation"]["pbc_wages"],299);}
+#[test] fn below_minimum_after_ec103_is_excluded_from_pbc_with_warning() {let mut v=fixture();v["vinculos"][0]["fim"]=json!("2020-01-31");v["competencias"].as_array_mut().unwrap().push(json!({"competencia":"2020-01","salario":"10.00","moeda":"BRL","confirmada":true}));let r=evaluate(v);assert_eq!(r["status"],"experimental","{r}");let warnings=r["warnings"].as_array().unwrap();assert!(warnings.iter().any(|w|w.as_str().unwrap_or("").contains("abaixo do salário mínimo")),"{r}");assert!(warnings.iter().any(|w|w.as_str().unwrap_or("").contains("2020-01")),"{r}");assert_eq!(r["data"]["source_reconciliation"]["below_minimum_excluded"],1);assert_eq!(r["data"]["source_reconciliation"]["pbc_wages"],300);}
+#[test] fn early_below_minimum_is_excluded_from_pbc_and_time() {let mut v=fixture();v["competencias"][0]["salario"]=json!("10.00");let r=evaluate(v);assert_eq!(r["status"],"experimental","{r}");assert_eq!(r["data"]["source_reconciliation"]["below_minimum_excluded"],1);assert_eq!(r["data"]["source_reconciliation"]["pbc_wages"],299);let warnings=r["warnings"].as_array().unwrap();assert!(warnings.iter().any(|w|w.as_str().unwrap_or("").contains("abaixo do salário mínimo")),"{r}");let tempo=r["data"]["native_result"]["tempo"].as_object().unwrap();let avisos=tempo["avisos"].as_array().unwrap();assert!(avisos.iter().any(|a|a.as_str().unwrap_or("").contains("abaixo do mínimo")),"{r}");}
 #[test] fn ec103_discard_requires_correction() {let mut v=fixture();v["opcoes"]["descartarMenoresMinimo"]=json!(8);blocker(v,"descartar_menores_requires_correction");}
-#[test] fn ec103_discard_never_returns_financial_result_before_time_is_recalculated() {let mut v:Value=serde_json::from_str(include_str!("fixtures/synthetic-corrected.json")).unwrap();v["opcoes"]["descartarMenoresMinimo"]=json!(8);blocker(v,"ec103_discard_unsupported");}
+#[test] fn ec103_discard_recalculates_time_and_returns_consistent_result() {let mut v:Value=serde_json::from_str(include_str!("fixtures/synthetic-corrected.json")).unwrap();v["opcoes"]["descartarMenoresMinimo"]=json!(8);let r=evaluate(v);assert_eq!(r["status"],"experimental","{r}");let pbc=&r["data"]["native_result"]["correcao"];assert_eq!(pbc["pbc"],12);assert_eq!(pbc["descartadas"],4);assert_eq!(pbc["consideradas"],8);let avisos=r["data"]["native_result"]["tempo"]["avisos"].as_array().unwrap();assert!(avisos.iter().any(|a|a.as_str().unwrap_or("").contains("descartada(s)")),"{r}");}
 #[test] fn wage_without_link_blocks() {let mut v=fixture();v["vinculos"][0]["inicio"]=json!("1994-08-01");blocker(v,"wage_outside_confirmed_links");}
 #[test] fn wage_in_dib_month_never_enters_pbc() {let mut v=fixture();v["competencias"].as_array_mut().unwrap().push(json!({"competencia":"2025-01","salario":"2000.00","moeda":"BRL","confirmada":true}));blocker(v,"wage_in_dib_month");}
 #[test] fn reconciliation_records_official_pbc_end() {let r=evaluate(fixture());assert_eq!(r["data"]["source_reconciliation"]["pbc_end"],"2024-12","{r}");}
@@ -121,3 +122,22 @@ fn imported_case()->Calculation {
 #[test] fn public_policy_template_never_auto_confirms_operator_review() {let p=previdenciar_rgps::required_policy_example();assert_eq!(p["version"],POLICY_VERSION);assert!(p["review_evidence"].is_null());assert!(p["manual_link_kind"].is_null());assert!(p["manual_currency"].is_null());assert_eq!(p["exclude_imported_source"],false);assert!(p["native_options"]["corrigirSalarios"].is_null());}
 
 #[test] fn documented_calculation_json_example_is_a_real_working_bridge_fixture() {let c:Calculation=serde_json::from_str(include_str!("fixtures/calculation-synthetic.json")).unwrap();let r=calculate_case(&c).unwrap();assert_eq!(r["status"],"experimental","{r}");assert_eq!(r["data"]["native_result"]["resumo"]["rmi"],"1600.00");}
+
+#[test] fn empty_affiliation_uses_declared_manual_link_kind() {
+    let mut c = manual_case();
+    c.cnis = Some(serde_json::from_value(json!({
+        "metadata":{"extractor":"synthetic-only","source_sha256":null,"page_count":1,"parsed_pages":1,"legal_validation_performed":false},
+        "identity":{},"salary_entries":[],"salary_months":{},
+        "links":[{"sequence":1,"raw_employer":null,"affiliation":null,"start_date":"1994-07-01","end_date":"2019-06-30","reported_last_salary_month":null,"inferred_last_salary_end":null,"indicators":[],"prpps":false,"validation_status":"unvalidated","excluded_from_validated_domain":false,"source":{"page":1,"line":1,"index":1,"byte_offset":0}}],
+        "benefits":[],"findings":[],"warnings":[]
+    })).unwrap());
+    c.manual_links[0].source_review = Some(previdenciar_workspace::link_review::LinkSourceReview {
+        sequence: 1, source_sha256: None, excluded: false, history: vec![],
+    });
+    c.manual_links[0].regime = "A confirmar".into();
+    c.manual_links[0].confirmed = false;
+    let r = calculate_case(&c).unwrap();
+    assert_eq!(r["status"], "blocked", "{r}");
+    let missing = r["missing"].as_array().unwrap();
+    assert!(!missing.contains(&json!("link_kind_unsupported")), "{r}");
+}

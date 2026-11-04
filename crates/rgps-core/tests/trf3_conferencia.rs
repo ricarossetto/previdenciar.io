@@ -374,7 +374,8 @@ fn perfil_no_motor_exige_dib_coberta_pela_politica_de_faixas() {
         "DIB fora da política deve falhar: {erro}"
     );
 
-    // DIB coberta e perfil correto: o motor roda e registra o perfil.
+    // DIB coberta e perfil correto: o motor registra a série IPC-R versionada
+    // e roda sem fallback.
     let mut entrada = entrada_trf3();
     entrada.opcoes.perfil_correcao = Some("trf3-v1".into());
     entrada.opcoes.fallback_inpc_documentado = true;
@@ -383,21 +384,14 @@ fn perfil_no_motor_exige_dib_coberta_pela_politica_de_faixas() {
         resultado.parametros.perfil_correcao.as_deref(),
         Some("trf3-v1@1")
     );
-    assert!(resultado.parametros.fallback_inpc_documentado);
     let correcao = resultado.correcao.as_ref().unwrap();
-    assert_eq!(correcao["series_ausentes"], serde_json::json!(["IPC-R"]));
-    assert!(resultado.avisos.iter().any(|a| a.contains("Fallback documentado")));
-    assert!(resultado.avisos.iter().any(|a| a.contains("IPC-R")));
+    assert_eq!(correcao["series_ausentes"], serde_json::json!([]));
+    assert_eq!(correcao["substituicoes_inpc"], serde_json::json!([]));
+    assert!(!resultado.avisos.iter().any(|a| a.contains("Fallback documentado")));
 
     // Perfil desconhecido: falha listando os disponíveis.
     let mut entrada = entrada_trf3();
     entrada.opcoes.perfil_correcao = Some("trf3-v2".into());
     let erro = calcular(&entrada).unwrap_err();
     assert!(erro.0.contains("trf3-v1"), "{erro}");
-
-    // Perfil sem fallback: a série ausente bloqueia o cálculo do motor.
-    let mut entrada = entrada_trf3();
-    entrada.opcoes.perfil_correcao = Some("trf3-v1".into());
-    let erro = calcular(&entrada).unwrap_err();
-    assert!(erro.0.contains("IPC-R"), "{erro}");
 }

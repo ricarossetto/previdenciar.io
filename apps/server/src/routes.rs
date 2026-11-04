@@ -1667,7 +1667,7 @@ mod tests {
         assert_header(
             headers,
             "content-security-policy",
-            "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'",
+            "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-src blob:",
         );
         assert_header(
             headers,
@@ -1695,7 +1695,7 @@ mod tests {
         assert_header(
             &headers,
             "content-security-policy",
-            "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'",
+            "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-src blob:",
         );
         assert_header(
             &headers,

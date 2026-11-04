@@ -245,20 +245,13 @@ pub fn calcular_pbc_com_perfil(
     Ok(resultado)
 }
 
-/// Descarte dos menores salários (EC 103/2019, art. 26, § 6º) até o mínimo de
-/// competências que o operador declara necessário para manter o direito.
-/// Remove as menores remunerações corrigidas; o divisor é o número restante.
-pub fn calcular_pbc_com_descarte_minimo(
-    competencias: &[(Competencia, Decimal)],
+fn pbc_de_parcelas_minimo(
+    parcelas: Vec<ParcelaCorrigida>,
     referencia: &Competencia,
     minimo_competencias: u32,
 ) -> Result<PbcResultado> {
-    if competencias.is_empty() || minimo_competencias == 0 {
+    if parcelas.is_empty() || minimo_competencias == 0 {
         return crate::money::erro("Descarte exige competências e mínimo maior que zero.");
-    }
-    let mut parcelas: Vec<_> = Vec::with_capacity(competencias.len());
-    for (competencia, salario) in competencias {
-        parcelas.push(corrigir_salario(competencia, *salario, referencia)?);
     }
     let pbc = parcelas.len();
     let minimo = (minimo_competencias as usize).min(pbc);
@@ -301,6 +294,59 @@ pub fn calcular_pbc_com_descarte_minimo(
         substituicoes_inpc,
         series_ausentes: Vec::new(),
     })
+}
+
+/// Descarte dos menores salários (EC 103/2019, art. 26, § 6º) até o mínimo de
+/// competências que o operador declara necessário para manter o direito.
+/// Remove as menores remunerações corrigidas; o divisor é o número restante.
+pub fn calcular_pbc_com_descarte_minimo(
+    competencias: &[(Competencia, Decimal)],
+    referencia: &Competencia,
+    minimo_competencias: u32,
+) -> Result<PbcResultado> {
+    let mut parcelas: Vec<_> = Vec::with_capacity(competencias.len());
+    for (competencia, salario) in competencias {
+        parcelas.push(corrigir_salario(competencia, *salario, referencia)?);
+    }
+    pbc_de_parcelas_minimo(parcelas, referencia, minimo_competencias)
+}
+
+/// Variante do descarte mínimo usando o perfil de correção versionado.
+pub fn calcular_pbc_com_perfil_descarte_minimo(
+    competencias: &[(Competencia, Decimal)],
+    referencia: &Competencia,
+    minimo_competencias: u32,
+    catalogo: &crate::perfil_correcao::CatalogoSeries,
+    perfil: &crate::perfil_correcao::PerfilCorrecao,
+    politica: crate::perfil_correcao::PoliticaFallback,
+) -> Result<PbcResultado> {
+    let mut parcelas: Vec<_> = Vec::with_capacity(competencias.len());
+    let mut substituicoes_inpc: Vec<String> = Vec::new();
+    let mut series_ausentes: Vec<String> = Vec::new();
+    for (competencia, salario) in competencias {
+        let fator = crate::perfil_correcao::fator_com_perfil(
+            catalogo, perfil, politica, competencia, referencia,
+        )?;
+        for substituicao in &fator.substituicoes_inpc {
+            if !substituicoes_inpc.contains(substituicao) {
+                substituicoes_inpc.push(substituicao.clone());
+            }
+        }
+        for serie in &fator.series_ausentes {
+            if !series_ausentes.contains(serie) {
+                series_ausentes.push(serie.clone());
+            }
+        }
+        parcelas.push(crate::atualizacao::corrigir_salario_com_fator(
+            competencia,
+            *salario,
+            &fator,
+        )?);
+    }
+    let mut resultado = pbc_de_parcelas_minimo(parcelas, referencia, minimo_competencias)?;
+    resultado.substituicoes_inpc = substituicoes_inpc;
+    resultado.series_ausentes = series_ausentes;
+    Ok(resultado)
 }
 /// Média simples sem correção (salários já corrigidos), com divisor mínimo opcional.
 pub fn salario_beneficio_sem_correcao(
