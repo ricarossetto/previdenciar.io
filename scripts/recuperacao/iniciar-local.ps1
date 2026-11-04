@@ -37,7 +37,7 @@ function Get-EnvValue([string]$prefix) {
 }
 $user = Get-EnvValue 'POSTGRES_USER'; $db = Get-EnvValue 'POSTGRES_DB'; $password = Get-EnvValue 'POSTGRES_PASSWORD'
 $encodedPassword = [System.Uri]::EscapeDataString($password)
-$databaseUrl = "postgres://$user:$encodedPassword@127.0.0.1:$pgPort/$db"
+$databaseUrl = "postgres://${user}:${encodedPassword}@127.0.0.1:${pgPort}/${db}"
 $serverEnv = @{
   APP_ENV = 'development'
   AUTH_DISABLED = '1'
