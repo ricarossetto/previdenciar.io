@@ -63,3 +63,16 @@ A referência aplica a regra do pedágio de 50% **depois** do descarte automáti
 4. **Formulário de política.** O caso salvo contém `descartarMenoresMinimo=310`, `perfilCorrecao=trf3-v1` e `expectativaSobrevida=26.1`. O formulário da interface não expõe todos esses campos; a política salva é preservada e usada no cálculo, mas a edição de novos casos ainda depende do JSON da política.
 
 Os erros de média (−1,71%) e de fator (+1,36%) se compensam em parte; a RMI final fica 0,37% abaixo da referência. Nenhuma fórmula foi alterada para produzir o valor esperado. Nenhum dado pessoal foi incluído neste documento, em commits ou em serviços externos.
+## Atualização final de 04/11/2026
+
+- Carência corrigida para **344** por exclusão documentada de 09/2019, restrita à carência; o PBC preserva a remuneração de R$ 3.917,73.
+- Tempo conciliado em **36a8m10d** após os 17 descartes; total anterior de **38a1m10d**.
+- Fator **0,7298** contra 0,7299; RMI **R$ 2.277,74** contra R$ 2.281,13 (−0,15%).
+- Soma dos salários R$ 967.466,48; a diferença de R$ 1.363,48 para a referência é integralmente de índice de correção.
+- 30/360 passou a usar a união efetiva de períodos adjacentes, sem alterar o caso real.
+- A premissa dos 12 meses de auxílio-doença (09/2018 a 08/2019) foi registrada na evidência de revisão do caso, com a ressalva de conferência da contribuição mensal e da fonte primária.
+- PDF final autenticado: 54 páginas, carência 344, RMI R$ 2.277,74, sem avisos de campos fora do contrato.
+- Candidato local: tag `candidato-20261104-10`, HEAD `ea4f833`, servidor SHA-256 `C29F19EA361DD179BB36CFA6D8D04A2B79502F9F2056DC671AA25B9330E648F6`.
+- Testes: núcleo 76/76, CNIS 40/40, adaptador 72/72, relatórios 17/17, frontend 307/307 + 2, typecheck 0.
+- Limpeza: target de 50,65 GB para cerca de 32 GB; PDBs e incremental removidos; nenhum dado ou binário de uso apagado.
+- Não houve push, merge no `main`, deploy ou migração.
