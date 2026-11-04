@@ -72,6 +72,8 @@ pub struct OptionsInput {
     pub expectativa_sobrevida: Option<String>,
     pub graca: Vec<GracePeriod>,
     pub recolhimentos_atraso: Vec<String>,
+    /// Competências excluídas da carência por decisão documentada do caso.
+    pub competencias_sem_carencia: Vec<String>,
     pub regra_alvo: Option<String>,
     /// Origem declarada da incapacidade (31/32): comum, acidente,
     /// doenca_ocupacional, doenca_do_trabalho ou doenca_listada.

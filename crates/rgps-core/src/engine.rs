@@ -41,6 +41,8 @@ pub struct RgpsOpcoes {
     pub meses_fora_do_tempo: Vec<Competencia>,
     /// Competências com contribuição comprovada; quando presentes, são a base da carência.
     pub competencias_contribuicao: Vec<Competencia>,
+    /// Competências excluídas da carência por decisão documentada do caso.
+    pub competencias_sem_carencia: Vec<Competencia>,
     pub referencia_correcao: Option<Competencia>,
     pub teto: Option<Decimal>,
     pub piso: Option<Decimal>,
@@ -364,6 +366,8 @@ pub fn calcular(entrada: &RgpsEntrada) -> Result<RgpsResultado> {
     } else {
         quantidade.saturating_add(entrada.opcoes.meses_fora_do_tempo.len())
     };
+    let sem_carencia = entrada.opcoes.competencias_sem_carencia.iter().copied().collect::<std::collections::BTreeSet<_>>().len();
+    let contribuicoes = contribuicoes.saturating_sub(sem_carencia);
     carencia.competencias_salario = contribuicoes;
     carencia.competencias_vinculo = 0;
     let mut carencia_meses = contribuicoes
