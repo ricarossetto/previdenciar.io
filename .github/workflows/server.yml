@@ -1,0 +1,73 @@
+name: server
+
+# Build do servidor web (Axum) isolado do aplicativo desktop.
+# Nao publica release, nao envia dados pessoais e nao roda automaticamente:
+# so pode ser iniciado por workflow_dispatch em uma branch autorizada.
+
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: "Perfil Cargo (dev ou release)"
+        required: true
+        default: dev
+        type: choice
+        options:
+          - dev
+          - release
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          components: rustfmt
+
+      - name: Cache Cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: cargo-registry-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: cargo-registry-${{ runner.os }}-
+
+      - name: Build server only
+        shell: pwsh
+        run: |
+          $profile = '${{ inputs.profile }}'
+          if ($profile -notin @('dev', 'release')) { throw "Perfil invalido: $profile" }
+          $profileArg = if ($profile -eq 'release') { @('--release') } else { @('--profile', 'dev') }
+          cargo build -p previdenciar-web-server --locked @profileArg
+
+      - name: Collect binary and checksum
+        shell: pwsh
+        run: |
+          $profile = '${{ inputs.profile }}'
+          $dir = if ($profile -eq 'release') { 'target/release' } else { 'target/debug' }
+          $bin = Join-Path $dir 'previdenciar-web-server.exe'
+          if (-not (Test-Path $bin)) { throw "Binario nao encontrado: $bin" }
+          $hash = (Get-FileHash $bin -Algorithm SHA256).Hash
+          $size = (Get-Item $bin).Length
+          New-Item -ItemType Directory -Path server-artifact -Force | Out-Null
+          Copy-Item $bin server-artifact/previdenciar-web-server.exe -Force
+          @{ file = 'previdenciar-web-server.exe'; profile = $profile; sha256 = $hash; bytes = $size; commit = '${{ github.sha }}' } | ConvertTo-Json | Set-Content -Encoding utf8 server-build.json
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: previdenciar-web-server-${{ inputs.profile }}-${{ github.sha }}
+          path: |
+            server-artifact/previdenciar-web-server.exe
+            server-build.json
+          retention-days: 3
+          if-no-files-found: error
