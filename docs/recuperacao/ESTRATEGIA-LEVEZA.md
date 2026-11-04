@@ -34,7 +34,7 @@ Medicao no checkout principal (`desktop`), onde `target/` existe. Este worktree 
 | apps/ (node_modules = 124,14 MiB) | 139.431.928 | 139,4 MB | 132,97 MiB | 6.896 |
 | .git/ (3 packs, garbage 0) | 14.700.144 | 14,7 MB | 14,02 MiB | 816 |
 | outros dirs + 21 arquivos da raiz | 9.664.382 | 9,7 MB | 9,22 MiB | ~100 |
-| *contexto:* C:/pagefile.sys | 31.833.718.784 | 31,8 GB | 29,65 GiB | 1 |
+| *contexto:* <pagefile> | 31.833.718.784 | 31,8 GB | 29,65 GiB | 1 |
 | *contexto:* volume C: usado / livre | 430.416.179.200 / 79.972.380.672 | 400,86 / 74,48 GiB | - | - |
 
 Conferencias: a soma dos itens fecha o total do repo (44.829.815.172 B); a soma das partes de `target` fecha o total de `target` por dois caminhos independentes (`robocopy /L` e `Get-ChildItem` + `Measure-Object`). `target` = 99,2% dos bytes e 85,1% dos arquivos do repo.

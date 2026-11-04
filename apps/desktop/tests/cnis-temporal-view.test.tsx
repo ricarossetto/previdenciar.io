@@ -31,4 +31,8 @@ describe('CnisTemporalView', () => {
     expect(screen.getByText('Anterior a 07/1994 (fora do PBC)')).toBeTruthy();
     expect(screen.queryByText('DIB invalida')).toBeNull();
   });
+  it('reconhece DIB no formato brasileiro', () => {
+    render(<CnisTemporalView cnis={cnisBase()} dib='30/06/1990' />);
+    expect(screen.getByText('Anterior a 07/1994 (fora do PBC)')).toBeTruthy();
+  });
 });

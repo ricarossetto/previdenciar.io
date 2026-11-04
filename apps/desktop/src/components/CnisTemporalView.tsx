@@ -1,6 +1,6 @@
 import type { Cnis, ManualLink } from '../model';
 import { centavosMoney } from '../model';
-import { competenceLayers, confirmedRangesOf, pbcWindow, temporalIssues, temporalSummary, type CompetenceLayer } from '../temporal';
+import { competenceLayers, confirmedRangesOf, monthKey, pbcWindow, temporalIssues, temporalSummary, type CompetenceLayer } from '../temporal';
 import { Notice, Panel } from './ui';
 
 const LIMIT = 120;
@@ -45,6 +45,7 @@ export interface CnisTemporalViewProps { cnis: Cnis; dib: string; confirmedLinks
 /** Visao temporal derivada do CNIS: nunca apaga a fonte e limita o recorte de calculo a DIB/PBC. */
 export function CnisTemporalView({ cnis, dib, confirmedLinks }: CnisTemporalViewProps) {
   const window = pbcWindow(dib);
+  const dibKey = monthKey(dib);
   const hasConfirmedLinks = Array.isArray(confirmedLinks) && confirmedLinks.length > 0;
   const layers = competenceLayers(cnis, dib, confirmedLinks ? { confirmedRanges: confirmedRangesOf(confirmedLinks) } : {});
   const summary = temporalSummary(layers, window);
@@ -55,7 +56,7 @@ export function CnisTemporalView({ cnis, dib, confirmedLinks }: CnisTemporalView
   const beforeWindow = layers.filter(layer => layer.pbcStatus === 'before_window' && layer.relativeToDib !== 'after');
   return <Panel title='Visao temporal do CNIS' subtitle='Camada derivada e aditiva: a fonte importada nao e apagada nem reescrita; o recorte de calculo termina na DIB/PBC.'>
     <div className='result-strip' data-testid='temporal-summary'>
-      <div><span>Janela do PBC</span><strong>{window ? window.from + ' a ' + window.to : (dib && /^\d{4}-\d{2}/.test(dib) ? 'Anterior a 07/1994 (fora do PBC)' : 'DIB nao informada')}</strong></div>
+      <div><span>Janela do PBC</span><strong>{window ? window.from + ' a ' + window.to : (dibKey ? 'Anterior a 07/1994 (fora do PBC)' : 'DIB nao informada')}</strong></div>
       <div><span>Dentro do PBC</span><strong>{summary.inPbc}</strong></div>
       <div><span>Posterior a DIB (fora do PBC)</span><strong>{summary.postDib}</strong></div>
       <div><span>Sem remuneracao (desconhecida)</span><strong>{summary.missingSalary}</strong></div>

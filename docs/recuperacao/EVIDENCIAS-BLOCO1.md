@@ -32,3 +32,11 @@
 - Documento de build sanitizado (sem caminho absoluto) e numeros de .fingerprint reconciliados.
 - Suite: 40 arquivos, 300 testes, 300 aprovados; typecheck exit 0.
 
+
+## Revisao focada (run_1b6cb1a9305c)
+- Veredito: APROVADO COM RESSALVAS; typecheck 0 e 300/300 testes confirmados em HEAD 72ac170.
+- Medio corrigido: DIB brasileira reconhecida na rotula/regua; teste adicionado.
+- Badge do CNIS separado por dimensao (no recorte / antes / depois / lacunas), sem somar categorias.
+- Caminhos absolutos pre-existentes sanitizados no doc de build.
+- Build de producao do frontend (build:web) exit 0: 24 arquivos, 3.797.242 B; login renderizado sem erro de console; bundle diferente do publicado (producao index-DlBZOfH4.js).
+
