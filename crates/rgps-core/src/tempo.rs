@@ -82,6 +82,22 @@ fn dias_inclusivos(inicio: &IsoDate, fim: &IsoDate) -> i64 {
 /// Contagem 30/360 usada nos relatórios previdenciários: mês de 30 dias,
 /// ano de 360, período iniciado no dia 1 até o último dia do mês conta como
 /// mês cheio. É a convenção da tabela de tempo da referência.
+/// Soma 30/360 sobre a união efetiva de períodos, preservando o fator de
+/// cada trecho. Períodos adjacentes com o mesmo fator são fundidos antes da
+/// contagem, porque a convenção 30/360 não é aditiva entre cortes de vínculo.
+fn total_30_360_efetivo(periodos: &[(IsoDate, IsoDate, f64)]) -> i64 {
+    let mut merged: Vec<(IsoDate, IsoDate, f64)> = Vec::new();
+    for &(inicio, fim, fator) in periodos {
+        if let Some(last) = merged.last_mut() {
+            if (last.2 - fator).abs() < f64::EPSILON && inicio <= last.1.add_days(1) {
+                if fim > last.1 { last.1 = fim; }
+                continue;
+            }
+        }
+        merged.push((inicio, fim, fator));
+    }
+    merged.iter().map(|&(inicio, fim, fator)| (dias_30_360(&inicio, &fim) as f64 * fator).round() as i64).sum()
+}
 fn dias_30_360(inicio: &IsoDate, fim: &IsoDate) -> i64 {
     let mut anos = fim.ano - inicio.ano;
     let mut meses = fim.mes as i32 - inicio.mes as i32;
@@ -172,7 +188,7 @@ pub fn calcular_tempo(
     let mut cursor: Option<IsoDate> = None;
     let mut total_dias: i64 = 0;
     let mut total_dias_efetivos: i64 = 0;
-    let mut total_360: i64 = 0;
+
     let mut competencias: BTreeSet<Competencia> = BTreeSet::new();
 
     for vinculo in &normalizados {
@@ -190,7 +206,7 @@ pub fn calcular_tempo(
         let dias_efetivos = (dias as f64 * vinculo.fator).round() as i64;
         total_dias += dias;
         total_dias_efetivos += dias_efetivos;
-        if dias > 0 { total_360 += (dias_30_360(&inicio_efetivo, &vinculo.fim) as f64 * vinculo.fator).round() as i64; }
+
         if dias > 0 {
             efetivos.push((inicio_efetivo, vinculo.fim, vinculo.fator));
             let mut periodo = Competencia {
@@ -223,6 +239,7 @@ pub fn calcular_tempo(
         });
     }
 
+    let total_360 = total_30_360_efetivo(&efetivos);
     let anos = total_360 / 360;
     let meses = (total_360 % 360) / 30;
     let dias = total_360 - anos * 360 - meses * 30;
@@ -337,5 +354,15 @@ mod tests {
         assert_eq!(d("2023-02-01","2023-02-28"),30);
         assert_eq!(d("2024-01-31","2024-01-31"),0);
         assert_eq!(d("2024-01-31","2024-02-01"),1);
+    }
+    #[test]
+    fn total_30_360_une_periodos_adjacentes() {
+        let a=IsoDate::parse("2023-01-01","a").unwrap();
+        let b=IsoDate::parse("2023-01-30","b").unwrap();
+        let c=IsoDate::parse("2023-01-31","c").unwrap();
+        let d=IsoDate::parse("2023-02-28","d").unwrap();
+        assert_eq!(dias_30_360(&a,&b),30);
+        assert_eq!(dias_30_360(&c,&d),28);
+        assert_eq!(total_30_360_efetivo(&[(a,b,1.0),(c,d,1.0)]),60);
     }
 }
