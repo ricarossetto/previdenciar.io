@@ -30,7 +30,7 @@ function fromIndex(index: number): string {
   return year + '-' + String(month).padStart(2, '0');
 }
 
-const MAX_MONTHS = 720;
+const MAX_MONTHS = 1400;
 
 /// Monta a régua de competências em camadas aditivas: o que foi lido, a janela do
 /// PBC, as lacunas da origem e o que ficou depois da DIB. Nada é apagado ou

@@ -74,3 +74,5 @@
   .journey-guide__action small{text-align:left;max-width:none}
   .cnis-timeline__counts{grid-template-columns:1fr 1fr}
 }
+
+.cnis-timeline__month.is-dib{outline:2px solid var(--accent);outline-offset:1px}

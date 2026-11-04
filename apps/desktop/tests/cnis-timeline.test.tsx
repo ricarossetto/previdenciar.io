@@ -55,6 +55,8 @@ describe('visão temporal do CNIS', () => {
     expect(within(timeline).getByText('2 no recorte do PBC · 66 fora do recorte · 345 lacunas')).toBeInTheDocument();
     expect(within(timeline).getByText('No mês da DIB ou depois')).toBeInTheDocument();
     expect(within(timeline).getByText('2023-05')).toBeInTheDocument();
+    expect(within(timeline).getByText('Mês da DIB')).toBeInTheDocument();
+    expect(within(timeline).getByText('2023-06')).toBeInTheDocument();
     expect(within(timeline).getByLabelText('2000-02: sem lançamento na origem')).toBeInTheDocument();
     expect(within(timeline).getByText(/não é salário zero/)).toBeInTheDocument();
   });

@@ -33,8 +33,8 @@ export function CnisTimeline({ cnis, dib }: { cnis: Cnis; dib?: string | null })
         <span className="cnis-timeline__months">
           {year.months.map(month => <span
             key={month.competence}
-            className={'cnis-timeline__month is-' + month.state}
-            title={month.competence + ' · ' + STATE_LABEL[month.state]}
+            className={'cnis-timeline__month is-' + month.state + (month.competence === model.dibMonth ? ' is-dib' : '')}
+            title={month.competence + ' · ' + STATE_LABEL[month.state] + (month.competence === model.dibMonth ? ' · mes da DIB' : '')}
             aria-label={month.competence + ': ' + STATE_LABEL[month.state]}
           />)}
         </span>
@@ -47,6 +47,7 @@ export function CnisTimeline({ cnis, dib }: { cnis: Cnis; dib?: string | null })
       <div><dt>No mês da DIB ou depois</dt><dd>{model.counts.posDib}</dd></div>
       <div><dt>Janela exibida</dt><dd>{model.rangeStart} a {model.rangeEnd}</dd></div>
       <div><dt>Recorte do PBC termina</dt><dd>{model.pbcEnd ?? 'DIB não informada'}</dd></div>
+      <div><dt>Mês da DIB</dt><dd>{model.dibMonth ?? 'DIB não informada'}</dd></div>
     </dl>
     <p className="form-note">Períodos depois da DIB continuam visíveis como origem, mas ficam fora da janela da média. O descarte de competências é decisão do motor e não é aplicado nesta tela; datas finais ausentes na origem não são presumidas.</p>
   </section>;

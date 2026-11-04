@@ -24,7 +24,7 @@ function Row({ layer }: { layer: CompetenceLayer }) {
     <td>{layer.competence}</td>
     <td className='num'>{money(layer)}</td>
     <td>{situation(layer)}</td>
-    <td>{layer.sourcePages.length ? 'Paginas ' + layer.sourcePages.join(', ') : 'Sem pagina de origem'}</td>
+    <td>{layer.sourcePages.length ? 'CNIS p. ' + layer.sourcePages.join(', ') : 'Sem pagina de origem'} · periodo {layer.periodStatus === 'confirmed' ? 'confirmado' : layer.periodStatus === 'unknown' ? 'nao apurado' : 'pendente'}</td>
   </tr>;
 }
 function Table({ title, layers, open = false }: { title: string; layers: readonly CompetenceLayer[]; open?: boolean }) {
@@ -32,7 +32,7 @@ function Table({ title, layers, open = false }: { title: string; layers: readonl
   return <details className='details' open={open}>
     <summary><strong>{title}</strong> - {layers.length}</summary>
     <div className='table-wrap'><table className='data-table'>
-      <thead><tr><th>Competencia</th><th className='num'>Remuneracao</th><th>Situacao</th><th>Origem</th></tr></thead>
+      <thead><tr><th>Competencia</th><th className='num'>Remuneracao</th><th>Situacao</th><th>Origem / periodo</th></tr></thead>
       <tbody>{shown.map(layer => <Row key={layer.competence} layer={layer} />)}</tbody>
     </table></div>
     {layers.length > shown.length && <p className='form-note'>Exibindo {shown.length} de {layers.length}. A fonte integral continua nas abas Periodos e Remuneracoes.</p>}
