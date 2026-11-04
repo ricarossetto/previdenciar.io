@@ -120,6 +120,9 @@ pub struct ImportResult {
     pub identity: Identity,
     pub salary_entries: Vec<SalaryEntry>,
     pub salary_months: BTreeMap<String, SalaryMonth>,
+    /// Competências com linha de contribuição paga; separadas da remuneração.
+    #[serde(default)]
+    pub contribution_months: Vec<String>,
     pub links: Vec<EmploymentLink>,
     pub benefits: Vec<BenefitRecord>,
     pub findings: Vec<Finding>,
@@ -401,7 +404,7 @@ fn parse_pages(pages: &[String]) -> Result<ImportResult, ImportError> {
     let mut result = ImportResult {
         metadata: ImportMetadata { extractor: "text / synthetic or caller-provided".into(), source_sha256: None,
             page_count: pages.len(), parsed_pages: pages.len(), legal_validation_performed: false },
-        identity: Identity::default(), salary_entries: Vec::new(), salary_months: BTreeMap::new(),
+        identity: Identity::default(), salary_entries: Vec::new(), salary_months: BTreeMap::new(), contribution_months: Vec::new(),
         links: Vec::new(), benefits: Vec::new(), findings: Vec::new(), warnings: Vec::new(),
     };
     let mut seen_cnis = false;
@@ -537,6 +540,10 @@ fn parse_pages(pages: &[String]) -> Result<ImportResult, ImportError> {
                 let end = payment_rows.get(i+1).map(|next| next.get(0).unwrap().start()).unwrap_or(line.len());
                 let amount_centavos = money(&cap[4])?;
                 if amount_centavos < 0 { negative_entries += 1; }
+                let competencia_contribuicao = format!("{}-{}", &cap[2], &cap[1]);
+                if !result.contribution_months.contains(&competencia_contribuicao) {
+                    result.contribution_months.push(competencia_contribuicao.clone());
+                }
                 result.salary_entries.push(SalaryEntry {
                     competence: format!("{}-{}", &cap[2], &cap[1]), amount_centavos,
                     indicators: codes(&line[span.end()..end]),

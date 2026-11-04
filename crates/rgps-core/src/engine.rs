@@ -39,6 +39,8 @@ pub struct RgpsOpcoes {
     pub descartar_menores_minimo: Option<u32>,
     /// Competências excluídas do PBC e do tempo por valor abaixo do mínimo.
     pub meses_fora_do_tempo: Vec<Competencia>,
+    /// Competências com contribuição comprovada; quando presentes, são a base da carência.
+    pub competencias_contribuicao: Vec<Competencia>,
     pub referencia_correcao: Option<Competencia>,
     pub teto: Option<Decimal>,
     pub piso: Option<Decimal>,
@@ -347,7 +349,21 @@ pub fn calcular(entrada: &RgpsEntrada) -> Result<RgpsResultado> {
     // Carência é contagem de competências de contribuição, não união de todos os
     // meses de vínculo. Os meses abaixo do mínimo continuam sendo contribuições
     // para a carência, ainda que fiquem fora do PBC/tempo.
-    let contribuicoes = quantidade.saturating_add(entrada.opcoes.meses_fora_do_tempo.len());
+    let contribuicoes_listadas = entrada
+        .opcoes
+        .competencias_contribuicao
+        .iter()
+        .copied()
+        .collect::<std::collections::BTreeSet<_>>()
+        .len();
+    // A tabela de contribuições do CNIS pode vir incompleta. Só a usamos
+    // quando cobre ao menos todas as competências remuneradas conhecidas;
+    // caso contrário, a carência continua pela base conservadora anterior.
+    let contribuicoes = if contribuicoes_listadas >= quantidade {
+        contribuicoes_listadas
+    } else {
+        quantidade.saturating_add(entrada.opcoes.meses_fora_do_tempo.len())
+    };
     carencia.competencias_salario = contribuicoes;
     carencia.competencias_vinculo = 0;
     let mut carencia_meses = contribuicoes

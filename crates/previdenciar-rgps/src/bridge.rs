@@ -139,6 +139,7 @@ pub fn calculate_case(case: &Calculation) -> Result<Value,String> {
             indicadores:if w.indicators.trim().is_empty(){vec![]}else{vec!["manual_wage_indicator_unresolved".into()]}
         }).collect(),
         opcoes:policy.native_options,
+        contribution_months:case.cnis.as_ref().map(|cnis|cnis.contribution_months.clone()).unwrap_or_default(),
         revisao:ReviewInput {confirmada:evidence, evidencia:policy.review_evidence, politica:policy.version},
     };
     // Unsafe source never reaches native calculation, not even temporarily.

@@ -9,6 +9,8 @@ pub struct CalculationInput {
     pub vinculos: Vec<LinkInput>,
     pub competencias: Vec<WageInput>,
     pub opcoes: OptionsInput,
+    #[serde(default)]
+    pub contribution_months: Vec<String>,
     pub revisao: ReviewInput,
 }
 #[derive(Clone, Default, Serialize, Deserialize)]
