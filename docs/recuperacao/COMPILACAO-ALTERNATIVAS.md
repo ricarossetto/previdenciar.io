@@ -1,28 +1,42 @@
 # Compilacao do servidor web — alternativas concretas
 
-## Escopo
-Somente `previdenciar-web-server` (Axum). Nao recompilar desktop/Tauri nem gerar instalador.
+## Fato novo de seguranca
+O repositorio `ricarossetto/previdenciar.io` e **PUBLICO**. Portanto:
+- push de branch e logs de Actions ficam publicos;
+- artefato de Actions em repositorio publico nao e um local privado para o binario;
+- nao devemos publicar o executavel do servidor por esse caminho.
 
-## Alternativa A — GitHub Actions (recomendada)
-- Workflow preparado em `.github/workflows/server.yml` na branch candidata; gatilho manual `workflow_dispatch`; permissao `contents: read`.
-- Runner `windows-latest`; build `cargo build -p previdenciar-web-server --locked --profile dev|release`.
-- Cache somente do registro Cargo; `target` nao e cacheado.
-- Artefato privado com `.exe` + JSON de SHA-256/bytes/commit, retencao 3 dias.
-- Dados enviados: apenas o codigo do repositorio privado; nenhum PDF/CNIS/dado pessoal.
-- Custo: minutos de Actions do repositorio privado (estimativa 10–25 min/execucao; cota a conferir) e download do binario (~50–60 MB).
+## Alternativa A — GitHub Actions em repositorio PRIVADO (recomendada)
+- Destino: repositorio privado autorizado (por exemplo, um fork privado ou o repositorio privado ja existente do produto), nunca o `previdenciar.io` publico.
+- Workflow `.github/workflows/server.yml`: `workflow_dispatch`, `contents: read`, runner `windows-latest`, build `cargo build -p previdenciar-web-server --locked --profile dev|release`.
+- O workflow tem trava: job so roda se `github.event.repository.private == true`; em repositorio publico falha sem gerar artefato.
+- Dados enviados: apenas codigo-fonte; nenhum PDF/CNIS/PII.
+- Custo: minutos de Actions do repositorio privado (estimativa 10–25 min/execucao; cota depende do plano) e download do binario (~50–60 MB).
+- Artefato: `.exe` + `server-build.json` (SHA-256/bytes/commit), retencao 3 dias.
 - Obtencao: `gh run download -n previdenciar-web-server-dev-<sha>`; conferir SHA-256; guardar fora do repo.
-- Requer autorizacao para push da branch candidata e consumo da cota de Actions.
+- Requer autorizacao especifica: push da branch no repositorio privado, execucao manual do workflow e consumo de cota.
+
+## Alternativa A2 — build no repositorio publico com artefato cifrado
+- Cifrar o binario (ex.: age/gpg) antes do upload, com chave privada so na maquina local.
+- Ainda expoe branch e logs publicos; a chave precisa ser configurada como secret.
+- Mais complexo e com superficie de erro maior; nao recomendado frente a A.
 
 ## Alternativa B — build local controlado
-- C: 73,76 GiB livres; RAM ~1,95 GiB livres; pagefile com historico de cap.
-- Comando: `cargo build -p previdenciar-web-server --locked --offline -j 1` via supervisor existente, sem `cargo clean`.
+- Estado medido: C: 73,76 GiB livres; RAM total 15,66 GiB, ~1,95 GiB livres; pagefile com historico de estouro.
+- Comando: `cargo build -p previdenciar-web-server --locked --offline -j 1`, via supervisor existente, sem `cargo clean`.
 - Crescimento esperado: 0,5–1,5 GiB no `target`; risco de paginacao e invalidacao de fingerprints.
-- Parada: bloqueio do supervisor; RAM livre < 1 GiB; pagefile alocado crescendo > 1 GiB. Sem credito de orcamento antigo.
-- Recomendacao: nao executar agora; RAM livre insuficiente.
+- Para tentar com seguranca: fechar aplicativos pesados, exigir pelo menos ~6 GiB de RAM livre e ~10 GiB de disco livre; supervisor com cap; parar se RAM < 1 GiB livre ou pagefile crescer > 1 GiB.
+- Nao reutiliza autorizacao antiga de 2 GiB.
+- Recomendacao: somente se A estiver indisponivel e a RAM for liberada.
 
 ## Desktop x servidor
 - Desktop: `previdenciar-next-desktop`/Tauri, instalador e assinatura (workflow separado).
-- Servidor: `previdenciar-web-server`; frontend Vite e build separado; o build remoto do servidor nao toca o `target` local.
+- Servidor: `previdenciar-web-server`; frontend Vite e build separado.
+- Build remoto do servidor nao toca o `target`, o desktop ou dados locais.
 
 ## Decisao pendente
-Autorizar A (push + execucao manual) ou B (build local com teto e condicoes). Recomendacao tecnica: A.
+1. Autorizar A em repositorio privado (destino, push e execucao manual), ou
+2. Autorizar B com RAM liberada e teto local, ou
+3. Manter somente auditoria/testes sem build.
+
+Recomendacao tecnica: **A em repositorio privado**.
