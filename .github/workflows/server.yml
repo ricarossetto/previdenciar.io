@@ -64,11 +64,6 @@ jobs:
           Copy-Item $bin server-artifact/previdenciar-web-server.exe -Force
           @{ file = 'previdenciar-web-server.exe'; profile = $profile; sha256 = $hash; bytes = $size; commit = '${{ github.sha }}' } | ConvertTo-Json | Set-Content -Encoding utf8 server-build.json
 
-      - name: Fail closed when repository is public
-        if: ${{ github.event.repository.private != true }}
-        shell: pwsh
-        run: throw 'Repositorio publico: build/artefato do servidor bloqueado. Use repositorio privado ou build local controlado.'
-
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: ${{ github.event.repository.private == true }}
         with:

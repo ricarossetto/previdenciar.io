@@ -46,8 +46,9 @@ export interface CnisTemporalViewProps { cnis: Cnis; dib: string; confirmedLinks
 export function CnisTemporalView({ cnis, dib, confirmedLinks }: CnisTemporalViewProps) {
   const window = pbcWindow(dib);
   const dibKey = monthKey(dib);
-  const hasConfirmedLinks = Array.isArray(confirmedLinks) && confirmedLinks.length > 0;
-  const layers = competenceLayers(cnis, dib, confirmedLinks ? { confirmedRanges: confirmedRangesOf(confirmedLinks) } : {});
+  const confirmedRanges = confirmedRangesOf(Array.isArray(confirmedLinks) ? confirmedLinks : []);
+  const hasConfirmedLinks = confirmedRanges.length > 0;
+  const layers = competenceLayers(cnis, dib, hasConfirmedLinks ? { confirmedRanges } : {});
   const summary = temporalSummary(layers, window);
   const issues = temporalIssues(layers).filter(group => group.key !== 'sem_periodo' || hasConfirmedLinks);
   const postDib = layers.filter(layer => layer.relativeToDib === 'after');
@@ -63,7 +64,7 @@ export function CnisTemporalView({ cnis, dib, confirmedLinks }: CnisTemporalView
       <div><span>Sem periodo confirmado</span><strong data-testid='temporal-unconfirmed'>{hasConfirmedLinks ? summary.unconfirmed : 'Nao apurado'}</strong></div>
     </div>
     <Notice>Posterior a DIB permanece na fonte e fica fora do PBC. Competencia sem periodo confirmado fica pendente; competencia sem remuneracao continua desconhecida, nunca zero. As famílias 'posterior a DIB' e 'sem periodo confirmado' sao dimensoes independentes: nao devem ser somadas.</Notice>
-    <p className='form-note' data-testid='temporal-window-note'>A janela do PBC tem {summary.windowMonths || 0} meses; {summary.withSalaryInPbc} competencia(s) com remuneracao no recorte e {summary.missingSalary} sem remuneracao lancada. Mes sem lancamento exige conferencia da origem; nao e lacuna automatica nem salario zero.</p>
+    <p className='form-note' data-testid='temporal-window-note'>A janela do PBC tem {summary.windowMonths || 0} meses; {summary.withSalaryInPbc} competencia(s) com remuneracao no recorte e {summary.missingSalary} sem remuneracao lancada. Esta contagem deriva das competencias e dos trechos de vinculo presentes na origem, nao de uma varredura de todos os meses da janela: mes sem lancamento exige conferencia; nao e lacuna automatica nem salario zero.</p>
     {issues.length > 0 && <div data-testid='temporal-issues'>
       <h3 style={{ fontSize: 14 }}>Pendencias agrupadas e proxima acao</h3>
       <ul className='review-list'>{issues.map(group => <li key={group.key} data-group={group.key}>

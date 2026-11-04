@@ -60,8 +60,8 @@ export function buildCnisTimeline(cnis: Cnis, dib: string | null): CnisTimelineM
       const index = year * 12 + (month - 1), competence = fromIndex(index), summary = months.get(competence) ?? null;
       let state: TimelineMonthState;
       if (index < startIndex || index > endIndex) state = 'foraDoIntervalo';
-      else if (competence < PBC_START) state = 'prePbc';
       else if (pbcEnd && competence > pbcEnd) state = 'posDib';
+      else if (competence < PBC_START) state = 'prePbc';
       else if (summary) state = 'lancamento';
       else state = 'lacuna';
       if (state === 'prePbc') counts.prePbc += 1;

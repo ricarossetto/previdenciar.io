@@ -39,4 +39,3 @@
 - Badge do CNIS separado por dimensao (no recorte / antes / depois / lacunas), sem somar categorias.
 - Caminhos absolutos pre-existentes sanitizados no doc de build.
 - Build de producao do frontend (build:web) exit 0: 24 arquivos, 3.797.242 B; login renderizado sem erro de console; bundle diferente do publicado (producao index-DlBZOfH4.js).
-

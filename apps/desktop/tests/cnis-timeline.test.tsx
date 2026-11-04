@@ -40,6 +40,11 @@ describe('visão temporal do CNIS', () => {
     expect(model.counts).toEqual({ prePbc: 54, lancamentos: 2, lacunas: 345, posDib: 12 });
   });
 
+  it('DIB anterior a 07/1994 nao classifica meses posteriores como pre-PBC', () => {
+    const model = buildCnisTimeline(fixture(), '30/06/1990');
+    expect(monthOf(model, '1994-07')).toMatchObject({ state: 'posDib' });
+  });
+
   it('trata ausência de competência como lacuna, nunca como salário zero', () => {
     const model = buildCnisTimeline(fixture(), '30/06/2023');
     const gap = monthOf(model, '2000-02');

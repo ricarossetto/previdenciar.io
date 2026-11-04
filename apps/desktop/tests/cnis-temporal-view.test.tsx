@@ -20,6 +20,12 @@ describe('CnisTemporalView', () => {
     expect(screen.getByTestId('temporal-unconfirmed').textContent).toBe('Nao apurado');
     expect(container.querySelector('[data-group="sem_periodo"]')).toBeNull();
   });
+  it('vinculo nao confirmado nao ativa contagem', () => {
+    const draft: ManualLink[] = [{ confirmed: false, start_date: '2023-01-01', end_date: '2023-05-31' } as ManualLink];
+    render(<CnisTemporalView cnis={cnisBase()} dib='2023-06-30' confirmedLinks={draft} />);
+    expect(screen.getByTestId('temporal-unconfirmed').textContent).toBe('Nao apurado');
+  });
+
   it('com vinculo confirmado calcula a contagem real', () => {
     const confirmed: ManualLink[] = [{ confirmed: true, start_date: '2023-01-01', end_date: '2023-05-31' } as ManualLink];
     render(<CnisTemporalView cnis={cnisBase()} dib='2023-06-30' confirmedLinks={confirmed} />);
