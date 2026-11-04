@@ -10,7 +10,46 @@ const MAX_FIELD: usize = 1_000;
 #[derive(Debug)] pub(crate) struct Table { pub caption: String, pub headers: Vec<String>, pub weights: Vec<usize>, pub rows: Vec<Vec<String>> }
 fn section(title: &str, new_page: bool) -> Section { Section { title: title.into(), paragraphs: vec![], tables: vec![], new_page } }
 fn table(caption: &str, headers: &[&str], weights: &[usize], rows: Vec<Vec<String>>) -> Table { Table { caption: caption.into(), headers: headers.iter().map(|s|s.to_string()).collect(), weights: weights.to_vec(), rows } }
+/// Corrige o mojibake deixado pela extração de PDF do CNIS (bytes UTF-8 lidos
+/// como Latin-1/CP1252) antes de validar o texto. Não inventa conteúdo: apenas
+/// reinterpreta a sequência de bytes quando ela forma UTF-8 válido.
+fn reparar_texto(value: &str) -> String {
+    fn cp1252_byte(c: char) -> Option<u8> {
+        Some(match c {
+            '€' => 0x80, '‚' => 0x82, 'ƒ' => 0x83, '„' => 0x84, '…' => 0x85,
+            '†' => 0x86, '‡' => 0x87, 'ˆ' => 0x88, '‰' => 0x89, 'Š' => 0x8A,
+            '‹' => 0x8B, 'Œ' => 0x8C, 'Ž' => 0x8E, '‘' => 0x91, '’' => 0x92,
+            '“' => 0x93, '”' => 0x94, '•' => 0x95, '–' => 0x96, '—' => 0x97,
+            '˜' => 0x98, '™' => 0x99, 'š' => 0x9A, '›' => 0x9B, 'œ' => 0x9C,
+            'ž' => 0x9E, 'Ÿ' => 0x9F, _ => return None,
+        })
+    }
+    let mut current = value.to_string();
+    for _ in 0..4 {
+        let mut bytes = Vec::with_capacity(current.len());
+        let mut supported = true;
+        for c in current.chars() {
+            let code = c as u32;
+            if code <= 0xFF {
+                bytes.push(code as u8);
+            } else if let Some(byte) = cp1252_byte(c) {
+                bytes.push(byte);
+            } else {
+                supported = false;
+                break;
+            }
+        }
+        if !supported { break; }
+        match String::from_utf8(bytes) {
+            Ok(next) if next != current => current = next,
+            _ => break,
+        }
+    }
+    current
+}
+
 fn field(value: &str) -> Result<String,String> {
+    let value = reparar_texto(value);
     if value.chars().count() > MAX_FIELD { return Err("Campo de relatório excede 1.000 caracteres; nenhum texto foi cortado.".into()); }
     if value.chars().any(|c| c.is_control() && !c.is_whitespace()) { return Err("Texto de relatório contém caracteres de controle não suportados.".into()); }
     Ok(value.split_whitespace().collect::<Vec<_>>().join(" "))
@@ -975,7 +1014,7 @@ fn finish(report:Report)->Result<Report,String>{
     #[test]fn exact_currency_not_float(){assert_eq!(cents(326940),"3.269,40");assert_eq!(cents(-1),"-0,01");assert_eq!(decimal("2048.18",true).unwrap(),"2.048,18");assert!(decimal("1.123",true).is_err());}
     #[test]fn null_bool_is_distinct(){assert_ne!(opt_bool(None),opt_bool(Some(false)));assert_eq!(opt_bool(None),"Não respondido");}
     #[test]fn date_is_checked(){assert!(iso_valid("2024-02-29"));assert!(!iso_valid("2023-02-29"));assert!(!iso_valid("1900-02-29"));assert!(!iso_valid("敏-01-01"));}
-    #[test]fn text_limits_fail_not_clip(){assert!(field(&"a".repeat(1001)).is_err());assert!(field("a\0b").is_err());}
+    #[test]fn text_limits_fail_not_clip(){assert!(field(&"a".repeat(1001)).is_err());assert!(field("a\0b").is_err());assert_eq!(field("Empregado ou Agente PÃ\u{0083}Æ\u{0092}Ã\u{0082}Âºblico").unwrap(),"Empregado ou Agente Público");}
     #[test]fn numeric_not_arbitrary_text(){assert!(numeric(Some(&Value::String("CPF123".into())),true).is_err());}
     #[test]fn private_indicator_whitelist(){assert_eq!(indicators(&["PRPPS".into(),"SECRET NAME".into()],false).unwrap(),"PRPPS; 1 código(s) não catalogado(s) oculto(s)");}
 }
