@@ -18,8 +18,8 @@ describe('Amicro integration', () => {
     workspace.calculations = [{ ...blankCase(), id: 3 }, { ...blankCase(), id: 4, archived: true }];
     workspace.appointments = [{ id: 5, title: 'Compromisso fictício', date: '2026-10-13', time: '09:00', client_id: null, notes: '', completed: false }];
     render(<MotionProvider><DashboardOverview workspace={workspace} onStart={() => {}} onClient={() => {}} onReports={() => {}} /></MotionProvider>);
-    const metrics = screen.getByLabelText('Indicadores da base local').querySelectorAll('strong');
-    expect(Array.from(metrics, item => item.textContent)).toEqual(['1', '1', '1', '1']);
+    expect(screen.getByRole('heading', { name: 'O que você quer fazer agora?' })).toBeInTheDocument();
+    expect(screen.queryByLabelText('Indicadores da base local')).not.toBeInTheDocument();
     expect(screen.queryByText(/RMI/)).not.toBeInTheDocument();
   });
   it('routes each shortcut once without altering workspace values', async () => {
@@ -27,9 +27,9 @@ describe('Amicro integration', () => {
     const workspace = blankWorkspace(), before = JSON.stringify(workspace);
     render(<MotionProvider><DashboardOverview workspace={workspace} {...{ onStart, onClient, onReports }} /></MotionProvider>);
     const user = userEvent.setup();
-    await user.click(screen.getByRole('button', { name: 'Novo cálculo' }));
-    await user.click(screen.getByRole('button', { name: 'Cadastrar cliente' }));
-    await user.click(screen.getByRole('button', { name: 'Consultar relatórios' }));
+    await user.click(screen.getByRole('button', { name: /Novo cálculo/ }));
+    await user.click(screen.getByRole('button', { name: /Cadastrar cliente/ }));
+    await user.click(screen.getByRole('button', { name: /Ver relatórios/ }));
     expect(onStart).toHaveBeenCalledTimes(1); expect(onClient).toHaveBeenCalledTimes(1); expect(onReports).toHaveBeenCalledTimes(1);
     expect(JSON.stringify(workspace)).toBe(before);
   });
