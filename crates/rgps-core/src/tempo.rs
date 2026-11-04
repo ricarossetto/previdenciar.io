@@ -58,6 +58,8 @@ pub struct TempoResultado {
     pub vinculos: Vec<VinculoProcessado>,
     pub total_dias: i64,
     pub total_dias_efetivos: i64,
+    /// Total na convenção 30/360 usada nos relatórios previdenciários.
+    pub total_360: i64,
     pub total: TempoTotal,
     pub carencia_meses: usize,
     pub marcos: Marcos,
@@ -283,6 +285,7 @@ pub fn calcular_tempo(
         vinculos: processados,
         total_dias,
         total_dias_efetivos,
+        total_360,
         total: TempoTotal { anos, meses, dias },
         carencia_meses: competencias.len(),
         marcos: Marcos {

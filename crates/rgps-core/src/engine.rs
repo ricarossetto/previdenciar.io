@@ -289,15 +289,16 @@ pub fn calcular(entrada: &RgpsEntrada) -> Result<RgpsResultado> {
             let count = entrada.opcoes.meses_fora_do_tempo.len();
             for competencia in &entrada.opcoes.meses_fora_do_tempo {
                 t.total_dias_efetivos = (t.total_dias_efetivos - 30).max(0);
+                t.total_360 = (t.total_360 - 30).max(0);
                 if *competencia <= COMPETENCIA_REFORMA {
                     t.marcos.ate_ec103 = (t.marcos.ate_ec103 - 30).max(0);
                 } else {
                     t.marcos.apos_ec103 = (t.marcos.apos_ec103 - 30).max(0);
                 }
             }
-            let anos = t.total_dias_efetivos / 365;
-            let meses = (t.total_dias_efetivos % 365) / 30;
-            let dias = t.total_dias_efetivos - anos * 365 - meses * 30;
+            let anos = t.total_360 / 360;
+            let meses = (t.total_360 % 360) / 30;
+            let dias = t.total_360 - anos * 360 - meses * 30;
             t.total = TempoTotal { anos, meses, dias };
             t.carencia_meses = t.carencia_meses.saturating_sub(count);
             t.avisos.push(format!(
@@ -447,15 +448,16 @@ pub fn calcular(entrada: &RgpsEntrada) -> Result<RgpsResultado> {
                 if let Some(t) = tempo.as_mut() {
                     for competencia in &discarded {
                         t.total_dias_efetivos = (t.total_dias_efetivos - 30).max(0);
+                        t.total_360 = (t.total_360 - 30).max(0);
                         if *competencia <= COMPETENCIA_REFORMA {
                             t.marcos.ate_ec103 = (t.marcos.ate_ec103 - 30).max(0);
                         } else {
                             t.marcos.apos_ec103 = (t.marcos.apos_ec103 - 30).max(0);
                         }
                     }
-                    let anos = t.total_dias_efetivos / 365;
-                    let meses = (t.total_dias_efetivos % 365) / 30;
-                    let dias = t.total_dias_efetivos - anos * 365 - meses * 30;
+                    let anos = t.total_360 / 360;
+                    let meses = (t.total_360 % 360) / 30;
+                    let dias = t.total_360 - anos * 360 - meses * 30;
                     t.total = TempoTotal { anos, meses, dias };
                     t.carencia_meses = t.carencia_meses.saturating_sub(count);
                     t.avisos.push(format!(
