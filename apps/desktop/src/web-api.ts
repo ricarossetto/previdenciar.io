@@ -146,7 +146,12 @@ export const webApi = {
       const text = await response.text();
       throw new Error(describeFailure(response.status, parseJsonSafe(text), 'A prévia do relatório falhou.'));
     }
-    return URL.createObjectURL(await response.blob());
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    let binary = '';
+    for (let index = 0; index < bytes.length; index += 0x8000) {
+      binary += String.fromCharCode(...bytes.subarray(index, index + 0x8000));
+    }
+    return btoa(binary);
   },
   savedReports: {
     save: async (calculation: Calculation, workspace: Workspace, format: string, includePersonal: boolean, presentation?: Presentation) =>

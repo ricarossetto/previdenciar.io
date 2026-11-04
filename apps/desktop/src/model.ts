@@ -65,6 +65,38 @@ export function normalizeCaseForEngine(c:Calculation):Calculation{const x=struct
 
 export function prepareCaseForSave(w:Workspace,c:Calculation):Calculation{let next=allocate(w);const saved=structuredClone(c);if(!saved.id)saved.id=next++;saved.manual_links=saved.manual_links.map(l=>({employer:l.employer,start_date:l.start_date,end_date:l.end_date,regime:l.regime,indicators:l.indicators,confirmed:l.confirmed,source_review:l.source_review??null,id:l.id||next++}));saved.manual_salaries=saved.manual_salaries.map(s=>({...s,id:s.id||next++}));return saved}
 
+function competenceMonth(value:string|null|undefined):string|null{
+  const iso=isoDate(value??'');
+  return iso?iso.slice(0,7):null;
+}
+function previousCompetence(key:string):string{
+  const [year,month]=key.split('-').map(Number);
+  return month===1?String(year-1).padStart(4,'0')+'-12':String(year)+'-'+String(month-1).padStart(2,'0');
+}
+function endOfMonth(key:string):string{
+  const [year,month]=key.split('-').map(Number);
+  return new Date(Date.UTC(year,month,0)).toISOString().slice(0,10);
+}
+function sourceLinkEnd(c:Cnis,link:CnisLink):string|null{
+  const explicit=isoDate(link.end_date??'');
+  if(explicit)return explicit;
+  const inferred=isoDate(link.inferred_last_salary_end?.date_candidate??'');
+  if(inferred&&link.inferred_last_salary_end?.requires_confirmation!==true)return inferred;
+  const last=(c.salary_entries??[]).filter(entry=>entry.link_sequence===link.sequence).map(entry=>entry.competence).sort().at(-1);
+  return last?endOfMonth(last):null;
+}
+function sourceLinkRegime(link:CnisLink):string{
+  if(link.prpps)return 'RPPS';
+  const affiliation=(link.affiliation??'').trim().toLowerCase();
+  if(!affiliation||['servidor','rural','rpps','prpps'].some(term=>affiliation.includes(term)))return 'A confirmar';
+  return 'RGPS';
+}
+function sourceLinkIndicators(link:CnisLink):string{
+  const indicators=[...link.indicators];
+  if(link.prpps&&!indicators.includes('PRPPS'))indicators.push('PRPPS');
+  return indicators.join(', ');
+}
+
 export function prepareImportedLinksForReview(c:Calculation):ManualLink[]{
   const current:ManualLink[]=c.manual_links.map(x=>({...x,source_review:x.source_review??null}));
   for(const l of c.cnis?.links??[]){
@@ -76,7 +108,70 @@ export function prepareImportedLinksForReview(c:Calculation):ManualLink[]{
   }
   return current;
 }
+/** Aplica o recorte efetivo do PBC sobre os vinculos preparados: PRPPS,
+ * vinculos sem data e trechos iniciados apos a DIB ficam fora da hipotese.
+ * Vinculos ja editados pelo operador nao sao reescritos. */
+export function prepareEffectiveLinksForReview(c:Calculation):ManualLink[]{
+  const cnis=c.cnis;
+  const prepared=prepareImportedLinksForReview(c);
+  if(!cnis)return prepared;
+  const dib=isoDate(c.dib);
+  return prepared.map(link=>{
+    const review=link.source_review;
+    if(!review||review.history.length>0||link.confirmed)return link;
+    const source=cnis.links.find(candidate=>candidate.sequence===review.sequence);
+    if(!source)return link;
+    const start=isoDate(source.start_date??'');
+    const sourceEnd=sourceLinkEnd(cnis,source);
+    const afterDib=Boolean(start&&dib&&start>dib);
+    const end=source.prpps||afterDib?sourceEnd:sourceEnd&&dib&&sourceEnd>dib?dib:sourceEnd;
+    const excluded=Boolean(source.prpps||!start||!end||afterDib);
+    const regime=sourceLinkRegime(source);
+    const indicators=sourceLinkIndicators(source);
+    const employer=source.raw_employer??'';
+    const before={employer,start_date:source.start_date??'',end_date:source.end_date??'',regime:source.prpps?'RPPS':'A confirmar',indicators,confirmed:false,excluded:false};
+    const after={employer,start_date:start??'',end_date:end??'',regime,indicators,confirmed:false,excluded};
+    const reason=excluded
+      ? 'Preparação efetiva a partir do CNIS: vínculo fora da hipótese RGPS (PRPPS, sem data ou iniciado após a DIB); a origem permanece íntegra e a conferência documental está pendente.'
+      : 'Preparação efetiva a partir do CNIS: período limitado à DIB; a origem permanece íntegra e a conferência documental está pendente.';
+    return {...link,start_date:start??'',end_date:end??'',regime,indicators,source_review:{...review,excluded,history:[{at:new Date().toISOString(),reason,before,after}]}};
+  });
+}
 export function prepareImportedWagesForReview(c:Calculation):ManualSalary[]{const current=c.manual_salaries.map(x=>({...x}));for(const[k,m]of Object.entries(c.cnis?.salary_months??{})){if(k<'1994-07'||current.some(x=>x.competence===k))continue;if(!Number.isSafeInteger(m.amount_sum_centavos))throw new Error('Valor nominal fora da precisão segura da interface. Nenhuma preparação parcial foi aceita.');const indicators=[...new Set((c.cnis?.salary_entries??[]).filter(x=>x.competence===k).flatMap(x=>x.indicators))];if(m.count>1)indicators.push('concomitancia_a_revisar');if(m.contains_unresolved_prpps&&!indicators.includes('PRPPS'))indicators.push('PRPPS');current.push({id:0,competence:k,amount:(BigInt(m.amount_sum_centavos)/100n).toString()+','+(BigInt(m.amount_sum_centavos)%100n).toString().padStart(2,'0'),indicators:indicators.join(', '),confirmed:false})}return current}
+/** Prepara somente remuneracoes RGPS dentro do PBC e cobertas por vinculo
+ * elegivel. Competencia sem lancamento ou posterior a DIB continua apenas na
+ * fonte e nunca vira zero. */
+export function prepareEffectiveWagesForReview(c:Calculation,links?:readonly ManualLink[]):ManualSalary[]{
+  const current=c.manual_salaries.map(x=>({...x}));
+  const cnis=c.cnis;
+  if(!cnis)return current;
+  const dib=isoDate(c.dib);
+  const dibMonth=dib?dib.slice(0,7):null;
+  const pbcEnd=dibMonth?previousCompetence(dibMonth):null;
+  const prpps=new Set(cnis.links.filter(link=>link.prpps).map(link=>link.sequence));
+  const effectiveLinks=links??prepareEffectiveLinksForReview(c);
+  const ranges=effectiveLinks.filter(link=>!link.source_review?.excluded).flatMap(link=>{
+    const start=competenceMonth(link.start_date);
+    const end=competenceMonth(link.end_date);
+    return start&&end?[{start,end}]:[];
+  });
+  for(const competence of Object.keys(cnis.salary_months??{})){
+    if(competence<'1994-07'||current.some(x=>x.competence===competence))continue;
+    if(pbcEnd&&competence>pbcEnd)continue;
+    if(!ranges.some(range=>competence>=range.start&&competence<=range.end))continue;
+    const used=(cnis.salary_entries??[]).filter(entry=>entry.competence===competence&&!(entry.link_sequence!==null&&prpps.has(entry.link_sequence))&&(entry.amount_kind===undefined||entry.amount_kind==='remuneration'));
+    if(!used.length)continue;
+    let total=0;
+    for(const entry of used){
+      if(!Number.isSafeInteger(entry.amount_centavos)||!Number.isSafeInteger(total+entry.amount_centavos))throw new Error('Valor nominal fora da precisão segura da interface. Nenhuma preparação parcial foi aceita.');
+      total+=entry.amount_centavos;
+    }
+    const indicators=[...new Set(used.flatMap(entry=>entry.indicators))];
+    if(used.length>1&&!indicators.includes('concomitancia_a_revisar'))indicators.push('concomitancia_a_revisar');
+    current.push({id:0,competence,amount:(BigInt(total)/100n).toString()+','+(BigInt(total)%100n).toString().padStart(2,'0'),indicators:indicators.join(', '),confirmed:false});
+  }
+  return current;
+}
 export function cnisSourceAudit(c:Cnis){const entries=c.salary_entries;return{pre1994:entries.filter(e=>e.competence<'1994-07').length,unassigned:entries.filter(e=>e.link_sequence===null).length,zero:entries.filter(e=>e.amount_centavos===0).length,benefits:c.benefits.length,months:Object.keys(c.salary_months).length}}
 
 export const blankInterview=():AssistantInterview=>({mode:'assisted',current_benefit_received:null,import_requested:null,process_kind:null,goal:null,review_confirmed:false,completed_steps:[]});

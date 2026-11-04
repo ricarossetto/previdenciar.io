@@ -59,13 +59,13 @@ function importedLayer(cnis: Cnis | null): JourneyLayer {
 }
 
 function confirmedLayer(draft: Calculation): JourneyLayer {
-  const links = draft.manual_links, confirmedLinks = links.filter(link => link.confirmed).length;
+  const links = draft.manual_links, effectiveLinks = links.filter(link => !link.source_review?.excluded), confirmedLinks = effectiveLinks.filter(link => link.confirmed).length;
   const wages = draft.manual_salaries, confirmedWages = wages.filter(wage => wage.confirmed).length;
   const missing = missingParameterKeys(draft), parametersComplete = PARAMETER_KEYS.length - missing.length;
   const reviewRequired = draft.assistant?.mode === 'assisted';
   const reviewOk = reviewRequired ? Boolean(draft.assistant?.review_confirmed) : true;
-  const hasData = links.length > 0 || wages.length > 0;
-  const ready = hasData && missing.length === 0 && confirmedLinks === links.length && confirmedWages === wages.length && reviewOk;
+  const hasData = effectiveLinks.length > 0 || wages.length > 0;
+  const ready = hasData && missing.length === 0 && confirmedLinks === effectiveLinks.length && confirmedWages === wages.length && reviewOk;
   const state: JourneyLayerState = ready ? 'pronto' : hasData || missing.length === 0 ? 'parcial' : 'vazio';
   const summary = state === 'pronto'
     ? 'Dados conferidos por declaração explícita. A revisão profissional continua necessária.'
@@ -75,7 +75,7 @@ function confirmedLayer(draft: Calculation): JourneyLayer {
     id: 'confirmado', title: 'Confirmado por você', state, stateLabel: LAYER_STATE_LABEL[state], summary,
     metrics: [
       { label: 'Parâmetros completos', value: parametersComplete + '/' + PARAMETER_KEYS.length },
-      { label: 'Vínculos conferidos', value: confirmedLinks + '/' + links.length },
+      { label: 'Vínculos conferidos', value: confirmedLinks + '/' + effectiveLinks.length },
       { label: 'Remunerações conferidas', value: confirmedWages + '/' + wages.length },
       { label: 'Revisão registrada', value: reviewRequired ? (reviewOk ? 'Sim' : 'Não') : 'Não se aplica' },
     ],
@@ -132,7 +132,7 @@ export function journeyPendencies(draft: Calculation): JourneyPendencyGroup[] {
   push('origem', 'Aplicar a origem CNIS', cnis ? 'Origem aplicada; confira se a leitura cobre o período que importa.' : 'A leitura local do CNIS é opcional, mas é o caminho com menos digitação.', cnis ? [] : ['Nenhum CNIS aplicado ao rascunho']);
   const links = draft.manual_links, vinculos: string[] = [];
   if (cnis && links.length === 0) vinculos.push('Preparar os vínculos lidos para revisão');
-  const unconfirmedLinks = links.filter(link => !link.confirmed).length;
+  const unconfirmedLinks = links.filter(link => !link.source_review?.excluded && !link.confirmed).length;
   if (unconfirmedLinks > 0) vinculos.push(unconfirmedLinks + (unconfirmedLinks === 1 ? ' vínculo sem conferência declarada' : ' vínculos sem conferência declarada'));
   const prpps = cnis?.links.filter(link => link.prpps).length ?? 0;
   if (prpps > 0) vinculos.push(prpps + (prpps === 1 ? ' vínculo PRPPS exige CTC' : ' vínculos PRPPS exigem CTC'));
@@ -149,7 +149,11 @@ export function journeyPendencies(draft: Calculation): JourneyPendencyGroup[] {
   const policy = policyRecord(draft);
   const lc142 = policy ? resultRecord(policy.lc142 ?? null) : null;
   if (hasPcd(draft) && lc142?.assumptions_confirmed !== true) parametros.push('Premissas do cenário PcD não confirmadas');
-  if (cnis && !draft.options.correction_index.trim()) parametros.push('Referência de correção das séries não declarada');
+  const native = policy && typeof policy.native_options === 'object' && policy.native_options !== null && !Array.isArray(policy.native_options) ? policy.native_options as Record<string, Json> : null;
+  const correctionReference = native && typeof native.referenciaCorrecao === 'string' ? native.referenciaCorrecao.trim() : '';
+  const correctionExplicitlyOff = native?.corrigirSalarios === false;
+  const correctionDeclared = Boolean(draft.options.correction_index.trim()) || correctionReference !== '' || correctionExplicitlyOff;
+  if (cnis && !correctionDeclared) parametros.push('Referência de correção das séries não declarada');
   push('parametros', 'Revisar opções da RMI', 'Correção, descarte e limites são declarados antes de executar; nada é presumido.', parametros);
   const revisao: string[] = [];
   if (draft.assistant?.mode === 'assisted' && !draft.assistant.review_confirmed) revisao.push('Confirmar a revisão da entrevista');

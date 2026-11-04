@@ -82,13 +82,27 @@ export function competenceLayers(cnis: Cnis, dib: string, options: TemporalOptio
   const window = pbcWindow(dib);
   const dibMonth = monthKey(dib);
   const salaries = new Map<string, { count: number; amount: number | null; pages: number[] }>();
+  const remuneration = new Map<string, { count: number; amount: number | null; pages: number[] }>();
+  for (const entry of cnis.salary_entries ?? []) {
+    if (entry.amount_kind !== undefined && entry.amount_kind !== 'remuneration') continue;
+    const row = remuneration.get(entry.competence) ?? { count: 0, amount: 0, pages: [] };
+    row.count += 1;
+    row.amount = row.amount === null || !Number.isSafeInteger(entry.amount_centavos) || !Number.isSafeInteger(row.amount + entry.amount_centavos)
+      ? null
+      : row.amount + entry.amount_centavos;
+    if (!row.pages.includes(entry.source.page)) row.pages.push(entry.source.page);
+    remuneration.set(entry.competence, row);
+  }
   for (const [key, value] of Object.entries(cnis.salary_months ?? {})) {
     if (key.length !== 7 || key[4] !== '-') continue;
-    salaries.set(key, { count: value.count, amount: Number.isSafeInteger(value.amount_sum_centavos) ? value.amount_sum_centavos : null, pages: [] });
+    const paid = remuneration.get(key);
+    const hasEntries = (cnis.salary_entries ?? []).some(entry => entry.competence === key);
+    salaries.set(key, paid
+      ? { count: paid.count, amount: paid.amount, pages: paid.pages }
+      : { count: hasEntries ? 0 : value.count, amount: hasEntries ? null : (Number.isSafeInteger(value.amount_sum_centavos) ? value.amount_sum_centavos : null), pages: [] });
   }
-  for (const entry of cnis.salary_entries ?? []) {
-    const row = salaries.get(entry.competence);
-    if (row && !row.pages.includes(entry.source.page)) row.pages.push(entry.source.page);
+  for (const [key, paid] of remuneration) {
+    if (!salaries.has(key)) salaries.set(key, { count: paid.count, amount: paid.amount, pages: paid.pages });
   }
   const sourceRanges = (cnis.links ?? []).flatMap(link => {
     const start = monthKey(link.start_date), end = monthKey(link.end_date);

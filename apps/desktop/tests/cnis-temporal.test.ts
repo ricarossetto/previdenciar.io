@@ -107,6 +107,21 @@ describe('visao temporal do CNIS sem apagar a fonte', () => {
     expect(confirmedRangesOf(links)).toEqual([]);
     expect(calculationNotDone(blankCase())?.cause).toContain('Nenhuma remuneracao');
   });
+  it('lancamento de coluna de contribuicao nao vira salario zero', () => {
+    const cnis = syntheticCnis(false);
+    const target = '2022-02';
+    cnis.salary_entries = cnis.salary_entries.map(entry => entry.competence === target
+      ? { ...entry, amount_centavos: 0, amount_kind: 'contribution_column_unresolved' as const }
+      : entry);
+    cnis.salary_months[target] = { count: 1, amount_sum_centavos: 0, contains_unresolved_prpps: false };
+    const layers = competenceLayers(cnis, DIB, { confirmedRanges: CONFIRMED });
+    const layer = layers.find(item => item.competence === target)!;
+    expect(layer.amountCentavos).toBeNull();
+    expect(layer.salaryStatus).toBe('missing');
+    expect(layer.pbcStatus).toBe('excluded_missing_salary');
+    expect(temporalIssues(layers).find(group => group.key === 'sem_salario')?.count).toBe(1);
+    expect(temporalSummary(layers, pbcWindow(DIB)).missingSalary).toBe(1);
+  });
   it('sem resultado valido informa Calculo nao concluido com causa e proxima acao', () => {
     const c = blankCase();
     c.dib = '30/06/2023';
