@@ -23,3 +23,12 @@
 - Teste de render adicionado (3 casos) e suíte completa:       Tests  300 passed (300).
 - Typecheck exit 0.
 
+
+## Correcoes dos achados medios (revisao independente)
+- Janela do PBC enumerada (meses) e nota de cobertura: mes sem lancamento nao e lacuna automatica nem zero.
+- Contagem 'Dentro do PBC' e tabela usam o mesmo recorte com remuneracao; competencias sem remuneracao ficam em tabela propria.
+- CTA de identificacao aponta para a etapa 0, onde esta o campo DIB; jornada e testes atualizados.
+- Badge do CNIS explicita 'no recorte do PBC' e 'fora do recorte'.
+- Documento de build sanitizado (sem caminho absoluto) e numeros de .fingerprint reconciliados.
+- Suite: 40 arquivos, 300 testes, 300 aprovados; typecheck exit 0.
+
