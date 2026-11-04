@@ -13,7 +13,7 @@ fn opts(kind:ReportKind,personal:bool)->ReportOptions{ReportOptions::new(kind, p
         let year=2010+index/12;let month=index%12+1;
         entries.push(SalaryEntry{competence:format!("{year}-{month:02}"),amount_centavos:100000,indicators:vec![],link_sequence:Some(1),source:SourceRef{page:1,line:index as usize+1,index:index as usize,byte_offset:0},amount_kind:AmountKind::Remuneration,validation_status:ValidationStatus::Unvalidated,excluded_from_validated_domain:false});
     }
-    let cnis=ImportResult{metadata:previdenciar_cnis::ImportMetadata{extractor:"synthetic".into(),source_sha256:Some("a".repeat(64)),page_count:1,parsed_pages:1,legal_validation_performed:false},identity:case.identity.clone(),salary_entries:entries,salary_months:Default::default(),
+    let cnis=ImportResult{metadata:previdenciar_cnis::ImportMetadata{extractor:"synthetic".into(),source_sha256:Some("a".repeat(64)),page_count:1,parsed_pages:1,legal_validation_performed:false},identity:case.identity.clone(),salary_entries:entries,salary_months:Default::default(),contribution_months:Vec::new(),
         links:vec![EmploymentLink{sequence:1,raw_employer:Some("EMPREGADOR FICTÍCIO".into()),affiliation:Some("Empregado".into()),start_date:Some("2010-01-01".into()),end_date:None,reported_last_salary_month:None,inferred_last_salary_end:None,indicators:vec![],prpps:false,validation_status:ValidationStatus::Unvalidated,excluded_from_validated_domain:false,source:SourceRef{page:1,line:1,index:0,byte_offset:0}}],
         benefits:vec![],findings:vec![],warnings:vec![]};
     case.cnis=Some(cnis);
@@ -37,7 +37,7 @@ fn opts(kind:ReportKind,personal:bool)->ReportOptions{ReportOptions::new(kind, p
         let year=2010+index/12;let month=index%12+1;
         entries.push(SalaryEntry{competence:format!("{year}-{month:02}"),amount_centavos:100000,indicators:vec![],link_sequence:Some(1),source:SourceRef{page:1,line:index as usize+1,index:index as usize,byte_offset:0},amount_kind:AmountKind::Remuneration,validation_status:ValidationStatus::Unvalidated,excluded_from_validated_domain:false});
     }
-    let cnis=ImportResult{metadata:previdenciar_cnis::ImportMetadata{extractor:"synthetic".into(),source_sha256:Some("a".repeat(64)),page_count:1,parsed_pages:1,legal_validation_performed:false},identity:case.identity.clone(),salary_entries:entries,salary_months:Default::default(),
+    let cnis=ImportResult{metadata:previdenciar_cnis::ImportMetadata{extractor:"synthetic".into(),source_sha256:Some("a".repeat(64)),page_count:1,parsed_pages:1,legal_validation_performed:false},identity:case.identity.clone(),salary_entries:entries,salary_months:Default::default(),contribution_months:Vec::new(),
         links:vec![EmploymentLink{sequence:1,raw_employer:Some("EMPREGADOR FICTÍCIO".into()),affiliation:Some("Empregado".into()),start_date:Some("2010-01-01".into()),end_date:None,reported_last_salary_month:None,inferred_last_salary_end:None,indicators:vec![],prpps:false,validation_status:ValidationStatus::Unvalidated,excluded_from_validated_domain:false,source:SourceRef{page:1,line:1,index:0,byte_offset:0}}],
         benefits:vec![],findings:vec![],warnings:vec![]};
     case.cnis=Some(cnis);
@@ -52,7 +52,7 @@ fn opts(kind:ReportKind,personal:bool)->ReportOptions{ReportOptions::new(kind, p
     let link=|sequence:u32,affiliation:&str,start:&str,end:Option<&str>|EmploymentLink{sequence,raw_employer:Some("EMPREGADOR FICTÍCIO".into()),affiliation:Some(affiliation.into()),start_date:Some(start.into()),end_date:end.map(str::to_string),reported_last_salary_month:None,inferred_last_salary_end:None,indicators:vec![],prpps:false,validation_status:ValidationStatus::Unvalidated,excluded_from_validated_domain:false,source:SourceRef{page:1,line:1,index:0,byte_offset:0}};
     let cnis=ImportResult{metadata:previdenciar_cnis::ImportMetadata{extractor:"synthetic".into(),source_sha256:Some("b".repeat(64)),page_count:1,parsed_pages:1,legal_validation_performed:false},identity:case.identity.clone(),
         salary_entries:vec![entry("2010-01",1,0),entry("2010-02",1,1),entry("2010-02",2,2),entry("2010-03",2,3),entry("2010-04",3,4)],
-        salary_months:Default::default(),
+        salary_months:Default::default(),contribution_months:Vec::new(),
         links:vec![link(1,"Empregado","2010-01-01",None),link(2,"Empregado","2010-02-01",None),link(3,"Em Benefício","2010-04-01",None)],
         benefits:vec![],findings:vec![],warnings:vec![]};
     case.cnis=Some(cnis);

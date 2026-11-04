@@ -267,6 +267,7 @@ fn transitions(case: &Calculation, outcome: Option<&Value>) -> Result<Value, Str
                         .map(brl_decimal)
                         .unwrap_or_else(|| "Não apurada".into());
                     let elegivel = r.get("elegivel").and_then(Value::as_bool).unwrap_or(false);
+                    let chosen = n.and_then(|v| v.pointer("/transicoes/regra_escolhida")).and_then(Value::as_str) == r.get("id").and_then(Value::as_str);
                     let tempo = n
                         .and_then(|v| v.pointer("/tempo/total"))
                         .map(|t| {
@@ -293,7 +294,7 @@ fn transitions(case: &Calculation, outcome: Option<&Value>) -> Result<Value, Str
                         "idade": idade,
                         "rmi": rmi,
                         "der": data_calculo,
-                        "chosen": elegivel,
+                        "chosen": chosen,
                     })
                 })
                 .collect()

@@ -711,13 +711,13 @@ fn engine(native:Option<&Value>,personal:bool)->Result<Vec<Section>,String>{
         correction.tables.push(table("Referências declaradas pelo resultado: não certificadas pelo renderer",&["ID","Descrição"],&[1,9],rows));
     }else{correction.paragraphs.push("Resultado não contém correção parcela a parcela. Sem série de índices fabricada; média nominal somente se explicitamente retornada pelo motor.".into());}
     for(key,label)in[("parametros","Parâmetros"),("resumo","Resumo"),("tempo","Tempo"),("carencia","Carência"),("correcao","Correção"),("memoria","Memória"),("transicoes","Transições"),("especie","Espécie"),("beneficio","Requisitos")]{if let Some(v)=n.get(key){let known:&[&str]=match key{
-        "resumo"=>&["competencias","carencia_meses","soma_salarios","salario_beneficio","coeficiente","rmi_bruta","rmi","limite_aplicado","teto","piso"],
-        "parametros"=>&["divisor","divisor_minimo_aplicado","anos","meses_restantes","anos_base","coeficiente","correcao_ativa","referencia_correcao","descarte_aplicado"],
-        "tempo"=>&["vinculos","total_dias","total_dias_efetivos","total","carencia_meses","marcos","avisos"],
+        "resumo"=>&["competencias","carencia_meses","soma_salarios","salario_beneficio","coeficiente","rmi_bruta","rmi","limite_aplicado","teto","piso","regra_escolhida","regra_nome"],
+        "parametros"=>&["divisor","divisor_minimo_aplicado","anos","meses_restantes","anos_base","coeficiente","correcao_ativa","referencia_correcao","descarte_aplicado","coeficiente_regra","fallback_inpc_documentado","perfil_correcao"],
+        "tempo"=>&["vinculos","total_dias","total_dias_efetivos","total","total_360","carencia_meses","marcos","avisos"],
         "carencia"=>&["competencias_salario","competencias_vinculo","competencias_graca","recolhimentos_atraso","carencia_meses","competencias_extras","avisos"],
-        "correcao"=>&["referencia","pbc","consideradas","descartadas","parcelas","parcelas_descartadas","soma_considerada","media","salario_beneficio","descarte_aplicado","fontes_tetos","fontes_inpc"],
+        "correcao"=>&["referencia","pbc","consideradas","descartadas","parcelas","parcelas_descartadas","soma_considerada","media","salario_beneficio","descarte_aplicado","fontes_tetos","fontes_inpc","cenarios","perfil","series_ausentes","series_utilizadas","substituicoes_inpc"],
         "transicoes"=>&["referencia","sexo","idade_meses","idade_anos","tempo_total_meses","tempo_total_anos","tempo_ate_reforma_meses","regras","regra_escolhida","numero_regra_transicao","rmi_escolhida","observacoes"],
-        "especie"=>&["codigo","nome","regra_escolhida","elegivel"],
+        "especie"=>&["codigo","nome","regra_escolhida","regra_nome","elegivel"],
         "beneficio"=>&["especie","nome","coeficiente","regra_escolhida","regras","base_legal","limite_media_12","observacoes"],_=>&[]};
         if let Some(object)=v.as_object(){let count=object.keys().filter(|k|!known.contains(&k.as_str())).count();if count>0{memory.paragraphs.push(format!("{label}: {count} campo(s) fora do contrato documental não publicado(s), para evitar expor dados arbitrários do resultado."));}}
     }}
