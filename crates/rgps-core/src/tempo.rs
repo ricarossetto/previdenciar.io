@@ -77,6 +77,28 @@ fn dias_inclusivos(inicio: &IsoDate, fim: &IsoDate) -> i64 {
     inicio.days_between(fim) + 1
 }
 
+/// Contagem 30/360 usada nos relatórios previdenciários: mês de 30 dias,
+/// ano de 360, período iniciado no dia 1 até o último dia do mês conta como
+/// mês cheio. É a convenção da tabela de tempo da referência.
+fn dias_30_360(inicio: &IsoDate, fim: &IsoDate) -> i64 {
+    let mut anos = fim.ano - inicio.ano;
+    let mut meses = fim.mes as i32 - inicio.mes as i32;
+    let ultimo = crate::calendar::dias_no_mes(fim.ano, fim.mes);
+    let dias;
+    if inicio.dia == 1 && fim.dia == ultimo {
+        dias = 0;
+        meses += 1;
+    } else {
+        let mut d = fim.dia.min(30) as i32 - inicio.dia as i32 + 1;
+        while d > 30 { d -= 30; meses += 1; }
+        while d < 1 { d += 30; meses -= 1; }
+        dias = d;
+    }
+    while meses < 0 { meses += 12; anos -= 1; }
+    while meses >= 12 { meses -= 12; anos += 1; }
+    (anos as i64) * 360 + (meses as i64) * 30 + dias as i64
+}
+
 /// Porta de calcularTempoContribuicao: deduplica sobreposição (cursor), dias/diasEfetivos,
 /// carência por competências distintas e marcos EC20/EC103.
 pub fn calcular_tempo(
@@ -148,6 +170,7 @@ pub fn calcular_tempo(
     let mut cursor: Option<IsoDate> = None;
     let mut total_dias: i64 = 0;
     let mut total_dias_efetivos: i64 = 0;
+    let mut total_360: i64 = 0;
     let mut competencias: BTreeSet<Competencia> = BTreeSet::new();
 
     for vinculo in &normalizados {
@@ -165,6 +188,7 @@ pub fn calcular_tempo(
         let dias_efetivos = (dias as f64 * vinculo.fator).round() as i64;
         total_dias += dias;
         total_dias_efetivos += dias_efetivos;
+        if dias > 0 { total_360 += (dias_30_360(&inicio_efetivo, &vinculo.fim) as f64 * vinculo.fator).round() as i64; }
         if dias > 0 {
             efetivos.push((inicio_efetivo, vinculo.fim, vinculo.fator));
             let mut periodo = Competencia {
@@ -197,9 +221,9 @@ pub fn calcular_tempo(
         });
     }
 
-    let anos = total_dias_efetivos / 365;
-    let meses = (total_dias_efetivos % 365) / 30;
-    let dias = total_dias_efetivos - anos * 365 - meses * 30;
+    let anos = total_360 / 360;
+    let meses = (total_360 % 360) / 30;
+    let dias = total_360 - anos * 360 - meses * 30;
 
     let marco_ec20 = IsoDate::parse(MARCO_EC20, "marco EC20")?;
     let marco_ec103 = IsoDate::parse(MARCO_EC103, "marco EC103")?;
@@ -208,7 +232,7 @@ pub fn calcular_tempo(
         .map(|(inicio, fim_vinculo, fator)| {
             let fim = if *fim_vinculo < marco_ec20 { *fim_vinculo } else { marco_ec20 };
             if *inicio <= fim {
-                (dias_inclusivos(inicio, &fim) as f64 * fator).round() as i64
+                (dias_30_360(inicio, &fim) as f64 * fator).round() as i64
             } else {
                 0
             }
@@ -219,7 +243,7 @@ pub fn calcular_tempo(
         .map(|(inicio, fim_vinculo, fator)| {
             let fim = if *fim_vinculo < marco_ec103 { *fim_vinculo } else { marco_ec103 };
             if *inicio <= fim {
-                (dias_inclusivos(inicio, &fim) as f64 * fator).round() as i64
+                (dias_30_360(inicio, &fim) as f64 * fator).round() as i64
             } else {
                 0
             }
