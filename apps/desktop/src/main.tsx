@@ -9,4 +9,5 @@ import './styles/ai.css';
 import './styles/knowledge.css';
 import './styles/minuta.css';
 import './styles/ui-fixes.css';
+import './styles/journey.css';
 createRoot(document.getElementById('root')!).render(import.meta.env.MODE === 'web' ? <WebAuthGate/> : <App/>);
