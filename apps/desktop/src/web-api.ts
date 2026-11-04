@@ -1,4 +1,4 @@
-﻿import { normalizeCaseForEngine } from './model';
+import { normalizeCaseForEngine } from './model';
 import { describeFailure, parseJsonSafe } from './http-errors';
 import { clearSession, refreshSession, storedToken } from './web-auth-store';
 import type {
@@ -12,6 +12,48 @@ const API = '/api';
 
 const MSG_OPERACAO = 'A operação falhou. Tente de novo em instantes.';
 
+// A extração de PDF do CNIS pode produzir bytes UTF-8 lidos como Latin-1/CP1252.
+// A normalização reconstitui o texto quando a sequência de bytes forma UTF-8
+// válido, sem inventar conteúdo. Também remove caracteres de controle residuais.
+const CP1252_BYTES: Record<string, number> = {
+  '€': 0x80, '‚': 0x82, 'ƒ': 0x83, '„': 0x84, '…': 0x85, '†': 0x86, '‡': 0x87,
+  'ˆ': 0x88, '‰': 0x89, 'Š': 0x8A, '‹': 0x8B, 'Œ': 0x8C, 'Ž': 0x8E, '‘': 0x91,
+  '’': 0x92, '“': 0x93, '”': 0x94, '•': 0x95, '–': 0x96, '—': 0x97, '˜': 0x98,
+  '™': 0x99, 'š': 0x9A, '›': 0x9B, 'œ': 0x9C, 'ž': 0x9E, 'Ÿ': 0x9F,
+};
+export function repararTexto(value: string): string {
+  let current = value;
+  for (let tentativa = 0; tentativa < 4; tentativa += 1) {
+    const bytes: number[] = [];
+    let suportado = true;
+    for (const char of current) {
+      const code = char.codePointAt(0) ?? 0;
+      if (code <= 0xFF) bytes.push(code);
+      else if (CP1252_BYTES[char] !== undefined) bytes.push(CP1252_BYTES[char]);
+      else { suportado = false; break; }
+    }
+    if (!suportado) break;
+    try {
+      const next = new TextDecoder('utf-8', { fatal: true }).decode(Uint8Array.from(bytes));
+      if (next === current) break;
+      current = next;
+    } catch { break; }
+  }
+  return Array.from(current).filter(char => {
+    const code = char.codePointAt(0) ?? 0;
+    return !(code < 32 && char !== '\n' && char !== '\r' && char !== '\t');
+  }).join('');
+}
+export function repararJson<T>(value: T): T {
+  if (typeof value === 'string') return repararTexto(value) as T;
+  if (Array.isArray(value)) return value.map(item => repararJson(item)) as T;
+  if (value && typeof value === 'object') {
+    const out: Record<string, unknown> = {};
+    for (const [key, val] of Object.entries(value as Record<string, unknown>)) out[key] = repararJson(val);
+    return out as T;
+  }
+  return value;
+}
 // Corpo de sucesso tem de ser um registro JSON. Texto vazio, página HTML,
 // o literal null e lista não são dados: o servidor publica o SPA em rota
 // desconhecida, então um 200 com HTML passaria por resposta boa.
@@ -27,7 +69,7 @@ function readSuccessObject(texto: string, padrao: string): Record<string, unknow
     throw new Error(padrao);
   }
   if (!valor || typeof valor !== 'object' || Array.isArray(valor)) throw new Error(padrao);
-  return valor as Record<string, unknown>;
+  return repararJson(valor) as Record<string, unknown>;
 }
 
 // Endpoint cujo contrato admite lista no topo. Ainda exige JSON de objeto ou
@@ -42,7 +84,7 @@ function readSuccessValue(texto: string, padrao: string): Record<string, unknown
     throw new Error(padrao);
   }
   if (!valor || typeof valor !== 'object') throw new Error(padrao);
-  return valor as Record<string, unknown> | unknown[];
+  return repararJson(valor) as Record<string, unknown> | unknown[];
 }
 
 function authHeaders(extra?: HeadersInit): HeadersInit {
