@@ -51,10 +51,11 @@ Write-Output "Binario: $($bin.FullName) (SHA-256 $hash)"
 Write-Output "Banco descartavel: $ContainerName em 127.0.0.1:$pgPort (credenciais nao exibidas)."
 Write-Output "Iniciando servidor em http://127.0.0.1:$Port ..."
 $proc = Start-Process -FilePath $bin.FullName -NoNewWindow -PassThru
+$healthy = $false
 for($i=0;$i -lt 40;$i++){
   Start-Sleep -Milliseconds 500
   if($proc.HasExited){ throw "Servidor encerrou com codigo $($proc.ExitCode)." }
-  try { $health = Invoke-WebRequest "http://127.0.0.1:$Port/api/health" -UseBasicParsing -TimeoutSec 2; if($health.StatusCode -eq 200){ break } } catch { }
+  try { $health = Invoke-WebRequest "http://127.0.0.1:$Port/api/health" -UseBasicParsing -TimeoutSec 2; if($health.StatusCode -eq 200){ $healthy = $true; break } } catch { }
 }
+if(-not $healthy){ try { Stop-Process -Id $proc.Id -Force } catch { }; throw "Servidor iniciou, mas /api/health nao respondeu 200 em 20 s; processo encerrado." }
 Write-Output "Servidor PID=$($proc.Id). Abra http://127.0.0.1:$Port/ e autentique manualmente se necessario."
-Write-Output "Para parar: Stop-Process -Id $($proc.Id); docker stop $ContainerName"

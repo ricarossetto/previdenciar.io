@@ -42,6 +42,7 @@ describe('visão temporal do CNIS', () => {
 
   it('DIB anterior a 07/1994 nao classifica meses posteriores como pre-PBC', () => {
     const model = buildCnisTimeline(fixture(), '30/06/1990');
+    expect(monthOf(model, '1991-01')).toMatchObject({ state: 'posDib' });
     expect(monthOf(model, '1994-07')).toMatchObject({ state: 'posDib' });
   });
 
