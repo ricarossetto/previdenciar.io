@@ -8,7 +8,7 @@ import {
   primaryJourneyAction,
   type JourneyLayerState,
 } from '../journey';
-import { Badge, Button, Icon } from './ui';
+import { Badge, Icon } from './ui';
 
 const LAYER_ICON: Record<'importado' | 'confirmado' | 'calculado', string> = { importado: 'file', confirmado: 'check', calculado: 'calc' };
 const LAYER_TONE: Record<JourneyLayerState, string> = { vazio: 'neutral', parcial: 'review', pronto: 'good' };
@@ -59,13 +59,10 @@ export function JourneyPendencies({ draft, onStep }: { draft: Calculation; onSte
 
 /// Indicador da etapa atual com a ação principal e os detalhes técnicos recolhidos.
 /// Usado pelo editor; o assistente guiado mantém a própria barra de passos.
-export function JourneyGuide({ draft, step, onStep, onPrimary, primaryDisabled = false, primaryBusy = false }: {
+export function JourneyGuide({ draft, step, onStep }: {
   draft: Calculation;
   step: number;
   onStep: (step: number) => void;
-  onPrimary: () => void;
-  primaryDisabled?: boolean;
-  primaryBusy?: boolean;
 }) {
   const stage = journeyStage(step), action = primaryJourneyAction(draft, step), technical = journeyTechnical(draft);
   return <section className="journey-guide" aria-label="Etapa atual do cálculo" data-od-id="journey-guide">
@@ -75,12 +72,7 @@ export function JourneyGuide({ draft, step, onStep, onPrimary, primaryDisabled =
         <h2>{stage.title}</h2>
         <p>{action.hint}</p>
       </div>
-      <div className="journey-guide__action">
-        <Button primary disabled={primaryDisabled} onClick={onPrimary}>
-          {primaryBusy ? <><span className="spinner" />Processando...</> : <>{action.label}<Icon name="arrow" size={16} /></>}
-        </Button>
-        <small>{action.kind === 'executar' ? 'Executa o motor local e abre o resultado.' : 'Leva à etapa onde a ação é concluída.'}</small>
-      </div>
+
     </header>
     <JourneyLayers draft={draft} />
     <JourneyPendencies draft={draft} onStep={onStep} />

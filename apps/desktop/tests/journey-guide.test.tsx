@@ -18,16 +18,14 @@ function blockedCase(): Calculation {
 }
 
 describe('indicador da jornada no editor', () => {
-  it('mostra etapa atual, ação principal e as três camadas de dados', async () => {
+  it('mostra etapa atual e as três camadas de dados', async () => {
     const user = userEvent.setup();
-    const onPrimary = vi.fn(), onStep = vi.fn();
-    render(<JourneyGuide draft={blankCase()} step={1} onStep={onStep} onPrimary={onPrimary} />);
+    const onStep = vi.fn();
+    render(<JourneyGuide draft={blankCase()} step={1} onStep={onStep} />);
     const guide = screen.getByRole('region', { name: 'Etapa atual do cálculo' });
     expect(within(guide).getByRole('heading', { level: 2, name: 'CNIS' })).toBeInTheDocument();
     expect(within(guide).getByText('Etapa atual · 2 de 8')).toBeInTheDocument();
-    const action = within(guide).getByRole('button', { name: 'Importar o CNIS' });
-    await user.click(action);
-    expect(onPrimary).toHaveBeenCalledTimes(1);
+    expect(within(guide).queryByRole('button', { name: 'Importar o CNIS' })).not.toBeInTheDocument();
     const layers = within(guide).getByRole('region', { name: 'Dados da hipótese' });
     expect(within(layers).getByRole('heading', { name: 'Importado do CNIS' })).toBeInTheDocument();
     expect(within(layers).getByRole('heading', { name: 'Confirmado por você' })).toBeInTheDocument();
@@ -38,7 +36,7 @@ describe('indicador da jornada no editor', () => {
   it('agrupa pendências por próxima ação e leva à etapa correspondente', async () => {
     const user = userEvent.setup();
     const onStep = vi.fn();
-    render(<JourneyGuide draft={blankCase()} step={1} onStep={onStep} onPrimary={() => {}} />);
+    render(<JourneyGuide draft={blankCase()} step={1} onStep={onStep} />);
     const pendencies = screen.getByRole('region', { name: 'Pendências por próxima ação' });
     expect(within(pendencies).getByText(/item\(ns\) de conferência em/)).toBeInTheDocument();
     await user.click(within(pendencies).getByRole('button', { name: 'Abrir CNIS: Aplicar a origem CNIS' }));
@@ -48,15 +46,14 @@ describe('indicador da jornada no editor', () => {
   });
 
   it('mantém os detalhes técnicos recolhidos por padrão', () => {
-    render(<JourneyGuide draft={blankCase()} step={1} onStep={() => {}} onPrimary={() => {}} />);
+    render(<JourneyGuide draft={blankCase()} step={1} onStep={() => {}} />);
     const summary = screen.getByText('Detalhes técnicos da origem e do cálculo');
     expect(summary.closest('details')).not.toHaveAttribute('open');
     expect(screen.getByText('não executado')).toBeInTheDocument();
   });
 
-  it('no resultado bloqueado a ação principal é executar e o motor aparece como bloqueado', () => {
-    render(<JourneyGuide draft={blockedCase()} step={7} onStep={() => {}} onPrimary={() => {}} primaryDisabled />);
-    expect(screen.getByRole('button', { name: 'Executar a simulação' })).toBeDisabled();
+  it('no resultado bloqueado o motor aparece como bloqueado e a pendência leva ao resultado', () => {
+    render(<JourneyGuide draft={blockedCase()} step={7} onStep={() => {}} />);
     expect(screen.getAllByText('Bloqueado').length).toBeGreaterThanOrEqual(2);
     expect(screen.getByRole('button', { name: 'Abrir Resultado: Executar a simulação' })).toBeInTheDocument();
   });
