@@ -362,7 +362,9 @@ fn memory_report(case: &Calculation, outcome: Option<&Value>) -> Result<Value, S
         .or_else(|| n.and_then(|v| memoria_valor(v, "media")));
     let sb = media;
     let coeficiente = n
-        .and_then(|v| v.pointer("/parametros/coeficiente"))
+        .and_then(|v| v.pointer("/resumo/coeficiente"))
+        .or_else(|| n.and_then(|v| v.pointer("/parametros/coeficiente_regra")))
+        .or_else(|| n.and_then(|v| v.pointer("/parametros/coeficiente")))
         .and_then(|c| c.as_str().map(|s| s.to_string()).or_else(|| c.as_i64().map(|i| i.to_string())))
         .unwrap_or_default();
     let rmi = n.and_then(|v| {

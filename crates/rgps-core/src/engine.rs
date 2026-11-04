@@ -122,6 +122,8 @@ pub struct ParametrosView {
     pub meses_restantes: i64,
     pub anos_base: i64,
     pub coeficiente: String,
+    /// Coeficiente efetivamente aplicado pela regra vencedora, quando diferente do coeficiente da espécie.
+    pub coeficiente_regra: Option<String>,
     pub correcao_ativa: bool,
     pub referencia_correcao: Option<String>,
     pub descarte_aplicado: Option<bool>,
@@ -341,7 +343,15 @@ pub fn calcular(entrada: &RgpsEntrada) -> Result<RgpsResultado> {
         &entrada.opcoes.periodos_graca,
         &entrada.opcoes.recolhimentos_atraso,
     )?;
-    let mut carencia_meses = carencia.carencia_meses.saturating_sub(entrada.opcoes.meses_fora_do_tempo.len());
+    // Carência é contagem de competências de contribuição, não união de todos os
+    // meses de vínculo. Os meses abaixo do mínimo continuam sendo contribuições
+    // para a carência, ainda que fiquem fora do PBC/tempo.
+    let contribuicoes = quantidade.saturating_add(entrada.opcoes.meses_fora_do_tempo.len());
+    carencia.competencias_salario = contribuicoes;
+    carencia.competencias_vinculo = 0;
+    let mut carencia_meses = contribuicoes
+        .saturating_add(carencia.competencias_graca)
+        .saturating_add(carencia.recolhimentos_atraso);
 
     // PBC / salário de benefício.
     let correcao_ativa = entrada.opcoes.corrigir_salarios;
@@ -452,11 +462,14 @@ pub fn calcular(entrada: &RgpsEntrada) -> Result<RgpsResultado> {
                         "{count} competência(s) descartada(s) do PBC; o tempo foi reduzido em {count} mês(es) e o coeficiente/transições foram recalculados. Os vínculos de origem permanecem listados."
                     ));
                 }
-                carencia_meses = carencia_meses.saturating_sub(count);
+                // Carência conta contribuições; o descarte do PBC não a reduz.
             }
         }
     }
     carencia.carencia_meses = carencia_meses;
+    if let Some(t) = tempo.as_mut() {
+        t.carencia_meses = carencia_meses;
+    }
     let tempo_meses = tempo
         .as_ref()
         .map(|t| (t.marcos.ate_ec103 + t.marcos.apos_ec103) / 30)
@@ -488,8 +501,15 @@ pub fn calcular(entrada: &RgpsEntrada) -> Result<RgpsResultado> {
             .map(|t| t.marcos.ate_ec103 / 30)
             .unwrap_or(0),
     })?;
-    let anos = (quantidade / 12) as i64;
-    let meses_restantes = (quantidade % 12) as i64;
+    let tempo_meses_para_coeficiente = tempo
+        .as_ref()
+        .map(|t| (t.total.anos as i64) * 12 + t.total.meses as i64)
+        .unwrap_or(0);
+    let (anos, meses_restantes) = if tempo_meses_para_coeficiente > 0 {
+        ((tempo_meses_para_coeficiente / 12) as i64, (tempo_meses_para_coeficiente % 12) as i64)
+    } else {
+        ((quantidade / 12) as i64, (quantidade % 12) as i64)
+    };
     let base = anos_base(&entrada.sexo);
     let excedente = (anos - base).max(0);
     let coeficiente = if especie == Especie::TempoContribuicao {
@@ -544,6 +564,7 @@ pub fn calcular(entrada: &RgpsEntrada) -> Result<RgpsResultado> {
     let mut coeficiente_exibicao = coeficiente;
     let mut regra_exibicao: Option<String> = None;
     let mut regra_nome_exibicao: Option<String> = None;
+    let mut fator_exibicao: Option<Decimal> = None;
 
     // Transições EC 103 (quando há nascimento).
     let mut avisos = Vec::new();
@@ -585,6 +606,22 @@ pub fn calcular(entrada: &RgpsEntrada) -> Result<RgpsResultado> {
                     regra_nome_exibicao = Some(regra.nome.clone());
                     if matches!(regra.criterio_rmi, "fator-previdenciario" | "100%-media") {
                         coeficiente_exibicao = Decimal::from(100);
+                    } else if regra.criterio_rmi == "coeficiente-progressivo" {
+                        if let Some(rmi_regra) = regra
+                            .rmi
+                            .as_deref()
+                            .and_then(|value| parse_money(value, "RMI da regra progressiva").ok())
+                        {
+                            if salario_beneficio > Decimal::ZERO {
+                                coeficiente_exibicao = div(
+                                    mul(rmi_regra, Decimal::from(100)),
+                                    salario_beneficio,
+                                )?;
+                            }
+                        }
+                    }
+                    if regra.criterio_rmi == "fator-previdenciario" && salario_beneficio > Decimal::ZERO {
+                        fator_exibicao = Some(div(rmi_exibicao, salario_beneficio)?);
                     }
                 }
             }
@@ -617,7 +654,7 @@ pub fn calcular(entrada: &RgpsEntrada) -> Result<RgpsResultado> {
         } else {
             match especie {
                 Especie::TempoContribuicao => format!(
-                    "60% + 2% × {excedente} ano(s) excedente(s) a {base} (por competências informadas)"
+                    "60% + 2% × {excedente} ano(s) excedente(s) a {base} (por tempo de contribuição apurado)"
                 ),
                 Especie::Idade | Especie::IncapacidadePermanente | Especie::Especial | Especie::Professor => format!(
                     "Coeficiente da espécie {}: {coeficiente}% sobre a média",
@@ -630,6 +667,13 @@ pub fn calcular(entrada: &RgpsEntrada) -> Result<RgpsResultado> {
         },
         valor: format!("{coeficiente_exibicao}%"),
     });
+    if let Some(fator) = fator_exibicao {
+        memoria.push(MemoriaItem {
+            tipo: "fator",
+            descricao: "Fator previdenciário aplicado pela regra vencedora (RMI ÷ salário de benefício)".into(),
+            valor: format!("{}", fator.round_dp(4)),
+        });
+    }
     memoria.push(MemoriaItem {
         tipo: "rmi",
         descricao: if let Some(nome) = &regra_nome_exibicao {
@@ -695,11 +739,16 @@ pub fn calcular(entrada: &RgpsEntrada) -> Result<RgpsResultado> {
         "Tempo especial, rural e concomitância exigem análise própria; confira o CNIS e a carta de concessão antes de usar o resultado.".into(),
     );
     if correcao_ativa {
-        avisos.push(if entrada.opcoes.descarte {
-            "Descarte fixo dos 20% menores salários corrigidos selecionado; o descarte do art. 26, § 6º, da EC 103 está bloqueado.".into()
+        if let Some(minimo) = entrada.opcoes.descartar_menores_minimo {
+            let descartadas = correcao.as_ref().map(|pbc| pbc.descartadas).unwrap_or(0);
+            avisos.push(format!(
+                "Descarte mínimo da EC 103/2019, art. 26, § 6º, aplicado: {descartadas} menor(es) remuneração(ões) excluída(s) do PBC, mantendo {minimo} competência(s); tempo e carência foram recalculados."
+            ));
+        } else if entrada.opcoes.descarte {
+            avisos.push("Descarte fixo dos 20% menores salários corrigidos selecionado; o descarte do art. 26, § 6º, da EC 103 está bloqueado.".into());
         } else {
-            "Nenhum descarte de salários selecionado; o descarte do art. 26, § 6º, da EC 103 está bloqueado.".into()
-        });
+            avisos.push("Nenhum descarte de salários selecionado; o descarte do art. 26, § 6º, da EC 103 está bloqueado.".into());
+        }
         avisos.push(
             "Competências anteriores a 2001 podem divergir da tabela de transição oficial do INSS; o descarte dos 20% menores costuma absorver a diferença.".into(),
         );
@@ -819,6 +868,8 @@ pub fn calcular(entrada: &RgpsEntrada) -> Result<RgpsResultado> {
             meses_restantes,
             anos_base: base,
             coeficiente: coeficiente_str.clone(),
+            coeficiente_regra: (coeficiente_exibicao != coeficiente)
+                .then(|| format!("{coeficiente_exibicao}")),
             correcao_ativa,
             referencia_correcao: correcao
                 .as_ref()
@@ -1036,5 +1087,28 @@ mod tests {
         entrada.opcoes.corrigir_salarios = false;
         assert!(validar(&entrada).is_ok());
         assert_eq!(calcular(&entrada).unwrap().resumo.rmi, "1600.00");
+    }
+    #[test]
+    fn carencia_conta_contribuicoes_e_nao_meses_de_vinculo() {
+        let mut entrada = entrada_feminina_300();
+        entrada.especie = Some("42".into());
+        entrada.vinculos = vec![VinculoEntrada {
+            inicio: IsoDate::parse("2024-01-01", "inicio").unwrap(),
+            fim: Some(IsoDate::parse("2024-12-31", "fim").unwrap()),
+            tipo: "empregado".into(),
+            empresa: None,
+            fator: 1.0,
+        }];
+        entrada.competencias = vec![
+            (Competencia { ano: 2024, mes: 1 }, parse_money("2000.00", "s").unwrap()),
+            (Competencia { ano: 2024, mes: 2 }, parse_money("2000.00", "s").unwrap()),
+        ];
+        entrada.opcoes.meses_fora_do_tempo = vec![
+            Competencia { ano: 2024, mes: 3 },
+            Competencia { ano: 2024, mes: 4 },
+        ];
+        let resultado = calcular(&entrada).unwrap();
+        assert_eq!(resultado.resumo.carencia_meses, 4);
+        assert_eq!(resultado.carencia.get("competencias_vinculo").and_then(|v| v.as_u64()), Some(0));
     }
 }
