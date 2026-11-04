@@ -205,8 +205,8 @@ export function assistantConsideration(c: Calculation, _interview?: AssistantInt
   if (salaries.some(s => !positiveMoney(s.amount))) add('salaries_amount','Valor de remuneração ausente, não positivo ou inválido.','salaries');
   const competences = salaries.map(s => s.competence).filter(validCompetence);
   if (new Set(competences).size !== competences.length) add('salaries_duplicate','Competência duplicada: concomitância exige consolidação documental.','salaries');
-  if (dib && competences.some(month => month > dib.slice(0,7))) add('salaries_after_dib','Existe remuneração posterior à DIB.','salaries');
-  if (links.length && competences.some(month => !links.some(link => { const range = dateRange(link); return range ? monthInside(month,range.start,range.end) : false; }))) add('salaries_outside_links','Existe remuneração sem vínculo confirmado correspondente.','salaries');
+  if (dib && competences.some(month => month > dib.slice(0,7))) add('salaries_after_dib','Existe remuneração posterior à DIB; ela fica fora do PBC e é preservada na fonte.','salaries',false);
+  if (links.length && competences.some(month => !links.some(link => { const range = dateRange(link); return range ? monthInside(month,range.start,range.end) : false; }))) add('salaries_outside_links','Existe remuneração sem vínculo confirmado correspondente; a competência permanece pendente e não vira zero.','salaries',false);
   const pre94 = competences.filter(month => month < '1994-07').length;
   if (pre94) add('salaries_pre94',pre94 + ' competência(s) anterior(es) a 07/1994 serão preservadas, mas ficam fora do PBC.', 'salaries', false);
 

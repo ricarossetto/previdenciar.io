@@ -107,6 +107,7 @@ describe('assistant data consideration',()=>{
     const codes = r.issues.map(i=>i.code);
     expect(codes).toContain('salaries_duplicate');
     expect(codes).toContain('salaries_outside_links');
+    expect(r.issues.find(i=>i.code==='salaries_outside_links')?.decisive).toBe(false);
   });
 
   it('lists source pendings without letting them block when the source is excluded',()=>{
