@@ -3,12 +3,13 @@ import type {Cnis} from '../model';
 import {brDate, centavosMoney} from '../model';
 import {linkQuality} from '../assistantReview';
 import {Button, Notice} from './ui';
+import {CnisTimeline} from './CnisTimeline';
 
 const VIEWS = ['Dados pessoais', 'Qualidade', 'Períodos', 'Remunerações', 'Benefícios'] as const;
 const PAGE_SIZE = 20;
 
 /** A preview of source records. Adjustments belong to the review overlay after applying. */
-export function CnisReview({cnis}: {cnis:Cnis}) {
+export function CnisReview({cnis,dib}: {cnis:Cnis;dib?:string|null}) {
   const id = useId();
   const [view, setView] = useState(0);
   const [page, setPage] = useState(0);
@@ -71,6 +72,7 @@ export function CnisReview({cnis}: {cnis:Cnis}) {
       </>}
     </div>
     {cnis.warnings.length>0&&<details className="details"><summary>Pendências da leitura · {cnis.warnings.length}</summary><ul className="review-list">{cnis.warnings.map((warning,index)=><li key={index}>{warning.message||'Conferência documental necessária'} · {warning.count} registro(s)</li>)}</ul></details>}
+    <CnisTimeline cnis={cnis} dib={dib??null}/>
     <Notice>Esta é a leitura do documento. Após aplicar, confira e edite vínculos em Períodos e valores em Remunerações. Cada ajuste mantém a origem e invalida o resultado anterior.</Notice>
   </section>;
 }
