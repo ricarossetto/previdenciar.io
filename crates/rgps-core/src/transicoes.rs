@@ -36,17 +36,17 @@ pub fn idade_exigida_meses(sexo: &str, ano: i32) -> i64 {
 /// O fator pode reduzir o salário de benefício; não há piso legal em 1.
 pub fn fator_previdenciario(
     sexo: &str,
-    tempo_total_meses: i64,
+    tempo_total_meses: Decimal,
     idade_meses: i64,
     expectativa_sobrevida: Decimal,
 ) -> Result<Decimal> {
     let a = Decimal::from_str_exact("0.31").unwrap();
     let tempo_com_acrescimo = if sexo == "feminino" {
-        tempo_total_meses + 60
+        add(tempo_total_meses, Decimal::from(60))
     } else {
         tempo_total_meses
     };
-    let tc = div(Decimal::from(tempo_com_acrescimo), Decimal::from(12))?;
+    let tc = div(tempo_com_acrescimo, Decimal::from(12))?;
     let id = div(Decimal::from(idade_meses), Decimal::from(12))?;
     let es = expectativa_sobrevida;
     if es <= Decimal::ZERO {
@@ -100,6 +100,8 @@ pub struct TransicoesEntrada {
     pub data_referencia: IsoDate,
     pub meses_ate_reforma: i64,
     pub meses_apos_reforma: i64,
+    /// Dias excedentes do total 30/360, usados na fração do fator.
+    pub dias_totais: i64,
     /// Salário de benefício (PBC) para as RMI das regras.
     pub salario_beneficio: Decimal,
     /// Teto/piso aplicados à RMI final da regra (opcional).
@@ -247,7 +249,8 @@ pub fn build_transicoes(entrada: &TransicoesEntrada) -> Result<TransicoesResulta
     let (rmi_fator, rmi_fator_final, observacao_fator) = match entrada.expectativa_sobrevida.or(expectativa_tabelada) {
         Some(es) if aplica50 => {
             let idade_der = idade_meses;
-            let fator = fator_previdenciario(sexo, tempo_total, idade_der, es)?;
+            let tempo_total_dec = add(Decimal::from(tempo_total), div(Decimal::from(entrada.dias_totais), Decimal::from(30))?);
+    let fator = fator_previdenciario(sexo, tempo_total_dec, idade_der, es)?;
             let bruta = mul(entrada.salario_beneficio, fator);
             let (final_valor, limite) = aplicar_limites(bruta, entrada.teto, entrada.piso);
             (
@@ -389,6 +392,7 @@ mod tests {
             data_referencia: IsoDate::parse(referencia, "t").unwrap(),
             meses_ate_reforma: ate_reforma,
             meses_apos_reforma: apos,
+            dias_totais: 0,
             salario_beneficio: parse_money("2000.00", "sb").unwrap(),
             teto: None,
             piso: None,
@@ -431,11 +435,12 @@ mod tests {
 
     #[test]
     fn fator_usa_aliquota_031_e_acrescimo_de_cinco_anos_para_mulher() {
-        let masculino = fator_previdenciario("masculino", 120, 600, Decimal::from(40)).unwrap();
-        let feminino = fator_previdenciario("feminino", 120, 600, Decimal::from(40)).unwrap();
+        let masculino = fator_previdenciario("masculino", Decimal::from(120), 600, Decimal::from(40)).unwrap();
+        let feminino = fator_previdenciario("feminino", Decimal::from(120), 600, Decimal::from(40)).unwrap();
         // Lei 9.876/1999: a = 0,31 (homem) e 0,30 (mulher).
         assert_eq!(masculino, Decimal::from_str_exact("0.1186525").unwrap());
-        // Mulher: Tc = 10 anos + 5 = 15 anos; 15×0,31/40 × [1+(50+4,65)/100] = 0,179780625.\n        assert_eq!(feminino, Decimal::from_str_exact("0.179780625").unwrap());
+        // Mulher: Tc = 10 anos + 5 = 15 anos; 15×0,31/40 × [1+(50+4,65)/100] = 0,179780625.
+        assert_eq!(feminino, Decimal::from_str_exact("0.179780625").unwrap());
     }
 
     #[test]
