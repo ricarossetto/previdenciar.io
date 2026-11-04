@@ -511,7 +511,7 @@ fn parse_pages(pages: &[String]) -> Result<ImportResult, ImportError> {
             // form ("Normal", "Cooperado", "Não Cooperado", "Terceirização")
             // and the remuneration. Any other word between the month and the
             // amount is refused: no arbitrary text/amount guessing.
-            static COOPERATIVE: LazyLock<Regex> = LazyLock::new(||Regex::new(r"(?i)\b(0[1-9]|1[0-2])/(\d{4})\s+(?:\d{2}\.\d{3}\.\d{3}(?:/\d{4}-\d{2})?\s+){1,3}(?:(?:normal|cooperado|n[^\W\d_]{0,4}o(?:\s+cooperado)?|terceiriza[^\W\d_]{0,4}o)\s+){0,2}(?:R\$\s*)?(-?(?:\d{1,3}(?:\.\d{3})+|\d+),\d{2})\b").unwrap());
+            static COOPERATIVE: LazyLock<Regex> = LazyLock::new(||Regex::new(r"(?i)\b(0[1-9]|1[0-2])/(\d{4})\s+(?:\d{2}\.\d{3}\.\d{3}(?:/\d{4}-\d{2})?\s+){1,3}(?:(?:normal|cooperado|n[^\W\d_]{0,4}o(?:\s+cooperado)?|terceiriza[^\W\d_]{0,4}o|filantropia)\s+){0,2}(?:R\$\s*)?(-?(?:\d{1,3}(?:\.\d{3})+|\d+),\d{2})\b").unwrap());
             let cooperative_rows:Vec<_>=if table{COOPERATIVE.captures_iter(line).collect()}else{vec![]};
             for (i,cap) in cooperative_rows.iter().enumerate(){
                 let span=cap.get(0).unwrap();let end=cooperative_rows.get(i+1).map(|next|next.get(0).unwrap().start()).unwrap_or(line.len());

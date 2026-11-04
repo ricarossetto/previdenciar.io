@@ -385,3 +385,10 @@ fn bounded_cooperative_table_preserves_remuneration_and_ignores_company_numbers(
     let r=import_text("CNIS\nRemunerações\nCompetência Contrat. Estabelecimento Tomador Forma Prestação Serviço Remuneração Indicadores\n05/2020 00.000.000/0000-00 11.111.111/1111-11 Normal 1.900,00").unwrap();
     assert_eq!(r.salary_entries.len(),1);assert_eq!(r.salary_entries[0].competence,"2020-05");assert_eq!(r.salary_entries[0].amount_centavos,190000);
 }
+#[test]
+fn cooperative_table_with_filantropia_column_still_yields_remuneration() {
+    let text = "CNIS\nRelações Previdenciárias\nSeq. NIT Código Emp. Origem do Vínculo Tipo Filiado no Vínculo Data Início Data Fim\n15 111.11111.11-1 90.738.014/0001-08 AGRUPAMENTO FICTICIO Contribuinte Individual 01/10/2005 31/01/2006\nCompetência Remuneração Indicadores\nRemunerações\n10/2005 90.738.014/0001-08 90.738.014/0001-08 90.738.014/0001-08 Filantropia 896,00\n";
+    let r = import_text(text).unwrap();
+    let entry = r.salary_entries.iter().find(|e| e.competence == "2005-10" && e.amount_centavos == 89600).expect("remuneração filantropia");
+    assert_eq!(entry.link_sequence, Some(15));
+}
