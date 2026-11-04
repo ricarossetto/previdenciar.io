@@ -6,3 +6,9 @@ resolver = "2"
 opt-level = 2
 lto = "thin"
 strip = "debuginfo"
+
+[profile.dev]
+debug = 0
+
+[profile.test]
+debug = 0
