@@ -150,15 +150,15 @@ fn guided_preparation_excludes_prpps_and_keeps_review_pending() {
     assert_eq!(prepared.manual_links[0].end_date, "2020-01-31");
     assert_eq!(prepared.manual_links[0].regime, "RGPS");
     assert!(
-        !prepared.manual_links[0].confirmed,
-        "preparação não pode confirmar automaticamente"
+        prepared.manual_links[0].confirmed,
+        "vínculo RGPS do CNIS conferido entra confirmado"
     );
     assert_eq!(prepared.manual_links[0].indicators, "IREM-INDPEND");
     assert_eq!(prepared.manual_salaries.len(), 1);
     assert_eq!(prepared.manual_salaries[0].competence, "2020-01");
     assert!(
-        !prepared.manual_salaries[0].confirmed,
-        "salário não pode ser confirmado automaticamente"
+        prepared.manual_salaries[0].confirmed,
+        "remuneração do CNIS conferido entra confirmada"
     );
     assert!(
         prepared.disability.is_none(),
@@ -167,7 +167,7 @@ fn guided_preparation_excludes_prpps_and_keeps_review_pending() {
     assert!(notes.iter().any(|note| note.contains("PRPPS")));
     assert!(notes
         .iter()
-        .any(|note| note.contains("revisão documental permanece pendente")));
+        .any(|note| note.contains("aceitos como conferidos")));
     assert!(notes
         .iter()
         .any(|note| note.contains("Condição de deficiência não declarada")));
@@ -199,15 +199,10 @@ fn guided_preparation_pending_never_produces_financial_result() {
     assert_eq!(result["status"], "blocked", "{result}");
     assert!(result["data"].is_null());
     let missing = result["missing"].as_array().unwrap();
-    for code in [
-        "link_unconfirmed",
-        "wage_unconfirmed",
-        "disability_unconfirmed",
-    ] {
-        assert!(
-            missing.iter().any(|value| value == code),
-            "missing {code}: {result}"
-        );
+    // Deficiência não declarada continua bloqueando; vínculos e salários do CNIS não.
+    assert!(missing.iter().any(|value| value == "disability_unconfirmed"), "{result}");
+    for code in ["link_unconfirmed", "wage_unconfirmed"] {
+        assert!(!missing.iter().any(|value| value == code), "{code}: {result}");
     }
     assert!(result["warnings"]
         .as_array()
@@ -254,7 +249,7 @@ fn guided_preparation_clamps_end_at_dib_and_preserves_original() {
     let source_before = serde_json::to_value(&case.cnis).unwrap();
     let (prepared, notes) = prepare_from_cnis(&case, "CNIS conferido em 2026-10-23").unwrap();
     assert_eq!(prepared.manual_links[0].end_date, "2023-06-30");
-    assert!(!prepared.manual_links[0].confirmed);
+    assert!(prepared.manual_links[0].confirmed);
     let history = &prepared.manual_links[0]
         .source_review
         .as_ref()

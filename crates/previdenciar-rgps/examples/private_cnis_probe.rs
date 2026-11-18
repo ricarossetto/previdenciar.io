@@ -39,8 +39,9 @@ fn main() {
     let case = previdenciar_workspace::Calculation {
         identity: cnis.identity.clone(),
         cnis: Some(cnis.clone()),
-        sex: Some("feminino".into()),
-        dib: "2026-10-20".into(),
+        sex: Some(std::env::args().nth(2).unwrap_or_else(|| "feminino".into())),
+        disability: std::env::args().nth(4),
+        dib: std::env::args().nth(3).unwrap_or_else(|| "2026-10-20".into()),
         kind: "RGPS".into(),
         ..Default::default()
     };

@@ -43,6 +43,7 @@ pub fn prepare_from_cnis(case: &Calculation, reference: &str) -> Result<(Calcula
     let mut sem_fim = Vec::new();
     let mut clamped = Vec::new();
     let mut excluded_after_dib = Vec::new();
+    let mut fim_inferido = Vec::new();
     for link in cnis.links.iter().filter(|link| !link.prpps) {
         let Some(start_date) = link.start_date.clone() else {
             sem_fim.push(link.sequence);
@@ -53,6 +54,7 @@ pub fn prepare_from_cnis(case: &Calculation, reference: &str) -> Result<(Calcula
             .clone()
             .or_else(|| link.inferred_last_salary_end.as_ref().map(|inferred| inferred.date_candidate.clone()))
             .or_else(|| ultima_competencia_do_vinculo(cnis, link.sequence).and_then(|competencia| fim_do_mes(&competencia)));
+        let end_inferred = link.end_date.is_none();
         let Some(source_end_date) = source_end_date else {
             sem_fim.push(link.sequence);
             continue;
@@ -68,6 +70,9 @@ pub fn prepare_from_cnis(case: &Calculation, reference: &str) -> Result<(Calcula
         };
         if excluded {
             excluded_after_dib.push(link.sequence);
+        }
+        if end_inferred && !excluded {
+            fim_inferido.push(link.sequence);
         }
         let employer = link.raw_employer.clone().unwrap_or_default();
         let indicators = link.indicators.clone();
@@ -90,13 +95,16 @@ pub fn prepare_from_cnis(case: &Calculation, reference: &str) -> Result<(Calcula
             confirmed: false,
             excluded: false,
         };
+        // A referência documental informada é a conferência do CNIS: o vínculo
+        // RGPS lido do documento entra confirmado. Regime indefinido continua pendente.
+        let confirmed = regime == "RGPS" && !excluded;
         let after = LinkSnapshot {
             employer: employer.clone(),
             start_date: start_date.clone(),
             end_date: end_date.clone(),
             regime: regime.into(),
             indicators: indicators.join(", "),
-            confirmed: false,
+            confirmed,
             excluded,
         };
         links.push(ManualLink {
@@ -106,7 +114,7 @@ pub fn prepare_from_cnis(case: &Calculation, reference: &str) -> Result<(Calcula
                 excluded,
                 history: vec![LinkChange {
                     at: chrono::Utc::now().to_rfc3339(),
-                    reason: "Preparação assistida a partir do CNIS: período efetivo limitado à DIB; indicadores preservados; confirmação documental pendente.".into(),
+                    reason: format!("Preparação assistida a partir do CNIS conferido ({reference}): período efetivo limitado à DIB; indicadores preservados."),
                     before,
                     after,
                 }],
@@ -117,7 +125,7 @@ pub fn prepare_from_cnis(case: &Calculation, reference: &str) -> Result<(Calcula
             end_date,
             regime: regime.into(),
             indicators: indicators.join(", "),
-            confirmed: false,
+            confirmed,
         });
     }
     if !prpps.is_empty() {
@@ -191,7 +199,8 @@ pub fn prepare_from_cnis(case: &Calculation, reference: &str) -> Result<(Calcula
             competence: competencia.clone(),
             amount: format!("{}.{:02}", total / 100, total % 100),
             indicators: indicators.into_iter().collect::<Vec<_>>().join(", "),
-            confirmed: false,
+            // Valor nominal lido do CNIS conferido pela referência informada.
+            confirmed: true,
         });
     }
     if meses_sem_remuneracao > 0 {
@@ -234,7 +243,18 @@ pub fn prepare_from_cnis(case: &Calculation, reference: &str) -> Result<(Calcula
             pbc_end
         ));
     }
-    notes.push("A preparação não confirma automaticamente vínculos, salários ou indicadores; a revisão documental permanece pendente.".into());
+    if !fim_inferido.is_empty() {
+        notes.push(format!(
+            "{} vínculo(s) sem data final no CNIS foram fechados pela última remuneração; confira: {}.",
+            fim_inferido.len(),
+            fim_inferido.iter().map(u32::to_string).collect::<Vec<_>>().join(", ")
+        ));
+    }
+    let pendentes = links.iter().filter(|link| !link.confirmed && !link.source_review.as_ref().is_some_and(|r| r.excluded)).count();
+    if pendentes > 0 {
+        notes.push(format!("{pendentes} vínculo(s) com regime indefinido continuam pendentes de confirmação manual."));
+    }
+    notes.push(format!("Vínculos RGPS e remunerações do CNIS foram aceitos como conferidos pela referência \"{reference}\"; indicadores continuam visíveis para revisão."));
     let dib_mes = &dib_iso[..7];
     let ultimo_inpc = rgps_core::dados::inpc::INPC_MENSAL.last().map(|(periodo, _)| *periodo).unwrap_or("");
     if dib_mes > ultimo_inpc {
