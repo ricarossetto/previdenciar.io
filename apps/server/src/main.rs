@@ -60,9 +60,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
     }
+    let mut connect_options: sqlx::postgres::PgConnectOptions = config.database_url.parse()?;
+    if let Some((user, password)) = &config.database_credentials {
+        connect_options = connect_options.username(user).password(password);
+    }
     let db = PgPoolOptions::new()
         .max_connections(10)
-        .connect(&config.database_url)
+        .connect_with(connect_options)
         .await?;
     sqlx::migrate!("./migrations").run(&db).await?;
 

@@ -26,6 +26,9 @@ impl Environment {
 pub struct Config {
     pub environment: Environment,
     pub database_url: String,
+    /// Usuário e senha vindos do segredo gerenciado pelo RDS (`DB_USERNAME`/`DB_PASSWORD`).
+    /// Quando presentes, substituem os da `DATABASE_URL`, que sobrevive à rotação da senha.
+    pub database_credentials: Option<(String, String)>,
     pub bind_addr: String,
     pub web_dist: Option<String>,
     pub allowed_origins: Vec<String>,
@@ -57,6 +60,12 @@ impl Config {
     fn from_lookup(lookup: impl Fn(&str) -> Option<String>) -> Result<Self, String> {
         let database_url = lookup("DATABASE_URL")
             .ok_or_else(|| "DATABASE_URL não configurada.".to_owned())?;
+        let non_empty = |key: &str| lookup(key).filter(|value| !value.is_empty());
+        let database_credentials = match (non_empty("DB_USERNAME"), non_empty("DB_PASSWORD")) {
+            (Some(user), Some(password)) => Some((user, password)),
+            (None, None) => None,
+            _ => return Err("Configure DB_USERNAME e DB_PASSWORD juntos, ou nenhum dos dois.".into()),
+        };
         let environment = match lookup("APP_ENV") {
             Some(raw) if !raw.trim().is_empty() => Environment::parse(&raw).unwrap_or_else(|| {
                 tracing::warn!(
@@ -93,6 +102,7 @@ impl Config {
         Ok(Self {
             environment,
             database_url,
+            database_credentials,
             bind_addr: lookup("BIND_ADDR").unwrap_or_else(|| "0.0.0.0:8787".into()),
             web_dist: lookup("WEB_DIST").filter(|value| !value.trim().is_empty()),
             allowed_origins: lookup("ALLOWED_ORIGINS")
@@ -138,6 +148,7 @@ impl Config {
         Self {
             environment: Environment::Test,
             database_url: "postgres://teste:inexistente@127.0.0.1:9/sem_banco".to_owned(),
+            database_credentials: None,
             bind_addr: "127.0.0.1:0".to_owned(),
             web_dist: None,
             allowed_origins: Vec::new(),
@@ -216,6 +227,14 @@ mod tests {
         ];
         vars.extend_from_slice(extra);
         Config::from_lookup(env_lookup(&vars))
+    }
+
+    #[test]
+    fn credenciais_do_banco_exigem_usuario_e_senha_juntos() {
+        assert!(config_with(&[]).expect("config").database_credentials.is_none());
+        let config = config_with(&[("DB_USERNAME", "u"), ("DB_PASSWORD", "p")]).expect("config");
+        assert_eq!(config.database_credentials, Some(("u".into(), "p".into())));
+        assert!(config_with(&[("DB_PASSWORD", "p")]).is_err());
     }
 
     #[test]
