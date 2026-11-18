@@ -668,10 +668,10 @@ fn avaliar_especial(e: &AvaliacaoEntrada<'_>) -> Result<BeneficioApurado> {
     let carencia = e.carencia_meses.max(0);
     let carencia_ok = carencia >= 180;
     let idade_meses = idade(e).unwrap_or(0);
-    let idade_anos = idade_meses / 12;
-    let tempo_anos = e.tempo_meses.max(0) / 12;
-    let especial_anos = tempo / 12;
-    let pontos = idade_anos + tempo_anos + especial_anos;
+    // O tempo total de contribuição já inclui o período especial; não somar especial duas vezes.
+    let tempo_total_meses = e.tempo_meses.max(tempo).max(0);
+    let pontos_meses = idade_meses + tempo_total_meses;
+    let pontos_dec = Decimal::from(pontos_meses) / Decimal::from(12);
     let pontos_min = match min_anos {
         15 => 66,
         20 => 76,
@@ -751,16 +751,17 @@ fn avaliar_especial(e: &AvaliacaoEntrada<'_>) -> Result<BeneficioApurado> {
         None,
     );
     let permanente = com_requisitos(permanente_base, vec![grau_req.clone(), especial_req.clone()]);
+    let pontos_ok = pontos_meses >= pontos_min * 12 && inicio_antes;
     let pontos_req = requisito(
         "pontos_especial",
-        "Pontos (idade + tempo de contribuição + tempo especial)",
+        "Pontos (idade + tempo de contribuição)",
         format!("{pontos_min} pontos"),
-        format!("{pontos} pontos"),
-        pontos >= pontos_min && inicio_antes,
-        if pontos >= pontos_min && inicio_antes {
+        format!("{:.2} pontos", pontos_dec),
+        pontos_ok,
+        if pontos_ok {
             None
         } else {
-            Some((pontos_min - pontos).max(0) * 12)
+            Some((pontos_min * 12 - pontos_meses).max(0))
         },
         false,
     );
@@ -814,8 +815,9 @@ fn avaliar_professor(e: &AvaliacaoEntrada<'_>) -> Result<BeneficioApurado> {
     let carencia_ok = carencia >= 180;
     let idade_meses = idade(e).unwrap_or(0);
     let idade_anos = idade_meses / 12;
-    let tempo_anos = e.tempo_meses.max(0) / 12;
-    let pontos = idade_anos + tempo_anos;
+    let tempo_total_meses = e.tempo_meses.max(0);
+    let pontos_meses = idade_meses + tempo_total_meses;
+    let pontos_dec = Decimal::from(pontos_meses) / Decimal::from(12);
     let pontos_min = if e.sexo == "feminino" { 81 } else { 91 };
     let inicio_antes = filiado_antes_reforma(e).unwrap_or(false);
     let idade_min = if e.sexo == "feminino" { 62_i64 } else { 65_i64 };
@@ -895,16 +897,17 @@ fn avaliar_professor(e: &AvaliacaoEntrada<'_>) -> Result<BeneficioApurado> {
         permanente_base,
         vec![mag_req.clone(), exclusivo_req.clone()],
     );
+    let pontos_ok = pontos_meses >= pontos_min * 12 && inicio_antes;
     let pontos_req = requisito(
         "pontos_professor",
         "Pontos (idade + tempo de contribuição)",
         format!("{pontos_min} pontos"),
-        format!("{pontos} pontos"),
-        pontos >= pontos_min && inicio_antes,
-        if pontos >= pontos_min && inicio_antes {
+        format!("{:.2} pontos", pontos_dec),
+        pontos_ok,
+        if pontos_ok {
             None
         } else {
-            Some((pontos_min - pontos).max(0) * 12)
+            Some((pontos_min * 12 - pontos_meses).max(0))
         },
         false,
     );

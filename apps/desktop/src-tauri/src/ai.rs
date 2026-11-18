@@ -32,11 +32,11 @@ impl Default for AiState {
 }
 
 impl AiState {
-    fn root(&self) -> Result<&PathBuf, String> {
+    pub(crate) fn root(&self) -> Result<&PathBuf, String> {
         self.root.as_ref().map_err(Clone::clone)
     }
 
-    fn vault(&self) -> Result<SecretVault, String> {
+    pub(crate) fn vault(&self) -> Result<SecretVault, String> {
         Ok(SecretVault::new(self.root()?.join("ai-keys.pvai")))
     }
 
@@ -69,7 +69,7 @@ fn app_root() -> Result<PathBuf, String> {
     Ok(root)
 }
 
-fn ensure_root(root: &Path) -> Result<(), String> {
+pub(crate) fn ensure_root(root: &Path) -> Result<(), String> {
     crate::files::check_ancestors(root, true)?;
     if !root.exists() {
         std::fs::create_dir(root)

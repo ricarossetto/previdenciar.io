@@ -16,6 +16,14 @@ pub async fn ensure_user(pool: &PgPool, user: &AuthUser) -> Result<Uuid, sqlx::E
     Ok(row.get("id"))
 }
 
+fn strip_workspace_secrets(doc: &mut Value) {
+    if let Some(settings) = doc.get_mut("settings").and_then(Value::as_object_mut) {
+        if settings.contains_key("fabrica_api_key") {
+            settings.insert("fabrica_api_key".into(), Value::String(String::new()));
+        }
+    }
+}
+
 pub async fn bootstrap_workspace(pool: &PgPool, owner_id: Uuid) -> Result<(Uuid, Value, i64), sqlx::Error> {
     let mut tx = pool.begin().await?;
 
@@ -37,7 +45,9 @@ pub async fn bootstrap_workspace(pool: &PgPool, owner_id: Uuid) -> Result<(Uuid,
     .fetch_optional(&mut *tx)
     .await?
     {
-        let result = (row.get("id"), row.get("document"), row.get("revision"));
+        let mut document: Value = row.get("document");
+        strip_workspace_secrets(&mut document);
+        let result = (row.get("id"), document, row.get("revision"));
         tx.commit().await?;
         return Ok(result);
     }
@@ -74,6 +84,8 @@ pub async fn save_workspace(
         return Err(SaveError::Conflict);
     }
     workspace.revision = (revision + 1) as u64;
+    // Segurança (R4): jamais gravar chaves de API do cliente em workspaces.document (jsonb).
+    workspace.settings.fabrica_api_key.clear();
     let document = serde_json::to_value(&workspace)
         .map_err(|error| SaveError::Serialization(error.to_string()))?;
     let result = sqlx::query(

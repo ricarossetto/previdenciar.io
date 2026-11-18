@@ -78,7 +78,12 @@ pub fn report_html(case: &Calculation, workspace: &Workspace, include_personal: 
         table(&mut out, "Benefícios: não considerados automaticamente como vínculos", &["Seq.", "Espécie", "Estado", "Incluído como vínculo"]);
         for benefit in &cnis.benefits {
             row(&mut out, &[benefit.sequence.to_string(), benefit.species.map(|v| v.to_string()).unwrap_or_else(|| "Desconhecida".into()),
-                match benefit.status { previdenciar_cnis::BenefitStatus::Denied => "Indeferido", previdenciar_cnis::BenefitStatus::Unknown => "Desconhecido" }.into(), benefit.included_as_employment_link.to_string()]);
+                match benefit.status {
+                    previdenciar_cnis::BenefitStatus::Active => "Ativo",
+                    previdenciar_cnis::BenefitStatus::Ceased => "Cessado",
+                    previdenciar_cnis::BenefitStatus::Denied => "Indeferido",
+                    previdenciar_cnis::BenefitStatus::Unknown => "Desconhecido",
+                }.into(), benefit.included_as_employment_link.to_string()]);
         }
         end_table(&mut out);
     }

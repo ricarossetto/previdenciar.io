@@ -46,7 +46,9 @@ fn options(value: &Value) -> Result<RgpsOpcoes, String> {
     let mut op = RgpsOpcoes::default();
     if let Some(v) = flag(value, &["corrigirSalarios", "corrigir_salarios"]) { op.corrigir_salarios = v; }
     if let Some(v) = flag(value, &["descarte"]) { op.descarte = v; }
+    if let Some(v) = flag(value, &["descarteOtimo", "descarte_otimo"]) { op.descarte_otimo = v; }
     if let Some(v) = flag(value, &["divisorMinimo", "divisor_minimo"]) { op.divisor_minimo = v; }
+    if let Some(v) = flag(value, &["aplicarPisoAutomatico", "aplicar_piso_automatico"]) { op.aplicar_piso_automatico = v; }
     if let Some(v) = number(value, &["descartarMenoresMinimo", "descartar_menores_minimo"]) { op.descartar_menores_minimo = Some(v as u32); }
     if let Some(v) = month(value, &["referenciaCorrecao", "referencia_correcao"], "Referência de correção")? { op.referencia_correcao = Some(v); }
     if let Some(v) = decimal(value, &["teto"], "Teto")? { op.teto = Some(v); }
@@ -206,12 +208,13 @@ mod tests {
     }
 
     #[test]
-    fn ec103_discard_is_blocked_in_the_web_engine() {
+    fn ec103_discard_works_in_the_web_engine() {
         let mut input: Value = serde_json::from_str(include_str!("../../previdenciar-rgps/tests/fixtures/synthetic-300-months.json")).unwrap();
+        input["opcoes"]["corrigirSalarios"] = json!(true);
         input["opcoes"]["descartarMenoresMinimo"] = json!(240);
         let output: Value = serde_json::from_str(&calculate_json(&input.to_string())).unwrap();
-        assert_eq!(output["ok"], false);
-        assert!(output["error"].as_str().unwrap().contains("Descarte da EC 103/2019 bloqueado"));
-        assert!(output.get("data").is_none());
+        assert_eq!(output["ok"], true, "{output}");
+        assert_eq!(output["data"]["correcao"]["descartadas"], 60);
+        assert_eq!(output["data"]["correcao"]["consideradas"], 240);
     }
 }

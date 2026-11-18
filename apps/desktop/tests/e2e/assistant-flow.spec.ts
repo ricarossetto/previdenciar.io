@@ -44,7 +44,7 @@ test('report center exposes the seven-family batch without generating a fake pre
   await page.getByLabel('Selecionar cálculo').selectOption('1');
   await expect(page.getByText('Exportar vários relatórios')).toBeVisible();
   await page.getByRole('button',{name:'Selecionar todos'}).click();
-  await expect(page.getByRole('button',{name:'Exportar 8 PDF(s)'})).toBeEnabled();
+  await expect(page.getByRole('button',{name:'Exportar 11 PDF(s)'})).toBeEnabled();
   expect(await page.locator('body').evaluate(el=>el.scrollWidth<=innerWidth)).toBe(true);
 });
 test('report center offers an editable title and presentation choices',async({page},testInfo)=>{

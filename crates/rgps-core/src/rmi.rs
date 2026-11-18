@@ -1,4 +1,6 @@
-use crate::atualizacao::{corrigir_salario, fontes_atualizacao, ParcelaCorrigida};
+use crate::atualizacao::{
+    corrigir_salario, corrigir_salario_parcial, fontes_atualizacao, ParcelaCorrigida,
+};
 use crate::calendar::Competencia;
 use crate::money::{add, div, fixed, money, to_cents, Result};
 use rust_decimal::Decimal;
@@ -46,6 +48,12 @@ pub struct PbcResultado {
     pub substituicoes_inpc: Vec<String>,
     /// Séries exigidas pelo perfil e ausentes do catálogo no momento do cálculo.
     pub series_ausentes: Vec<String>,
+    /// Divisor efetivamente aplicado à média (consideradas ou mínimo 108 pela Lei 14.331/2022).
+    #[serde(default)]
+    pub divisor_usado: u32,
+    /// Última competência de índice efetivamente aplicada quando a DIB/referência supera a tabela publicada.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub referencia_efetiva: Option<String>,
 }
 
 /// Comparação descritiva de médias, sem escolher regra nem recalcular tempo.
@@ -139,10 +147,12 @@ fn consolidar_series(
 
 /// Corpo comum do PBC corrigido: ordena desc pelo valor cheio (não arredondado),
 /// aplica o descarte fixo de 20% quando pedido e fecha a média das consideradas.
-fn pbc_de_parcelas(
+pub fn pbc_de_parcelas_opcoes(
     parcelas: Vec<ParcelaCorrigida>,
     referencia: &Competencia,
     descarte: bool,
+    divisor_minimo: bool,
+    referencia_efetiva: Option<String>,
 ) -> Result<PbcResultado> {
     let pbc = parcelas.len();
     let consideradas = if descarte {
@@ -158,6 +168,7 @@ fn pbc_de_parcelas(
         b.corrigido_full
             .partial_cmp(&a.corrigido_full)
             .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| b.competencia.cmp(&a.competencia))
     });
     let usadas = &ordenadas[..consideradas];
     let descartadas = &ordenadas[consideradas.min(ordenadas.len())..];
@@ -166,7 +177,8 @@ fn pbc_de_parcelas(
     for parcela in usadas {
         soma = add(soma, to_cents(parcela.corrigido_full));
     }
-    let media = div(soma, Decimal::from(consideradas as i64))?;
+    let divisor = divisor_usado(consideradas, divisor_minimo);
+    let media = div(soma, Decimal::from(divisor))?;
     let salario_beneficio = to_cents(media);
 
     let (perfil, series_utilizadas, substituicoes_inpc) = consolidar_series(&parcelas);
@@ -188,7 +200,140 @@ fn pbc_de_parcelas(
         series_utilizadas,
         substituicoes_inpc,
         series_ausentes: Vec::new(),
+        divisor_usado: divisor,
+        referencia_efetiva,
     })
+}
+
+fn pbc_de_parcelas(
+    parcelas: Vec<ParcelaCorrigida>,
+    referencia: &Competencia,
+    descarte: bool,
+) -> Result<PbcResultado> {
+    pbc_de_parcelas_opcoes(parcelas, referencia, descarte, false, None)
+}
+
+/// Constrói PbcResultado a partir de parcelas já corrigidas descartando um
+/// conjunto específico de competências (usado pelo algoritmo de descarte ótimo EC 103).
+pub fn pbc_de_parcelas_excluindo(
+    parcelas: &[ParcelaCorrigida],
+    referencia: &Competencia,
+    descartadas_set: &std::collections::BTreeSet<Competencia>,
+    divisor_minimo: bool,
+    referencia_efetiva: Option<String>,
+) -> Result<PbcResultado> {
+    let pbc = parcelas.len();
+    let mut soma = Decimal::ZERO;
+    let mut consideradas = 0usize;
+    let mut descartadas_nomes = Vec::new();
+    for parcela in parcelas {
+        if descartadas_set.contains(&parcela.competencia) {
+            descartadas_nomes.push(parcela.competencia.to_string());
+        } else {
+            soma = add(soma, to_cents(parcela.corrigido_full));
+            consideradas += 1;
+        }
+    }
+    if consideradas == 0 {
+        return crate::money::erro("Descarte não pode remover todas as competências do PBC.");
+    }
+    let divisor = divisor_usado(consideradas, divisor_minimo);
+    let media = div(soma, Decimal::from(divisor))?;
+    let salario_beneficio = to_cents(media);
+    let (perfil, series_utilizadas, substituicoes_inpc) = consolidar_series(parcelas);
+    Ok(PbcResultado {
+        referencia: referencia.to_string(),
+        pbc,
+        consideradas,
+        descartadas: descartadas_nomes.len(),
+        parcelas: publicar_parcelas(parcelas),
+        parcelas_descartadas: descartadas_nomes.clone(),
+        cenarios: cenarios_de_media(parcelas)?,
+        soma_considerada: money(soma),
+        media: money(salario_beneficio),
+        salario_beneficio: money(salario_beneficio),
+        descarte_aplicado: !descartadas_nomes.is_empty(),
+        fontes_tetos: fontes_atualizacao().0,
+        fontes_inpc: fontes_atualizacao().1,
+        perfil,
+        series_utilizadas,
+        substituicoes_inpc,
+        series_ausentes: Vec::new(),
+        divisor_usado: divisor,
+        referencia_efetiva,
+    })
+}
+
+/// Corrige todas as parcelas pelo INPC ou perfil versionado, permitindo limitar
+/// a referência ao último índice publicado quando `permitir_referencia_parcial = true`.
+pub fn corrigir_parcelas_opcoes(
+    competencias: &[(Competencia, Decimal)],
+    referencia: &Competencia,
+    permitir_referencia_parcial: bool,
+    perfil_cfg: Option<(
+        &crate::perfil_correcao::CatalogoSeries,
+        &crate::perfil_correcao::PerfilCorrecao,
+        crate::perfil_correcao::PoliticaFallback,
+    )>,
+) -> Result<(Vec<ParcelaCorrigida>, Option<String>, Vec<String>, Vec<String>)> {
+    let mut parcelas = Vec::with_capacity(competencias.len());
+    let mut substituicoes_inpc = Vec::new();
+    let mut series_ausentes = Vec::new();
+    let mut ref_efetiva: Option<Competencia> = None;
+
+    for (competencia, salario) in competencias {
+        match perfil_cfg {
+            Some((catalogo, perfil, politica)) => {
+                let (fator, clamped) = if permitir_referencia_parcial {
+                    crate::perfil_correcao::fator_com_perfil_parcial(
+                        catalogo, perfil, politica, competencia, referencia,
+                    )?
+                } else {
+                    (
+                        crate::perfil_correcao::fator_com_perfil(
+                            catalogo, perfil, politica, competencia, referencia,
+                        )?,
+                        None,
+                    )
+                };
+                if let Some(c) = clamped {
+                    ref_efetiva = Some(c);
+                }
+                for s in &fator.substituicoes_inpc {
+                    if !substituicoes_inpc.contains(s) {
+                        substituicoes_inpc.push(s.clone());
+                    }
+                }
+                for s in &fator.series_ausentes {
+                    if !series_ausentes.contains(s) {
+                        series_ausentes.push(s.clone());
+                    }
+                }
+                parcelas.push(crate::atualizacao::corrigir_salario_com_fator(
+                    competencia,
+                    *salario,
+                    &fator,
+                )?);
+            }
+            None => {
+                if permitir_referencia_parcial {
+                    let (p, clamped) = corrigir_salario_parcial(competencia, *salario, referencia)?;
+                    if let Some(c) = clamped {
+                        ref_efetiva = Some(c);
+                    }
+                    parcelas.push(p);
+                } else {
+                    parcelas.push(corrigir_salario(competencia, *salario, referencia)?);
+                }
+            }
+        }
+    }
+    Ok((
+        parcelas,
+        ref_efetiva.map(|c| c.to_string()),
+        substituicoes_inpc,
+        series_ausentes,
+    ))
 }
 
 /// Porta de calcularRmiComCorrecao: teto da época antes, INPC acumulado,
@@ -205,6 +350,48 @@ pub fn calcular_pbc_com_correcao(
     pbc_de_parcelas(parcelas, referencia, descarte)
 }
 
+/// Variante completa do PBC INPC com divisor mínimo (108) e referência parcial opcional.
+pub fn calcular_pbc_com_correcao_opcoes(
+    competencias: &[(Competencia, Decimal)],
+    referencia: &Competencia,
+    descarte: bool,
+    divisor_minimo: bool,
+    permitir_referencia_parcial: bool,
+) -> Result<PbcResultado> {
+    let (parcelas, ref_efetiva, _, _) =
+        corrigir_parcelas_opcoes(competencias, referencia, permitir_referencia_parcial, None)?;
+    pbc_de_parcelas_opcoes(parcelas, referencia, descarte, divisor_minimo, ref_efetiva)
+}
+
+pub fn calcular_pbc_com_perfil_opcoes(
+    competencias: &[(Competencia, Decimal)],
+    referencia: &Competencia,
+    descarte: bool,
+    divisor_minimo: bool,
+    permitir_referencia_parcial: bool,
+    catalogo: &crate::perfil_correcao::CatalogoSeries,
+    perfil: &crate::perfil_correcao::PerfilCorrecao,
+    politica: crate::perfil_correcao::PoliticaFallback,
+) -> Result<PbcResultado> {
+    let (parcelas, ref_efetiva, substituicoes_inpc, series_ausentes) =
+        corrigir_parcelas_opcoes(
+            competencias,
+            referencia,
+            permitir_referencia_parcial,
+            Some((catalogo, perfil, politica)),
+        )?;
+    let mut resultado = pbc_de_parcelas_opcoes(
+        parcelas,
+        referencia,
+        descarte,
+        divisor_minimo,
+        ref_efetiva,
+    )?;
+    resultado.substituicoes_inpc = substituicoes_inpc;
+    resultado.series_ausentes = series_ausentes;
+    Ok(resultado)
+}
+
 /// PBC corrigido pelo perfil oficial versionado: teto da época antes, fator por
 /// faixa de série do perfil e média das consideradas. Sem a série oficial
 /// carregada, o cálculo falha de forma explícita (ou usa o INPC como fallback
@@ -217,38 +404,24 @@ pub fn calcular_pbc_com_perfil(
     perfil: &crate::perfil_correcao::PerfilCorrecao,
     politica: crate::perfil_correcao::PoliticaFallback,
 ) -> Result<PbcResultado> {
-    let mut parcelas: Vec<_> = Vec::with_capacity(competencias.len());
-    let mut substituicoes_inpc: Vec<String> = Vec::new();
-    let mut series_ausentes: Vec<String> = Vec::new();
-    for (competencia, salario) in competencias {
-        let fator =
-            crate::perfil_correcao::fator_com_perfil(catalogo, perfil, politica, competencia, referencia)?;
-        for substituicao in &fator.substituicoes_inpc {
-            if !substituicoes_inpc.contains(substituicao) {
-                substituicoes_inpc.push(substituicao.clone());
-            }
-        }
-        for serie in &fator.series_ausentes {
-            if !series_ausentes.contains(serie) {
-                series_ausentes.push(serie.clone());
-            }
-        }
-        parcelas.push(crate::atualizacao::corrigir_salario_com_fator(
-            competencia,
-            *salario,
-            &fator,
-        )?);
-    }
-    let mut resultado = pbc_de_parcelas(parcelas, referencia, descarte)?;
-    resultado.substituicoes_inpc = substituicoes_inpc;
-    resultado.series_ausentes = series_ausentes;
-    Ok(resultado)
+    calcular_pbc_com_perfil_opcoes(
+        competencias,
+        referencia,
+        descarte,
+        false,
+        false,
+        catalogo,
+        perfil,
+        politica,
+    )
 }
 
-fn pbc_de_parcelas_minimo(
+fn pbc_de_parcelas_minimo_opcoes(
     parcelas: Vec<ParcelaCorrigida>,
     referencia: &Competencia,
     minimo_competencias: u32,
+    divisor_minimo: bool,
+    referencia_efetiva: Option<String>,
 ) -> Result<PbcResultado> {
     if parcelas.is_empty() || minimo_competencias == 0 {
         return crate::money::erro("Descarte exige competências e mínimo maior que zero.");
@@ -260,6 +433,7 @@ fn pbc_de_parcelas_minimo(
         a.corrigido_full
             .partial_cmp(&b.corrigido_full)
             .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| a.competencia.cmp(&b.competencia))
     });
     let corte = pbc - minimo;
     let descartadas = &ordenadas[..corte];
@@ -268,10 +442,15 @@ fn pbc_de_parcelas_minimo(
     for parcela in usadas {
         soma = add(soma, to_cents(parcela.corrigido_full));
     }
-    let media = if minimo == 0 {
+    let divisor = if minimo == 0 {
+        0
+    } else {
+        divisor_usado(minimo, divisor_minimo)
+    };
+    let media = if divisor == 0 {
         Decimal::ZERO
     } else {
-        div(soma, Decimal::from(minimo as i64))?
+        div(soma, Decimal::from(divisor))?
     };
     let salario_beneficio = to_cents(media);
     let (perfil, series_utilizadas, substituicoes_inpc) = consolidar_series(&parcelas);
@@ -293,7 +472,25 @@ fn pbc_de_parcelas_minimo(
         series_utilizadas,
         substituicoes_inpc,
         series_ausentes: Vec::new(),
+        divisor_usado: divisor,
+        referencia_efetiva,
     })
+}
+
+pub fn pbc_de_parcelas_minimo_opcoes_pub(
+    parcelas: Vec<ParcelaCorrigida>,
+    referencia: &Competencia,
+    minimo_competencias: u32,
+    divisor_minimo: bool,
+    referencia_efetiva: Option<String>,
+) -> Result<PbcResultado> {
+    pbc_de_parcelas_minimo_opcoes(
+        parcelas,
+        referencia,
+        minimo_competencias,
+        divisor_minimo,
+        referencia_efetiva,
+    )
 }
 
 /// Descarte dos menores salários (EC 103/2019, art. 26, § 6º) até o mínimo de
@@ -304,11 +501,31 @@ pub fn calcular_pbc_com_descarte_minimo(
     referencia: &Competencia,
     minimo_competencias: u32,
 ) -> Result<PbcResultado> {
-    let mut parcelas: Vec<_> = Vec::with_capacity(competencias.len());
-    for (competencia, salario) in competencias {
-        parcelas.push(corrigir_salario(competencia, *salario, referencia)?);
-    }
-    pbc_de_parcelas_minimo(parcelas, referencia, minimo_competencias)
+    calcular_pbc_com_descarte_minimo_opcoes(
+        competencias,
+        referencia,
+        minimo_competencias,
+        false,
+        false,
+    )
+}
+
+pub fn calcular_pbc_com_descarte_minimo_opcoes(
+    competencias: &[(Competencia, Decimal)],
+    referencia: &Competencia,
+    minimo_competencias: u32,
+    divisor_minimo: bool,
+    permitir_referencia_parcial: bool,
+) -> Result<PbcResultado> {
+    let (parcelas, ref_efetiva, _, _) =
+        corrigir_parcelas_opcoes(competencias, referencia, permitir_referencia_parcial, None)?;
+    pbc_de_parcelas_minimo_opcoes(
+        parcelas,
+        referencia,
+        minimo_competencias,
+        divisor_minimo,
+        ref_efetiva,
+    )
 }
 
 /// Variante do descarte mínimo usando o perfil de correção versionado.
@@ -320,30 +537,42 @@ pub fn calcular_pbc_com_perfil_descarte_minimo(
     perfil: &crate::perfil_correcao::PerfilCorrecao,
     politica: crate::perfil_correcao::PoliticaFallback,
 ) -> Result<PbcResultado> {
-    let mut parcelas: Vec<_> = Vec::with_capacity(competencias.len());
-    let mut substituicoes_inpc: Vec<String> = Vec::new();
-    let mut series_ausentes: Vec<String> = Vec::new();
-    for (competencia, salario) in competencias {
-        let fator = crate::perfil_correcao::fator_com_perfil(
-            catalogo, perfil, politica, competencia, referencia,
+    calcular_pbc_com_perfil_descarte_minimo_opcoes(
+        competencias,
+        referencia,
+        minimo_competencias,
+        false,
+        false,
+        catalogo,
+        perfil,
+        politica,
+    )
+}
+
+pub fn calcular_pbc_com_perfil_descarte_minimo_opcoes(
+    competencias: &[(Competencia, Decimal)],
+    referencia: &Competencia,
+    minimo_competencias: u32,
+    divisor_minimo: bool,
+    permitir_referencia_parcial: bool,
+    catalogo: &crate::perfil_correcao::CatalogoSeries,
+    perfil: &crate::perfil_correcao::PerfilCorrecao,
+    politica: crate::perfil_correcao::PoliticaFallback,
+) -> Result<PbcResultado> {
+    let (parcelas, ref_efetiva, substituicoes_inpc, series_ausentes) =
+        corrigir_parcelas_opcoes(
+            competencias,
+            referencia,
+            permitir_referencia_parcial,
+            Some((catalogo, perfil, politica)),
         )?;
-        for substituicao in &fator.substituicoes_inpc {
-            if !substituicoes_inpc.contains(substituicao) {
-                substituicoes_inpc.push(substituicao.clone());
-            }
-        }
-        for serie in &fator.series_ausentes {
-            if !series_ausentes.contains(serie) {
-                series_ausentes.push(serie.clone());
-            }
-        }
-        parcelas.push(crate::atualizacao::corrigir_salario_com_fator(
-            competencia,
-            *salario,
-            &fator,
-        )?);
-    }
-    let mut resultado = pbc_de_parcelas_minimo(parcelas, referencia, minimo_competencias)?;
+    let mut resultado = pbc_de_parcelas_minimo_opcoes(
+        parcelas,
+        referencia,
+        minimo_competencias,
+        divisor_minimo,
+        ref_efetiva,
+    )?;
     resultado.substituicoes_inpc = substituicoes_inpc;
     resultado.series_ausentes = series_ausentes;
     Ok(resultado)

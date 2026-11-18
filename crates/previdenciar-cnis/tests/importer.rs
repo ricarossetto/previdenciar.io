@@ -398,3 +398,17 @@ fn cooperative_layout_under_contribution_heading_is_not_remuneration() {
     let r = import_text(text).unwrap();
     assert!(!r.salary_entries.iter().any(|e| e.amount_centavos == 89600 && e.amount_kind == previdenciar_cnis::AmountKind::Remuneration));
 }
+
+#[test]
+fn parses_identity_sex_and_benefit_dates_and_status() {
+    let text = "CNIS\nNIT: 111.11111.11-1 CPF: 111.111.111-11 Nome: SEGURADO TESTE Data de nascimento: 01/02/1980 Sexo: Masculino\nNome da mãe: MAE TESTE\nRelações Previdenciárias\nSeq. NIT Código Emp. Origem do Vínculo Tipo Filiado no Vínculo Data Início Data Fim\n1 111.11111.11-1 Benefício 31 - Auxílio-Doença Previdenciário 01/03/2021 30/06/2021 Cessado\n2 111.11111.11-1 Benefício 42 - Aposentadoria por Tempo 01/07/2024 Ativo\nCompetência Remuneração Indicadores\nRemunerações\n01/2020 1.500,00\n";
+    let r = import_text(text).unwrap();
+    assert_eq!(r.identity.sex.as_deref(), Some("masculino"));
+    assert_eq!(r.benefits.len(), 2);
+    assert_eq!(r.benefits[0].status, BenefitStatus::Ceased);
+    assert_eq!(r.benefits[0].start_date.as_deref(), Some("2021-03-01"));
+    assert_eq!(r.benefits[0].end_date.as_deref(), Some("2021-06-30"));
+    assert_eq!(r.benefits[1].status, BenefitStatus::Active);
+    assert_eq!(r.benefits[1].start_date.as_deref(), Some("2024-07-01"));
+    assert_eq!(r.benefits[1].end_date, None);
+}

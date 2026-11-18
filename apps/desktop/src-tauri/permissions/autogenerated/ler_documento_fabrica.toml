@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-ler-documento-fabrica"
+description = "Enables the ler_documento_fabrica command without any pre-configured scope."
+commands.allow = ["ler_documento_fabrica"]
+
+[[permission]]
+identifier = "deny-ler-documento-fabrica"
+description = "Denies the ler_documento_fabrica command without any pre-configured scope."
+commands.deny = ["ler_documento_fabrica"]

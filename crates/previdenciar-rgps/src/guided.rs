@@ -75,7 +75,6 @@ pub fn prepare_from_cnis(case: &Calculation, reference: &str) -> Result<(Calcula
         let affiliation_lower = affiliation.to_lowercase();
         let regime = if !affiliation.is_empty()
             && !affiliation_lower.contains("servidor")
-            && !affiliation_lower.contains("rural")
             && !affiliation_lower.contains("rpps")
         {
             "RGPS"
@@ -238,11 +237,18 @@ pub fn prepare_from_cnis(case: &Calculation, reference: &str) -> Result<(Calcula
     notes.push("A preparação não confirma automaticamente vínculos, salários ou indicadores; a revisão documental permanece pendente.".into());
     let dib_mes = &dib_iso[..7];
     let ultimo_inpc = rgps_core::dados::inpc::INPC_MENSAL.last().map(|(periodo, _)| *periodo).unwrap_or("");
-    let corrigir = dib_mes <= ultimo_inpc;
-    if !corrigir {
-        notes.push("Sem INPC publicado para o mês da DIB: correção desativada; o resultado é nominal e não serve como memória pronta para protocolo.".into());
+    if dib_mes > ultimo_inpc {
+        notes.push(format!(
+            "DIB ({dib_mes}) posterior ao último INPC publicado ({ultimo_inpc}): correção aplicada com índices publicados até {ultimo_inpc}, sem extrapolação futura."
+        ));
     }
     let mut prepared = case.clone();
+    if prepared.sex.as_deref().is_none_or(|v| v.trim().is_empty()) {
+        if let Some(sex) = cnis.identity.sex.as_deref().filter(|s| !s.trim().is_empty()) {
+            prepared.sex = Some(sex.to_string());
+            notes.push("Sexo cadastral preenchido a partir do cabeçalho do CNIS.".into());
+        }
+    }
     prepared.manual_links = links;
     prepared.manual_salaries = wages;
     prepared.options.rule_policy = serde_json::to_string(&json!({
@@ -253,11 +259,13 @@ pub fn prepare_from_cnis(case: &Calculation, reference: &str) -> Result<(Calcula
         "exclude_imported_source": true,
         "source_exclusion_evidence": reference,
         "native_options": {
-            "corrigirSalarios": corrigir,
+            "corrigirSalarios": true,
             "descarte": false,
+            "descarteOtimo": true,
             "divisorMinimo": false,
+            "aplicarPisoAutomatico": true,
             "aplicarTetoVigenteDer": true,
-            "referenciaCorrecao": if corrigir { serde_json::Value::String(dib_mes.to_string()) } else { serde_json::Value::Null }
+            "referenciaCorrecao": dib_mes
         }
     }))
     .map_err(|_| "Não foi possível registrar a política da hipótese.".to_string())?;

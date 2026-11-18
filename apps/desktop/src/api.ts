@@ -27,13 +27,24 @@ export interface AiChatRequest{requestId:string;providerId:string;kind:AiProvide
 export interface AiTestResult{ok:boolean;model:string;latencyMs:number;sample:string}
 export interface CasePdfText{fileName:string;text:string;usedOcr:boolean;pages:number;hashSha256:string}
 export interface AiImportSummary{skills:number;legislation:number;natjus:number;jurisprudence:number;natjusPdfIncluded:boolean;natjusText:number;natjusTextFailures:number;destination:string}
+export interface FabricaStatus { configured: boolean; serverKeyAvailable: boolean; vaultConfigured?: boolean; sessionKeyConfigured?: boolean; upstream: string }
+export interface FabricaRmiOptions { demonstrativo?: boolean; permalink?: boolean; fundamento?: boolean }
+export interface FabricaTempoOptions { porGrupos?: boolean; demonstrativo?: boolean; permalink?: boolean }
+export interface FabricaAtrasadosOptions { demonstrativo?: boolean; permalink?: boolean }
 export type KnowledgeBlock='skills'|'legislation'|'natjus'|'jurisprudence';
 export interface KnowledgeHit{ref:string;id:string;titulo:string;tipo?:string;status?:string;identificacao?:string;url?:string|null;trecho?:string|null;score?:number}
 export interface KnowledgeOutcome{summary:string;sources:AiSource[];value:{resultados?:KnowledgeHit[];conteudo?:string;titulo?:string;id?:string;url?:string|null;fonte?:string;aviso?:string;[key:string]:unknown}}
 const tauriApi={
  fetchEconomicSnapshot:(through:string)=>invoke<import('./pcd').EconomicSnapshot>('fetch_economic_snapshot',{through}),
  fetchLocalEconomicSnapshot:(through:string)=>invoke<import('./pcd').EconomicSnapshot>('local_economic_snapshot',{through}),
- conferirFabricaRmi:(input:FabricaInput,apiKey:string)=>invoke<FabricaSummary>('conferir_fabrica_rmi',{input,apiKey}),
+ conferirFabricaRmi:(input:FabricaInput,apiKey:string,options?:FabricaRmiOptions)=>options?invoke<FabricaSummary>('conferir_fabrica_rmi',{input,apiKey,...options}):invoke<FabricaSummary>('conferir_fabrica_rmi',{input,apiKey}),
+ fabricaStatus:()=>invoke<FabricaStatus>('fabrica_status'),
+ fabricaSaveKey:(apiKey:string)=>invoke<void>('fabrica_save_key',{apiKey}),
+ fabricaClearKey:()=>invoke<void>('fabrica_clear_key'),
+ calcularFabricaTempo:(input:FabricaInput|Json,apiKey?:string,options?:FabricaTempoOptions)=>invoke<Json>('calcular_fabrica_tempo',{input,apiKey:apiKey??null,porGrupos:options?.porGrupos??false,demonstrativo:options?.demonstrativo??null,permalink:options?.permalink??null}),
+ calcularFabricaAtrasados:(body:Json,apiKey?:string,options?:FabricaAtrasadosOptions)=>invoke<Json>('calcular_fabrica_atrasados',{body,apiKey:apiKey??null,demonstrativo:options?.demonstrativo??false,permalink:options?.permalink??false}),
+ lerDocumentoFabrica:async(tipo:'cnis'|'carta'|'rdctc'|'pap'|'prevjud',apiKey?:string,file?:File)=>file?invoke<Json>('ler_documento_fabrica',{tipo,fileName:file.name,data:Array.from(new Uint8Array(await file.arrayBuffer())),apiKey:apiKey??null}):invoke<Json>('ler_documento_fabrica',{tipo,apiKey:apiKey??null}),
+ consultarFabricaIndices:(endpoint:'indice'|'fundamentos'|'marcos-temporais',nome?:string,query?:Record<string,string>,apiKey?:string)=>invoke<Json>('consultar_fabrica_indices',{endpoint,nome:nome??null,query:query??null,apiKey:apiKey??null}),
  prepareFromCnis:(calculation:Calculation,reference:string)=>invoke<{calculation:Calculation;notes:string[]}>('prepare_case_from_cnis',{calculation:normalizeCaseForEngine(calculation),reference}),
  boot:()=>invoke<Boot>('bootstrap'),
  save:(workspace:Workspace)=>invoke<Workspace>('save_workspace',{workspace}),
@@ -61,8 +72,8 @@ const tauriApi={
  saveExportFile:(data:Uint8Array,extension:string,suggestedName:string)=>invoke<string|null>('save_export_file',{data:Array.from(data),extension,suggestedName}),
  aiImportData:(includeNatjusPdf:boolean)=>invoke<AiImportSummary|null>('ai_import_data',{includeNatjusPdf}),
  aiChat:(request:AiChatRequest,onEvent:(event:AiEvent)=>void)=>{const channel=new Channel<AiEvent>();channel.onmessage=onEvent;return invoke<void>('ai_chat',{request,onEvent:channel})},
-  aiCancel:(requestId:string)=>invoke<void>('ai_cancel',{requestId}),
-  savedReports:null,
+ aiCancel:(requestId:string)=>invoke<void>('ai_cancel',{requestId}),
+ savedReports:null,
 };
 export function errorMessage(e:unknown):string{if(typeof e==='string')return e;if(e instanceof Error)return e.message;return 'Não foi possível concluir a operação. Nenhuma alteração foi confirmada.'}
 import { webApi } from './web-api';

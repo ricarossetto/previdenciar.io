@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-project-rgps"
+description = "Enables the project_rgps command without any pre-configured scope."
+commands.allow = ["project_rgps"]
+
+[[permission]]
+identifier = "deny-project-rgps"
+description = "Denies the project_rgps command without any pre-configured scope."
+commands.deny = ["project_rgps"]

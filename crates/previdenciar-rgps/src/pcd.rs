@@ -42,6 +42,8 @@ pub struct Lc142Policy {
     /// Fator de conversão de tempo comum para tempo PcD (0.93 leve, 0.89
     /// moderada, 0.83 grave). Exige `disability_start_date`.
     pub fator_conversao_comum: Option<String>,
+    #[serde(default)]
+    pub allow_confirmed_manual_without_book: bool,
     pub snapshot: Option<Snapshot>,
 }
 #[derive(Clone, Serialize, Deserialize)]
@@ -309,6 +311,19 @@ pub fn local_snapshot(through: &str) -> Result<Snapshot, String> {
 /// comparação com o piso do benefício fica declarada como pendente.
 pub fn local_snapshot_with_minimum(through: &str, minimum: Option<&str>) -> Result<Snapshot, String> {
     month(through)?;
+    let ipcr_json: serde_json::Value = serde_json::from_str(include_str!("../../rgps-core/data/ipcr.json"))
+        .map_err(|_| "IPC-r histórico embutido inválido.".to_owned())?;
+    let mut ipcr_map: BTreeMap<String, String> = BTreeMap::new();
+    if let Some(items) = ipcr_json.get("valores").and_then(|v| v.as_array()) {
+        for item in items {
+            if let (Some(comp), Some(var)) = (
+                item.get("competencia").and_then(|v| v.as_str()),
+                item.get("variacao").and_then(|v| v.as_str()),
+            ) {
+                ipcr_map.insert(comp.to_string(), var.to_string());
+            }
+        }
+    }
     let rates: Vec<Rate> = rgps_core::dados::inpc::INPC_MENSAL
         .iter()
         .filter(|(period, _)| *period <= through)
@@ -317,6 +332,10 @@ pub fn local_snapshot_with_minimum(through: &str, minimum: Option<&str>) -> Resu
                 .iter()
                 .find(|(candidate, _)| *candidate == *period)
                 .map(|(_, value)| *value);
+            let ipcr = ipcr_map
+                .get(*period)
+                .map(|v| published_rate_to_fraction(v))
+                .transpose()?;
             Ok(Rate {
                 month: (*period).to_string(),
                 inpc: published_rate_to_fraction(value)?,
@@ -324,7 +343,7 @@ pub fn local_snapshot_with_minimum(through: &str, minimum: Option<&str>) -> Resu
                     Some(value) => Some(published_rate_to_fraction(value)?),
                     None => None,
                 },
-                ipcr: None,
+                ipcr,
                 inpc_inss: None,
             })
         })
@@ -510,15 +529,25 @@ pub fn calculate(case: &Calculation, p: &Lc142Policy) -> Result<Value, String> {
         let year: i32 = p.correction_month[..4].parse().unwrap_or(0);
         if month == 1 { format!("{:04}-12", year - 1) } else { format!("{year:04}-{:02}", month - 1) }
     };
+    let mut warnings: Vec<String> = Vec::new();
+    let ultimo_inpc = rgps_core::dados::inpc::INPC_MENSAL.last().map(|(m, _)| *m).unwrap_or("");
     if snapshot.through.as_str() < previous_month.as_str() {
-        issue(
-            &mut errors,
-            "lc142_snapshot_date",
-            "snapshot.through",
-            "Snapshot não cobre as taxas até o mês anterior à correção.",
-        );
+        if snapshot.source_url.starts_with(LOCAL_SNAPSHOT_URL_PREFIX) && snapshot.through.as_str() >= ultimo_inpc {
+            warnings.push(format!("Correção monetária PcD aplicada até {} (último INPC publicado) sem extrapolar índices futuros.", snapshot.through));
+        } else {
+            issue(
+                &mut errors,
+                "lc142_snapshot_date",
+                "snapshot.through",
+                "Snapshot não cobre as taxas até o mês anterior à correção.",
+            );
+        }
     }
-    let Some(cnis) = &case.cnis else {
+    let has_confirmed_manual = p.allow_confirmed_manual_without_book
+        && !case.manual_links.is_empty()
+        && !case.manual_salaries.is_empty();
+    let cnis_opt = case.cnis.as_ref();
+    if cnis_opt.is_none() && !has_confirmed_manual {
         issue(
             &mut errors,
             "lc142_source",
@@ -526,37 +555,45 @@ pub fn calculate(case: &Calculation, p: &Lc142Policy) -> Result<Value, String> {
             "Esta versão do cenário requer origem CNIS preservada.",
         );
         return Ok(blocked(errors, vec![]));
-    };
-    if cnis
-        .links
-        .iter()
-        .any(|l| l.prpps || l.excluded_from_validated_domain)
-    {
-        issue(
-            &mut errors,
-            "lc142_ctc",
-            "cnis.links",
-            "CTC/regime próprio não são convertidos automaticamente neste cenário.",
-        );
     }
-    if cnis.links.len() > 2000 || cnis.salary_months.len() > 2400 {
-        return Err("Quantidade de vínculos/salários excede o cenário suportado.".into());
+    if let Some(cnis) = cnis_opt {
+        let has_unexcluded_prpps = cnis.links.iter().any(|l| {
+            (l.prpps || l.excluded_from_validated_domain)
+                && !case.manual_links.iter().any(|ml| ml.source_review.as_ref().is_some_and(|r| r.sequence == l.sequence && r.excluded))
+        });
+        if has_unexcluded_prpps {
+            issue(
+                &mut errors,
+                "lc142_ctc",
+                "cnis.links",
+                "CTC/regime próprio não são convertidos automaticamente neste cenário.",
+            );
+        }
+        if cnis.links.len() > 2000 || cnis.salary_months.len() > 2400 {
+            return Err("Quantidade de vínculos/salários excede o cenário suportado.".into());
+        }
+        if cnis.salary_entries.iter().any(|w| {
+            matches!(
+                w.amount_kind,
+                previdenciar_cnis::AmountKind::ContributionColumnUnresolved
+            )
+        }) {
+            issue(&mut errors,"lc142_salary_column","cnis.salary_entries","Há valores de contribuição sem salário identificado; não inferir salário pela alíquota.");
+        }
     }
-    if cnis.salary_entries.iter().any(|w| {
-        matches!(
-            w.amount_kind,
-            previdenciar_cnis::AmountKind::ContributionColumnUnresolved
-        )
-    }) {
-        issue(&mut errors,"lc142_salary_column","cnis.salary_entries","Há valores de contribuição sem salário identificado; não inferir salário pela alíquota.");
-    }
-    let consolidated_entries = cnis.salary_entries.iter().filter(|w| {
-        matches!(w.amount_kind, previdenciar_cnis::AmountKind::ConsolidatedAnnualValue)
-    }).count();
+    let consolidated_entries = cnis_opt
+        .map(|cnis| {
+            cnis.salary_entries.iter().filter(|w| {
+                matches!(w.amount_kind, previdenciar_cnis::AmountKind::ConsolidatedAnnualValue)
+            }).count()
+        })
+        .unwrap_or(0);
     let consolidated_note = if consolidated_entries > 0
-        && cnis.salary_entries.iter().any(|w| {
-            matches!(w.amount_kind, previdenciar_cnis::AmountKind::ConsolidatedAnnualValue)
-                && w.link_sequence.is_none()
+        && cnis_opt.is_some_and(|cnis| {
+            cnis.salary_entries.iter().any(|w| {
+                matches!(w.amount_kind, previdenciar_cnis::AmountKind::ConsolidatedAnnualValue)
+                    && w.link_sequence.is_none()
+            })
         }) {
         // Dado oficial do próprio CNIS: o valor consolidado por ano civil não
         // declara o vínculo de origem. A revisão é exigida, mas o mês não
@@ -569,7 +606,7 @@ pub fn calculate(case: &Calculation, p: &Lc142Policy) -> Result<Value, String> {
     };
     let mut intervals = vec![];
     if case.manual_links.is_empty() {
-        for l in &cnis.links {
+        for l in &cnis_opt.expect("checked cnis").links {
             let Some(start) = l.start_date.as_ref() else {
                 issue(
                     &mut errors,
@@ -680,28 +717,33 @@ pub fn calculate(case: &Calculation, p: &Lc142Policy) -> Result<Value, String> {
         return Ok(blocked(errors, vec![]));
     };
     if !errors.is_empty() {
-        return Ok(blocked(errors, vec![]));
+        return Ok(blocked(errors, warnings));
     }
-    if case.contribution_review.is_none() && !case.manual_salaries.is_empty() {
+    if case.contribution_review.is_none() && !case.manual_salaries.is_empty() && !p.allow_confirmed_manual_without_book {
         issue(&mut errors,"lc142_unreviewed_salaries","manual_salaries","Salários manuais exigem um livro de contribuições aplicado e rastreável; não serão ignorados nem substituirão a origem silenciosamente.");
-        return Ok(blocked(errors, vec![]));
+        return Ok(blocked(errors, warnings));
     }
     let mut wages: BTreeMap<String, (Decimal, &str)> = BTreeMap::new();
     let mut below_minimum: Vec<String> = Vec::new();
-    if case.contribution_review.is_some() {
+    if case.contribution_review.is_some() || (p.allow_confirmed_manual_without_book && !case.manual_salaries.is_empty()) {
         for w in &case.manual_salaries {
             let amount = Decimal::from_i128_with_scale(
                 previdenciar_workspace::contributions::amount_cents(&w.amount)? as i128,
                 2,
             );
-            if wages
+            if p.allow_confirmed_manual_without_book {
+                wages
+                    .entry(w.competence.clone())
+                    .and_modify(|e| e.0 += amount)
+                    .or_insert((amount, "manual_confirmed"));
+            } else if wages
                 .insert(w.competence.clone(), (amount, "reviewed_overlay"))
                 .is_some()
             {
                 return Err("Salário duplicado exige consolidação documental.".into());
             }
         }
-    } else {
+    } else if let Some(cnis) = cnis_opt {
         for (m, w) in &cnis.salary_months {
             let amount = Decimal::from_i128_with_scale(w.amount_sum_centavos as i128, 2);
             // Regra do próprio CNIS: a competência só é reconhecida como tempo
@@ -791,7 +833,13 @@ pub fn calculate(case: &Calculation, p: &Lc142Policy) -> Result<Value, String> {
         let considered = nominal.min(ceiling);
         let mut factor = Decimal::ONE;
         let mut m = cursor.clone();
-        while m < p.correction_month {
+        let correction_end = rates
+            .keys()
+            .max()
+            .map(|last| next(last))
+            .unwrap_or_else(|| p.correction_month.clone())
+            .min(p.correction_month.clone());
+        while m < correction_end {
             let r = rates
                 .get(m.as_str())
                 .ok_or("Snapshot não cobre todas as taxas da correção.")?;
@@ -897,7 +945,62 @@ pub fn calculate(case: &Calculation, p: &Lc142Policy) -> Result<Value, String> {
     let rmi = average
         .min(dec(&current_limit.ceiling)?)
         .max(dec(&current_limit.minimum)?);
-    let mut warnings:Vec<String>=vec!["SIMULAÇÃO com premissas declaradas, não concessão ou validação jurídica.".to_string(),"LC 142: grau constante; conversao de tempo comum por fator declarado quando aplicavel. Nao suporta graus mistos, atividade especial, CTC automatica ou fator previdenciario.".into(),format!("{floor_count} competências preenchidas por hipótese de mínimo; {projection_count} projetadas pelo teto conhecido. Não são salários extraídos."),"Períodos abertos são continuados somente por hipótese explícita. Limites futuros são congelados no snapshot conhecido, não valores oficiais futuros.".into(),"Contagem de tempo adota convenção declarada 30/360 inclusiva, com união das sobreposições; revisar a aplicação profissional.".into()];
+
+    // LC 142/2013 por Idade (art. 3º, IV): 60H / 55M + 15 anos (180 meses) com deficiência;
+    // art. 8º, II: coeficiente 70% + 1% por grupo de 12 contribuições (máx 100%) e fator opcional se > 1.0.
+    let birth_date = birth.expect("validated birth");
+    let mut age_years = dib.year() - birth_date.year();
+    if (dib.month(), dib.day()) < (birth_date.month(), birth_date.day()) {
+        age_years -= 1;
+    }
+    let mut age_months = (dib.year() - birth_date.year()) * 12 + (dib.month() as i32 - birth_date.month() as i32);
+    if dib.day() < birth_date.day() {
+        age_months -= 1;
+    }
+    let age_req = match sex.as_str() {
+        "masculino" => 60,
+        "feminino" => 55,
+        _ => 999,
+    };
+    let days_total = time["days_30_360"].as_i64().unwrap_or(0);
+    let age_eligible = age_years >= age_req && days_total >= 15 * 360 && months.len() >= 180;
+    let coef_idade_pct = 70 + (days_total / 360).clamp(0, 30);
+    let dib_iso = dib.format("%Y-%m-%d").to_string();
+    let es_idade = rgps_core::dados::expectativa_sobrevida::EXPECTATIVA_GERAL
+        .iter()
+        .filter(|(v, _)| *v <= dib_iso.as_str())
+        .map(|(_, row)| row)
+        .last()
+        .and_then(|row| Decimal::from_str_exact(row[age_years.clamp(0, 90) as usize]).ok());
+    let tempo_total_meses = Decimal::from(days_total) / Decimal::from(30);
+    let fator_idade = es_idade
+        .and_then(|es| rgps_core::transicoes::fator_previdenciario(&sex, tempo_total_meses, age_months.max(0) as i64, es).ok())
+        .map(|f| f.trunc_with_scale(4));
+    let fator_idade_aplicado = fator_idade.is_some_and(|f| f > Decimal::ONE);
+    let sb_idade = if let Some(f) = fator_idade.filter(|f| *f > Decimal::ONE) {
+        (average * f).round_dp_with_strategy(2, RoundingStrategy::MidpointAwayFromZero)
+    } else {
+        average
+    };
+    let rmi_idade_bruta = (sb_idade * Decimal::from(coef_idade_pct) / Decimal::from(100))
+        .round_dp_with_strategy(2, RoundingStrategy::MidpointAwayFromZero);
+    let rmi_idade = rmi_idade_bruta
+        .min(dec(&current_limit.ceiling)?)
+        .max(dec(&current_limit.minimum)?);
+    let is_especie_41 = case.especie.as_deref().map(str::trim) == Some("41");
+    let primary_coef = if is_especie_41 { format!("{coef_idade_pct}.00") } else { "100.00".into() };
+    let primary_sb = if is_especie_41 { sb_idade } else { average };
+    let primary_rmi_bruta = if is_especie_41 { rmi_idade_bruta } else { average };
+    let primary_eligible = if is_especie_41 { age_eligible } else { eligible };
+    let primary_rmi = if is_especie_41 { rmi_idade } else { rmi };
+    let primary_desc = if is_especie_41 {
+        "LC 142, por idade (art. 3º, IV e art. 8º, II); média dos 80% maiores salários, 70% + 1%/ano e fator apenas se benéfico"
+    } else {
+        "LC 142, grau constante; média dos 80% maiores salários e coeficiente declarado de 100%"
+    };
+    let source_sha256 = cnis_opt.and_then(|c| c.metadata.source_sha256.clone());
+
+    warnings.extend(["SIMULAÇÃO com premissas declaradas, não concessão ou validação jurídica.".to_string(),"LC 142: grau constante; conversao de tempo comum por fator declarado quando aplicavel. Nao suporta graus mistos, atividade especial, CTC automatica.".into(),format!("{floor_count} competências preenchidas por hipótese de mínimo; {projection_count} projetadas pelo teto conhecido. Não são salários extraídos."),"Períodos abertos são continuados somente por hipótese explícita. Limites futuros são congelados no snapshot conhecido, não valores oficiais futuros.".into(),"Contagem de tempo adota convenção declarada 30/360 inclusiva, com união das sobreposições; revisar a aplicação profissional.".into()]);
     if let Some(note)=consolidated_note{warnings.push(note);}
     if !missing_salary_months.is_empty(){
         let list=missing_salary_months.iter().take(12).cloned().collect::<Vec<_>>().join(", ");
@@ -908,6 +1011,6 @@ pub fn calculate(case: &Calculation, p: &Lc142Policy) -> Result<Value, String> {
         warnings.push(format!("{} competência(s) com valor consolidado abaixo do salário mínimo não entraram no PBC até a complementação: {list}{}. O CNIS marca esses meses com PREC-MENOR-MIN; a regra de reconhecimento é a do próprio extrato.",below_minimum.len(),if below_minimum.len()>12{", e outras" }else{""}));
     }
     Ok(
-        json!({"status":"experimental","legal_validation_performed":false,"rule_review_status":"declared_scenario_assumptions","warnings":warnings,"data":{"native_result":{"engine_id":VERSION,"resumo":{"competencias":rows.len(),"carencia_meses":months.len(),"soma_salarios":money(sum),"salario_beneficio":money(average),"coeficiente":"100.00","rmi_bruta":money(average),"rmi":if eligible{json!(money(rmi))}else{Value::Null},"teto":current_limit.ceiling,"piso":current_limit.minimum},"parametros":{"divisor":used,"correcao_ativa":true,"referencia_correcao":p.correction_month,"descarte_aplicado":true,"divisor_minimo_aplicado":false,"coeficiente":"100.00"},"correcao":{"referencia":p.correction_month,"pbc":rows.len(),"consideradas":used,"descartadas":discarded.len(),"parcelas":rows,"parcelas_descartadas":discarded,"soma_considerada":money(sum),"media":money(average),"salario_beneficio":money(average),"descarte_aplicado":true},"tempo":{"total":time,"sem_projecao":past,"carencia_meses":months.len(),"convention":"declared_30_360_inclusive_union","vinculos":merged_time.iter().map(|(a,b)|json!({"inicio":a.to_string(),"fim":b.to_string(),"dias_30_360":period_days(*a,*b)})).collect::<Vec<_>>()},"pcd":{"grau":grade,"anos_exigidos":required,"tempo_atingido_no_cenario":eligible,"calculation_date":p.calculation_date,"projection_count":projection_count,"filled_minimum_count":floor_count,"source_sha256":cnis.metadata.source_sha256,"snapshot_sha256":snapshot.response_sha256,"disability_evidence":p.disability_evidence,"review_evidence":p.review_evidence,"disability_start_date":p.disability_start_date,"fator_conversao_comum":p.fator_conversao_comum,"assumptions_confirmed":true,"actual_entitlement_verified":false},"memoria":[{"tipo":"regra","descricao":"LC 142, grau constante; média dos 80% maiores salários e coeficiente declarado de 100%","valor":money(average)}],"avisos":warnings}}}),
+        json!({"status":"experimental","legal_validation_performed":false,"rule_review_status":"declared_scenario_assumptions","warnings":warnings,"data":{"native_result":{"engine_id":VERSION,"resumo":{"competencias":rows.len(),"carencia_meses":months.len(),"soma_salarios":money(sum),"salario_beneficio":money(primary_sb),"coeficiente":primary_coef,"rmi_bruta":money(primary_rmi_bruta),"rmi":if primary_eligible{json!(money(primary_rmi))}else{Value::Null},"teto":current_limit.ceiling,"piso":current_limit.minimum},"parametros":{"divisor":used,"correcao_ativa":true,"referencia_correcao":p.correction_month,"descarte_aplicado":true,"divisor_minimo_aplicado":false,"coeficiente":primary_coef},"correcao":{"referencia":p.correction_month,"pbc":rows.len(),"consideradas":used,"descartadas":discarded.len(),"parcelas":rows,"parcelas_descartadas":discarded,"soma_considerada":money(sum),"media":money(average),"salario_beneficio":money(primary_sb),"descarte_aplicado":true},"tempo":{"total":time,"sem_projecao":past,"carencia_meses":months.len(),"convention":"declared_30_360_inclusive_union","vinculos":merged_time.iter().map(|(a,b)|json!({"inicio":a.to_string(),"fim":b.to_string(),"dias_30_360":period_days(*a,*b)})).collect::<Vec<_>>()},"pcd":{"grau":grade,"modalidade":if is_especie_41{"idade"}else{"tempo_contribuicao"},"anos_exigidos":if is_especie_41{15}else{required},"tempo_atingido_no_cenario":primary_eligible,"por_idade":{"idade_anos":age_years,"idade_exigida":age_req,"anos_exigidos":15,"carencia_meses":months.len(),"cumprido":age_eligible,"coeficiente_pct":coef_idade_pct,"fator_previdenciario":fator_idade.map(|f|format!("{:.4}",f)),"fator_aplicado":fator_idade_aplicado,"salario_beneficio":money(sb_idade),"rmi_bruta":money(rmi_idade_bruta),"rmi":money(rmi_idade)},"calculation_date":p.calculation_date,"projection_count":projection_count,"filled_minimum_count":floor_count,"source_sha256":source_sha256,"snapshot_sha256":snapshot.response_sha256,"disability_evidence":p.disability_evidence,"review_evidence":p.review_evidence,"disability_start_date":p.disability_start_date,"fator_conversao_comum":p.fator_conversao_comum,"assumptions_confirmed":true,"actual_entitlement_verified":false},"memoria":[{"tipo":"regra","descricao":primary_desc,"valor":money(primary_rmi_bruta)}],"avisos":warnings}}}),
     )
 }

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-calcular-fabrica-atrasados"
+description = "Enables the calcular_fabrica_atrasados command without any pre-configured scope."
+commands.allow = ["calcular_fabrica_atrasados"]
+
+[[permission]]
+identifier = "deny-calcular-fabrica-atrasados"
+description = "Denies the calcular_fabrica_atrasados command without any pre-configured scope."
+commands.deny = ["calcular_fabrica_atrasados"]

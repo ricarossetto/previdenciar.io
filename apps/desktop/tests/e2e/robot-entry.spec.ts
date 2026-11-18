@@ -20,4 +20,4 @@ test('already saved assisted case resumes, manual entry still available and draf
 // entrada manual só existe fora dessa etapa, então o fluxo real é concluir os
 // parâmetros pendentes antes de procurar o botão.
 await page.getByLabel('Sexo cadastral do segurado').selectOption('Feminino');await page.getByRole('button',{name:'Confirmar e avançar',exact:true}).click();await page.getByLabel('Deficiência na DIB').selectOption('Sem deficiência declarada');await page.getByRole('button',{name:'Ir para a conferência',exact:true}).click();await expect(page.getByRole('heading',{name:'Confirme as respostas da entrevista'})).toBeVisible();
-await page.getByRole('button',{name:'Abrir editor de dados',exact:true}).click();await expect(page.getByRole('heading',{name:'Editor avançado',level:1})).toBeVisible();});
+await page.getByRole('button',{name:'Abrir editor de dados',exact:true}).click();await expect(page.getByRole('heading',{name:'Cálculo previdenciário',level:1})).toBeVisible();});

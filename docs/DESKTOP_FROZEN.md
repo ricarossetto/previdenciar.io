@@ -1,19 +1,9 @@
-# Desktop congelado
+# Desktop & Web — Paridade Funcional
 
-A versão desktop 0.16.0 fica congelada como legado. Não recebe novas funcionalidades.
+As versões **Desktop (Tauri v2)** e **Web (`previdenciario.atrium.adv.br`)** compartilham os mesmos motores Rust (`rgps-core`, `previdenciar-rgps`, `previdenciar-cnis`, `previdenciar-reports`, `previdenciar-ai`), os mesmos 11 relatórios Typst/PDF e a integração completa com a Fábrica de Cálculos do TRF3 (Tempo, RMI nas 17 espécies + PcD, Atrasados, leitores documentais e índices).
 
-O produto oficial passa a ser o aplicativo web em `https://previdenciario.atrium.adv.br`, com o mesmo frontend React, backend Rust/Axum, PostgreSQL, Cognito e processamento na nuvem.
+## Diferenças operacionais entre Desktop e Web
 
-## O que continua no desktop
-
-- Leitura da base local existente.
-- Cálculos e relatórios já disponíveis na versão 0.16.0.
-- Nenhuma migração automática da base desktop para a web foi feita. O usuário decidiu não migrar dados.
-
-## O que não deve ser feito
-
-- Não adicionar novos recursos exclusivos ao desktop.
-- Não corrigir divergências de produto apenas no desktop.
-- Não usar o desktop como backend do site.
-
-Correções de segurança críticas podem ser aplicadas ao desktop, mas a evolução funcional ocorre no web.
+- **Armazenamento local vs nuvem:** Desktop grava a base encriptada via DPAPI local (`workspace.dat` / cofre `ai-keys.pvai`); Web usa PostgreSQL/S3 autenticados por Cognito.
+- **Chave da Fábrica TRF3:** Desktop resolve `api_key` explícita -> cofre DPAPI (`"trf3-fabrica"`) -> variável de ambiente `FABRICA_API_KEY`. Web resolve header `x-fabrica-key` (mantido somente em `sessionStorage`) -> variável de ambiente `FABRICA_API_KEY` do servidor (jamais gravada no Postgres).
+- **OCR local de CNIS:** Ambos aplicam fallback OCR via `previdenciar-ai::extract_case_pdf` quando o PDF do CNIS não possui texto selecionável.

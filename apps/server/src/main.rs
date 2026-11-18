@@ -80,6 +80,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut allowed_headers = vec![
         axum::http::header::AUTHORIZATION,
         axum::http::header::CONTENT_TYPE,
+        HeaderName::from_static("x-fabrica-key"),
     ];
     if config.dev_user_header_allowed() {
         allowed_headers.push(HeaderName::from_static("x-dev-user"));

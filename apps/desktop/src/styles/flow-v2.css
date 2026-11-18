@@ -1,9 +1,9 @@
-/* flow-v2: mesa de trabalho. Tokens declarados neste bloco; nenhuma cor literal fora dele. */
+/* flow-v2: mesa de trabalho. Tokens mapeados ao tema ativo (claro/escuro). */
 .flow-v2{
-  --paper:#F7F4EC;--paper-2:#FFFDF8;--ink:#1C1A17;--ink-2:#4A453D;--rule:#D9D2C4;
-  --action:#1E4B39;--action-hover:#173C2E;--action-ink:#F7F4EC;--alert:#7A3B12;--alert-soft:#F3E7DA;--ok-soft:#EAF0E9;--paper-3:#FFFFFF;
-  background:var(--paper);color:var(--ink);border:1px solid var(--rule);border-radius:16px;
-  padding:26px 30px 30px;font-size:16px;line-height:1.6;
+  --paper:var(--surface);--paper-2:var(--surface-2);--ink:var(--fg);--ink-2:var(--fg-2);--rule:var(--border);
+  --action:var(--accent);--action-hover:var(--accent-hover);--action-ink:var(--btn-primary-fg);--alert:var(--gold);--alert-soft:var(--gold-soft);--ok:var(--accent);--ok-soft:var(--accent-soft);--paper-3:var(--elevated);
+  background:var(--paper);color:var(--ink);border:1px solid var(--rule);border-radius:12px;
+  padding:24px 26px 26px;font-size:15px;line-height:1.6;
 }
 .flow-v2 .eyebrow{font-size:12px;letter-spacing:0;text-transform:none;color:var(--ink-2)}
 .flow-v2 h2,.flow-v2 h3{color:var(--ink)}

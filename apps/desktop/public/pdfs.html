@@ -10,11 +10,6 @@
 <p><a href="/">Abrir a Central de relatórios</a> · <a href="/">Voltar ao escritório</a></p>
 <p id="status">Carregando...</p>
 <table><thead><tr><th>Formato</th><th>Criado</th><th>Expira</th><th>Tamanho</th><th></th></tr></thead><tbody id="rows"></tbody></table>
-<script>
-const token=localStorage.getItem('previdenciar.web.idToken');const status=document.getElementById('status');
-async function call(path,opt={}){const r=await fetch(path,{...opt,headers:{...(opt.headers||{}),Authorization:'Bearer '+token,'Content-Type':'application/json'}});if(!r.ok)throw new Error('HTTP '+r.status);return r.json()}
-async function load(){if(!token){status.textContent='Entre no app para acessar.';return}try{const data=await call('/api/reports/saved');const rows=document.getElementById('rows');rows.textContent='';status.textContent=data.reports.length+' PDF(s).';for(const x of data.reports){const tr=document.createElement('tr');for(const v of [x.format,new Date(x.createdAt).toLocaleString('pt-BR'),new Date(x.expiresAt).toLocaleDateString('pt-BR'),(x.sizeBytes/1024).toFixed(0)+' KB']){const td=document.createElement('td');td.textContent=v;tr.appendChild(td)}const td=document.createElement('td');const a=document.createElement('button');a.textContent='Baixar';a.onclick=async()=>{const u=await call('/api/reports/saved/'+encodeURIComponent(x.id));window.open(u.url,'_blank')};const d=document.createElement('button');d.textContent='Excluir';d.onclick=async()=>{if(confirm('Excluir este PDF?')){await call('/api/reports/saved/'+encodeURIComponent(x.id),{method:'DELETE'});load()}};td.append(a,d);tr.appendChild(td);rows.appendChild(tr)}}catch(e){status.textContent='Sessão expirada ou acesso negado.';status.className='error'}}
-load();
-</script>
+<script src="/pdfs.js"></script>
 </body>
 </html>

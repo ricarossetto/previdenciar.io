@@ -60,7 +60,17 @@ impl ReportKind {
     pub fn has_typst_template(self) -> bool {
         matches!(
             self,
-            Self::Detailed | Self::Analysis | Self::Periods | Self::Transitions | Self::Memory | Self::Quality | Self::Roi
+            Self::Detailed
+                | Self::Summary
+                | Self::Periods
+                | Self::Salaries
+                | Self::Memory
+                | Self::Transitions
+                | Self::Indicators
+                | Self::Quality
+                | Self::Analysis
+                | Self::Roi
+                | Self::Regras
         )
     }
 }

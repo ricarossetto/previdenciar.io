@@ -2,18 +2,86 @@ import type {Calculation, Json} from './model';
 import {isoDate, parseMoney} from './model';
 import {LINK_KINDS} from './assistantReview';
 
-export interface FabricaSalario { competencia: string; valor: string }
-export interface FabricaPeriodo { dataInicial: string; dataFinal: string; salarios: FabricaSalario[] }
+export interface FabricaSalario {
+  competencia: string;
+  valor: string;
+  excluido?: boolean;
+  indicadores?: string[];
+}
+export interface FabricaPeriodo {
+  dataInicial: string;
+  dataFinal: string;
+  descricao?: string;
+  formaContagem?: string;
+  naturezaVinculo?: string;
+  contarCarencia?: boolean;
+  prioritario?: boolean;
+  indicadores?: string[];
+  salarios: FabricaSalario[];
+}
 export interface FabricaInput {
   dataApuracao: string;
   dataNascimento: string;
   sexo: 'M'|'F';
   especie: number;
   isencaoCarencia: boolean;
-  tipo: 'COMUM'|'RURICOLA';
+  tipo: 'COMUM'|'PCD'|'RURICOLA';
   fatoGerador?: string;
+  der?: string;
+  fundamento?: string;
+  marcoTemporal?: string;
+  aplicarIrsmFev94?: boolean;
+  calcularRmiPcdComRegraAnterior?: boolean;
+  aplicarArt3Lei11718?: boolean;
+  numeroDependentes?: number;
+  coeficienteAuxilioAcidente?: number;
+  dataAcidente?: string;
+  criterioSalarioMaternidade?: string;
+  descarteManual?: string[];
+  demonstrativo?: boolean;
+  permalink?: boolean;
   periodos: FabricaPeriodo[];
 }
+
+export const FABRICA_ESPECIES: { code: number; label: string; category: string }[] = [
+  { code: 42, label: '42 — Aposentadoria por Tempo de Contribuição / Programada', category: 'aposentadoria' },
+  { code: 41, label: '41 — Aposentadoria por Idade', category: 'aposentadoria' },
+  { code: 46, label: '46 — Aposentadoria Especial', category: 'especial' },
+  { code: 57, label: '57 — Aposentadoria de Professor', category: 'aposentadoria' },
+  { code: 31, label: '31 — Auxílio por Incapacidade Temporária', category: 'incapacidade' },
+  { code: 32, label: '32 — Aposentadoria por Incapacidade Permanente', category: 'incapacidade' },
+  { code: 36, label: '36 — Auxílio-Acidente Previdenciário', category: 'acidentario' },
+  { code: 21, label: '21 — Pensão por Morte Previdenciária', category: 'dependente' },
+  { code: 25, label: '25 — Auxílio-Reclusão', category: 'dependente' },
+  { code: 80, label: '80 — Salário-Maternidade', category: 'maternidade' },
+  { code: 87, label: '87 — BPC / LOAS Pessoa com Deficiência', category: 'assistencial' },
+  { code: 88, label: '88 — BPC / LOAS Idoso', category: 'assistencial' },
+  { code: 91, label: '91 — Auxílio por Incapacidade Temporária Acidentário', category: 'acidentario' },
+  { code: 92, label: '92 — Aposentadoria por Incapacidade Permanente Acidentária', category: 'acidentario' },
+  { code: 93, label: '93 — Pensão por Morte Acidentária', category: 'acidentario' },
+  { code: 94, label: '94 — Auxílio-Acidente Acidentário', category: 'acidentario' },
+  { code: 95, label: '95 — Auxílio-Suplementar por Acidente de Trabalho', category: 'acidentario' },
+];
+
+export const FABRICA_DOC_TYPES: { id: 'cnis'|'carta'|'rdctc'|'pap'|'prevjud'; label: string }[] = [
+  { id: 'cnis', label: 'CNIS (Extrato Previdenciário)' },
+  { id: 'carta', label: 'Carta de Concessão' },
+  { id: 'rdctc', label: 'RDCTC (Relação de Remunerações)' },
+  { id: 'pap', label: 'PAP / Processo Administrativo' },
+  { id: 'prevjud', label: 'PREVJUD / Dossiê Previdenciário' },
+];
+
+export const FABRICA_INDEX_TYPES: { id: string; label: string }[] = [
+  { id: 'tabela', label: 'Tabela de índices mensais' },
+  { id: 'reajuste', label: 'Reajuste de benefícios' },
+  { id: 'moedas', label: 'Moedas históricas' },
+  { id: 'tabua-mortalidade', label: 'Tábua de mortalidade IBGE' },
+  { id: 'adiantamento', label: 'Adiantamentos / abonos' },
+  { id: 'limites', label: 'Limites (Piso e Teto RGPS)' },
+  { id: 'limite-baixa-renda-reclusao', label: 'Limite Baixa Renda (Auxílio-Reclusão)' },
+  { id: 'os121', label: 'OS 121 (Ajustes)' },
+  { id: 'reajuste-pre-real', label: 'Reajustes pré-Real' },
+];
 
 export interface FabricaRequisito {
   nome: string;
@@ -59,6 +127,9 @@ export interface FabricaProvider {
   conclusao?: {completo?: boolean; motivoInterrupcao?: string; limitesAtingidos?: unknown}|null;
   linhasDescartes?: number;
   resultados?: number;
+  demonstrativoPdf?: string|null;
+  permalink?: string|null;
+  messages?: string[];
 }
 export interface FabricaSummary {
   provider: FabricaProvider;
@@ -308,5 +379,255 @@ export function difference(
   const delta = b - a;
   const percent = ((Number(delta) / Number(a)) * 100).toFixed(1);
   return { cents: delta, percent };
+}
+
+function clampIsoDate(value: string, minDate: string, maxDate: string): string {
+  if (value < minDate) return minDate;
+  if (value > maxDate) return maxDate;
+  return value;
+}
+
+function endOfMonthIso(comp: string): string {
+  const [y, m] = comp.split('-').map(Number);
+  if (!y || !m) return comp + '-28';
+  return new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
+}
+
+/**
+ * Direct TRF3 payload builder: works immediately from CNIS extract or manual/reviewed
+ * entries without requiring prior local engine approval, supports all 17 species,
+ * COMUM/PCD/RURICOLA, and overlapping concomitant links natively handled by TRF3.
+ */
+export function buildFabricaInputDirect(
+  c: Calculation,
+  overrides?: {
+    especie?: number;
+    tipo?: 'COMUM'|'PCD'|'RURICOLA';
+    demonstrativo?: boolean;
+    permalink?: boolean;
+    fundamento?: string;
+    der?: string;
+    isencaoCarencia?: boolean;
+  },
+): { input: FabricaInput|null; issues: string[]; sourceMode: 'reviewed'|'cnis_direct'|'manual_direct' } {
+  const reviewed = buildFabricaInput(c);
+  const overrideRequestsCustom = Boolean(
+    overrides?.especie !== undefined
+    || overrides?.tipo !== undefined
+    || overrides?.demonstrativo
+    || overrides?.permalink
+    || overrides?.fundamento
+    || overrides?.der
+    || overrides?.isencaoCarencia !== undefined,
+  );
+  if (reviewed.input && !overrideRequestsCustom) {
+    return { input: reviewed.input, issues: [], sourceMode: 'reviewed' };
+  }
+
+  const issues: string[] = [];
+  const push = (m: string) => { if (!issues.includes(m)) issues.push(m); };
+  const MIN_TRF3_DATE = '1973-06-11';
+  const validSpecies = new Set(FABRICA_ESPECIES.map(e => e.code));
+  const especie = overrides?.especie ?? Number(c.especie || '42');
+  if (!validSpecies.has(especie)) push(`Espécie ${especie} não suportada pela Fábrica TRF3.`);
+
+  const dib = iso(c.dib);
+  if (!dib) push('Informe a DIB em formato válido (DD/MM/AAAA ou AAAA-MM-DD).');
+
+  const birthRaw = c.identity.birth_date ?? c.cnis?.identity?.birth_date ?? null;
+  const nascimento = iso(birthRaw);
+  if (!nascimento) push('Informe a data de nascimento do segurado.');
+
+  const cnisSex = (c.cnis?.identity as { sex?: string|null }|undefined)?.sex?.toLowerCase();
+  const rawSex = (c.sex ?? '').trim().toLowerCase() || cnisSex || '';
+  const sexo: 'M'|'F'|null =
+    rawSex.startsWith('m') ? 'M'
+    : rawSex.startsWith('f') ? 'F'
+    : null;
+  if (!sexo) push('Informe o sexo do segurado (Masculino ou Feminino).');
+
+  const policy = policyOf(c);
+  const kind = typeof policy?.manual_link_kind === 'string' ? policy.manual_link_kind : '';
+  const isPcd = ['Leve', 'Moderada', 'Grave'].includes(c.disability ?? '');
+  const tipo: 'COMUM'|'PCD'|'RURICOLA' = overrides?.tipo
+    ?? (isPcd ? 'PCD' : kind === 'rural' ? 'RURICOLA' : 'COMUM');
+
+  const isCnisRpps = (l: NonNullable<Calculation['cnis']>['links'][number]): boolean => {
+    if (l.prpps) return true;
+    const aff = (l.affiliation ?? '').toLowerCase();
+    if (aff.includes('rpps') || aff.includes('prpps') || aff.includes('servidor')) return true;
+    return l.indicators.some(ind => {
+      const upper = ind.toUpperCase();
+      return upper.includes('PRPPS') || upper.includes('RPPS');
+    });
+  };
+  const cnisBySeq = new Map((c.cnis?.links ?? []).map(l => [l.sequence, l]));
+  const isManualRpps = (l: Calculation['manual_links'][number]): boolean => {
+    const regime = (l.regime ?? '').trim().toUpperCase();
+    if (regime === 'RPPS' || regime === 'PRPPS' || regime.includes('RPPS')) return true;
+    const ind = (l.indicators ?? '').toUpperCase();
+    if (ind.includes('PRPPS') || ind.includes('RPPS')) return true;
+    const seq = l.source_review?.sequence;
+    if (typeof seq === 'number') {
+      const src = cnisBySeq.get(seq);
+      if (src && isCnisRpps(src)) return true;
+    }
+    return false;
+  };
+  const sourceLinks = (c.cnis?.links ?? []).filter(l => !isCnisRpps(l) && l.start_date);
+  const activeManualLinks = c.manual_links.filter(l => !l.source_review?.excluded && !isManualRpps(l));
+  const hasReviewedManual = activeManualLinks.length > 0;
+  let sourceMode: 'reviewed'|'cnis_direct'|'manual_direct' = 'manual_direct';
+  let periodos: FabricaPeriodo[] = [];
+
+  if (dib && hasReviewedManual) {
+    sourceMode = reviewed.input ? 'reviewed' : 'manual_direct';
+    const rawPeriods: Array<{
+      dataInicial: string;
+      dataFinal: string;
+      sourceSequence: number | null;
+      centavosByComp: Map<string, number>;
+    }> = [];
+    for (const link of activeManualLinks) {
+      const s = iso(link.start_date);
+      const e = iso(link.end_date) ?? dib;
+      if (!s || s > dib) continue;
+      const start = clampIsoDate(s, MIN_TRF3_DATE, dib);
+      const end = clampIsoDate(e, start, dib);
+      rawPeriods.push({
+        dataInicial: start,
+        dataFinal: end,
+        sourceSequence: link.source_review?.sequence ?? null,
+        centavosByComp: new Map<string, number>(),
+      });
+    }
+    const toCentavos = (canonical: string): number => {
+      if (!/^\d+\.\d{2}$/.test(canonical)) return -1;
+      const [whole, frac = '00'] = canonical.split('.');
+      return Number(whole) * 100 + Number(frac.padEnd(2, '0').slice(0, 2));
+    };
+    const blockedSequences = new Set<number>(
+      c.manual_links
+        .filter(l => l.source_review?.excluded || isManualRpps(l))
+        .map(l => l.source_review?.sequence)
+        .filter((seq): seq is number => typeof seq === 'number'),
+    );
+    for (const src of c.cnis?.links ?? []) {
+      if (isCnisRpps(src)) blockedSequences.add(src.sequence);
+    }
+
+    if (c.contribution_review?.applied) {
+      for (const r of c.contribution_review.records) {
+        if (r.excluded) continue;
+        if (r.amount_kind !== undefined && r.amount_kind !== 'remuneration') continue;
+        if (r.link_sequence !== null && blockedSequences.has(r.link_sequence)) continue;
+        const comp = r.competence.trim();
+        const val = canonicalMoney(r.amount);
+        if (!ISO_MONTH.test(comp) || !val) continue;
+        const cents = toCentavos(val);
+        if (!Number.isSafeInteger(cents) || cents <= 0) continue;
+        const target =
+          (r.link_sequence !== null
+            ? rawPeriods.find(p => p.sourceSequence === r.link_sequence && inside(comp, p.dataInicial, p.dataFinal))
+            : undefined)
+          ?? rawPeriods.find(p => inside(comp, p.dataInicial, p.dataFinal));
+        if (target) {
+          target.centavosByComp.set(comp, (target.centavosByComp.get(comp) ?? 0) + cents);
+        }
+      }
+    } else {
+      for (const s of c.manual_salaries) {
+        const comp = s.competence.trim();
+        const val = canonicalMoney(s.amount);
+        if (!ISO_MONTH.test(comp) || !val) continue;
+        const cents = toCentavos(val);
+        if (!Number.isSafeInteger(cents) || cents <= 0) continue;
+        const target = rawPeriods.find(p => inside(comp, p.dataInicial, p.dataFinal));
+        if (target) {
+          target.centavosByComp.set(comp, (target.centavosByComp.get(comp) ?? 0) + cents);
+        }
+      }
+    }
+
+    periodos = rawPeriods.map(p => ({
+      dataInicial: p.dataInicial,
+      dataFinal: p.dataFinal,
+      salarios: Array.from(p.centavosByComp.entries())
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([competencia, cent]) => ({ competencia, valor: (cent / 100).toFixed(2) })),
+    }));
+  } else if (dib && sourceLinks.length > 0) {
+    sourceMode = 'cnis_direct';
+    const entries = c.cnis?.salary_entries ?? [];
+    for (const link of sourceLinks) {
+      const s = iso(link.start_date);
+      if (!s || s > dib) continue;
+      const explicitEnd = iso(link.end_date);
+      const inferredEnd = iso(link.inferred_last_salary_end?.date_candidate);
+      const linkWages = entries.filter(e =>
+        e.link_sequence === link.sequence
+        && !e.excluded_from_validated_domain
+        && (e.amount_kind === undefined || e.amount_kind === 'remuneration')
+        && e.amount_centavos > 0
+      );
+      const lastComp = linkWages.map(e => e.competence).sort().at(-1)
+        ?? (link.reported_last_salary_month && ISO_MONTH.test(link.reported_last_salary_month) ? link.reported_last_salary_month : undefined);
+      const fallbackEnd = explicitEnd ?? inferredEnd ?? (lastComp ? endOfMonthIso(lastComp) : dib);
+      const start = clampIsoDate(s, MIN_TRF3_DATE, dib);
+      const end = clampIsoDate(fallbackEnd, start, dib);
+      const dedupByMonth = new Map<string, number>();
+      for (const w of linkWages) {
+        if (!inside(w.competence, start, end)) continue;
+        dedupByMonth.set(w.competence, (dedupByMonth.get(w.competence) ?? 0) + w.amount_centavos);
+      }
+      const salarios: FabricaSalario[] = Array.from(dedupByMonth.entries())
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([competencia, cent]) => ({ competencia, valor: (cent / 100).toFixed(2) }));
+      periodos.push({
+        dataInicial: start,
+        dataFinal: end,
+        descricao: link.affiliation?.trim() || undefined,
+        salarios,
+      });
+    }
+  }
+
+  if (periodos.length === 0) {
+    push('Importe um CNIS ou adicione ao menos um período contributivo válido até a DIB.');
+  }
+
+  if (issues.length || !dib || !nascimento || !sexo) {
+    return { input: null, issues, sourceMode };
+  }
+
+  const native = policy?.native_options && typeof policy.native_options === 'object'
+    ? policy.native_options as Record<string, unknown>
+    : null;
+  const origin = typeof native?.incapacidadeOrigem === 'string' ? native.incapacidadeOrigem : '';
+  const isencaoCarencia = overrides?.isencaoCarencia ?? (
+    [31, 32, 91, 92, 93, 94, 95].includes(especie)
+    && ['acidente', 'doenca_ocupacional', 'doenca_do_trabalho', 'doenca_listada'].includes(origin)
+  );
+  const needsFatoGerador = [21, 25, 31, 32, 36, 80, 91, 92, 93, 94, 95].includes(especie);
+  const derIso = overrides?.der ? iso(overrides.der) : null;
+
+  return {
+    input: {
+      dataApuracao: dib,
+      dataNascimento: nascimento,
+      sexo,
+      especie,
+      isencaoCarencia,
+      tipo,
+      ...(needsFatoGerador ? { fatoGerador: dib } : {}),
+      ...(derIso ? { der: derIso } : {}),
+      ...(overrides?.fundamento?.trim() ? { fundamento: overrides.fundamento.trim() } : {}),
+      ...(overrides?.demonstrativo ? { demonstrativo: true } : {}),
+      ...(overrides?.permalink ? { permalink: true } : {}),
+      periodos: periodos.slice(0, 200),
+    },
+    issues: [],
+    sourceMode,
+  };
 }
 

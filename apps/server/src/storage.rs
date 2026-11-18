@@ -33,6 +33,28 @@ impl S3Store {
         Ok(())
     }
 
+    pub async fn get_bytes(&self, key: &str) -> Result<Vec<u8>, String> {
+        let response = self
+            .client
+            .get_object()
+            .bucket(&self.bucket)
+            .key(key)
+            .send()
+            .await
+            .map_err(|error| error.to_string())?;
+        let bytes = response
+            .body
+            .collect()
+            .await
+            .map_err(|error| error.to_string())?
+            .into_bytes()
+            .to_vec();
+        if bytes.len() > 64 * 1024 * 1024 {
+            return Err("Arquivo PDF excede 64 MiB.".into());
+        }
+        Ok(bytes)
+    }
+
     pub async fn delete(&self, key: &str) -> Result<(), String> {
         self.client
             .delete_object()

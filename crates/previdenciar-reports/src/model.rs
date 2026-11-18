@@ -321,7 +321,7 @@ fn analysis_status(case:&Calculation,_options:ReportOptions,native:Option<&Value
     Ok(s)
 }
 /// Financeiro: A PAGAR (contribuicoes necessarias) vs A RECEBER (beneficio estimado).
-fn analysis_financial(_case:&Calculation,_options:ReportOptions,native:Option<&Value>)->Result<Section,String>{
+fn analysis_financial(case:&Calculation,_options:ReportOptions,native:Option<&Value>)->Result<Section,String>{
     let mut s=section("Cenario financeiro - a pagar e a receber",false);
     s.paragraphs.push("Comparacao informativa entre o esforco contributivo e o beneficio estimado. Valores sao simulacoes, nao calculos de debito ou credito.".into());
     if let Some(n)=native{
@@ -330,9 +330,9 @@ fn analysis_financial(_case:&Calculation,_options:ReportOptions,native:Option<&V
         let competencias=n.pointer("/resumo/competencias").and_then(Value::as_u64).unwrap_or(0);
         s.paragraphs.push(format!("A PAGAR (contribuicoes consideradas no PBC): R$ {soma} em {competencias} competencia(s)."));
         if rmi!="?" && rmi!="null"{
-            let meses_vida=371.0;
+            let meses_vida=crate::report_data::sobrevida_info(case).map(|(_,m)| m as f64).unwrap_or(240.0);
             let total_receber: f64 = rmi.parse::<f64>().unwrap_or(0.0)*meses_vida;
-            s.paragraphs.push(format!("A RECEBER (estimativa com expectativa de 371 meses, sem 13o/IRRF): R$ {total_receber:.2}."));
+            s.paragraphs.push(format!("A RECEBER (estimativa com expectativa de {meses_vida:.0} meses, sem 13o/IRRF): R$ {total_receber:.2}."));
             let soma_val=soma.parse::<f64>().unwrap_or(0.0);
             if soma_val>0.0{
                 let ratio=total_receber/soma_val;
@@ -346,7 +346,7 @@ fn analysis_financial(_case:&Calculation,_options:ReportOptions,native:Option<&V
     }
     Ok(s)
 }/// ROI: projecao de beneficio ao longo da expectativa de vida, com 13o e IRRF oficial.
-fn analysis_roi(native:Option<&Value>)->Result<Section,String>{
+fn analysis_roi(case:&Calculation,native:Option<&Value>)->Result<Section,String>{
     let mut s=section("Retorno do investimento (ROI)",false);
     s.paragraphs.push("Projecao informativa do beneficio ao longo da expectativa de vida. Considera 13o salario (1/12 adicional por mes) e IRRF oficial pela tabela embutida (isencao de 65 anos conforme Lei 7.713/1988, art. 6o, XIV). Nao inclui reajustes anuais.".into());
     let Some(n)=native else{s.paragraphs.push("Sem resultado nativo: o ROI requer dados e politica confirmados.".into());return Ok(s);};
@@ -355,20 +355,21 @@ fn analysis_roi(native:Option<&Value>)->Result<Section,String>{
     if rmi<=0.0{s.paragraphs.push("RMI zero ou invalida: ROI nao calculado.".into());return Ok(s);}
     let soma_str=n.pointer("/correcao/soma_considerada").and_then(Value::as_str).unwrap_or("0");
     let soma: f64 = soma_str.parse().unwrap_or(0.0);
-    let meses_vida=371.0;
+    let meses_vida=crate::report_data::sobrevida_info(case).map(|(_,m)| m as f64).unwrap_or(240.0);
     let rmi_com_13o=rmi*(13.0/12.0);
-    // IRRF oficial: usa a tabela embutida do rgps-core.
-    let competencia_irrf="2026-01";
+    // IRRF oficial: usa a tabela embutida do rgps-core na competência da DIB + redutor Lei 15.270/2025.
+    let competencia_irrf_owned = crate::report_data::irrf_competencia(case);
+    let competencia_irrf = competencia_irrf_owned.as_str();
     let base_irrf_str=format!("{:.2}",rmi_com_13o);
     let irrf_result=rgps_core::fiscal::irrf_mensal(competencia_irrf,&base_irrf_str,0,None);
     let (irrf_com_13o,irrf_label)=match &irrf_result{
-        Ok(v)=>(f64::try_from(v.irrf).unwrap_or(0.0),format!("IRRF oficial (tabela {})",v.tabela_competencia)),
+        Ok(v)=>(f64::try_from(v.irrf_liquido_lei_15270).unwrap_or(0.0),format!("IRRF oficial (tabela {})",v.tabela_competencia)),
         Err(_)=>{let isencao=1908.0;let aliquota=0.075;let irrf=if rmi_com_13o>isencao{(rmi_com_13o-isencao)*aliquota}else{0.0};(irrf,"IRRF estimado (fallback)".to_string())}
     };
     // IRRF com isencao 65: recalcula com isencao
     let isencao_65_str=format!("{:.2}",rmi_com_13o);
     let irrf_isento=match rgps_core::fiscal::irrf_mensal(competencia_irrf,&base_irrf_str,0,Some(&isencao_65_str)){
-        Ok(v)=>f64::try_from(v.irrf).unwrap_or(0.0),
+        Ok(v)=>f64::try_from(v.irrf_liquido_lei_15270).unwrap_or(0.0),
         Err(_)=>0.0,
     };
     let idade_atual_meses=n.pointer("/pcd/idade_der_meses").and_then(Value::as_i64).unwrap_or(0);
@@ -572,7 +573,7 @@ fn periods(case:&Calculation,personal:bool,native:Option<&Value>)->Result<Sectio
         s.tables.push(table("Todos os vínculos originais",&["Nº","Vínculo / empregador","Início","Fim original","Situação","Indicadores","Fonte"],&[1,4,2,2,3,3,2],rows));
         let mut rows=vec![];for l in &cnis.links {if let Some(candidate)=&l.inferred_last_salary_end{rows.push(vec![l.sequence.to_string(),month(&candidate.competence)?,date(Some(&candidate.date_candidate)),"Candidato não confirmado; não usado como fim original".into(),source(&candidate.source)]);}}
         if !rows.is_empty(){s.tables.push(table("Candidatos de fim: separados da informação original",&["Vínculo","Última competência","Data candidata","Alcance","Fonte"],&[1,2,2,5,2],rows));}
-        let rows=cnis.benefits.iter().map(|b|vec![b.sequence.to_string(),b.species.map(|v|v.to_string()).unwrap_or("Não informada".into()),match b.status{BenefitStatus::Denied=>"Indeferido",BenefitStatus::Unknown=>"Situação desconhecida"}.into(),"Não prova recebimento atual".into(),source(&b.source)]).collect();
+        let rows=cnis.benefits.iter().map(|b|vec![b.sequence.to_string(),b.species.map(|v|v.to_string()).unwrap_or("Não informada".into()),match b.status{BenefitStatus::Active=>"Ativo",BenefitStatus::Ceased=>"Cessado",BenefitStatus::Denied=>"Indeferido",BenefitStatus::Unknown=>"Situação desconhecida"}.into(),"Não prova recebimento atual".into(),source(&b.source)]).collect();
         if !cnis.benefits.is_empty(){s.tables.push(table("Eventos de benefício: não são vínculos de emprego",&["Nº","Espécie","Situação na fonte","Alcance","Fonte"],&[1,1,3,4,2],rows));}
     }
     let mut rows=vec![];for(i,l)in case.manual_links.iter().enumerate(){rows.push(vec![(i+1).to_string(),if personal{optional_field(Some(&l.employer))?}else{format!("Período manual {:02}",i+1)},date(Some(&l.start_date)),date(Some(&l.end_date)),enum_text(Some(&l.regime),&["RGPS","RPPS","PRPPS","rgps","rpps"]),if l.source_review.as_ref().is_some_and(|r|r.excluded){"Excluído da hipótese".into()}else{bool_text(l.confirmed)},indicators(&if l.indicators.is_empty(){vec![]}else{vec![l.indicators.clone()]},personal)?]);}
@@ -870,7 +871,7 @@ pub(crate) fn build(case:&Calculation,workspace:&Workspace,options:ReportOptions
     if options.kind == ReportKind::Analysis {
         report.sections.push(analysis_status(case,options,native)?);
         report.sections.push(analysis_financial(case,options,native)?);
-        report.sections.push(analysis_roi(native)?);
+        report.sections.push(analysis_roi(case,native)?);
         report.sections.push(pending(case,options.include_personal,outcome)?);
         return finish(report);
     }

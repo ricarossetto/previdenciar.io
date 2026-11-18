@@ -14,6 +14,9 @@ const FORMATS = [
   {id:'pdf_transitions',title:'Regras de transição',detail:'Comparação dos requisitos e dos valores produzidos.'},
   {id:'pdf_indicators',title:'Pendências e indicadores',detail:'Achados que precisam de conferência documental.'},
   {id:'pdf_quality',title:'Qualidade de segurado',detail:'Período de graça, prorrogação e carência por vínculo, com cálculo próprio.'},
+  {id:'pdf_analysis',title:'Análise do benefício',detail:'Diagnóstico técnico do benefício, premissas e requisitos aplicáveis.'},
+  {id:'pdf_roi',title:'Retorno do investimento (ROI)',detail:'Comparativo contributivo e tempo estimado de retorno, com premissas declaradas.'},
+  {id:'pdf_regras',title:'Comparativo EC 103/2019',detail:'Comparação lado a lado das regras da EC 103/2019 e direito adquirido.'},
 ];
 
 export function pdfBlob(base64:string):Blob {
@@ -173,7 +176,7 @@ export function ReportCenter({workspace,selected,onSelect,onNotify,draftCase,onC
       <label className="field"><span>{draftCase?'Tipo de relatório PDF':'Formato'}</span><select aria-label={draftCase?'Tipo de relatório PDF':'Formato'} value={format} onChange={event=>setFormat(event.target.value)}>{FORMATS.map(item=><option key={item.id} value={item.id}>{item.title}</option>)}{!draftCase&&<optgroup label="Exportar dados"><option value="html">Página HTML</option><option value="csv">Planilha CSV</option><option value="json">Dados JSON</option></optgroup>}</select></label>
       {description&&<p className="report-help">{description.detail}</p>}
       <label className="checkline report-privacy"><input type="checkbox" checked={personal} onChange={e=>{const checked=e.target.checked;setPersonal(checked);personalByCase.current.set(caseKey,checked)}}/>Incluir identificação pessoal neste relatório</label>
-      <p className="report-help">A escolha vale somente para este cálculo; os demais continuam sem identificação. Datas e valores continuam sensíveis.</p><details className="report-help"><summary>Outros modelos dos documentos originais</summary><p>Retorno do investimento não está disponível neste fluxo. A qualidade de segurado é apurada pelo próprio motor, por vínculo e com a regra legal declarada, e nunca copiada de outro segurado.</p></details>
+      <p className="report-help">A escolha vale somente para este cálculo; os demais continuam sem identificação. Datas e valores continuam sensíveis.</p><details className="report-help"><summary>Sobre os 11 modelos de relatório PDF</summary><p>Todos os 11 relatórios PDF (incluindo Análise do benefício, Retorno do investimento (ROI), Comparativo EC 103/2019 e Qualidade de segurado) são gerados diretamente pelo motor Typst a partir dos vínculos, salários e premissas declaradas neste cálculo, sem copiar dados de outros segurados.</p></details>
     </aside>
     <div className="report-workspace">
       <header className="report-toolbar"><div><h2>{description?.title??'Exportação de dados'}</h2><p>{calculation?.name??'Selecione um cálculo para começar.'}</p></div><div className="report-toolbar__actions" data-ui-actions><Button disabled={!calculation||!isPdf||!!busy} onClick={()=>void preview()}>{busy==='preview'?'Gerando prévia...':'Pré-visualizar PDF'}</Button><Button primary disabled={!calculation||!!busy} onClick={()=>void exportFile()}>{busy==='export'?'Exportando...':draftCase?(format==='pdf_detailed'?'Gerar relatório PDF detalhado':'Gerar PDF'):'Exportar arquivo'}<Icon name="file" size={16}/></Button>{savedReports&&isPdf&&<Button disabled={!calculation||!!busy||savingCloud} title="Gera o PDF no servidor e guarda na sua conta." onClick={()=>void saveToAccount()}>{savingCloud?'Salvando na conta...':'Salvar PDF na conta'}<Icon name="upload" size={16}/></Button>}</div></header>

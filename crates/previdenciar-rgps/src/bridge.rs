@@ -34,10 +34,59 @@ pub fn calculate_case(case: &Calculation) -> Result<Value,String> {
         let policy:CasePolicy=serde_json::from_str(&case.options.rule_policy).map_err(|_|"Política de cálculo inválida.")?;
         if let Some(pcd)=policy.lc142 { return crate::pcd::calculate(case,&pcd); }
     }
-    let mut blockers = Vec::new();
-    if case.disability.as_deref().is_some_and(|value|matches!(value.trim().to_lowercase().as_str(),"grave"|"moderada"|"leve")) {
-        issue(&mut blockers,"pcd_lc142_not_implemented","disability","A aposentadoria PcD pela LC 142/2013 ainda não está implementada neste motor local. Não substituir por coeficiente da EC 103 para gerar um número.");
+    let is_pcd = case.disability.as_deref().is_some_and(|value|matches!(value.trim().to_lowercase().as_str(),"grave"|"moderada"|"leve"));
+    if is_pcd {
+        let policy: CasePolicy = if case.options.rule_policy.trim().starts_with('{') {
+            serde_json::from_str(&case.options.rule_policy).map_err(|_| "Política de cálculo inválida.")?
+        } else {
+            CasePolicy::default()
+        };
+        let evidence = policy.review_evidence.clone().unwrap_or_default();
+        let has_review = policy.version.as_deref() == Some(POLICY_VERSION) && !evidence.trim().is_empty();
+        if has_review && crate::parse_dib_date(&case.dib).is_some() {
+            let dib_iso = crate::parse_dib_date(&case.dib).unwrap().format("%Y-%m-%d").to_string();
+            let dib_month = dib_iso[..7].to_string();
+            let ultimo_inpc = rgps_core::dados::inpc::INPC_MENSAL.last().map(|(p, _)| *p).unwrap_or("2026-09");
+            let snap_through = if dib_month.as_str() <= ultimo_inpc { dib_month.as_str() } else { ultimo_inpc };
+            let snapshot = crate::pcd::local_snapshot(snap_through).ok();
+            let auto_pcd = crate::pcd::Lc142Policy {
+                version: crate::pcd::VERSION.into(),
+                calculation_date: dib_iso,
+                correction_month: dib_month,
+                assumptions_confirmed: true,
+                review_evidence: evidence.clone(),
+                disability_all_periods: true,
+                disability_evidence: evidence,
+                rgps_confirmed: true,
+                project_open_links: false,
+                ongoing_evidence: String::new(),
+                fill_missing_minimum: false,
+                missing_salary_evidence: String::new(),
+                project_at_known_ceiling: false,
+                projection_evidence: String::new(),
+                historical_negative_policy: "preserve".into(),
+                apply_inss_overrides: false,
+                disability_start_date: None,
+                fator_conversao_comum: None,
+                allow_confirmed_manual_without_book: !case.manual_salaries.is_empty()
+                    && case.manual_salaries.iter().all(|w| w.confirmed),
+                snapshot,
+            };
+            return crate::pcd::calculate(case, &auto_pcd);
+        }
+        let mut pcd_blockers = Vec::new();
+        if !has_review {
+            issue(&mut pcd_blockers, "lc142_review", "options.rule_policy", "Confirme as premissas e a referência documental para cálculo PcD (LC 142/2013).");
+        }
+        if crate::parse_dib_date(&case.dib).is_none() {
+            issue(&mut pcd_blockers, "lc142_dib", "dib", "Informe uma DIB válida (AAAA-MM-DD) para cálculo PcD (LC 142/2013).");
+        }
+        if case.identity.birth_date.as_deref().is_none_or(|s| s.trim().is_empty()) {
+            issue(&mut pcd_blockers, "lc142_birth", "identity.birth_date", "Confirme a data de nascimento para cálculo PcD (LC 142/2013).");
+        }
+        return Ok(blocked(pcd_blockers, vec![]));
     }
+    let mut blockers = Vec::new();
     previdenciar_workspace::link_review::validate_source_links(case)?;
     for link in &case.manual_links {
         if let Some(review)=&link.source_review {
@@ -129,14 +178,14 @@ pub fn calculate_case(case: &Calculation) -> Result<Value,String> {
         vinculos:case.manual_links.iter().filter(|l|!l.source_review.as_ref().is_some_and(|r|r.excluded)).map(|l|LinkInput {
             inicio:Some(l.start_date.clone()),fim:Some(l.end_date.clone()),tipo:l.source_review.as_ref().and_then(|review| tipos.get(&review.sequence).cloned()).filter(|value| !value.trim().is_empty()).or_else(|| policy.manual_link_kind.clone()),
             regime:Some(l.regime.clone()),confirmado:l.confirmed,evidencia:policy.review_evidence.clone(),
-            indicadores:if l.indicators.trim().is_empty(){vec![]}else{vec!["manual_indicator_unresolved".into()]},
+            indicadores:l.indicators.split(',').map(str::trim).filter(|s|!s.is_empty()).map(str::to_string).collect(),
             origem:Some("manual_documentado".into()),prpps:l.regime.trim().eq_ignore_ascii_case("PRPPS") || l.regime.trim().eq_ignore_ascii_case("RPPS"),
             // ManualLink has no CTC proof fields: it cannot confirm a CTC.
             ctc_confirmada:false,ctc_evidencia:None,fator:Some(1.0)
         }).collect(),
         competencias:case.manual_salaries.iter().map(|w|WageInput {
             competencia:Some(w.competence.clone()),salario:Some(w.amount.clone()),moeda:policy.manual_currency.clone(),confirmada:w.confirmed,
-            indicadores:if w.indicators.trim().is_empty(){vec![]}else{vec!["manual_wage_indicator_unresolved".into()]}
+            indicadores:w.indicators.split(',').map(str::trim).filter(|s|!s.is_empty()).map(str::to_string).collect()
         }).collect(),
         opcoes:policy.native_options,
         contribution_months:case.cnis.as_ref().map(|cnis|cnis.contribution_months.clone()).unwrap_or_default(),

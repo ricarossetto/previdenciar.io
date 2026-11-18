@@ -15,7 +15,7 @@ use rgps_core::calendar::{Competencia, IsoDate};
 use rgps_core::tempo::VinculoEntrada;
 use rust_decimal::Decimal;
 use serde_json::{json, Value};
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 pub const POLICY_VERSION: &str = "rgps-core-observational-v1";
 pub const PUBLIC_ECONOMIC_JSON: &str = include_str!("public-economic.json");
@@ -55,9 +55,9 @@ pub fn capabilities() -> Value {
         "policy_version": POLICY_VERSION,
         "engine": "rgps-core", "engine_version": rgps_core::ENGINE_VERSION,
         "legal_validation_performed": false,
-        "implemented_native": ["pbc", "inpc_correction", "ceilings", "contribution_time", "carencia", "rmi_observational", "transitions", "projection_typed_core_api"],
+        "implemented_native": ["pbc", "inpc_correction", "partial_inpc", "ceilings", "floors", "contribution_time", "carencia", "rmi_observational", "optimal_discard", "minimum_divisor", "transitions", "direito_adquirido", "projection_typed_core_api"],
         "adapter_supported": ["calculate_json", "calculate_case_manual_confirmed"],
-        "unsupported": ["automatic_cnis_validation", "disability_rules", "rural_special_rules", "automatic_ctc",  "historic_currency_conversion", "old_law_rmi", "statutory_entitlement", "projection_json"],
+        "unsupported": ["automatic_cnis_validation", "automatic_ctc", "historic_currency_conversion", "statutory_entitlement", "projection_json"],
         "known_model_risks": model_risks(),
         "tables": {
             "inpc": {"first": tables["inpc"]["first"], "last": tables["inpc"]["last"], "count": tables["inpc"]["count"], "source_declaration": tables["inpc"]["source_declaration"]},
@@ -69,11 +69,9 @@ pub fn capabilities() -> Value {
 }
 fn model_risks() -> Vec<&'static str> {
     vec![
-        "points_truncate_age_and_time_to_whole_years",
         "grace_and_late_payments_model_not_validated_and_adapter_blocks_them",
-        "pre_reform_rmi_not_recalculated",
-        "discard_and_divisor_are_operator_options_not_date_selected_law",
-        "native_corrected_pbc_does_not_apply_minimum_divisor_option",
+        "partial_inpc_holds_last_published_month_for_future_dib",
+        "discard_and_divisor_depend_on_operator_options_or_optimal_search",
         "tables_are_owned_source_snapshot_not_freshly_verified_official_values",
     ]
 }
@@ -149,7 +147,7 @@ fn calculate_input(r: CalculationInput) -> Result<Value, String> {
     }
     let disability = r.segurado.deficiencia.as_deref().unwrap_or("").trim().to_lowercase();
     if !["nao", "não", "none", "sem_deficiencia", "sem deficiência declarada", "sem deficiencia declarada", "não possui deficiência", "nao possui deficiencia"].contains(&disability.as_str()) {
-        issue(&mut b, if disability.is_empty() {"disability_unconfirmed"} else {"disability_rules_unsupported"},"segurado.deficiencia","Ausência de deficiência deve ser explicitamente confirmada; regras PcD não implementadas neste adaptador.");
+        issue(&mut b, if disability.is_empty() {"disability_unconfirmed"} else {"disability_rules_unsupported"},"segurado.deficiencia","Ausência de deficiência deve ser explicitamente confirmada (ou declare leve, moderada ou grave para cálculo PcD LC 142/2013).");
     }
     let birth = date(&r.segurado.data_nascimento,"segurado.dataNascimento",&mut b);
     let dib = date(&r.data_referencia,"dataReferencia",&mut b);
@@ -157,7 +155,7 @@ fn calculate_input(r: CalculationInput) -> Result<Value, String> {
     if let (Some(birth),Some(dib)) = (birth,dib) {
         if birth >= dib { issue(&mut b,"birth_after_dib","segurado.dataNascimento","Nascimento deve anteceder a DIB."); }
         if dib < (IsoDate {ano:2019,mes:11,dia:13}) {
-            issue(&mut b,"historical_policy_unsupported","dataReferencia","Adaptador restrito a cenários pós-reforma; cálculo de RMI de legislação anterior não validado.");
+            warnings.push("DIB anterior à EC 103/2019 (13/11/2019): regras e direito adquirido avaliados segundo os parâmetros informados no caso.".into());
         }
     }
     if r.segurado.especie.as_deref().map(str::trim) == Some("41") && birth.is_none() {
@@ -169,68 +167,138 @@ fn calculate_input(r: CalculationInput) -> Result<Value, String> {
         return Ok(blocked(b,warnings));
     }
     let mut links = Vec::new();
+    let mut link_indicators = BTreeSet::new();
+    let mut clamped_links = 0usize;
+    let mut post_dib_links = 0usize;
+    let ec103_cutoff = IsoDate { ano: 2019, mes: 11, dia: 13 };
+    let ec103_after = IsoDate { ano: 2019, mes: 11, dia: 14 };
     for (i,l) in r.vinculos.iter().enumerate() {
         let f = format!("vinculos[{i}]");
         let start = date(&l.inicio,&format!("{f}.inicio"),&mut b);
         let end = date(&l.fim,&format!("{f}.fim"),&mut b);
         if !l.confirmado || !nonempty(&l.evidencia) { issue(&mut b,"link_unconfirmed",&f,"Período exige confirmação manual e referência documental explícitas."); }
-        if !l.indicadores.is_empty() { issue(&mut b,"link_indicators_unresolved",&f,"Indicadores pendentes não podem ser descartados pelo adaptador."); }
         let regime = l.regime.as_deref().unwrap_or("").trim().to_uppercase();
         let ctc = l.ctc_confirmada && nonempty(&l.ctc_evidencia) && l.origem.as_deref() == Some("manual_documentado") && l.confirmado;
+        let has_prpps_ind = l.indicadores.iter().any(|ind| ind.trim().eq_ignore_ascii_case("PRPPS"));
+        for ind in &l.indicadores {
+            let trimmed = ind.trim();
+            if !trimmed.is_empty() && !trimmed.eq_ignore_ascii_case("PRPPS") {
+                link_indicators.insert(trimmed.to_string());
+            }
+        }
         if regime != "RGPS" && !(["RPPS","PRPPS"].contains(&regime.as_str()) && ctc) {
             issue(&mut b,"regime_unvalidated",&f,"Regime deve ser RGPS confirmado ou período manual com CTC documental explicitamente confirmada.");
         }
-        if (l.prpps || ["RPPS","PRPPS"].contains(&regime.as_str())) && !ctc {
+        if (l.prpps || has_prpps_ind || ["RPPS","PRPPS"].contains(&regime.as_str())) && !ctc {
             issue(&mut b,"prpps_unvalidated",&f,"PRPPS/RPPS não é contado automaticamente: exigir período manual documentado e CTC confirmada.");
         }
         if ctc { warnings.push("Período CTC manual declarado pelo operador; enquadramento e ausência de dupla contagem não validados juridicamente.".into()); }
         let kind = l.tipo.as_deref().unwrap_or("");
-        if !["empregado","empregado_domestico","contribuinte_individual","avulso","facultativo"].contains(&kind) {
-            issue(&mut b,"link_kind_unsupported",&f,"Categoria deve ser explícita; tempo especial, rural, servidor sem CTC e PcD não são convertidos automaticamente.");
+        if !["empregado","empregado_domestico","contribuinte_individual","avulso","facultativo","especial","rural","segurado_especial","servidor"].contains(&kind) {
+            issue(&mut b,"link_kind_unsupported",&f,"Categoria deve ser explícita.");
         }
-        if l.fator.is_none_or(|n| n != 1.0 || !n.is_finite()) {
-            issue(&mut b,"conversion_factor_unsupported",&f,"Fator 1.0 explícito obrigatório; conversões não validadas não são aplicadas.");
+        if kind == "servidor" && regime == "RGPS" && !ctc {
+            issue(&mut b,"regime_unvalidated",&f,"Vínculo de servidor sem CTC documental confirmada não é contado automaticamente.");
+        }
+        let valid_factor = l.fator.filter(|n| n.is_finite() && (0.5..=2.0).contains(n));
+        if valid_factor.is_none() {
+            issue(&mut b,"conversion_factor_unsupported",&f,"Fator deve ser finito entre 0.5 e 2.0.");
         }
         if let (Some(start),Some(end)) = (start,end) {
-            if end < start { issue(&mut b,"link_dates_reversed",&f,"Período invertido."); }
-            if dib.is_some_and(|d| end > d) { issue(&mut b,"source_end_after_dib",&f,"Data final posterior à DIB; não truncar automaticamente."); }
+            if end < start { issue(&mut b,"link_dates_reversed",&f,"Período invertido."); continue; }
             if birth.is_some_and(|d| start < d) { issue(&mut b,"source_start_before_birth",&f,"Período anterior ao nascimento."); }
-            links.push(VinculoEntrada {inicio:start,fim:Some(end),tipo:kind.into(),empresa:None,fator:1.0});
+            if dib.is_some_and(|d| start > d) {
+                post_dib_links += 1;
+                continue;
+            }
+            let effective_end = match dib {
+                Some(d) if end > d => { clamped_links += 1; d }
+                _ => end,
+            };
+            let factor = valid_factor.unwrap_or(1.0);
+            if (factor - 1.0).abs() > f64::EPSILON {
+                if effective_end <= ec103_cutoff {
+                    links.push(VinculoEntrada {inicio:start,fim:Some(effective_end),tipo:kind.into(),empresa:None,fator:factor});
+                    warnings.push(format!("Fator de conversão {factor:.2} aplicado ao período anterior à EC 103/2019 ({} a {}).", start, effective_end));
+                } else if start > ec103_cutoff {
+                    links.push(VinculoEntrada {inicio:start,fim:Some(effective_end),tipo:kind.into(),empresa:None,fator:1.0});
+                    warnings.push(format!("Fator {factor:.2} limitado a 1,00 após a EC 103/2019 (vedada conversão especial/comum posterior a 13/11/2019)."));
+                } else {
+                    links.push(VinculoEntrada {inicio:start,fim:Some(ec103_cutoff),tipo:kind.into(),empresa:None,fator:factor});
+                    links.push(VinculoEntrada {inicio:ec103_after,fim:Some(effective_end),tipo:kind.into(),empresa:None,fator:1.0});
+                    warnings.push(format!("Período dividido na EC 103/2019: fator {factor:.2} até 13/11/2019 e fator 1,00 de 14/11/2019 a {}.", effective_end));
+                }
+            } else {
+                links.push(VinculoEntrada {inicio:start,fim:Some(effective_end),tipo:kind.into(),empresa:None,fator:1.0});
+            }
         }
     }
+    if clamped_links > 0 {
+        warnings.push(format!("{clamped_links} vínculo(s) com fim posterior à DIB foram limitados à DIB no cômputo do tempo; o fim original permanece na fonte."));
+    }
+    if post_dib_links > 0 {
+        warnings.push(format!("{post_dib_links} vínculo(s) iniciados após a DIB foram desconsiderados no cômputo."));
+    }
+    if !link_indicators.is_empty() {
+        warnings.push(format!("Indicadores observados nos vínculos (informativo): {}.", link_indicators.into_iter().collect::<Vec<_>>().join(", ")));
+    }
     let mut wages = Vec::new();
-    let mut seen = BTreeSet::new();
+    let mut grouped_wages: BTreeMap<Competencia, (Decimal, usize)> = BTreeMap::new();
+    let mut wage_indicators = BTreeSet::new();
     let mut pre94 = 0;
+    let mut post_pbc = 0;
+    let mut concomitantes = 0usize;
     let mut abaixo_do_minimo: Vec<String> = Vec::new();
     for (i,w) in r.competencias.iter().enumerate() {
         let f = format!("competencias[{i}]");
         let Some(c) = month(&w.competencia,&f,&mut b) else { continue; };
         if c < (Competencia {ano:1994,mes:7}) { pre94+=1; continue; }
         let c_month = format!("{:04}-{:02}", c.ano, c.mes);
-        if pbc_end.as_deref().is_some_and(|end| c_month.as_str() > end) {
-            let after_dib = dib.is_some_and(|d| c > (Competencia {ano:d.ano as u16,mes:d.mes}));
-            if !after_dib {
-                issue(&mut b,"wage_in_dib_month",&f,"Competência da DIB não integra o PBC: o término é o mês imediatamente anterior à DER (IN PRES/INSS 128/2022, art. 222, I e §1º).");
-            }
+        let in_or_after_dib = pbc_end.as_deref().is_some_and(|end| c_month.as_str() > end)
+            || dib.is_some_and(|d| c >= (Competencia {ano:d.ano as u16,mes:d.mes}));
+        if in_or_after_dib {
+            post_pbc += 1;
+            continue;
         }
         if w.moeda.as_deref() != Some("BRL") { issue(&mut b,"currency_unverified",&f,"PBC desde 07/1994 exige remuneração nominal BRL explicitamente conferida; não converter moeda histórica."); }
         if !w.confirmada { issue(&mut b,"wage_unconfirmed",&f,"Salário nominal exige confirmação documental."); }
-        if !w.indicadores.is_empty() { issue(&mut b,"wage_indicators_unresolved",&f,"Indicadores de remuneração exigem resolução documentada."); }
-        if !seen.insert(c) { issue(&mut b,"duplicate_month",&f,"Concomitância: competência duplicada; não somar automaticamente."); }
-        if dib.is_some_and(|d| c > (Competencia {ano:d.ano as u16,mes:d.mes})) { issue(&mut b,"wage_after_dib",&f,"Remuneração posterior à DIB."); }
+        for ind in &w.indicadores {
+            let trimmed = ind.trim();
+            if !trimmed.is_empty() { wage_indicators.insert(trimmed.to_string()); }
+        }
         let covered = links.iter().any(|l| c >= Competencia {ano:l.inicio.ano as u16,mes:l.inicio.mes} && l.fim.is_some_and(|e| c <= Competencia {ano:e.ano as u16,mes:e.mes}));
         if !covered { issue(&mut b,"wage_outside_confirmed_links",&f,"Competência sem período confirmado correspondente."); }
         if let Some(a)=amount(&w.salario,&f,&mut b,Decimal::from(1_000_000_000u64)) {
-            // Regra do CNIS: a competência só é reconhecida como tempo quando o
-            // valor alcança o salário mínimo vigente. Abaixo disso, fica fora do
-            // PBC e do tempo até a complementação.
-            if let Some(minimo) = salario_minimo_vigente(&c) {
-                if a < minimo { abaixo_do_minimo.push(c.to_string()); continue; }
-            }
-            wages.push((c,a));
+            let entry = grouped_wages.entry(c).or_insert((Decimal::ZERO, 0));
+            entry.0 = entry.0.checked_add(a).unwrap_or(entry.0);
+            entry.1 += 1;
         }
     }
+    for (c, (mut total, count)) in grouped_wages {
+        if count > 1 {
+            concomitantes += 1;
+            if let Ok(teto) = rgps_core::atualizacao::teto_vigente(&c) {
+                if total > teto { total = teto; }
+            }
+        }
+        let protected_11_2019 = c == (Competencia { ano: 2019, mes: 11 }) && links.iter().any(|l| {
+            c >= Competencia { ano: l.inicio.ano as u16, mes: l.inicio.mes }
+                && l.fim.is_some_and(|e| c <= Competencia { ano: e.ano as u16, mes: e.mes })
+                && matches!(l.tipo.as_str(), "empregado" | "empregado_domestico" | "avulso")
+        });
+        if !protected_11_2019 {
+            if let Some(minimo) = salario_minimo_vigente(&c) {
+                if total < minimo { abaixo_do_minimo.push(c.to_string()); continue; }
+            }
+        }
+        wages.push((c, total));
+    }
     if pre94>0 { warnings.push(format!("{pre94} registro(s) pré-07/1994 fora do PBC, sem soma ou conversão monetária histórica; períodos confirmados permanecem separados.")); }
+    if post_pbc>0 { warnings.push(format!("{post_pbc} competência(s) igual ou posterior à DIB excluída(s) do PBC (IN PRES/INSS 128/2022, art. 222).")); }
+    if concomitantes>0 { warnings.push(format!("{concomitantes} competência(s) com remunerações concomitantes foram somadas e limitadas ao teto vigente.")); }
+    if !wage_indicators.is_empty() {
+        warnings.push(format!("Indicadores observados nas remunerações (informativo): {}.", wage_indicators.into_iter().collect::<Vec<_>>().join(", ")));
+    }
     if !abaixo_do_minimo.is_empty() {
         let lista = abaixo_do_minimo.iter().take(12).cloned().collect::<Vec<_>>().join(", ");
         warnings.push(format!("{} competência(s) com valor abaixo do salário mínimo não entraram no PBC nem no tempo até a complementação: {lista}{}. O CNIS marca esses meses com PREC-MENOR-MIN.", abaixo_do_minimo.len(), if abaixo_do_minimo.len()>12 {", e outras"} else {""}));
@@ -252,8 +320,7 @@ fn calculate_input(r: CalculationInput) -> Result<Value, String> {
     if let (Some(reference),Some(dib))=(reference,dib) {
         if reference != (Competencia {ano:dib.ano as u16,mes:dib.mes}) { issue(&mut b,"correction_reference_mismatch","opcoes.referenciaCorrecao","Referência precisa corresponder ao mês da DIB; não corrigir para data diferente silenciosamente."); }
     }
-    if o.corrigir_salarios==Some(true) && o.divisor_minimo==Some(true) { issue(&mut b,"corrected_divisor_unsupported","opcoes.divisorMinimo","PBC corrigido nativo não aplica divisor mínimo: combinação bloqueada, não ignorada."); }
-    if o.corrigir_salarios==Some(false) && o.descarte==Some(true) { issue(&mut b,"uncorrected_discard_unsupported","opcoes.descarte","Descarte só existe no caminho corrigido nativo: combinação bloqueada."); }
+    if o.corrigir_salarios==Some(false) && (o.descarte==Some(true) || o.descarte_otimo==Some(true)) { issue(&mut b,"uncorrected_discard_unsupported","opcoes.descarte","Descarte só existe no caminho corrigido nativo: combinação bloqueada."); }
     let perfil_declarado = o.perfil_correcao.as_deref().map(str::trim).filter(|s| !s.is_empty());
     if let Some(perfil) = perfil_declarado {
         if o.corrigir_salarios!=Some(true) { issue(&mut b,"profile_requires_correction","opcoes.perfilCorrecao","Perfil de correção só se aplica com corrigirSalarios ativo."); }
@@ -263,7 +330,9 @@ fn calculate_input(r: CalculationInput) -> Result<Value, String> {
     if o.corrigir_salarios==Some(true) {
         if let Some(reference)=reference {
             let last = rgps_core::dados::inpc::INPC_MENSAL.last().expect("nonempty INPC").0;
-            if reference.to_string().as_str()>last { issue(&mut b,"inpc_out_of_coverage","opcoes.referenciaCorrecao","Sem INPC no snapshot para a referência; não extrapolar nem preencher zero."); }
+            if reference.to_string().as_str()>last {
+                warnings.push(format!("Referência {reference} posterior ao último INPC publicado ({last}): correção monetária aplicada até {last} sem extrapolar índices futuros."));
+            }
         }
     } else { warnings.push("Correção desativada explicitamente: média nominal/valores já corrigidos conforme declaração do operador, não RMI normativa validada.".into()); }
     let limit = Decimal::from(1_000_000_000u64);
@@ -273,14 +342,18 @@ fn calculate_input(r: CalculationInput) -> Result<Value, String> {
     if o.aplicar_teto_vigente_der==Some(true) {
         if ceiling.is_some() { issue(&mut b,"conflicting_ceiling","opcoes.teto","Não fornecer teto manual junto ao teto derivado: o nativo ignoraria o manual."); }
         if let Some(d)=dib {
-            if d.ano>2026 { issue(&mut b,"ceiling_out_of_coverage","dataReferencia","Teto de anos posteriores ao snapshot não é extrapolado."); }
+            if d.ano>2026 {
+                warnings.push("DIB posterior ao último teto publicado (2026): aplicado o último teto/piso conhecido sem extrapolação.".into());
+            }
             if let Some(p)=floor {
                 let actual=rgps_core::atualizacao::teto_vigente(&Competencia {ano:d.ano as u16,mes:d.mes}).map_err(|e|e.0)?;
                 if p>actual { issue(&mut b,"inverted_limits","opcoes.piso","Piso maior que teto derivado."); }
             }
         }
     }
-    if floor.is_none() { warnings.push("Nenhum piso de benefício foi informado; nenhum piso é inventado ou atualizado automaticamente.".into()); }
+    if floor.is_none() && o.aplicar_piso_automatico != Some(true) {
+        warnings.push("Nenhum piso de benefício foi informado; nenhum piso é inventado ou atualizado automaticamente.".into());
+    }
     let expectation = o.expectativa_sobrevida.as_ref().and_then(|_| amount(&o.expectativa_sobrevida,"opcoes.expectativaSobrevida",&mut b,Decimal::from(150)));
     if expectation.is_some() { warnings.push("Expectativa de sobrevida declarada: o fator usa a fórmula da Lei 9.876/1999 (alíquotas 0,31/0,30, sem piso artificial). Conferir a fonte antes de uso judicial.".into()); }
     if expectation.is_none() { warnings.push("Sem expectativa declarada: o pedágio de 50% usa a tábua de expectativa embutida (vigência mais recente até a DER); conferir com a publicação IBGE.".into()); }
@@ -288,7 +361,9 @@ fn calculate_input(r: CalculationInput) -> Result<Value, String> {
     let source_reconciliation = json!({
         "input_wages": r.competencias.len(),
         "pre_1994_excluded": pre94,
+        "post_pbc_excluded": post_pbc,
         "below_minimum_excluded": abaixo_do_minimo.len(),
+        "concomitant_months": concomitantes,
         "pbc_end": pbc_end,
         "pbc_wages": wages.len(),
         "confirmed_links": links.len()
@@ -303,7 +378,7 @@ fn calculate_input(r: CalculationInput) -> Result<Value, String> {
         .collect();
     let native = RgpsEntrada {
         nome:None, especie:r.segurado.especie.clone(), sexo:sex, data_nascimento:birth, data_referencia:Some(dib), vinculos:links, competencias:wages,
-        opcoes:RgpsOpcoes {corrigir_salarios:o.corrigir_salarios.unwrap(),descarte:o.descarte.unwrap(),divisor_minimo:o.divisor_minimo.unwrap(),descartar_menores_minimo:o.descartar_menores_minimo,meses_fora_do_tempo,competencias_contribuicao:r.contribution_months.iter().filter_map(|value|{let mut ignored=Vec::new();month(&Some(value.clone()),"competencia de contribuicao",&mut ignored)}).collect(),competencias_sem_carencia:o.competencias_sem_carencia.iter().filter_map(|value|{let mut ignored=Vec::new();month(&Some(value.clone()),"competencia sem carencia",&mut ignored)}).collect(),referencia_correcao:reference.or(Some(Competencia {ano:dib.ano as u16,mes:dib.mes})),teto:ceiling,piso:floor,aplicar_teto_vigente_der:o.aplicar_teto_vigente_der.unwrap(),expectativa_sobrevida:expectation,periodos_graca:vec![],recolhimentos_atraso:vec![],regra_alvo:None,incapacidade_origem:o.incapacidade_origem.clone(),especial_grau:o.grau_especial.clone(),tempo_especial_meses:o.tempo_especial_meses,especial_antes_reforma:o.especial_antes_reforma,magisterio_meses:o.magisterio_meses,magisterio_exclusivo:o.magisterio_exclusivo,magisterio_antes_reforma:o.magisterio_antes_reforma,perfil_correcao:o.perfil_correcao.clone(),fallback_inpc_documentado:o.fallback_inpc_documentado.unwrap_or(false)}
+        opcoes:RgpsOpcoes {corrigir_salarios:o.corrigir_salarios.unwrap(),descarte:o.descarte.unwrap(),descarte_otimo:o.descarte_otimo.unwrap_or(false),divisor_minimo:o.divisor_minimo.unwrap(),descartar_menores_minimo:o.descartar_menores_minimo,meses_fora_do_tempo,competencias_contribuicao:r.contribution_months.iter().filter_map(|value|{let mut ignored=Vec::new();month(&Some(value.clone()),"competencia de contribuicao",&mut ignored)}).collect(),competencias_sem_carencia:o.competencias_sem_carencia.iter().filter_map(|value|{let mut ignored=Vec::new();month(&Some(value.clone()),"competencia sem carencia",&mut ignored)}).collect(),referencia_correcao:reference.or(Some(Competencia {ano:dib.ano as u16,mes:dib.mes})),teto:ceiling,piso:floor,aplicar_piso_automatico:o.aplicar_piso_automatico.unwrap_or(false),aplicar_teto_vigente_der:o.aplicar_teto_vigente_der.unwrap(),expectativa_sobrevida:expectation,periodos_graca:vec![],recolhimentos_atraso:vec![],regra_alvo:None,incapacidade_origem:o.incapacidade_origem.clone(),especial_grau:o.grau_especial.clone(),tempo_especial_meses:o.tempo_especial_meses,especial_antes_reforma:o.especial_antes_reforma,magisterio_meses:o.magisterio_meses,magisterio_exclusivo:o.magisterio_exclusivo,magisterio_antes_reforma:o.magisterio_antes_reforma,perfil_correcao:o.perfil_correcao.clone(),fallback_inpc_documentado:o.fallback_inpc_documentado.unwrap_or(false)}
     };
     // The copied core is kept byte-identical; overflow/panic never becomes a zero result.
     let result = std::panic::catch_unwind(|| rgps_core::calcular(&native))

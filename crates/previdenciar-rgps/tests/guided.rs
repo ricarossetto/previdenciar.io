@@ -202,7 +202,6 @@ fn guided_preparation_pending_never_produces_financial_result() {
     for code in [
         "link_unconfirmed",
         "wage_unconfirmed",
-        "link_indicators_unresolved",
         "disability_unconfirmed",
     ] {
         assert!(
@@ -210,6 +209,11 @@ fn guided_preparation_pending_never_produces_financial_result() {
             "missing {code}: {result}"
         );
     }
+    assert!(result["warnings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|w| w.as_str().unwrap_or("").contains("IREM-INDPEND")));
 }
 
 #[test]

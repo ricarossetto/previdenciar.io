@@ -22,6 +22,8 @@ pub struct Identity {
     /// ISO YYYY-MM-DD; never inferred.
     pub birth_date: Option<String>,
     pub mother_name: Option<String>,
+    #[serde(default)]
+    pub sex: Option<String>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct SourceRef {
@@ -85,12 +87,16 @@ pub struct EmploymentLink {
 }
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
-pub enum BenefitStatus { Denied, Unknown }
+pub enum BenefitStatus { Active, Ceased, Denied, #[serde(other)] Unknown }
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct BenefitRecord {
     pub sequence: u32,
     pub species: Option<u32>,
     pub status: BenefitStatus,
+    #[serde(default)]
+    pub start_date: Option<String>,
+    #[serde(default)]
+    pub end_date: Option<String>,
     pub included_as_employment_link: bool,
     pub source: SourceRef,
 }
@@ -227,7 +233,7 @@ pub fn import_text(text: &str) -> Result<ImportResult, ImportError> {
 
 struct Patterns {
     salary: Regex, contribution_salary: Regex, date: Regex, month: Regex, sequence: Regex, indicator: Regex,
-    cpf: Regex, nit: Regex, name: Regex, birth: Regex, mother: Regex,
+    cpf: Regex, nit: Regex, name: Regex, birth: Regex, mother: Regex, sex: Regex,
     company_code: Regex, nit_anywhere: Regex, affiliation: Regex, species: Regex, currency: Regex,
 }
 static RX: LazyLock<Patterns> = LazyLock::new(|| Patterns {
@@ -242,6 +248,7 @@ static RX: LazyLock<Patterns> = LazyLock::new(|| Patterns {
     name: Regex::new(r"(?im)\bNome\s*:\s*([^\n]+)").unwrap(),
     birth: Regex::new(r"(?i)Data\s+de\s+nascimento\s*:\s*(\d{2}/\d{2}/\d{4})").unwrap(),
     mother: Regex::new(r"(?im)Nome\s+d[ae]\s+m[ãa]e\s*:\s*([^\n]+)").unwrap(),
+    sex: Regex::new(r"(?i)\bSexo\s*:\s*(Masculino|Feminino|M|F)\b").unwrap(),
     company_code: Regex::new(r"^\s*\d{2}\.\d{3}\.\d{3}(?:[/.-]\d{4}[-.]?\d{2})?\s*").unwrap(),
     nit_anywhere: Regex::new(r"\b\d{3}\.\d{5}\.\d{2}[-.]?\d\b").unwrap(),
     affiliation: Regex::new(r"(?i)Empregado\s+ou\s+Agente\s+P[úu]blico|Aut[ôo]nomo|Contribuinte\s+Individual|Contribuinte\s+em\s+Dobro|Facultativo|Trabalhador\s+Avulso|Recolhimento|Agrupamento\s+de\s+Contratantes\s*/?\s*Cooperativas|Segurado\s+Especial|Empregado\s+Dom[ée]stico").unwrap(),
@@ -315,12 +322,18 @@ fn capture_text(rx: &Regex, text: &str) -> Option<String> {
     rx.captures(text).map(|c| clean(&c[1])).filter(|s| !s.is_empty())
 }
 fn parse_identity(page: &str) -> Identity {
+    let sex = capture_text(&RX.sex, page).and_then(|s| match folded(&s).as_str() {
+        "masculino" | "m" => Some("masculino".into()),
+        "feminino" | "f" => Some("feminino".into()),
+        _ => None,
+    });
     Identity {
         full_name: capture_text(&RX.name, page),
         cpf: capture_text(&RX.cpf, page).map(|s| digits(&s)).filter(|s| s.len() == 11),
         nit: capture_text(&RX.nit, page).map(|s| digits(&s)).filter(|s| s.len() == 11),
         birth_date: capture_text(&RX.birth, page).and_then(|s| iso_date(&s)),
         mother_name: capture_text(&RX.mother, page),
+        sex,
     }
 }
 fn merge_field(current: &mut Option<String>, incoming: Option<String>) -> bool {
@@ -364,11 +377,27 @@ fn parse_relation(block: &str, src: SourceRef, affiliation_hint: Option<&str>) -
     let sequence: u32 = cap[1].parse().ok()?;
     let body = &cap[2];
     let lower = folded(body);
+    let dates: Vec<&str> = RX.date.find_iter(body).map(|d| d.as_str()).collect();
+    let start_date = dates.first().and_then(|d| iso_date(d));
+    let end_date = dates.get(1).and_then(|d| iso_date(d));
     if lower.contains("beneficio") {
+        let status = if lower.contains("indeferido") {
+            BenefitStatus::Denied
+        } else if lower.contains("cessado") || lower.contains("suspenso") || lower.contains("encerrado") {
+            BenefitStatus::Ceased
+        } else if lower.contains("ativo") || lower.contains("em manutencao") || lower.contains("mantido") {
+            BenefitStatus::Active
+        } else {
+            BenefitStatus::Unknown
+        };
         return Some(Err(BenefitRecord {
-            sequence, species: RX.species.captures(body).and_then(|c| c[1].parse().ok()),
-            status: if lower.contains("indeferido") { BenefitStatus::Denied } else { BenefitStatus::Unknown },
-            included_as_employment_link: false, source: src,
+            sequence,
+            species: RX.species.captures(body).and_then(|c| c[1].parse().ok()),
+            status,
+            start_date,
+            end_date,
+            included_as_employment_link: false,
+            source: src,
         }));
     }
     let affiliation = RX.affiliation.find(body);
@@ -379,12 +408,7 @@ fn parse_relation(block: &str, src: SourceRef, affiliation_hint: Option<&str>) -
     let employer = RX.nit_anywhere.replace_all(&body[..employer_end], "");
     let employer = RX.company_code.replace(&employer, "");
     let employer = clean(&employer);
-    let period = body;
-    let dates: Vec<&str> = RX.date.find_iter(period).map(|d| d.as_str()).collect();
-    let start_date = dates.first().and_then(|d| iso_date(d));
-    let end_date = dates.get(1).and_then(|d| iso_date(d));
-    // Full dates must not be mistaken for salary month suffixes.
-    let without_dates = RX.date.replace_all(period, " ");
+    let without_dates = RX.date.replace_all(body, " ");
     let reported_last_salary_month = RX.month.captures(&without_dates).map(|m| format!("{}-{}", &m[2], &m[1]));
     let mut indicators: Vec<String> = block.lines().filter_map(|l| {
         l.find("Indicadores:").or_else(|| l.find("indicadores:")).map(|i| &l[i + "Indicadores:".len()..])
@@ -435,6 +459,7 @@ fn parse_pages(pages: &[String]) -> Result<ImportResult, ImportError> {
             merge_field(&mut result.identity.nit, identity.nit),
             merge_field(&mut result.identity.birth_date, identity.birth_date),
             merge_field(&mut result.identity.mother_name, identity.mother_name),
+            merge_field(&mut result.identity.sex, identity.sex),
         ].into_iter().filter(|v| *v).count();
         if conflict > 0 {
             result.warnings.push(finding("identity_conflict", Severity::Warning,
@@ -456,7 +481,8 @@ fn parse_pages(pages: &[String]) -> Result<ImportResult, ImportError> {
                 let mut end = first_line + 1;
                 while end < lines.len() && !is_table_heading(lines[end])
                     && !is_relation_heading(lines[end]) && !is_boundary(lines[end])
-                    && !RX.salary.is_match(lines[end]) { end += 1; }
+                    && !RX.salary.is_match(lines[end])
+                    && !(RX.sequence.is_match(lines[end]) && (RX.nit_anywhere.is_match(lines[end]) || folded(lines[end]).contains("beneficio"))) { end += 1; }
                 let block = lines[first_line..end].join("\n");
                 let src = source(page_index, first_line, result.links.len() + result.benefits.len() + 1, first_offset);
                 let hint = if first_line > 0 && folded(lines[first_line-1]).contains("empregado ou agente")
@@ -470,7 +496,10 @@ fn parse_pages(pages: &[String]) -> Result<ImportResult, ImportError> {
                     Some(Err(benefit)) => { current_sequence = None; result.benefits.push(benefit); },
                     None => { current_sequence = None; ambiguous_relations += 1; },
                 }
-                relation_expected = false; table = false;
+                relation_expected = end < lines.len()
+                    && RX.sequence.is_match(lines[end])
+                    && (RX.nit_anywhere.is_match(lines[end]) || folded(lines[end]).contains("beneficio"));
+                table = false;
                 for item in &lines[first_line..end] { offset += item.len() + 1; }
                 line_index = end; continue;
             }

@@ -94,6 +94,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/admin/audit", get(admin_audit))
         .route("/api/reports/save", post(save_report))
         .route("/api/reports/saved", get(saved_reports))
+        .route("/api/reports/saved/{id}/file", get(saved_report_file))
         .route(
             "/api/reports/saved/{id}",
             get(saved_report_url).delete(delete_saved_report),
@@ -104,9 +105,22 @@ pub fn router(state: AppState) -> Router {
         .route("/api/cnis/import", post(import_cnis))
         .route("/api/case-pdf/text", post(case_pdf_text))
         .route("/api/reports/preview", post(preview_report))
+        .route("/api/reports/export", post(export_report_text))
         .route("/api/prepare-from-cnis", post(prepare_from_cnis))
         .route("/api/ai/status", get(ai_status))
         .route("/api/ai/chat", post(ai_chat))
+        .route("/api/ai/data-status", get(ai_data_status))
+        .route("/api/ai/knowledge/search", post(ai_knowledge_search))
+        .route("/api/ai/knowledge/read", post(ai_knowledge_read))
+        .route("/api/fabrica/status", get(fabrica_status))
+        .route("/api/fabrica/rmi", post(fabrica_rmi))
+        .route("/api/fabrica/tempo", post(fabrica_tempo))
+        .route("/api/fabrica/tempo/por-grupos", post(fabrica_tempo_grupos))
+        .route("/api/fabrica/atrasados", post(fabrica_atrasados))
+        .route("/api/fabrica/documentos/{tipo}", post(fabrica_documento))
+        .route("/api/fabrica/indices/{nome}", get(fabrica_indice))
+        .route("/api/fabrica/fundamentos", get(fabrica_fundamentos))
+        .route("/api/fabrica/marcos-temporais", get(fabrica_marcos_temporais))
         .route("/api/tools/{tool}", post(run_tool))
         .route("/api/finance/{tool}", post(run_finance))
         .with_state(state.clone());
@@ -502,23 +516,177 @@ async fn admin_audit(
     Ok(Json(json!({ "events": events })))
 }
 
-fn render_report_bytes(body: &ReportRequest) -> Result<Vec<u8>, ApiError> {
+fn constrained(value: &str, numeric: bool) -> String {
+    if value
+        .chars()
+        .all(|c| c.is_ascii_digit() || matches!(c, '-' | '/') || (numeric && matches!(c, '.' | ',' | '+')))
+    {
+        value.to_owned()
+    } else {
+        String::new()
+    }
+}
+
+fn private_case(calculation: &previdenciar_workspace::Calculation) -> previdenciar_workspace::Calculation {
+    let mut case = calculation.clone();
+    case.name.clear();
+    case.notes.clear();
+    case.scenario.clear();
+    case.result = None;
+    case.fabrica = None;
+    case.dib = constrained(&case.dib, false);
+    case.identity = Default::default();
+    case.sex = None;
+    case.disability = None;
+    case.options = Default::default();
+    for link in &mut case.manual_links {
+        link.employer.clear();
+        link.indicators.clear();
+        link.regime.clear();
+        link.start_date = constrained(&link.start_date, false);
+        link.end_date = constrained(&link.end_date, false);
+    }
+    for salary in &mut case.manual_salaries {
+        salary.indicators.clear();
+        salary.amount = constrained(&salary.amount, true);
+        salary.competence = constrained(&salary.competence, false);
+    }
+    if let Some(cnis) = &mut case.cnis {
+        cnis.identity = Default::default();
+        cnis.metadata.extractor.clear();
+        cnis.metadata.source_sha256 = None;
+        for link in &mut cnis.links {
+            link.raw_employer = None;
+            link.affiliation = None;
+            link.indicators.clear();
+            link.start_date = link.start_date.as_deref().map(|v| constrained(v, false));
+            link.end_date = link.end_date.as_deref().map(|v| constrained(v, false));
+            link.reported_last_salary_month = link
+                .reported_last_salary_month
+                .as_deref()
+                .map(|v| constrained(v, false));
+            if let Some(end) = &mut link.inferred_last_salary_end {
+                end.competence = constrained(&end.competence, false);
+                end.date_candidate = constrained(&end.date_candidate, false);
+                end.provenance.clear();
+            }
+        }
+        for salary in &mut cnis.salary_entries {
+            salary.indicators.clear();
+            salary.competence = constrained(&salary.competence, false);
+        }
+        for finding in cnis.findings.iter_mut().chain(cnis.warnings.iter_mut()) {
+            finding.code = "source_finding".into();
+            finding.message.clear();
+        }
+    }
+    case
+}
+
+fn html_escape_value(s: &str) -> String {
+    s.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+        .replace('\'', "&#39;")
+}
+
+fn recomputed_rgps_report(case: &previdenciar_workspace::Calculation) -> String {
+    let outcome = match previdenciar_rgps::calculate_case(case) {
+        Ok(v) => v,
+        Err(_) => {
+            return "<h2>Simulação técnica</h2><p>Não foi possível recalcular a hipótese. Nenhuma RMI armazenada foi aceita como resultado verificado.</p>".into();
+        }
+    };
+    if outcome["status"] != "experimental" {
+        return "<h2>Simulação técnica bloqueada</h2><p>Parâmetros ou origem não revisados. Nenhum valor financeiro foi gerado neste relatório.</p>".into();
+    }
+    let Some(summary) = outcome.pointer("/data/native_result/resumo") else {
+        return "<p>O motor não retornou um resumo de cálculo completo.</p>".into();
+    };
+    let mut html = String::from(
+        "<h2>Simulação técnica recalculada em Rust</h2><p class=\"warning\">EXPERIMENTAL: resultado do motor próprio com parâmetros explícitos. Não certifica legislação, enquadramento ou concessão. Conferência profissional obrigatória.</p><table><tr><th>Grandeza</th><th>Valor do motor</th></tr>",
+    );
+    for (key, label) in [
+        ("rmi", "RMI da hipótese"),
+        ("rmi_bruta", "RMI antes de limites"),
+        ("salario_beneficio", "Salário de benefício"),
+        ("coeficiente", "Coeficiente informado"),
+        ("competencias", "Competências"),
+        ("carencia_meses", "Carência calculada em meses"),
+    ] {
+        if let Some(v) = summary.get(key) {
+            let value = v.as_str().map(str::to_owned).unwrap_or_else(|| v.to_string());
+            html.push_str(&format!(
+                "<tr><td>{label}</td><td>{}</td></tr>",
+                html_escape_value(&value)
+            ));
+        }
+    }
+    html.push_str("</table><h3>Memória e avisos</h3><ul>");
+    if let Some(warnings) = outcome["warnings"].as_array() {
+        for v in warnings {
+            if let Some(s) = v.as_str() {
+                html.push_str(&format!("<li>{}</li>", html_escape_value(s)));
+            }
+        }
+    }
+    html.push_str("</ul>");
+    html
+}
+
+fn reviewed_report_outcome(calculation: &previdenciar_workspace::Calculation) -> Value {
+    match previdenciar_rgps::calculate_case(calculation) {
+        Ok(value) => value,
+        Err(_) => json!({
+            "status": "blocked",
+            "data": null,
+            "legal_validation_performed": false,
+            "warnings": ["Não foi possível recalcular a hipótese; nenhum resultado armazenado foi aceito."],
+            "blockers": [{
+                "code": "report_input_unresolved",
+                "message": "Dados ou política ainda não permitem executar o motor."
+            }]
+        }),
+    }
+}
+
+fn render_report_for_request(body: &ReportRequest) -> Result<(Vec<u8>, &'static str), ApiError> {
     let kind_name = body.format.strip_prefix("pdf_").unwrap_or(&body.format);
     let kind = previdenciar_reports::ReportKind::parse(kind_name).map_err(ApiError::bad_request)?;
-    let outcome =
-        previdenciar_rgps::calculate_case(&body.calculation).map_err(ApiError::bad_request)?;
-    let presentation = body.presentation.as_ref();
-    let options = previdenciar_reports::ReportOptions {
-        kind,
-        include_personal: body.include_personal,
-        presentation: previdenciar_reports::Presentation {
-            include_appendix: presentation.and_then(|p| p.include_appendix).unwrap_or(true),
-            include_quality: presentation.and_then(|p| p.include_quality).unwrap_or(true),
-            include_planning: presentation.and_then(|p| p.include_planning).unwrap_or(true),
-        },
+    let outcome = reviewed_report_outcome(&body.calculation);
+    let is_pcd_lc142 = outcome
+        .pointer("/data/native_result/engine_id")
+        .and_then(Value::as_str)
+        == Some("lc142-constant-grade-v1");
+    let bytes = if kind.has_typst_template() && !is_pcd_lc142 {
+        previdenciar_reports::render_report(
+            &body.calculation,
+            kind.slug(),
+            Some(&outcome),
+            &body.workspace,
+            body.include_personal,
+        )
+        .map_err(ApiError::bad_request)?
+    } else {
+        let presentation = body.presentation.as_ref();
+        let options = previdenciar_reports::ReportOptions {
+            kind,
+            include_personal: body.include_personal,
+            presentation: previdenciar_reports::Presentation {
+                include_appendix: presentation.and_then(|p| p.include_appendix).unwrap_or(true),
+                include_quality: presentation.and_then(|p| p.include_quality).unwrap_or(true),
+                include_planning: presentation.and_then(|p| p.include_planning).unwrap_or(true),
+            },
+        };
+        previdenciar_reports::render_pdf(&body.calculation, &body.workspace, options, Some(&outcome))
+            .map_err(ApiError::bad_request)?
     };
-    previdenciar_reports::render_pdf(&body.calculation, &body.workspace, options, Some(&outcome))
-        .map_err(ApiError::bad_request)
+    Ok((bytes, kind.slug()))
+}
+
+fn render_report_bytes(body: &ReportRequest) -> Result<Vec<u8>, ApiError> {
+    render_report_for_request(body).map(|(bytes, _)| bytes)
 }
 
 async fn save_report(
@@ -660,6 +828,42 @@ async fn saved_report_url(
     Ok(Json(json!({ "url": url, "expiresInSeconds": 300 })))
 }
 
+async fn saved_report_file(
+    State(state): State<AppState>,
+    ip: ClientIp,
+    headers: HeaderMap,
+    Path(id): Path<Uuid>,
+) -> Result<Response, ApiError> {
+    let user = auth::authenticate(&headers, &state)
+        .await
+        .map_err(ApiError::unauthorized)?;
+    let owner = ensure_user_guarded(&state, &ip, &user).await?;
+    let store = state
+        .storage
+        .as_ref()
+        .ok_or_else(|| ApiError::unavailable("Armazenamento S3 não configurado.".into()))?;
+    let key = sqlx::query_scalar::<_, String>(
+        "SELECT s3_key FROM report_artifacts WHERE id = $1 AND owner_id = $2 AND expires_at > now()",
+    )
+    .bind(id)
+    .bind(owner)
+    .fetch_optional(&state.db)
+    .await
+    .map_err(ApiError::internal)?
+    .ok_or_else(|| ApiError::not_found("PDF não encontrado."))?;
+    let bytes = store.get_bytes(&key).await.map_err(ApiError::internal)?;
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, "application/pdf")
+        .header(header::CACHE_CONTROL, "private, no-store")
+        .header(
+            header::CONTENT_DISPOSITION,
+            format!("inline; filename=\"relatorio-{id}.pdf\""),
+        )
+        .body(Body::from(bytes))
+        .map_err(ApiError::internal)
+}
+
 async fn delete_saved_report(
     State(state): State<AppState>,
     ip: ClientIp,
@@ -798,6 +1002,17 @@ async fn pcd_snapshot(
         &state,
         vec![(format!("calc:{}", user.email.to_lowercase()), CALC_WINDOW)],
     )?;
+    if query.through.len() != 7
+        || !query.through.is_ascii()
+        || chrono::NaiveDate::parse_from_str(&(query.through.clone() + "-01"), "%Y-%m-%d").is_err()
+    {
+        return Err(ApiError::bad_request(
+            "Informe uma competência AAAA-MM válida.".into(),
+        ));
+    }
+    if let Ok(live) = fetch_live_pcd_snapshot(&state, &query.through).await {
+        return Ok(Json(live));
+    }
     let snapshot = state
         .blocking
         .run(move || previdenciar_rgps::pcd::local_snapshot(&query.through))
@@ -805,6 +1020,96 @@ async fn pcd_snapshot(
         .map_err(ApiError::internal)?
         .map_err(ApiError::bad_request)?;
     Ok(Json(snapshot))
+}
+
+async fn fetch_live_pcd_snapshot(
+    state: &AppState,
+    through: &str,
+) -> Result<previdenciar_rgps::pcd::Snapshot, String> {
+    use previdenciar_rgps::pcd::{canonical_snapshot_decimal, Limits, Rate, Snapshot};
+    let base = state.config.fabrica_base_url.trim_end_matches('/');
+    let tabela_url = format!("{base}/indices/api/v1/tabela?competenciaInicial=1994-07&competenciaFinal={through}");
+    let limites_url = format!("{base}/indices/api/v1/limites?competenciaInicial=1994-07&competenciaFinal={through}");
+    let req_builder = |url: &str| {
+        let mut r = state
+            .http
+            .get(url)
+            .timeout(Duration::from_secs(6))
+            .header(header::ACCEPT, "application/json")
+            .header(header::ACCEPT_LANGUAGE, "pt-BR,pt;q=0.9");
+        if state.config.fabrica_enabled() {
+            r = r.header("x-api-key", state.config.fabrica_api_key.as_str());
+        }
+        r
+    };
+    let idx_bytes = req_builder(&tabela_url)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?
+        .error_for_status()
+        .map_err(|e| e.to_string())?
+        .bytes()
+        .await
+        .map_err(|e| e.to_string())?;
+    let lim_bytes = req_builder(&limites_url)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?
+        .error_for_status()
+        .map_err(|e| e.to_string())?
+        .bytes()
+        .await
+        .map_err(|e| e.to_string())?;
+    let mut hash = Sha256::new();
+    hash.update(&idx_bytes);
+    hash.update(b"\n");
+    hash.update(&lim_bytes);
+    let digest = format!("{:x}", hash.finalize());
+    let j: Value = serde_json::from_slice(&idx_bytes).map_err(|e| e.to_string())?;
+    let l: Value = serde_json::from_slice(&lim_bytes).map_err(|e| e.to_string())?;
+    if j["status"] != "ok" || l["status"] != "ok" {
+        return Err("Provedor público não confirmou índices.".into());
+    }
+    let dec_val = |v: &Value| -> Result<String, String> {
+        match v {
+            Value::Number(n) => canonical_snapshot_decimal(&n.to_string()),
+            Value::String(s) if !s.trim().is_empty() => canonical_snapshot_decimal(&s.trim().replace(',', ".")),
+            _ => Err("Valor decimal ausente.".into()),
+        }
+    };
+    let opt_val = |v: &Value| -> Result<Option<String>, String> {
+        if v.is_null() || v.as_str() == Some("") { Ok(None) } else { dec_val(v).map(Some) }
+    };
+    let mut rates = Vec::new();
+    for (m, v) in j["result"].as_object().ok_or("Tabela de índices inválida.")? {
+        rates.push(Rate {
+            month: m.clone(),
+            inpc: dec_val(&v["inpc"])?,
+            igpdi: opt_val(&v["igpdi"])?,
+            ipcr: opt_val(&v["ipcr"])?,
+            inpc_inss: opt_val(&v["inpcInss"])?,
+        });
+    }
+    let mut limits = Vec::new();
+    for v in l["result"].as_array().ok_or("Tabela de limites inválida.")? {
+        limits.push(Limits {
+            month: v["competencia"].as_str().ok_or("Competência ausente.")?.into(),
+            minimum: dec_val(&v["salarioMinimo"])?,
+            ceiling: dec_val(&v["tetoContribuicao"])?,
+            minimum_source: v["fontePiso"].as_str().ok_or("Fonte piso ausente.")?.into(),
+            ceiling_source: v["fonteTeto"].as_str().ok_or("Fonte teto ausente.")?.into(),
+        });
+    }
+    let snapshot = Snapshot {
+        source_url: tabela_url,
+        retrieved_at: chrono::Utc::now().to_rfc3339(),
+        response_sha256: digest,
+        through: through.to_string(),
+        rates,
+        limits,
+    };
+    snapshot.validate()?;
+    Ok(snapshot)
 }
 
 async fn import_cnis(
@@ -864,11 +1169,22 @@ fn import_cnis_bytes(
     std::io::Write::flush(&mut file).map_err(ApiError::internal)?;
     match previdenciar_cnis::import_pdf(file.path()) {
         Ok(result) => Ok(result),
-        Err(previdenciar_cnis::ImportError::NoExtractableText) => {
+        Err(previdenciar_cnis::ImportError::NoExtractableText)
+        | Err(previdenciar_cnis::ImportError::NotCnis) => {
             let extracted = previdenciar_ai::extract_case_pdf(file.path())
                 .map_err(|error| ApiError::bad_request(error.to_string()))?;
-            previdenciar_cnis::import_text(&extracted.text)
-                .map_err(|error| ApiError::bad_request(error.to_string()))
+            let mut imported = previdenciar_cnis::import_text(&extracted.text)
+                .map_err(|error| ApiError::bad_request(error.to_string()))?;
+            if extracted.used_ocr {
+                imported.warnings.push(previdenciar_cnis::Finding {
+                    code: "cnis_ocr_fallback".into(),
+                    severity: previdenciar_cnis::Severity::Warning,
+                    message: "Extrato CNIS lido via OCR automático; confira os números antes de protocolar.".into(),
+                    count: 1,
+                    source: None,
+                });
+            }
+            Ok(imported)
         }
         Err(error) => Err(ApiError::bad_request(error.to_string())),
     }
@@ -987,32 +1303,647 @@ async fn preview_report(
 }
 
 fn preview_report_bytes(body: ReportRequest) -> Result<(Vec<u8>, &'static str), ApiError> {
-    let kind_name = body.format.strip_prefix("pdf_").unwrap_or(&body.format);
-    let kind = previdenciar_reports::ReportKind::parse(kind_name).map_err(ApiError::bad_request)?;
-    let outcome =
-        previdenciar_rgps::calculate_case(&body.calculation).map_err(ApiError::bad_request)?;
-    let presentation = body.presentation.unwrap_or(ReportPresentation {
-        include_appendix: None,
-        include_quality: None,
-        include_planning: None,
+    render_report_for_request(&body)
+}
+
+#[derive(Deserialize)]
+struct ExportTextRequest {
+    calculation: previdenciar_workspace::Calculation,
+    workspace: previdenciar_workspace::Workspace,
+    format: String,
+    include_personal: bool,
+}
+
+fn summary_json(calculation: &previdenciar_workspace::Calculation) -> Value {
+    let counts = calculation.cnis.as_ref().map(|cnis| {
+        json!({
+            "salary_entries": cnis.salary_entries.len(),
+            "salary_months": cnis.salary_months.len(),
+            "links": cnis.links.len(),
+            "prpps_links": cnis.links.iter().filter(|v| v.prpps).count(),
+            "missing_end_dates": cnis.links.iter().filter(|v| v.end_date.is_none()).count(),
+            "benefits": cnis.benefits.len(),
+            "warnings": cnis.warnings.len(),
+            "pages": cnis.metadata.page_count,
+        })
     });
-    let options = previdenciar_reports::ReportOptions {
-        kind,
-        include_personal: body.include_personal,
-        presentation: previdenciar_reports::Presentation {
-            include_appendix: presentation.include_appendix.unwrap_or(true),
-            include_quality: presentation.include_quality.unwrap_or(true),
-            include_planning: presentation.include_planning.unwrap_or(true),
-        },
+    json!({
+        "schema": "previdenciar-next-summary/v1",
+        "legal_validation_performed": false,
+        "currency_policy": "currency_units_unverified",
+        "cnis_counts": counts,
+        "manual_link_count": calculation.manual_links.len(),
+        "manual_salary_count": calculation.manual_salaries.len(),
+        "warnings": [
+            "Resumo técnico de importação, não concessão de benefício nem validação jurídica.",
+            "Indicadores, moedas históricas e regimes exigem revisão independente.",
+        ],
+    })
+}
+
+async fn export_report_text(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<ExportTextRequest>,
+) -> Result<Json<Value>, ApiError> {
+    let _user = auth::authenticate(&headers, &state)
+        .await
+        .map_err(ApiError::unauthorized)?;
+    let out = state
+        .blocking
+        .run(move || -> Result<Value, ApiError> {
+            match body.format.as_str() {
+                "html" => {
+                    let redacted;
+                    let case = if body.include_personal {
+                        &body.calculation
+                    } else {
+                        redacted = private_case(&body.calculation);
+                        &redacted
+                    };
+                    let mut html = previdenciar_workspace::report_html(
+                        case,
+                        &body.workspace,
+                        body.include_personal,
+                    );
+                    if body.include_personal {
+                        let extra = recomputed_rgps_report(&body.calculation);
+                        html = html.replace("</body>", &format!("{extra}</body>"));
+                    }
+                    Ok(json!({ "content": html, "mime": "text/html; charset=utf-8", "extension": "html" }))
+                }
+                "csv" => {
+                    let csv = if body.include_personal {
+                        previdenciar_workspace::export_salary_csv(&body.calculation)
+                    } else {
+                        let redacted = private_case(&body.calculation);
+                        previdenciar_workspace::export_salary_csv(&redacted)
+                    };
+                    Ok(json!({ "content": csv, "mime": "text/csv; charset=utf-8", "extension": "csv" }))
+                }
+                "json" => {
+                    let payload = if body.include_personal {
+                        let outcome = previdenciar_rgps::calculate_case(&body.calculation)
+                            .unwrap_or_else(|e| json!({ "status": "error", "message": e }));
+                        json!({
+                            "schema": "previdenciar-web-export/v1",
+                            "calculation": {
+                                "id": body.calculation.id,
+                                "kind": body.calculation.kind,
+                                "dib": body.calculation.dib,
+                                "especie": body.calculation.especie,
+                            },
+                            "outcome": outcome,
+                        })
+                    } else {
+                        summary_json(&body.calculation)
+                    };
+                    let pretty = serde_json::to_string_pretty(&payload).map_err(ApiError::internal)?;
+                    Ok(json!({ "content": pretty, "mime": "application/json; charset=utf-8", "extension": "json" }))
+                }
+                _ => Err(ApiError::bad_request(
+                    "Formato de exportação inválido (use html, csv ou json).".into(),
+                )),
+            }
+        })
+        .await
+        .map_err(ApiError::internal)??;
+    Ok(Json(out))
+}
+
+async fn ai_data_status(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, ApiError> {
+    let _user = auth::authenticate(&headers, &state)
+        .await
+        .map_err(ApiError::unauthorized)?;
+    let root = state.config.ai_data_root.clone();
+    let status = state
+        .blocking
+        .run(move || previdenciar_ai::DataStore::new(root.into()).status())
+        .await
+        .map_err(ApiError::internal)?;
+    Ok(Json(serde_json::to_value(status).map_err(ApiError::internal)?))
+}
+
+#[derive(Deserialize)]
+struct KnowledgeSearchRequest {
+    block: previdenciar_ai::KnowledgeBlock,
+    query: String,
+    limit: Option<u32>,
+}
+
+async fn ai_knowledge_search(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<KnowledgeSearchRequest>,
+) -> Result<Json<Value>, ApiError> {
+    let _user = auth::authenticate(&headers, &state)
+        .await
+        .map_err(ApiError::unauthorized)?;
+    let root = state.config.ai_data_root.clone();
+    let limit = body.limit.unwrap_or(8).clamp(1, 8) as usize;
+    let outcome = state
+        .blocking
+        .run(move || {
+            previdenciar_ai::DataStore::new(root.into())
+                .search_block(body.block, &body.query, limit)
+                .map_err(|e| ApiError::bad_request(e.to_string()))
+        })
+        .await
+        .map_err(ApiError::internal)??;
+    Ok(Json(serde_json::to_value(outcome).map_err(ApiError::internal)?))
+}
+
+#[derive(Deserialize)]
+struct KnowledgeReadRequest {
+    block: previdenciar_ai::KnowledgeBlock,
+    id: String,
+}
+
+async fn ai_knowledge_read(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<KnowledgeReadRequest>,
+) -> Result<Json<Value>, ApiError> {
+    let _user = auth::authenticate(&headers, &state)
+        .await
+        .map_err(ApiError::unauthorized)?;
+    let root = state.config.ai_data_root.clone();
+    let outcome = state
+        .blocking
+        .run(move || {
+            previdenciar_ai::DataStore::new(root.into())
+                .read_block(body.block, &body.id)
+                .map_err(|e| ApiError::bad_request(e.to_string()))
+        })
+        .await
+        .map_err(ApiError::internal)??;
+    Ok(Json(serde_json::to_value(outcome).map_err(ApiError::internal)?))
+}
+
+#[derive(Deserialize, Default)]
+struct FabricaQuery {
+    demonstrativo: Option<bool>,
+    permalink: Option<bool>,
+    fundamento: Option<bool>,
+}
+
+fn valid_fabrica_key(key: &str) -> bool {
+    let trimmed = key.trim();
+    (8..=512).contains(&trimmed.len()) && trimmed.chars().all(|c| c.is_ascii_graphic())
+}
+
+fn resolve_fabrica_key(headers: &HeaderMap, state: &AppState) -> Result<Option<String>, ApiError> {
+    if let Some(raw) = headers.get("x-fabrica-key").and_then(|v| v.to_str().ok()) {
+        let trimmed = raw.trim();
+        if !trimmed.is_empty() {
+            if !valid_fabrica_key(trimmed) {
+                return Err(ApiError::bad_request(
+                    "Chave da API da Fábrica TRF3 inválida (sem espaços).".into(),
+                ));
+            }
+            return Ok(Some(trimmed.to_owned()));
+        }
+    }
+    let server_key = state.config.fabrica_api_key.trim();
+    if valid_fabrica_key(server_key) {
+        Ok(Some(server_key.to_owned()))
+    } else {
+        Ok(None)
+    }
+}
+
+async fn fabrica_status(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, ApiError> {
+    let _user = auth::authenticate(&headers, &state)
+        .await
+        .map_err(ApiError::unauthorized)?;
+    let session_key = headers
+        .get("x-fabrica-key")
+        .and_then(|v| v.to_str().ok())
+        .is_some_and(valid_fabrica_key);
+    let server_key = state.config.fabrica_enabled();
+    Ok(Json(json!({
+        "configured": session_key || server_key,
+        "serverKeyAvailable": server_key,
+        "sessionKeyConfigured": session_key,
+        "upstream": state.config.fabrica_base_url,
+    })))
+}
+
+fn sha256_hex(bytes: &[u8]) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(bytes);
+    hasher.finalize().iter().map(|b| format!("{b:02x}")).collect()
+}
+
+fn fab_error_messages(bytes: &[u8]) -> String {
+    let Ok(val) = serde_json::from_slice::<Value>(bytes) else {
+        return String::new();
     };
-    let bytes = previdenciar_reports::render_pdf(
-        &body.calculation,
-        &body.workspace,
-        options,
-        Some(&outcome),
-    )
-    .map_err(ApiError::bad_request)?;
-    Ok((bytes, kind.slug()))
+    val.get("messages")
+        .and_then(Value::as_array)
+        .map(|items| {
+            items
+                .iter()
+                .take(3)
+                .filter_map(Value::as_str)
+                .map(|t| t.chars().take(200).collect::<String>())
+                .collect::<Vec<_>>()
+                .join(" ")
+        })
+        .unwrap_or_default()
+}
+
+async fn post_fabrica_json(
+    state: &AppState,
+    url: &str,
+    api_key: &str,
+    body_bytes: &[u8],
+) -> Result<Vec<u8>, ApiError> {
+    let resp = state
+        .http
+        .post(url)
+        .timeout(Duration::from_secs(120))
+        .header("x-api-key", api_key)
+        .header(header::CONTENT_TYPE, "application/json")
+        .header(header::ACCEPT, "application/json")
+        .header(header::ACCEPT_LANGUAGE, "pt-BR,pt;q=0.9")
+        .body(body_bytes.to_vec())
+        .send()
+        .await
+        .map_err(|_| {
+            ApiError::unavailable(
+                "Não foi possível conectar à Fábrica de Cálculos do TRF3.".into(),
+            )
+        })?;
+    let status = resp.status();
+    let bytes = resp.bytes().await.map_err(ApiError::internal)?;
+    if status == StatusCode::UNAUTHORIZED {
+        return Err(ApiError::bad_request(
+            "A Fábrica TRF3 recusou a chave (HTTP 401).".into(),
+        ));
+    }
+    if status == StatusCode::FORBIDDEN {
+        return Err(ApiError::bad_request(
+            "A chave não possui permissão para este recurso na Fábrica TRF3 (HTTP 403).".into(),
+        ));
+    }
+    if status == StatusCode::TOO_MANY_REQUESTS {
+        return Err(ApiError::unavailable(
+            "Limite temporário de uso da Fábrica TRF3; tente novamente em instantes.".into(),
+        ));
+    }
+    if !status.is_success() {
+        let detail = fab_error_messages(&bytes);
+        let msg = if detail.is_empty() {
+            format!("A Fábrica TRF3 retornou HTTP {}.", status.as_u16())
+        } else {
+            format!("A Fábrica TRF3 retornou HTTP {}: {detail}", status.as_u16())
+        };
+        return Err(ApiError::bad_request(msg));
+    }
+    if bytes.len() > 24 * 1024 * 1024 {
+        return Err(ApiError::payload_too_large(
+            "Resposta da Fábrica de Cálculos excede o limite de 24 MiB.".into(),
+        ));
+    }
+    Ok(bytes.to_vec())
+}
+
+fn prepare_fabrica_payload(raw: Value, is_tempo: bool) -> Result<(Value, bool, bool, Option<String>), ApiError> {
+    if raw.get("periodos").is_some() && raw.get("periodosContribuicao").is_none() {
+        let input: previdenciar_rgps::fabrica::FabricaInput =
+            serde_json::from_value(raw).map_err(|e| ApiError::bad_request(e.to_string()))?;
+        let demo = input.demonstrativo;
+        let perm = input.permalink;
+        let fund = input.fundamento.clone();
+        let body = if is_tempo {
+            previdenciar_rgps::fabrica::build_tempo_body(&input)
+        } else {
+            previdenciar_rgps::fabrica::build_body(&input)
+        }
+        .map_err(ApiError::bad_request)?;
+        Ok((body, demo, perm, fund))
+    } else {
+        Ok((raw, false, false, None))
+    }
+}
+
+async fn fabrica_rmi(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Query(q): Query<FabricaQuery>,
+    Json(raw): Json<Value>,
+) -> Result<Json<Value>, ApiError> {
+    let user = auth::authenticate(&headers, &state)
+        .await
+        .map_err(ApiError::unauthorized)?;
+    enforce(
+        &state,
+        vec![(format!("calc:{}", user.email.to_lowercase()), CALC_WINDOW)],
+    )?;
+    let Some(key) = resolve_fabrica_key(&headers, &state)? else {
+        return Err(ApiError::unavailable(
+            "Chave da Fábrica TRF3 não configurada (informe x-fabrica-key ou configure FABRICA_API_KEY no servidor).".into(),
+        ));
+    };
+    let (body, inp_demo, inp_perm, fund) = prepare_fabrica_payload(raw, false)?;
+    let demo = q.demonstrativo.unwrap_or(inp_demo);
+    let perm = q.permalink.unwrap_or(inp_perm);
+    let suffix = previdenciar_rgps::fabrica::query_suffix(demo, perm);
+    let use_fund = q.fundamento.unwrap_or(false)
+        && fund.as_deref().is_some_and(|s| !s.trim().is_empty());
+    let path = if use_fund {
+        "/rgps/api/v1/calculos-rmi/por-fundamento"
+    } else {
+        "/rgps/api/v1/calculos-rmi"
+    };
+    let url = format!("{}{}{}", state.config.fabrica_base_url, path, suffix);
+    let body_bytes = serde_json::to_vec(&body).map_err(ApiError::internal)?;
+    let bytes = post_fabrica_json(&state, &url, &key, &body_bytes).await?;
+    let parsed = previdenciar_rgps::fabrica::parse_summary(&bytes).map_err(ApiError::bad_request)?;
+    Ok(Json(json!({
+        "provider": parsed,
+        "source_url": url,
+        "retrieved_at": chrono::Utc::now().to_rfc3339(),
+        "request_sha256": sha256_hex(&body_bytes),
+        "response_sha256": sha256_hex(&bytes),
+        "bytes": bytes.len(),
+        "api": "Fábrica de Cálculos/TRF3",
+        "version": 1,
+    })))
+}
+
+async fn fabrica_tempo(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Query(q): Query<FabricaQuery>,
+    Json(raw): Json<Value>,
+) -> Result<Json<Value>, ApiError> {
+    fabrica_tempo_inner(state, headers, q, raw, "/rgps/api/v1/calculos-tempo").await
+}
+
+async fn fabrica_tempo_grupos(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Query(q): Query<FabricaQuery>,
+    Json(raw): Json<Value>,
+) -> Result<Json<Value>, ApiError> {
+    fabrica_tempo_inner(state, headers, q, raw, "/rgps/api/v1/calculos-tempo/por-grupos").await
+}
+
+async fn fabrica_tempo_inner(
+    state: AppState,
+    headers: HeaderMap,
+    q: FabricaQuery,
+    raw: Value,
+    endpoint_path: &str,
+) -> Result<Json<Value>, ApiError> {
+    let user = auth::authenticate(&headers, &state)
+        .await
+        .map_err(ApiError::unauthorized)?;
+    enforce(
+        &state,
+        vec![(format!("calc:{}", user.email.to_lowercase()), CALC_WINDOW)],
+    )?;
+    let Some(key) = resolve_fabrica_key(&headers, &state)? else {
+        return Err(ApiError::unavailable(
+            "Chave da Fábrica TRF3 não configurada.".into(),
+        ));
+    };
+    let (body, inp_demo, inp_perm, _) = prepare_fabrica_payload(raw, true)?;
+    let suffix = previdenciar_rgps::fabrica::query_suffix(
+        q.demonstrativo.unwrap_or(inp_demo),
+        q.permalink.unwrap_or(inp_perm),
+    );
+    let url = format!("{}{}{}", state.config.fabrica_base_url, endpoint_path, suffix);
+    let body_bytes = serde_json::to_vec(&body).map_err(ApiError::internal)?;
+    let bytes = post_fabrica_json(&state, &url, &key, &body_bytes).await?;
+    let parsed = previdenciar_rgps::fabrica::parse_tempo_summary(&bytes).map_err(ApiError::bad_request)?;
+    Ok(Json(parsed))
+}
+
+async fn fabrica_atrasados(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Query(q): Query<FabricaQuery>,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, ApiError> {
+    let user = auth::authenticate(&headers, &state)
+        .await
+        .map_err(ApiError::unauthorized)?;
+    enforce(
+        &state,
+        vec![(format!("calc:{}", user.email.to_lowercase()), CALC_WINDOW)],
+    )?;
+    let Some(key) = resolve_fabrica_key(&headers, &state)? else {
+        return Err(ApiError::unavailable(
+            "Chave da Fábrica TRF3 não configurada.".into(),
+        ));
+    };
+    let suffix = previdenciar_rgps::fabrica::query_suffix(
+        q.demonstrativo.unwrap_or(false),
+        q.permalink.unwrap_or(false),
+    );
+    let url = format!("{}/rgps/api/v1/calculos-atrasados{}", state.config.fabrica_base_url, suffix);
+    let body_bytes = serde_json::to_vec(&body).map_err(ApiError::internal)?;
+    let bytes = post_fabrica_json(&state, &url, &key, &body_bytes).await?;
+    let parsed = previdenciar_rgps::fabrica::parse_atrasados_summary(&bytes).map_err(ApiError::bad_request)?;
+    Ok(Json(parsed))
+}
+
+async fn fabrica_documento(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(tipo): Path<String>,
+    mut multipart: Multipart,
+) -> Result<Json<Value>, ApiError> {
+    let user = auth::authenticate(&headers, &state)
+        .await
+        .map_err(ApiError::unauthorized)?;
+    enforce(
+        &state,
+        vec![(format!("ocr:{}", user.email.to_lowercase()), OCR_WINDOW)],
+    )?;
+    if !previdenciar_rgps::fabrica::DOCUMENT_TYPES.contains(&tipo.as_str()) {
+        return Err(ApiError::bad_request(format!(
+            "Tipo documental inválido: {tipo}. Aceitos: cnis, rdctc, carta, pap, prevjud."
+        )));
+    }
+    let Some(key) = resolve_fabrica_key(&headers, &state)? else {
+        return Err(ApiError::unavailable(
+            "Chave da Fábrica TRF3 não configurada.".into(),
+        ));
+    };
+    while let Some(field) = multipart.next_field().await.map_err(multipart_error)? {
+        if field.name() != Some("file") {
+            continue;
+        }
+        let file_name = field.file_name().unwrap_or("documento.pdf").to_owned();
+        let bytes = field.bytes().await.map_err(multipart_error)?;
+        if bytes.is_empty() || bytes.len() > MAX_CNIS_PDF_BYTES {
+            return Err(ApiError::bad_request(
+                "Arquivo vazio ou maior que 32 MiB.".into(),
+            ));
+        }
+        let boundary = format!("----PrevidenciarBoundary{}", Uuid::new_v4().simple());
+        let mut payload = Vec::with_capacity(bytes.len() + 256);
+        let safe_name: String = file_name
+            .chars()
+            .filter(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '_'))
+            .take(64)
+            .collect();
+        let clean_name = if safe_name.is_empty() { "documento.pdf".to_string() } else { safe_name };
+        payload.extend_from_slice(format!("--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"{clean_name}\"\r\nContent-Type: application/pdf\r\n\r\n").as_bytes());
+        payload.extend_from_slice(&bytes);
+        payload.extend_from_slice(format!("\r\n--{boundary}--\r\n").as_bytes());
+
+        let url = format!(
+            "{}/rgps/api/v1/documentos/{tipo}/ler",
+            state.config.fabrica_base_url
+        );
+        let resp = state
+            .http
+            .post(&url)
+            .timeout(Duration::from_secs(180))
+            .header("x-api-key", key)
+            .header(header::ACCEPT, "application/json")
+            .header(header::ACCEPT_LANGUAGE, "pt-BR,pt;q=0.9")
+            .header(
+                header::CONTENT_TYPE,
+                format!("multipart/form-data; boundary={boundary}"),
+            )
+            .body(payload)
+            .send()
+            .await
+            .map_err(|_| ApiError::unavailable("Falha ao contatar leitor documental da Fábrica TRF3.".into()))?;
+        let status = resp.status();
+        let resp_bytes = resp.bytes().await.map_err(ApiError::internal)?;
+        if status == StatusCode::UNAUTHORIZED {
+            return Err(ApiError::bad_request("A Fábrica TRF3 recusou a chave (HTTP 401).".into()));
+        }
+        if status == StatusCode::FORBIDDEN {
+            return Err(ApiError::bad_request("A chave não possui permissão para o leitor documental da Fábrica TRF3 (HTTP 403).".into()));
+        }
+        if status == StatusCode::TOO_MANY_REQUESTS {
+            return Err(ApiError::unavailable("Limite temporário de uso da Fábrica TRF3; tente novamente em instantes.".into()));
+        }
+        if !status.is_success() {
+            let detail = fab_error_messages(&resp_bytes);
+            return Err(ApiError::bad_request(if detail.is_empty() {
+                format!("Leitor documental TRF3 retornou HTTP {}.", status.as_u16())
+            } else {
+                format!("Leitor documental TRF3 retornou HTTP {}: {detail}", status.as_u16())
+            }));
+        }
+        if resp_bytes.len() > 24 * 1024 * 1024 {
+            return Err(ApiError::payload_too_large("Resposta da Fábrica de Cálculos excede o limite de 24 MiB.".into()));
+        }
+        let parsed = previdenciar_rgps::fabrica::parse_documento_response(&resp_bytes)
+            .map_err(ApiError::bad_request)?;
+        return Ok(Json(parsed));
+    }
+    Err(ApiError::bad_request("Envie o arquivo no campo file.".into()))
+}
+
+async fn fabrica_get_proxy(
+    state: &AppState,
+    headers: &HeaderMap,
+    upstream_path: &str,
+) -> Result<Json<Value>, ApiError> {
+    let _user = auth::authenticate(headers, state)
+        .await
+        .map_err(ApiError::unauthorized)?;
+    let url = format!("{}{}", state.config.fabrica_base_url, upstream_path);
+    let mut req = state
+        .http
+        .get(&url)
+        .timeout(Duration::from_secs(30))
+        .header(header::ACCEPT, "application/json")
+        .header(header::ACCEPT_LANGUAGE, "pt-BR,pt;q=0.9");
+    if let Some(key) = resolve_fabrica_key(headers, state)? {
+        req = req.header("x-api-key", key);
+    }
+    let resp = req
+        .send()
+        .await
+        .map_err(|_| ApiError::unavailable("Fábrica TRF3 indisponível no momento.".into()))?;
+    let status = resp.status();
+    let bytes = resp.bytes().await.map_err(ApiError::internal)?;
+    if status == StatusCode::UNAUTHORIZED {
+        return Err(ApiError::bad_request("A Fábrica TRF3 recusou a chave (HTTP 401).".into()));
+    }
+    if status == StatusCode::FORBIDDEN {
+        return Err(ApiError::bad_request("A chave não possui permissão para este recurso na Fábrica TRF3 (HTTP 403).".into()));
+    }
+    if status == StatusCode::TOO_MANY_REQUESTS {
+        return Err(ApiError::unavailable("Limite temporário de uso da Fábrica TRF3; tente novamente em instantes.".into()));
+    }
+    if !status.is_success() {
+        let code = status.as_u16();
+        let detail = fab_error_messages(&bytes);
+        return Err(ApiError::bad_request(if detail.is_empty() {
+            format!("Fábrica TRF3 retornou HTTP {code}.")
+        } else {
+            format!("Fábrica TRF3 retornou HTTP {code}: {detail}")
+        }));
+    }
+    if bytes.len() > 24 * 1024 * 1024 {
+        return Err(ApiError::payload_too_large("Resposta da Fábrica de Cálculos excede o limite de 24 MiB.".into()));
+    }
+    let val: Value = serde_json::from_slice(&bytes)
+        .map_err(|_| ApiError::bad_request("Resposta inválida ao consultar tabela da Fábrica TRF3.".into()))?;
+    Ok(Json(val))
+}
+
+async fn fabrica_indice(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(nome): Path<String>,
+    Query(params): Query<std::collections::BTreeMap<String, String>>,
+) -> Result<Json<Value>, ApiError> {
+    if !previdenciar_rgps::fabrica::INDEX_TYPES.contains(&nome.as_str()) {
+        return Err(ApiError::bad_request("Índice não suportado.".into()));
+    }
+    let query_pairs: Vec<String> = params
+        .into_iter()
+        .filter_map(|(k, v)| {
+            let trimmed = v.trim();
+            if matches!(k.as_str(), "competenciaInicial" | "competenciaFinal" | "indice")
+                && !trimmed.is_empty()
+                && trimmed.bytes().all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.'))
+            {
+                Some(format!("{k}={trimmed}"))
+            } else {
+                None
+            }
+        })
+        .collect();
+    let suffix = if query_pairs.is_empty() {
+        String::new()
+    } else {
+        format!("?{}", query_pairs.join("&"))
+    };
+    fabrica_get_proxy(&state, &headers, &format!("/indices/api/v1/{nome}{suffix}")).await
+}
+
+async fn fabrica_fundamentos(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, ApiError> {
+    fabrica_get_proxy(&state, &headers, "/rgps/api/v1/fundamentos").await
+}
+
+async fn fabrica_marcos_temporais(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, ApiError> {
+    fabrica_get_proxy(&state, &headers, "/rgps/api/v1/marcos-temporais").await
 }
 
 #[derive(Deserialize)]
@@ -1717,5 +2648,401 @@ mod tests {
             cache_control, "no-store",
             "arquivo estatico nao deve receber Cache-Control: no-store"
         );
+    }
+
+    #[tokio::test]
+    async fn fabrica_status_export_and_snapshot_endpoints_work_without_external_db() {
+        let base = spawn_server(test_state(config::Config::for_tests())).await;
+        let client = reqwest::Client::new();
+
+        let s1 = client
+            .get(format!("{base}/api/fabrica/status"))
+            .header("x-dev-user", "adv@teste.local")
+            .send()
+            .await
+            .expect("fabrica status");
+        assert_eq!(s1.status(), 200);
+        let j1: Value = s1.json().await.unwrap();
+        assert_eq!(j1["configured"], false);
+        assert_eq!(j1["sessionKeyConfigured"], false);
+
+        let s2 = client
+            .get(format!("{base}/api/fabrica/status"))
+            .header("x-dev-user", "adv@teste.local")
+            .header("x-fabrica-key", "chave-teste-trf3-12345")
+            .send()
+            .await
+            .expect("fabrica status custom key");
+        assert_eq!(s2.status(), 200);
+        let j2: Value = s2.json().await.unwrap();
+        assert_eq!(j2["configured"], true);
+        assert_eq!(j2["sessionKeyConfigured"], true);
+
+        let snap = client
+            .get(format!("{base}/api/pcd/snapshot?through=2026-09"))
+            .header("x-dev-user", "adv@teste.local")
+            .send()
+            .await
+            .expect("pcd snapshot");
+        assert_eq!(snap.status(), 200);
+        let sj: Value = snap.json().await.unwrap();
+        assert_eq!(sj["through"], "2026-09");
+        assert!(!sj["rates"].as_array().unwrap().is_empty());
+
+        let ai = client
+            .get(format!("{base}/api/ai/data-status"))
+            .header("x-dev-user", "adv@teste.local")
+            .send()
+            .await
+            .expect("ai data status");
+        assert_eq!(ai.status(), 200);
+
+        let calc = previdenciar_workspace::Calculation::default();
+        let ws = previdenciar_workspace::Workspace::default();
+        for fmt in ["html", "csv", "json"] {
+            let exp = client
+                .post(format!("{base}/api/reports/export"))
+                .header("x-dev-user", "adv@teste.local")
+                .json(&json!({
+                    "calculation": calc,
+                    "workspace": ws,
+                    "format": fmt,
+                    "include_personal": false
+                }))
+                .send()
+                .await
+                .expect("export response");
+            assert_eq!(exp.status(), 200, "format {fmt}");
+            let ej: Value = exp.json().await.unwrap();
+            assert_eq!(ej["extension"], fmt);
+            assert!(!ej["content"].as_str().unwrap().is_empty());
+        }
+    }
+
+    #[tokio::test]
+    async fn fabrica_proxy_routes_validate_keys_and_forward_without_echoing_secret() {
+        let upstream_router = Router::new()
+            .route(
+                "/rgps/api/v1/calculos-rmi",
+                post(|headers: HeaderMap, Query(q): Query<std::collections::BTreeMap<String, String>>, Json(body): Json<Value>| async move {
+                    let api_key = headers.get("x-api-key").and_then(|v| v.to_str().ok()).unwrap_or_default();
+                    if api_key != "chave-trf3-valida-123" {
+                        return (StatusCode::UNAUTHORIZED, Json(json!({"messages": ["unauthorized"]}))).into_response();
+                    }
+                    assert!(body.get("periodosContribuicao").is_some());
+                    assert!(body.get("dadosSegurado").is_some());
+                    assert_eq!(q.get("demonstrativo").map(String::as_str), Some("true"));
+                    assert_eq!(q.get("permalink").map(String::as_str), Some("true"));
+                    Json(json!({
+                        "status": "ok",
+                        "permalink": "https://exemplo.invalid/perm/1",
+                        "demonstrativoPdf": "JVBERi0xLjQ=",
+                        "result": [{
+                            "maiorRmi": "1700.00",
+                            "moeda": { "simbolo": "R$", "nome": "Real" },
+                            "beneficiosMaisVantajosos": [{
+                                "especie": 41,
+                                "descricao": "Aposentadoria por Idade",
+                                "chaveFundamento": "EC_103_ART_18",
+                                "fundamento": "EC 103, art. 18",
+                                "dadosRmi": { "rmi": "1700.00", "salarioBeneficio": "2000.00", "coeficiente": 0.7, "divisor": 300 },
+                                "dadosApuracao": { "temDireito": true, "naApuracao": {} }
+                            }],
+                            "conclusao": { "completo": true },
+                            "linhasDescartes": []
+                        }]
+                    })).into_response()
+                }),
+            )
+            .route(
+                "/rgps/api/v1/calculos-tempo/por-grupos",
+                post(|| async {
+                    Json(json!({ "status": "ok", "result": { "tempoTotalDias": 9125 }, "messages": [] }))
+                }),
+            )
+            .route(
+                "/rgps/api/v1/calculos-atrasados",
+                post(|| async {
+                    Json(json!({ "status": "ok", "result": { "totalAtualizado": "15000.00" }, "messages": [] }))
+                }),
+            )
+            .route(
+                "/rgps/api/v1/documentos/cnis/ler",
+                post(|headers: HeaderMap| async move {
+                    let api_key = headers.get("x-api-key").and_then(|v| v.to_str().ok()).unwrap_or_default();
+                    if api_key == "chave-recusada-401" {
+                        return (StatusCode::UNAUTHORIZED, Json(json!({ "messages": ["denied"] }))).into_response();
+                    }
+                    Json(json!({ "status": "ok", "result": { "vinculos": 1 }, "messages": [] })).into_response()
+                }),
+            )
+            .route(
+                "/rgps/api/v1/fundamentos",
+                get(|| async { Json(json!([{ "chave": "EC_103_ART_18" }])) }),
+            );
+
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let upstream_addr = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            let _ = axum::serve(listener, upstream_router).await;
+        });
+
+        let mut cfg = config::Config::for_tests();
+        cfg.fabrica_base_url = format!("http://{upstream_addr}");
+        let base = spawn_server(test_state(cfg)).await;
+        let client = reqwest::Client::new();
+
+        let payload = json!({
+            "dataApuracao": "2026-01-10",
+            "dataNascimento": "1956-01-10",
+            "sexo": "M",
+            "especie": 41,
+            "isencaoCarencia": false,
+            "tipo": "COMUM",
+            "periodos": [{
+                "dataInicial": "1994-07-01",
+                "dataFinal": "2019-06-30",
+                "salarios": [{ "competencia": "1994-07", "valor": "2000.00" }]
+            }]
+        });
+
+        // Sem chave -> 503
+        let no_key = client
+            .post(format!("{base}/api/fabrica/rmi"))
+            .header("x-dev-user", "adv@teste.local")
+            .json(&payload)
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(no_key.status(), 503);
+
+        // Chave com espaço -> 400 e não ecoa o valor
+        let bad_key = client
+            .post(format!("{base}/api/fabrica/rmi"))
+            .header("x-dev-user", "adv@teste.local")
+            .header("x-fabrica-key", "SEGREDO COM ESPACO")
+            .json(&payload)
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(bad_key.status(), 400);
+        let bad_txt = bad_key.text().await.unwrap();
+        assert!(!bad_txt.contains("SEGREDO"));
+
+        // RMI válido com ?demonstrativo=true&permalink=true
+        let ok_rmi = client
+            .post(format!("{base}/api/fabrica/rmi?demonstrativo=true&permalink=true"))
+            .header("x-dev-user", "adv@teste.local")
+            .header("x-fabrica-key", "chave-trf3-valida-123")
+            .json(&payload)
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(ok_rmi.status(), 200);
+        let rmi_json: Value = ok_rmi.json().await.unwrap();
+        assert_eq!(rmi_json["provider"]["maiorRmi"], "1700.00");
+        assert_eq!(rmi_json["provider"]["demonstrativoPdf"], "JVBERi0xLjQ=");
+        assert_eq!(rmi_json["provider"]["permalink"], "https://exemplo.invalid/perm/1");
+        assert!(!rmi_json.to_string().contains("chave-trf3-valida-123"));
+
+        // Tempo por grupos
+        let ok_tempo = client
+            .post(format!("{base}/api/fabrica/tempo/por-grupos"))
+            .header("x-dev-user", "adv@teste.local")
+            .header("x-fabrica-key", "chave-trf3-valida-123")
+            .json(&payload)
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(ok_tempo.status(), 200);
+        let tempo_json: Value = ok_tempo.json().await.unwrap();
+        assert_eq!(tempo_json["result"]["tempoTotalDias"], 9125);
+
+        // Atrasados
+        let ok_atr = client
+            .post(format!("{base}/api/fabrica/atrasados"))
+            .header("x-dev-user", "adv@teste.local")
+            .header("x-fabrica-key", "chave-trf3-valida-123")
+            .json(&json!({ "valor": "1000.00" }))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(ok_atr.status(), 200);
+        let atr_json: Value = ok_atr.json().await.unwrap();
+        assert_eq!(atr_json["result"]["totalAtualizado"], "15000.00");
+
+        // Documento válido vs 401 upstream vs tipo inválido
+        let ok_doc = client
+            .post(format!("{base}/api/fabrica/documentos/cnis"))
+            .header("x-dev-user", "adv@teste.local")
+            .header("x-fabrica-key", "chave-trf3-valida-123")
+            .header(header::CONTENT_TYPE, "multipart/form-data; boundary=fab-test")
+            .body(multipart_body("fab-test", b"%PDF-1.4\nsynthetic"))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(ok_doc.status(), 200);
+
+        let doc_401 = client
+            .post(format!("{base}/api/fabrica/documentos/cnis"))
+            .header("x-dev-user", "adv@teste.local")
+            .header("x-fabrica-key", "chave-recusada-401")
+            .header(header::CONTENT_TYPE, "multipart/form-data; boundary=fab-test")
+            .body(multipart_body("fab-test", b"%PDF-1.4\nsynthetic"))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(doc_401.status(), 400);
+        let doc_401_txt = doc_401.text().await.unwrap();
+        assert!(doc_401_txt.contains("401"));
+        assert!(!doc_401_txt.contains("chave-recusada-401"));
+
+        let doc_bad = client
+            .post(format!("{base}/api/fabrica/documentos/desconhecido"))
+            .header("x-dev-user", "adv@teste.local")
+            .header("x-fabrica-key", "chave-trf3-valida-123")
+            .header(header::CONTENT_TYPE, "multipart/form-data; boundary=fab-test")
+            .body(multipart_body("fab-test", b"%PDF-1.4"))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(doc_bad.status(), 400);
+
+        // Fundamentos (lista no topo) e índice inválido
+        let ok_fund = client
+            .get(format!("{base}/api/fabrica/fundamentos"))
+            .header("x-dev-user", "adv@teste.local")
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(ok_fund.status(), 200);
+        let fund_json: Value = ok_fund.json().await.unwrap();
+        assert_eq!(fund_json, json!([{ "chave": "EC_103_ART_18" }]));
+
+        let bad_idx = client
+            .get(format!("{base}/api/fabrica/indices/inexistente"))
+            .header("x-dev-user", "adv@teste.local")
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(bad_idx.status(), 400);
+    }
+
+    #[tokio::test]
+    async fn report_preview_and_text_export_enforce_privacy_fallback_and_recomputation() {
+        let base = spawn_server(test_state(config::Config::for_tests())).await;
+        let client = reqwest::Client::new();
+
+        let mut calc: previdenciar_workspace::Calculation = serde_json::from_str(include_str!(
+            "../../../crates/previdenciar-rgps/tests/fixtures/calculation-synthetic.json"
+        ))
+        .unwrap();
+        calc.identity.full_name = Some("SEGURADO CONFIDENCIAL HTML".into());
+        calc.identity.cpf = Some("111.222.333-44".into());
+        calc.notes = "NOTA CONFIDENCIAL HTML".into();
+        calc.options.report_title = "TITULO CONFIDENCIAL OPTS".into();
+        for link in &mut calc.manual_links {
+            link.employer = "EMPREGADOR CONFIDENCIAL HTML".into();
+            link.indicators = "IND_LINK_SECRETO".into();
+        }
+        for sal in &mut calc.manual_salaries {
+            sal.indicators = "IND_SAL_SECRETO".into();
+        }
+        calc.result = Some(json!({ "rmi": "999999.99" }));
+
+        let mut ws = previdenciar_workspace::Workspace::default();
+        ws.settings.office_name = "ESCRITORIO CONFIDENCIAL".into();
+        ws.settings.report_footer = "RODAPE CONFIDENCIAL".into();
+
+        // Modo privado (include_personal = false): redação total de campos arbitrários/identificação em HTML, CSV e JSON
+        for fmt in ["html", "csv", "json"] {
+            let resp = client
+                .post(format!("{base}/api/reports/export"))
+                .header("x-dev-user", "adv@teste.local")
+                .json(&json!({
+                    "calculation": calc,
+                    "workspace": ws,
+                    "format": fmt,
+                    "include_personal": false
+                }))
+                .send()
+                .await
+                .unwrap();
+            assert_eq!(resp.status(), 200, "private export {fmt}");
+            let body: Value = resp.json().await.unwrap();
+            let content = body["content"].as_str().unwrap();
+            for secret in [
+                "SEGURADO CONFIDENCIAL HTML",
+                "111.222.333-44",
+                "NOTA CONFIDENCIAL HTML",
+                "TITULO CONFIDENCIAL OPTS",
+                "EMPREGADOR CONFIDENCIAL HTML",
+                "IND_LINK_SECRETO",
+                "IND_SAL_SECRETO",
+                "ESCRITORIO CONFIDENCIAL",
+                "RODAPE CONFIDENCIAL",
+                "999999.99",
+            ] {
+                assert!(!content.contains(secret), "{fmt} privado vazou {secret}");
+            }
+        }
+
+        // Modo identificado (include_personal = true): HTML injeta simulação recalculada e JSON entrega outcome recalculado
+        let json_pub = client
+            .post(format!("{base}/api/reports/export"))
+            .header("x-dev-user", "adv@teste.local")
+            .json(&json!({
+                "calculation": calc,
+                "workspace": ws,
+                "format": "json",
+                "include_personal": true
+            }))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(json_pub.status(), 200);
+        let pub_json_body: Value = json_pub.json().await.unwrap();
+        let pub_json_str = pub_json_body["content"].as_str().unwrap();
+        assert!(pub_json_str.contains("1600.00"), "{pub_json_str}");
+        assert!(!pub_json_str.contains("999999.99"), "{pub_json_str}");
+
+        let html_pub = client
+            .post(format!("{base}/api/reports/export"))
+            .header("x-dev-user", "adv@teste.local")
+            .json(&json!({
+                "calculation": calc,
+                "workspace": ws,
+                "format": "html",
+                "include_personal": true
+            }))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(html_pub.status(), 200);
+        let pub_json: Value = html_pub.json().await.unwrap();
+        let pub_html = pub_json["content"].as_str().unwrap();
+        assert!(pub_html.contains("Simulação técnica recalculada em Rust"), "{pub_html}");
+        assert!(pub_html.contains("1600.00"), "{pub_html}");
+        assert!(!pub_html.contains("999999.99"), "{pub_html}");
+
+        // Preview PDF em Calculation::default() gera PDF de conferência (%PDF-) em vez de HTTP 400
+        let empty_calc = previdenciar_workspace::Calculation::default();
+        for fmt in ["pdf_summary", "pdf_regras", "pdf_detailed"] {
+            let preview = client
+                .post(format!("{base}/api/reports/preview"))
+                .header("x-dev-user", "adv@teste.local")
+                .json(&json!({
+                    "calculation": empty_calc,
+                    "workspace": ws,
+                    "format": fmt,
+                    "include_personal": false
+                }))
+                .send()
+                .await
+                .unwrap();
+            assert_eq!(preview.status(), 200, "preview conference {fmt}");
+            let pdf_bytes = preview.bytes().await.unwrap();
+            assert!(pdf_bytes.starts_with(b"%PDF-"), "expected PDF header for {fmt}");
+        }
     }
 }

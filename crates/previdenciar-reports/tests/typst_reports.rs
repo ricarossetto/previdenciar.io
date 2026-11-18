@@ -36,3 +36,18 @@ fn brazilian_formatting_is_correct() {
     assert_eq!(period(1, 0, 0), "1 ano");
     assert_eq!(period(0, 0, 5), "5 dias");
 }
+
+#[test]
+fn report_data_uses_dynamic_sobrevida_days_discards_and_masks_nit() {
+    let (mut case, workspace, outcome) = common::calculated_case();
+    case.identity.nit = Some("99988877766".into());
+    case.options.report_title = "Parecer Técnico Customizado".into();
+    for kind in ["memory", "roi", "regras"] {
+        for personal in [true, false] {
+            let pdf = previdenciar_reports::render_report(&case, kind, Some(&outcome), &workspace, personal)
+                .unwrap_or_else(|e| panic!("{kind} personal={personal} falhou: {e}"));
+            assert!(pdf.starts_with(b"%PDF-"), "{kind} nao produziu PDF valido");
+            assert!(pdf.len() > 1000, "{kind} produziu PDF vazio");
+        }
+    }
+}

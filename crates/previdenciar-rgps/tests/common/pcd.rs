@@ -81,6 +81,7 @@ pub fn scenario() -> (Calculation, Lc142Policy) {
         apply_inss_overrides: true,
         disability_start_date: None,
         fator_conversao_comum: None,
+        allow_confirmed_manual_without_book: false,
         snapshot: Some(snapshot),
     };
     (case, policy)

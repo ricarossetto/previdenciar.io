@@ -45,6 +45,8 @@ pub struct Config {
     pub knowledge_key: String,
     pub admin_emails: Vec<String>,
     pub terms_version: String,
+    pub fabrica_base_url: String,
+    pub fabrica_api_key: String,
 }
 
 impl Config {
@@ -123,6 +125,11 @@ impl Config {
                 .filter(|value| !value.is_empty())
                 .collect(),
             terms_version: lookup("TERMS_VERSION").unwrap_or_else(|| "2026-10-31".into()),
+            fabrica_base_url: lookup("FABRICA_BASE_URL")
+                .unwrap_or_else(|| "https://fabrica-de-calculos.app.trf3.jus.br".into())
+                .trim_end_matches('/')
+                .to_owned(),
+            fabrica_api_key: lookup("FABRICA_API_KEY").unwrap_or_default().trim().to_owned(),
         })
     }
 
@@ -150,7 +157,13 @@ impl Config {
             knowledge_key: String::new(),
             admin_emails: vec!["admin@teste.local".to_owned()],
             terms_version: "2026-10-31".to_owned(),
+            fabrica_base_url: "https://fabrica-de-calculos.app.trf3.jus.br".to_owned(),
+            fabrica_api_key: String::new(),
         }
+    }
+
+    pub fn fabrica_enabled(&self) -> bool {
+        !self.fabrica_api_key.trim().is_empty()
     }
 
     pub fn ai_enabled(&self) -> bool {

@@ -1,5 +1,6 @@
 use crate::calendar::Competencia;
 use crate::dados::inpc::{INPC_FONTE, INPC_MENSAL};
+use crate::dados::salario_minimo::SALARIO_MINIMO;
 use crate::dados::tetos::{TETOS_CONTRIBUICAO, TETOS_FONTE};
 use crate::money::{add, min_dec, mul, parse_money, Result, RgpsError};
 use rust_decimal::Decimal;
@@ -35,6 +36,55 @@ pub fn teto_vigente(competencia: &Competencia) -> Result<Decimal> {
             "Sem teto de contribuição cadastrado para {alvo}."
         ))),
     }
+}
+
+/// Salário mínimo vigente na competência (usa o último valor <= competência).
+pub fn salario_minimo_vigente(competencia: &Competencia) -> Result<Decimal> {
+    let alvo = competencia.to_string();
+    let mut vigente: Option<(&str, &str)> = None;
+    for item in SALARIO_MINIMO {
+        if item.0 <= alvo.as_str() {
+            vigente = Some(item);
+        } else {
+            break;
+        }
+    }
+    match vigente {
+        Some((comp, sm)) => parse_money(sm, &format!("Salário mínimo da competência {comp}")),
+        None => Err(RgpsError(format!(
+            "Sem salário mínimo cadastrado para {alvo}."
+        ))),
+    }
+}
+
+/// Última competência com variação INPC publicada na série embutida.
+pub fn ultimo_inpc_publicado() -> Option<Competencia> {
+    INPC_MENSAL
+        .last()
+        .and_then(|(comp, _)| Competencia::parse(comp, "INPC").ok())
+}
+
+/// Fator de atualização INPC da competência até a referência (ambas inclusas),
+/// permitindo limitar ao último INPC publicado quando a referência for mais recente.
+pub fn fator_atualizacao_parcial(
+    competencia: &Competencia,
+    referencia: &Competencia,
+) -> Result<(Decimal, Option<Competencia>)> {
+    if competencia > referencia {
+        return Err(RgpsError(format!(
+            "Competência {competencia} é posterior à referência {referencia}."
+        )));
+    }
+    let ultimo = ultimo_inpc_publicado();
+    let (limite, clamped) = match ultimo {
+        Some(ult) if *referencia > ult => (ult, Some(ult)),
+        _ => (*referencia, None),
+    };
+    if *competencia > limite {
+        return Ok((Decimal::ONE, clamped));
+    }
+    let fator = fator_atualizacao(competencia, &limite)?;
+    Ok((fator, clamped))
 }
 
 /// Fator de atualização INPC da competência até a referência (ambas inclusas),
@@ -103,6 +153,39 @@ pub fn corrigir_salario(
         perfil: None,
         fallback_inpc: false,
     })
+}
+
+/// Versão tolerante a DIB/referência recente posterior ao último INPC publicado:
+/// aplica os índices até o último mês disponível e fator 1,0 para meses futuros.
+pub fn corrigir_salario_parcial(
+    competencia: &Competencia,
+    salario_nominal: Decimal,
+    referencia: &Competencia,
+) -> Result<(ParcelaCorrigida, Option<Competencia>)> {
+    if salario_nominal < Decimal::ZERO {
+        return Err(RgpsError(
+            "Salário de contribuição não pode ser negativo.".into(),
+        ));
+    }
+    let teto = teto_vigente(competencia)?;
+    let considerado = min_dec(salario_nominal, teto);
+    let (fator, clamped) = fator_atualizacao_parcial(competencia, referencia)?;
+    let corrigido = mul(considerado, fator);
+    Ok((
+        ParcelaCorrigida {
+            competencia: *competencia,
+            salario_nominal,
+            teto,
+            considerado,
+            indice: fator,
+            corrigido: crate::money::to_cents(corrigido),
+            corrigido_full: corrigido,
+            series_usadas: vec!["INPC".to_string()],
+            perfil: None,
+            fallback_inpc: false,
+        },
+        clamped,
+    ))
 }
 
 /// min(SC, teto da época) antes da correção; correção pelo fator do perfil de

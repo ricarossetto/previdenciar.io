@@ -152,7 +152,7 @@ fn guardas_de_entrada() {
     assert!(calcular(&entrada).is_err());
 
     // Salário zero.
-    let mut entrada = entrada_base("feminino", 1, "0.00");
+    let entrada = entrada_base("feminino", 1, "0.00");
     assert!(calcular(&entrada).is_err());
 
     // Piso maior que teto.
@@ -195,7 +195,9 @@ fn transicoes_ec103_com_nascimento() {
     let resultado = calcular(&entrada).unwrap();
     let transicoes = resultado.transicoes.as_ref().unwrap();
     let regras = transicoes.get("regras").unwrap().as_array().unwrap();
-    assert_eq!(regras.len(), 6);
+    assert_eq!(regras.len(), 7);
+    assert!(regras.iter().any(|r| r.get("id").unwrap() == "idade-transicao"));
+    assert!(regras.iter().any(|r| r.get("id").unwrap() == "idade-permanente"));
     let pontos = regras
         .iter()
         .find(|r| r.get("id").unwrap() == "pontos")

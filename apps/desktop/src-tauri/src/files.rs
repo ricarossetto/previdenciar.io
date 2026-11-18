@@ -73,7 +73,27 @@ pub fn import_path(path: &Path) -> Result<ImportResult, String> {
     let meta = fs::symlink_metadata(path).map_err(|_| "Não foi possível inspecionar o PDF selecionado.".to_owned())?;
     check_metadata(&meta, false)?;
     if meta.len() > MAX_WORKSPACE_BYTES { return Err("PDF excede o limite de 64 MiB.".into()); }
-    let result = previdenciar_cnis::import_pdf(path).map_err(|e| e.to_string())?;
+    let result = match previdenciar_cnis::import_pdf(path) {
+        Ok(ok) => ok,
+        Err(previdenciar_cnis::ImportError::NoExtractableText)
+        | Err(previdenciar_cnis::ImportError::NotCnis) => {
+            let extracted = previdenciar_ai::extract_case_pdf(path)
+                .map_err(|e| e.to_string())?;
+            let mut parsed = previdenciar_cnis::import_text(&extracted.text)
+                .map_err(|e| e.to_string())?;
+            if extracted.used_ocr {
+                parsed.warnings.push(previdenciar_cnis::Finding {
+                    code: "cnis_ocr_fallback".into(),
+                    severity: previdenciar_cnis::Severity::Warning,
+                    message: "Extrato CNIS lido via OCR automático; confira os números antes de protocolar.".into(),
+                    count: 1,
+                    source: None,
+                });
+            }
+            parsed
+        }
+        Err(e) => return Err(e.to_string()),
+    };
     let check = Calculation { cnis: Some(result.clone()), ..Default::default() };
     validate_calculation(&check)?;
     Ok(result)
@@ -117,6 +137,7 @@ impl ReportFormat {
                 "pdf_quality" => Ok(Self::Pdf(previdenciar_reports::ReportKind::Quality)),
                 "pdf_analysis" => Ok(Self::Pdf(previdenciar_reports::ReportKind::Analysis)),
                 "pdf_roi" => Ok(Self::Pdf(previdenciar_reports::ReportKind::Roi)),
+                "pdf_regras" => Ok(Self::Pdf(previdenciar_reports::ReportKind::Regras)),
             _ => Err("Formato não suportado. Use um relatório PDF conhecido, HTML, CSV ou JSON.".into()),
         }
     }
@@ -195,8 +216,9 @@ fn reviewed_outcome(calculation: &Calculation) -> Value {
 }
 fn render_pdf_kind(calculation: &Calculation, workspace: &Workspace, kind: previdenciar_reports::ReportKind,
     include_personal: bool, outcome: &Value, presentation: previdenciar_reports::Presentation) -> Result<Vec<u8>, String> {
-    // Novo motor Typst para os tipos já migrados; demais seguem no genpdf.
-    let bytes = if kind.has_typst_template() {
+    // PcD LC 142 usa o renderizador dedicado em genpdf; todos os 11 tipos RGPS usam Typst.
+    let is_pcd_lc142 = outcome.pointer("/data/native_result/engine_id").and_then(Value::as_str) == Some("lc142-constant-grade-v1");
+    let bytes = if kind.has_typst_template() && !is_pcd_lc142 {
         previdenciar_reports::render_report(calculation, kind.slug(), Some(outcome), workspace, include_personal)?
     } else {
         previdenciar_reports::render_pdf(calculation, workspace,
@@ -316,7 +338,7 @@ pub fn dialog_export_with(calculation: Calculation, workspace: Workspace, format
 /// Fixed reading order for the seven report families supported by this app.
 /// The original exported one file per family; names are deterministic so a
 /// folder can be reviewed without guessing which PDF is which.
-const BATCH_REPORTS: [(&str, previdenciar_reports::ReportKind, &str); 10] = [
+const BATCH_REPORTS: [(&str, previdenciar_reports::ReportKind, &str); 11] = [
     ("pdf_detailed", previdenciar_reports::ReportKind::Detailed, "previdenciar-01-relatorio-completo.pdf"),
     ("pdf_summary", previdenciar_reports::ReportKind::Summary, "previdenciar-02-resumo.pdf"),
     ("pdf_periods", previdenciar_reports::ReportKind::Periods, "previdenciar-03-tempo-de-contribuicao.pdf"),
@@ -327,6 +349,7 @@ const BATCH_REPORTS: [(&str, previdenciar_reports::ReportKind, &str); 10] = [
     ("pdf_quality", previdenciar_reports::ReportKind::Quality, "previdenciar-08-qualidade-de-segurado.pdf"),
     ("pdf_analysis", previdenciar_reports::ReportKind::Analysis, "previdenciar-09-analise-situacao-atual.pdf"),
     ("pdf_roi", previdenciar_reports::ReportKind::Roi, "previdenciar-10-retorno-investimento.pdf"),
+    ("pdf_regras", previdenciar_reports::ReportKind::Regras, "previdenciar-11-regras-ec103.pdf"),
 ];
 
 #[derive(serde::Serialize)]
@@ -344,7 +367,7 @@ pub fn batch_export_formats(formats: &[String]) -> Result<Vec<(&'static str, pre
     if formats.is_empty() { return Err("Selecione ao menos um relatório para exportar em lote.".into()); }
     for value in formats {
         if !BATCH_REPORTS.iter().any(|(id, _, _)| id == value) {
-            return Err("Formato não suportado no lote. Use somente os oito relatórios PDF próprios.".into());
+            return Err("Formato não suportado no lote. Use somente os onze relatórios PDF próprios.".into());
         }
     }
     let selected = BATCH_REPORTS.into_iter().filter(|(id, _, _)| formats.iter().any(|value| value.as_str() == *id)).collect::<Vec<_>>();
@@ -644,7 +667,7 @@ fn recomputed_rgps_report(case:&Calculation)->String{
 
 #[cfg(test)]mod native_pdf_backend_tests{
  use super::*;
- #[test]fn binary_pdf_formats_are_exact_known_variants(){for input in["pdf","pdf_detailed","pdf_summary","pdf_periods","pdf_salaries","pdf_memory","pdf_transitions","pdf_indicators","pdf_quality","pdf_analysis","pdf_roi"]{let format=ReportFormat::parse(input).unwrap();assert_eq!(format.extension(),"pdf");assert!(format.label().contains("PDF"));}assert!(ReportFormat::parse("pdf_unrecognized").is_err());}
+ #[test]fn binary_pdf_formats_are_exact_known_variants(){for input in["pdf","pdf_detailed","pdf_summary","pdf_periods","pdf_salaries","pdf_memory","pdf_transitions","pdf_indicators","pdf_quality","pdf_analysis","pdf_roi","pdf_regras"]{let format=ReportFormat::parse(input).unwrap();assert_eq!(format.extension(),"pdf");assert!(format.label().contains("PDF"));}assert!(ReportFormat::parse("pdf_unrecognized").is_err());}
  #[test]fn incomplete_assistant_can_generate_conferencia_not_a_fake_financial_result(){
   let c=Calculation{kind:"RGPS".into(),assistant:Some(previdenciar_workspace::AssistantInterview{mode:"assisted".into(),..Default::default()}),result:Some(json!({"rmi":"999999.00"})),..Default::default()};
   let original=serde_json::to_vec(&c).unwrap();let bytes=render_report(&c,&Workspace::default(),ReportFormat::parse("pdf").unwrap(),false).unwrap();assert!(bytes.starts_with(b"%PDF-"));assert!(bytes.len()>500);assert_eq!(original,serde_json::to_vec(&c).unwrap());

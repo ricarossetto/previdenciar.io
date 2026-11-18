@@ -61,6 +61,7 @@ pub struct ReviewInput {
 pub struct OptionsInput {
     pub corrigir_salarios: Option<bool>,
     pub descarte: Option<bool>,
+    pub descarte_otimo: Option<bool>,
     pub divisor_minimo: Option<bool>,
     /// Reservado para EC 103/2019, art. 26, § 6º. Quando presente, bloqueia
     /// o cálculo até que o recálculo integral do tempo seja implementado.
@@ -68,6 +69,7 @@ pub struct OptionsInput {
     pub referencia_correcao: Option<String>,
     pub teto: Option<String>,
     pub piso: Option<String>,
+    pub aplicar_piso_automatico: Option<bool>,
     pub aplicar_teto_vigente_der: Option<bool>,
     pub expectativa_sobrevida: Option<String>,
     pub graca: Vec<GracePeriod>,

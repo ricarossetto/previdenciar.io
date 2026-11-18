@@ -1,7 +1,7 @@
 use crate::atualizacao::teto_vigente;
 use crate::calendar::{Competencia, IsoDate};
 use crate::money::{money, parse_money, Result, RgpsError};
-use crate::rmi::{calcular_pbc_com_correcao, salario_beneficio_sem_correcao};
+use crate::rmi::{calcular_pbc_com_correcao_opcoes, salario_beneficio_sem_correcao};
 use crate::transicoes::{build_transicoes, TransicoesEntrada};
 use rust_decimal::Decimal;
 use serde::Serialize;
@@ -60,9 +60,9 @@ fn elegibilidade(
     let ano = der.ano;
     let tempo_minimo = if sexo == "feminino" { 360 } else { 420 };
     let mut elegiveis = Vec::new();
-    // pontos
+    // pontos (sem truncar anos inteiros antes de somar)
     let pontos_exigidos = crate::transicoes::pontos_exigidos(sexo, ano);
-    if tempo_total >= tempo_minimo && pontos_exigidos <= (tempo_total / 12) + (idade / 12) {
+    if tempo_total >= tempo_minimo && (tempo_total + idade) >= pontos_exigidos * 12 {
         elegiveis.push("pontos");
     }
     // idade progressiva
@@ -143,7 +143,7 @@ pub fn projetar(req: &ProjecaoRequisicao) -> Result<ProjecaoResultado> {
         }
 
         let (salario_beneficio, consideradas) = if req.corrigir_salarios {
-            let pbc = calcular_pbc_com_correcao(&competencias, &comp_der, req.descarte)?;
+            let pbc = calcular_pbc_com_correcao_opcoes(&competencias, &comp_der, req.descarte, false, true)?;
             (
                 parse_money(&pbc.salario_beneficio, "salário de benefício")?,
                 pbc.consideradas,
@@ -170,6 +170,9 @@ pub fn projetar(req: &ProjecaoRequisicao) -> Result<ProjecaoResultado> {
             teto: teto_der,
             piso: req.piso,
             expectativa_sobrevida: req.expectativa_sobrevida,
+            filiado_antes_reforma: None,
+            rmi_direito_adquirido: None,
+            obs_direito_adquirido: None,
         })?;
 
         return Ok(ProjecaoResultado {

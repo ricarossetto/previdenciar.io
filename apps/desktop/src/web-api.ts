@@ -3,14 +3,38 @@ import { describeFailure, parseJsonSafe } from './http-errors';
 import { clearSession, refreshSession, storedToken } from './web-auth-store';
 import type {
   AiChatRequest, AiDataStatus, AiEvent, AiImportSummary, AiKeyStatus, AiProviderPreset, AiTestResult,
-  CasePdfText, KnowledgeBlock, KnowledgeOutcome, Presentation, SavedReport, SavedReportStored, SavedReportUrl,
+  CasePdfText, FabricaAtrasadosOptions, FabricaRmiOptions, FabricaStatus, FabricaTempoOptions,
+  KnowledgeBlock, KnowledgeOutcome, Presentation, SavedReport, SavedReportStored, SavedReportUrl,
 } from './api';
+import type { FabricaInput, FabricaSummary } from './fabrica';
 import type { BatchExport, Boot, Calculation, Cnis, Json, Workspace } from './model';
 import type { EconomicSnapshot } from './pcd';
 
 const API = '/api';
+const WEB_FABRICA_KEY_STORAGE = 'previdenciar.web.fabricaKey';
 
 const MSG_OPERACAO = 'A operação falhou. Tente de novo em instantes.';
+
+export function getWebFabricaKey(): string {
+  try {
+    return (sessionStorage.getItem(WEB_FABRICA_KEY_STORAGE) ?? '').trim();
+  } catch {
+    return '';
+  }
+}
+
+function validWebFabricaKey(value: string): boolean {
+  return /^[\x21-\x7e]{8,512}$/.test(value);
+}
+
+function fabricaHeaders(apiKey?: string): Record<string, string> | undefined {
+  const effective = (apiKey ?? '').trim() || getWebFabricaKey();
+  if (!effective) return undefined;
+  if (/[^\x21-\x7e]/.test(effective)) {
+    throw new Error('Informe uma chave válida da API da Fábrica TRF3 (sem espaços).');
+  }
+  return { 'x-fabrica-key': effective };
+}
 
 // A extração de PDF do CNIS pode produzir bytes UTF-8 lidos como Latin-1/CP1252.
 // A normalização reconstitui o texto quando a sequência de bytes forma UTF-8
@@ -107,6 +131,7 @@ async function authorizedFetch(path: string, init: RequestInit = {}): Promise<Re
 type RequestOptions = {
   // Endpoint cujo contrato é uma lista no topo. Fora disso, lista é inválida.
   permitirLista?: boolean;
+  headers?: HeadersInit;
 };
 
 async function request<T>(
@@ -115,9 +140,18 @@ async function request<T>(
   body?: unknown,
   opcoes: RequestOptions = {},
 ): Promise<T> {
+  const headers = opcoes.headers ? new Headers(opcoes.headers) : undefined;
+  let finalHeaders: HeadersInit | undefined = headers;
+  if (body !== undefined) {
+    const withContentType = headers ?? new Headers();
+    if (!withContentType.has('Content-Type')) {
+      withContentType.set('Content-Type', 'application/json');
+    }
+    finalHeaders = withContentType;
+  }
   const response = await authorizedFetch(API + path, {
     method,
-    headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
+    headers: finalHeaders,
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   const text = await response.text();
@@ -155,11 +189,125 @@ async function unsupported(feature: string): Promise<never> {
 export const webApi = {
   fetchEconomicSnapshot: (through: string) => request<EconomicSnapshot>('GET', `/pcd/snapshot?through=${encodeURIComponent(through)}`),
   fetchLocalEconomicSnapshot: (through: string) => request<EconomicSnapshot>('GET', `/pcd/snapshot?through=${encodeURIComponent(through)}`),
-  conferirFabricaRmi: () => unsupported('Conferência na Fábrica'),
+  conferirFabricaRmi: (input: FabricaInput, apiKey = '', options?: FabricaRmiOptions) => {
+    const params = new URLSearchParams();
+    if (options?.demonstrativo !== undefined) params.set('demonstrativo', String(options.demonstrativo));
+    if (options?.permalink !== undefined) params.set('permalink', String(options.permalink));
+    if (options?.fundamento !== undefined) params.set('fundamento', String(options.fundamento));
+    const qs = params.toString();
+    return request<FabricaSummary>('POST', `/fabrica/rmi${qs ? `?${qs}` : ''}`, input, {
+      headers: fabricaHeaders(apiKey),
+    });
+  },
+  fabricaStatus: async (): Promise<FabricaStatus> => {
+    const sessionKeyConfigured = Boolean(getWebFabricaKey());
+    const status = await request<FabricaStatus>('GET', '/fabrica/status', undefined, {
+      headers: fabricaHeaders(),
+    });
+    const mergedSession = Boolean(status.sessionKeyConfigured || sessionKeyConfigured);
+    return {
+      ...status,
+      sessionKeyConfigured: mergedSession,
+      configured: Boolean(status.configured || mergedSession),
+    };
+  },
+  fabricaSaveKey: async (apiKey: string) => {
+    const trimmed = apiKey.trim();
+    if (!validWebFabricaKey(trimmed)) {
+      throw new Error('Informe uma chave válida da API da Fábrica TRF3 (sem espaços).');
+    }
+    try {
+      sessionStorage.setItem(WEB_FABRICA_KEY_STORAGE, trimmed);
+    } catch {
+      throw new Error('Não foi possível armazenar a chave na sessão do navegador.');
+    }
+  },
+  fabricaClearKey: async () => {
+    try {
+      sessionStorage.removeItem(WEB_FABRICA_KEY_STORAGE);
+    } catch {
+      // ignore storage unavailability
+    }
+  },
+  calcularFabricaTempo: (input: FabricaInput | Json, apiKey?: string, options?: FabricaTempoOptions) => {
+    const params = new URLSearchParams();
+    if (options?.demonstrativo !== undefined) params.set('demonstrativo', String(options.demonstrativo));
+    if (options?.permalink !== undefined) params.set('permalink', String(options.permalink));
+    const qs = params.toString();
+    const path = options?.porGrupos ? '/fabrica/tempo/por-grupos' : '/fabrica/tempo';
+    return request<Json>('POST', `${path}${qs ? `?${qs}` : ''}`, input, {
+      headers: fabricaHeaders(apiKey),
+    });
+  },
+  calcularFabricaAtrasados: (body: Json, apiKey?: string, options?: FabricaAtrasadosOptions) => {
+    const params = new URLSearchParams();
+    if (options?.demonstrativo !== undefined) params.set('demonstrativo', String(options.demonstrativo));
+    if (options?.permalink !== undefined) params.set('permalink', String(options.permalink));
+    const qs = params.toString();
+    return request<Json>('POST', `/fabrica/atrasados${qs ? `?${qs}` : ''}`, body, {
+      headers: fabricaHeaders(apiKey),
+    });
+  },
+  lerDocumentoFabrica: async (
+    tipo: 'cnis' | 'carta' | 'rdctc' | 'pap' | 'prevjud',
+    apiKey?: string,
+    file?: File,
+  ): Promise<Json> => {
+    const selected = file ?? await chooseFile('application/pdf,.pdf');
+    if (!selected) return null;
+    const form = new FormData();
+    form.append('file', selected, selected.name);
+    const response = await authorizedFetch(`${API}/fabrica/documentos/${encodeURIComponent(tipo)}`, {
+      method: 'POST',
+      headers: fabricaHeaders(apiKey),
+      body: form,
+    });
+    const text = await response.text();
+    const falha = 'A leitura documental na Fábrica TRF3 falhou. Tente de novo em instantes.';
+    if (!response.ok) throw new Error(describeFailure(response.status, parseJsonSafe(text), falha));
+    return readSuccessObject(text, falha) as Json;
+  },
+  consultarFabricaIndices: (
+    endpoint: 'indice' | 'fundamentos' | 'marcos-temporais',
+    nome?: string,
+    query?: Record<string, string>,
+    apiKey?: string,
+  ) => {
+    let path: string;
+    if (endpoint === 'fundamentos') {
+      path = '/fabrica/fundamentos';
+    } else if (endpoint === 'marcos-temporais') {
+      path = '/fabrica/marcos-temporais';
+    } else {
+      const target = nome?.trim();
+      if (!target) {
+        return Promise.reject(new Error('Informe o nome do índice a consultar.'));
+      }
+      const params = new URLSearchParams();
+      if (query) {
+        for (const [k, v] of Object.entries(query)) {
+          if (v !== undefined && v !== null && String(v).trim() !== '') {
+            params.set(k, String(v).trim());
+          }
+        }
+      }
+      const qs = params.toString();
+      path = `/fabrica/indices/${encodeURIComponent(target)}${qs ? `?${qs}` : ''}`;
+    }
+    return request<Json>('GET', path, undefined, {
+      permitirLista: true,
+      headers: fabricaHeaders(apiKey),
+    });
+  },
   prepareFromCnis: (calculation: Calculation, reference: string) =>
     request<{ calculation: Calculation; notes: string[] }>('POST', '/prepare-from-cnis', { calculation: normalizeCaseForEngine(calculation), reference }),
   boot: () => request<Boot>('GET', '/bootstrap'),
-  save: (workspace: Workspace) => request<Workspace>('PUT', '/workspace', { workspace }),
+  save: (workspace: Workspace) => request<Workspace>('PUT', '/workspace', {
+    workspace: {
+      ...workspace,
+      settings: { ...workspace.settings, fabrica_api_key: '' },
+    },
+  }),
   pickCnis: async () => {
     const file = await chooseFile('application/pdf,.pdf');
     if (!file) return null;
@@ -207,6 +355,16 @@ export const webApi = {
   },
 
   exportReport: async (calculation: Calculation, workspace: Workspace, format: string, includePersonal: boolean, presentation?: Presentation) => {
+    if (!format.startsWith('pdf_')) {
+      const exported = await request<{ content: string; mime: string; extension: string }>('POST', '/reports/export', {
+        calculation: normalizeCaseForEngine(calculation),
+        workspace,
+        format,
+        include_personal: includePersonal,
+      });
+      const ext = exported.extension || format;
+      return download(exported.content, exported.mime || 'text/plain;charset=utf-8', `previdenciar-relatorio.${ext}`);
+    }
     const response = await authorizedFetch(`${API}/reports/preview`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -261,9 +419,11 @@ export const webApi = {
     const status = await request<{ model: string }>('GET', '/ai/status');
     return [status.model];
   },
-  aiDataStatus: () => Promise.resolve({ skills: 0, legislation: 0, natjus: 0, natjusText: 0, jurisprudence: 0, ready: false, message: 'Base de conhecimento ainda não conectada ao servidor.' } as AiDataStatus),
-  aiKnowledgeSearch: (_block: KnowledgeBlock, _query: string, _limit?: number) => unsupported('Busca na base'),
-  aiKnowledgeRead: (_block: KnowledgeBlock, _id: string) => unsupported('Leitura da base'),
+  aiDataStatus: () => request<AiDataStatus>('GET', '/ai/data-status'),
+  aiKnowledgeSearch: (block: KnowledgeBlock, query: string, limit = 8) =>
+    request<KnowledgeOutcome>('POST', '/ai/knowledge/search', { block, query, limit }),
+  aiKnowledgeRead: (block: KnowledgeBlock, id: string) =>
+    request<KnowledgeOutcome>('POST', '/ai/knowledge/read', { block, id }),
   pickCasePdfText: async () => {
     const file = await chooseFile('application/pdf,.pdf');
     if (!file) return null;
@@ -320,4 +480,3 @@ export type WebAiTestResult = AiTestResult;
 export type WebBatchExport = BatchExport;
 export type WebCasePdfText = CasePdfText;
 export type WebAiImportSummary = AiImportSummary;
-

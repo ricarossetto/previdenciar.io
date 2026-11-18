@@ -301,6 +301,14 @@ impl CatalogoSeries {
         })?;
         tabela.variacao(&competencia.to_string())
     }
+
+    /// Última competência disponível em uma série do catálogo.
+    pub fn ultima_competencia(&self, serie: SerieIndice) -> Option<Competencia> {
+        self.series
+            .get(&serie)
+            .and_then(|s| s.valores.last())
+            .and_then(|v| Competencia::parse(&v.competencia, "série").ok())
+    }
 }
 
 /// Carrega uma série a partir do JSON versionado (formato documentado no topo do módulo).
@@ -754,6 +762,47 @@ pub fn fator_com_perfil(
         substituicoes_inpc,
         series_ausentes,
     })
+}
+
+/// Fator do perfil permitindo limitar a referência ao último índice oficial
+/// publicado (INPC/IGP-DI) para competências/DIBs mais recentes que o snapshot.
+pub fn fator_com_perfil_parcial(
+    catalogo: &CatalogoSeries,
+    perfil: &PerfilCorrecao,
+    politica: PoliticaFallback,
+    competencia: &Competencia,
+    referencia: &Competencia,
+) -> Result<(FatorCorrecao, Option<Competencia>)> {
+    if competencia > referencia {
+        return Err(RgpsError(format!(
+            "Competência {competencia} é posterior à referência {referencia}."
+        )));
+    }
+    let serie_ref = perfil.serie_da_competencia(&referencia.to_string())?;
+    let ultimo_serie = catalogo
+        .ultima_competencia(serie_ref)
+        .or_else(|| catalogo.ultima_competencia(SerieIndice::Inpc));
+    let (limite, clamped) = match ultimo_serie {
+        Some(ult) if *referencia > ult => (ult, Some(ult)),
+        _ => (*referencia, None),
+    };
+    if *competencia > limite {
+        return Ok((
+            FatorCorrecao {
+                perfil_id: perfil.id.clone(),
+                perfil_versao: perfil.versao.clone(),
+                fator: Decimal::ONE,
+                fator_texto: crate::money::fixed(Decimal::ONE, 6),
+                passos: Vec::new(),
+                series_usadas: vec![serie_ref.codigo().to_string()],
+                substituicoes_inpc: Vec::new(),
+                series_ausentes: Vec::new(),
+            },
+            clamped,
+        ));
+    }
+    let fator = fator_com_perfil(catalogo, perfil, politica, competencia, &limite)?;
+    Ok((fator, clamped))
 }
 
 #[cfg(test)]

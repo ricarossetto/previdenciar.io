@@ -79,10 +79,141 @@ async fn fetch_economic_snapshot(through:String)->Result<previdenciar_rgps::pcd:
 }
 
 #[tauri::command]
-async fn conferir_fabrica_rmi(input: previdenciar_rgps::fabrica::FabricaInput, api_key: String) -> Result<Value, String> {
-    tauri::async_runtime::spawn_blocking(move || fabrica::conferir(input, api_key))
-        .await
-        .map_err(|_| "Conferência online interrompida; nenhum valor foi alterado.".to_owned())?
+async fn conferir_fabrica_rmi(
+    input: previdenciar_rgps::fabrica::FabricaInput,
+    api_key: Option<String>,
+    demonstrativo: Option<bool>,
+    permalink: Option<bool>,
+    fundamento: Option<bool>,
+    state: State<'_, AiState>,
+) -> Result<Value, String> {
+    let vault = state.vault().ok();
+    let resolved = fabrica::resolve_key(api_key.as_deref(), vault.as_ref()).unwrap_or_default();
+    tauri::async_runtime::spawn_blocking(move || {
+        fabrica::conferir_with_options(input, resolved, demonstrativo, permalink, fundamento)
+    })
+    .await
+    .map_err(|_| "Conferência online interrompida; nenhum valor foi alterado.".to_owned())?
+}
+
+#[tauri::command]
+fn fabrica_status(state: State<'_, AiState>) -> Result<Value, String> {
+    let vault = state.vault().ok();
+    Ok(fabrica::key_status(vault.as_ref()))
+}
+
+#[tauri::command]
+fn fabrica_save_key(api_key: String, state: State<'_, AiState>) -> Result<(), String> {
+    let root = state.root()?;
+    ai::ensure_root(root)?;
+    let vault = state.vault()?;
+    fabrica::save_key(&vault, &api_key)
+}
+
+#[tauri::command]
+fn fabrica_clear_key(state: State<'_, AiState>) -> Result<(), String> {
+    let vault = state.vault()?;
+    fabrica::clear_key(&vault)
+}
+
+#[tauri::command]
+async fn calcular_fabrica_tempo(
+    input: Value,
+    api_key: Option<String>,
+    por_grupos: Option<bool>,
+    demonstrativo: Option<bool>,
+    permalink: Option<bool>,
+    state: State<'_, AiState>,
+) -> Result<Value, String> {
+    let vault = state.vault().ok();
+    let resolved = fabrica::resolve_key(api_key.as_deref(), vault.as_ref()).unwrap_or_default();
+    let grupos = por_grupos.unwrap_or(false);
+    tauri::async_runtime::spawn_blocking(move || {
+        fabrica::calcular_tempo(input, resolved, grupos, demonstrativo, permalink)
+    })
+    .await
+    .map_err(|_| "Cálculo de tempo TRF3 interrompido.".to_owned())?
+}
+
+#[tauri::command]
+async fn calcular_fabrica_atrasados(
+    body: Value,
+    api_key: Option<String>,
+    demonstrativo: Option<bool>,
+    permalink: Option<bool>,
+    state: State<'_, AiState>,
+) -> Result<Value, String> {
+    let vault = state.vault().ok();
+    let resolved = fabrica::resolve_key(api_key.as_deref(), vault.as_ref()).unwrap_or_default();
+    let demo = demonstrativo.unwrap_or(false);
+    let perm = permalink.unwrap_or(false);
+    tauri::async_runtime::spawn_blocking(move || {
+        fabrica::calcular_atrasados(body, resolved, demo, perm)
+    })
+    .await
+    .map_err(|_| "Cálculo de atrasados TRF3 interrompido.".to_owned())?
+}
+
+#[tauri::command]
+async fn ler_documento_fabrica(
+    tipo: String,
+    file_name: Option<String>,
+    data: Option<Vec<u8>>,
+    path: Option<String>,
+    api_key: Option<String>,
+    state: State<'_, AiState>,
+) -> Result<Value, String> {
+    let vault = state.vault().ok();
+    let resolved = fabrica::resolve_key(api_key.as_deref(), vault.as_ref()).unwrap_or_default();
+    tauri::async_runtime::spawn_blocking(move || {
+        let (name, bytes) = if let Some(raw) = data {
+            (file_name.unwrap_or_else(|| "documento.pdf".into()), raw)
+        } else if let Some(p) = path {
+            let pb = std::path::PathBuf::from(p);
+            let fname = pb
+                .file_name()
+                .and_then(|s| s.to_str())
+                .unwrap_or("documento.pdf")
+                .to_owned();
+            let raw = std::fs::read(&pb).map_err(|_| "Não foi possível ler o arquivo PDF selecionado.".to_owned())?;
+            (fname, raw)
+        } else {
+            let Some(chosen) = rfd::FileDialog::new()
+                .set_title("Selecionar documento PDF (CNIS, Carta, RDCTC, PAP ou PREVJUD)")
+                .add_filter("PDF", &["pdf"])
+                .pick_file()
+            else {
+                return Ok(Value::Null);
+            };
+            let fname = chosen
+                .file_name()
+                .and_then(|s| s.to_str())
+                .unwrap_or("documento.pdf")
+                .to_owned();
+            let raw = std::fs::read(&chosen).map_err(|_| "Não foi possível ler o arquivo PDF selecionado.".to_owned())?;
+            (fname, raw)
+        };
+        fabrica::ler_documento(&tipo, &name, &bytes, resolved)
+    })
+    .await
+    .map_err(|_| "Leitura documental TRF3 interrompida.".to_owned())?
+}
+
+#[tauri::command]
+async fn consultar_fabrica_indices(
+    endpoint: String,
+    nome: Option<String>,
+    query: Option<std::collections::BTreeMap<String, String>>,
+    api_key: Option<String>,
+    state: State<'_, AiState>,
+) -> Result<Value, String> {
+    let vault = state.vault().ok();
+    let resolved = fabrica::resolve_key(api_key.as_deref(), vault.as_ref());
+    tauri::async_runtime::spawn_blocking(move || {
+        fabrica::consultar_indices(&endpoint, nome.as_deref(), query, resolved.as_deref())
+    })
+    .await
+    .map_err(|_| "Consulta à tabela da Fábrica TRF3 interrompida.".to_owned())?
 }
 
 #[tauri::command]
@@ -192,7 +323,10 @@ fn main() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .invoke_handler(tauri::generate_handler![bootstrap, save_workspace, pick_import_cnis, import_cnis_path,
-            run_tool, run_finance, fetch_economic_snapshot, conferir_fabrica_rmi, local_economic_snapshot, prepare_case_from_cnis,
+            run_tool, run_finance, fetch_economic_snapshot, conferir_fabrica_rmi,
+            fabrica_status, fabrica_save_key, fabrica_clear_key, calcular_fabrica_tempo,
+            calcular_fabrica_atrasados, ler_documento_fabrica, consultar_fabrica_indices,
+            local_economic_snapshot, prepare_case_from_cnis,
             calculate_case, calculate_rgps, project_rgps, preview_report, export_report, export_reports_batch, export_document, merge_pdfs, backup_export,
             ai_provider_catalog, ai_key_status, ai_save_key, ai_delete_key, ai_test, ai_models, ai_data_status, ai_import_data, ai_knowledge_search, ai_knowledge_read, save_export_file, pick_case_pdf_text, ai_chat, ai_cancel])
         .setup(|app| {
@@ -263,7 +397,7 @@ mod tests {
             assert!(permission.starts_with("allow-") || plugin_permissions.contains(&permission));
         }
         assert!(permissions.iter().any(|value| value == "allow-export-reports-batch"));
-        assert_eq!(permissions.len(), 34);
+        assert_eq!(permissions.len(), 43);
     }
     #[test]
     fn direct_rgps_json_rejects_invalid_schema_without_false_result() {

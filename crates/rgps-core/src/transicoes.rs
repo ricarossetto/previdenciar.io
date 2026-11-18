@@ -111,6 +111,12 @@ pub struct TransicoesEntrada {
     pub piso: Option<Decimal>,
     /// Expectativa de sobrevida IBGE para o pedágio de 50% (opcional).
     pub expectativa_sobrevida: Option<Decimal>,
+    /// Indica explicitamente se o segurado tinha filiação anterior a 13/11/2019.
+    pub filiado_antes_reforma: Option<bool>,
+    /// RMI bruta já reajustada até a DIB para o direito adquirido (quando apurável).
+    pub rmi_direito_adquirido: Option<Decimal>,
+    /// Observação complementar sobre a apuração do direito adquirido.
+    pub obs_direito_adquirido: Option<String>,
 }
 
 fn aplicar_limites(rmi: Decimal, teto: Option<Decimal>, piso: Option<Decimal>) -> (Decimal, Option<&'static str>) {
@@ -140,16 +146,23 @@ pub fn build_transicoes(entrada: &TransicoesEntrada) -> Result<TransicoesResulta
 
     let mut regras: Vec<RegraTransicao> = Vec::new();
 
-    // 1. Direito adquirido (pré-reforma): elegibilidade apenas.
+    // 1. Direito adquirido (pré-reforma).
     let direito_adquirido = tempo_ate_reforma >= tempo_minimo;
+    let (da_rmi, da_rmi_final, da_limite) = match (direito_adquirido, entrada.rmi_direito_adquirido) {
+        (true, Some(bruta)) => {
+            let (final_val, lim) = aplicar_limites(bruta, entrada.teto, entrada.piso);
+            (Some(crate::money::money(bruta)), Some(crate::money::money(final_val)), lim)
+        }
+        _ => (None, None, None),
+    };
     regras.push(RegraTransicao {
         id: "direito-adquirido",
         nome: "Direito adquirido (pré-reforma)".into(),
-        fundamento: "Regras vigentes até 13/11/2019",
+        fundamento: "Lei 8.213/1991 (regras vigentes até 13/11/2019); IN 128/2022, art. 234, II",
         elegivel: direito_adquirido,
-        criterio_rmi: "regras-antigas",
-        rmi: None,
-        rmi_final: None,
+        criterio_rmi: if da_rmi.is_some() { "direito-adquirido-reajustado" } else { "regras-antigas" },
+        rmi: da_rmi,
+        rmi_final: da_rmi_final,
         requisitos: vec![format!(
             "Tempo mínimo de {} anos cumprido até {REFORMA}",
             tempo_minimo / 12
@@ -159,16 +172,24 @@ pub fn build_transicoes(entrada: &TransicoesEntrada) -> Result<TransicoesResulta
         } else {
             Some(serde_json::json!({ "tempoMeses": tempo_minimo - tempo_ate_reforma }))
         },
-        observacao: Some(
-            "Regras antigas (média com descarte e fator previdenciário quando favorável) não são recalculadas neste comparador.".into(),
-        ),
+        observacao: entrada.obs_direito_adquirido.clone().or_else(|| {
+            if let Some(lim) = da_limite {
+                Some(format!("Renda reajustada até a DIB com limite de {lim} aplicado."))
+            } else if direito_adquirido {
+                Some("Renda pelo direito adquirido (80% maiores até 10/2019 e fator/pontos em 13/11/2019) apurada com reajuste até a DIB.".into())
+            } else {
+                Some("Segurado não completou o tempo mínimo integral até 13/11/2019.".into())
+            }
+        }),
     });
 
     // 2. Pontos (art. 15).
     let pontos = pontos_exigidos(sexo, ano_referencia);
-    let pontos_atuais = (tempo_total / 12) + (idade_meses / 12);
+    let soma_meses_pontos = tempo_total + idade_meses;
+    let pontos_dec = Decimal::from(soma_meses_pontos) / Decimal::from(12);
     let falta_tempo = (tempo_minimo - tempo_total).max(0);
-    let falta_pontos = (pontos - pontos_atuais).max(0);
+    let falta_meses_pontos = (pontos * 12 - soma_meses_pontos).max(0);
+    let falta_pontos = (falta_meses_pontos + 11) / 12;
     let coeficiente = coeficiente_progressivo(sexo, tempo_total.max(0) as u32);
     let rmi_coeficiente = mul(entrada.salario_beneficio, div(coeficiente, Decimal::from(100))?);
     let (rmi_coef_final, limite_coef) = aplicar_limites(rmi_coeficiente, entrada.teto, entrada.piso);
@@ -176,22 +197,23 @@ pub fn build_transicoes(entrada: &TransicoesEntrada) -> Result<TransicoesResulta
         id: "pontos",
         nome: format!("Transição por pontos ({pontos} pontos em {ano_referencia})"),
         fundamento: "EC 103/2019, art. 15",
-        elegivel: falta_tempo == 0 && falta_pontos == 0,
+        elegivel: falta_tempo == 0 && falta_meses_pontos == 0,
         criterio_rmi: "coeficiente-progressivo",
         rmi: Some(crate::money::money(rmi_coeficiente)),
         rmi_final: Some(crate::money::money(rmi_coef_final)),
         requisitos: vec![
             format!("Tempo mínimo de {} anos", tempo_minimo / 12),
             format!(
-                "Pontos exigidos em {ano_referencia}: {pontos} (idade {} + tempo {})",
-                idade_meses / 12,
-                tempo_total / 12
+                "Pontos exigidos em {ano_referencia}: {pontos} (apurado {:.2}: idade {:.1} + tempo {:.1})",
+                pontos_dec,
+                idade_meses as f64 / 12.0,
+                tempo_total as f64 / 12.0
             ),
         ],
-        faltas: if falta_tempo == 0 && falta_pontos == 0 {
+        faltas: if falta_tempo == 0 && falta_meses_pontos == 0 {
             None
         } else {
-            Some(serde_json::json!({ "tempoMeses": falta_tempo, "pontos": falta_pontos }))
+            Some(serde_json::json!({ "tempoMeses": falta_tempo, "pontos": falta_pontos, "pontosMeses": falta_meses_pontos }))
         },
         observacao: limite_coef.map(|l| format!("Limite de {l} aplicado.")),
     });
@@ -227,13 +249,9 @@ pub fn build_transicoes(entrada: &TransicoesEntrada) -> Result<TransicoesResulta
     let aplica50 = faltava50 > 0 && faltava50 <= 24;
     let pedagio50 = (faltava50 + 1) / 2;
     // Expectativa declarada pelo operador tem precedência; sem declaração, usa a
-    // tábua IBGE embutida (vigência mais recente até a DER).
+    // tábua IBGE unissex embutida (ambos os sexos — Lei 8.213/1991, art. 29, § 8º).
     let expectativa_tabelada = if entrada.expectativa_sobrevida.is_none() {
-        let tabela = if sexo.eq_ignore_ascii_case("feminino") {
-            &crate::dados::expectativa_sobrevida::EXPECTATIVA_FEMININA
-        } else {
-            &crate::dados::expectativa_sobrevida::EXPECTATIVA_MASCULINA
-        };
+        let tabela = &crate::dados::expectativa_sobrevida::EXPECTATIVA_GERAL;
         let idade = (idade_meses / 12).clamp(0, 90) as usize;
         let referencia = entrada.data_referencia.to_string();
         let mut linha_encontrada = None;
@@ -247,14 +265,15 @@ pub fn build_transicoes(entrada: &TransicoesEntrada) -> Result<TransicoesResulta
     } else {
         None
     };
-    let fonte_expectativa = if entrada.expectativa_sobrevida.is_some() { "declarada pelo operador" } else { "da tábua IBGE embutida" };
+    let fonte_expectativa = if entrada.expectativa_sobrevida.is_some() { "declarada pelo operador" } else { "da tábua IBGE embutida (ambos os sexos)" };
     let (rmi_fator, rmi_fator_final, observacao_fator) = match entrada.expectativa_sobrevida.or(expectativa_tabelada) {
         Some(es) if aplica50 => {
             let idade_der = idade_meses;
             let total_360 = if entrada.tempo_total_360 > 0 { entrada.tempo_total_360 } else { tempo_total * 30 + entrada.dias_totais };
             let tempo_total_dec = div(Decimal::from(total_360), Decimal::from(30))?;
-    let fator = fator_previdenciario(sexo, tempo_total_dec, idade_der, es)?;
-            let bruta = mul(entrada.salario_beneficio, fator);
+            let fator_bruto = fator_previdenciario(sexo, tempo_total_dec, idade_der, es)?;
+            let fator = fator_bruto.trunc_with_scale(4);
+            let bruta = crate::money::to_cents(mul(entrada.salario_beneficio, fator));
             let (final_valor, limite) = aplicar_limites(bruta, entrada.teto, entrada.piso);
             (
                 Some(bruta),
@@ -327,19 +346,54 @@ pub fn build_transicoes(entrada: &TransicoesEntrada) -> Result<TransicoesResulta
         )),
     });
 
-    // 6. Idade permanente (art. 18).
+    // 6. Idade de transição (art. 18 — filiados até 13/11/2019).
+    let filiado_pre_ec = entrada.filiado_antes_reforma.unwrap_or(tempo_ate_reforma > 0);
+    if filiado_pre_ec {
+        let idade_art18 = if sexo == "feminino" {
+            (60 * 12 + (ano_referencia - 2020).max(0) as i64 * 6).min(62 * 12)
+        } else {
+            65 * 12
+        };
+        let falta_idade_18 = (idade_art18 - idade_meses).max(0);
+        let falta_tempo_18 = (180 - tempo_total).max(0);
+        regras.push(RegraTransicao {
+            id: "idade-transicao",
+            nome: format!("Transição por idade ({:.1} anos em {ano_referencia})", idade_art18 as f64 / 12.0),
+            fundamento: "EC 103/2019, art. 18",
+            elegivel: falta_idade_18 == 0 && falta_tempo_18 == 0,
+            criterio_rmi: "coeficiente-progressivo",
+            rmi: Some(crate::money::money(rmi_coeficiente)),
+            rmi_final: Some(crate::money::money(rmi_coef_final)),
+            requisitos: vec!["Idade mínima (transição art. 18)".into(), "15 anos de contribuição e carência".into()],
+            faltas: if falta_idade_18 == 0 && falta_tempo_18 == 0 {
+                None
+            } else {
+                Some(serde_json::json!({
+                    "idadeMeses": falta_idade_18,
+                    "carenciaMeses": falta_tempo_18
+                }))
+            },
+            observacao: limite_coef.map(|l| format!("Limite de {l} aplicado.")),
+        });
+    }
+
+    // 7. Idade permanente (art. 19: 62M/15a, 65H/20a pós-EC).
     let idade_regra_geral = if sexo == "feminino" { 62 * 12 } else { 65 * 12 };
+    let tempo_regra_geral = if sexo == "feminino" { 180 } else { 240 };
     let falta_idade_geral = (idade_regra_geral - idade_meses).max(0);
-    let falta_carencia = (180 - tempo_total).max(0);
+    let falta_carencia = (tempo_regra_geral - tempo_total).max(0);
     regras.push(RegraTransicao {
         id: "idade-permanente",
         nome: format!("Regra permanente por idade ({})", idade_regra_geral / 12),
-        fundamento: "EC 103/2019, art. 18",
+        fundamento: "EC 103/2019, art. 19",
         elegivel: falta_idade_geral == 0 && falta_carencia == 0,
         criterio_rmi: "coeficiente-progressivo",
         rmi: Some(crate::money::money(rmi_coeficiente)),
         rmi_final: Some(crate::money::money(rmi_coef_final)),
-        requisitos: vec!["Idade mínima".into(), "Carência de 15 anos".into()],
+        requisitos: vec![
+            "Idade mínima".into(),
+            format!("Tempo e carência de {} anos", tempo_regra_geral / 12),
+        ],
         faltas: if falta_idade_geral == 0 && falta_carencia == 0 {
             None
         } else {
@@ -401,6 +455,9 @@ mod tests {
             teto: None,
             piso: None,
             expectativa_sobrevida: None,
+            filiado_antes_reforma: None,
+            rmi_direito_adquirido: None,
+            obs_direito_adquirido: None,
         }
     }
 
