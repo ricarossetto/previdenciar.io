@@ -128,6 +128,50 @@ pub fn prepare_from_cnis(case: &Calculation, reference: &str) -> Result<(Calcula
             confirmed,
         });
     }
+    // Benefício por incapacidade intercalado com contribuições conta como tempo
+    // (Lei 8.213/1991, art. 55, II; Decreto 3.048/1999, art. 19-C, § 1º, XI).
+    // Só entram benefícios cessados, com início e fim lidos do CNIS, que tenham
+    // contribuição antes do início e depois do fim.
+    let mut incapacidade = Vec::new();
+    let mut nao_intercalados = 0;
+    for benefit in &cnis.benefits {
+        let especie_incapacidade = matches!(benefit.species, Some(31 | 32 | 91 | 92));
+        if !especie_incapacidade || benefit.status != previdenciar_cnis::BenefitStatus::Ceased || benefit.included_as_employment_link {
+            continue;
+        }
+        let (Some(start), Some(end)) = (benefit.start_date.clone(), benefit.end_date.clone()) else { continue };
+        if end.as_str() > dib_iso.as_str() {
+            continue;
+        }
+        let antes = cnis.salary_months.keys().any(|competencia| competencia.as_str() < &start[..7]);
+        let depois = cnis.salary_months.keys().any(|competencia| competencia.as_str() > &end[..7]);
+        if !(antes && depois) {
+            nao_intercalados += 1;
+            continue;
+        }
+        let especie = benefit.species.unwrap_or_default();
+        incapacidade.push((benefit.sequence, especie, start.clone(), end.clone()));
+        links.push(ManualLink {
+            source_review: None,
+            id: 0,
+            employer: format!("Benefício por incapacidade (espécie {especie}) intercalado"),
+            start_date: start,
+            end_date: end,
+            regime: "RGPS".into(),
+            indicators: "BENEFICIO_INTERCALADO".into(),
+            confirmed: true,
+        });
+    }
+    if !incapacidade.is_empty() {
+        notes.push(format!(
+            "{} benefício(s) por incapacidade intercalado(s) contados como tempo de contribuição (Lei 8.213/1991, art. 55, II): {}.",
+            incapacidade.len(),
+            incapacidade.iter().map(|(seq, esp, ini, fim)| format!("seq. {seq}, espécie {esp}, {ini} a {fim}")).collect::<Vec<_>>().join("; ")
+        ));
+    }
+    if nao_intercalados > 0 {
+        notes.push(format!("{nao_intercalados} benefício(s) por incapacidade sem contribuição antes e depois ficaram fora do tempo."));
+    }
     if !prpps.is_empty() {
         notes.push(format!(
             "{} vínculo(s) PRPPS excluídos: regime próprio exige CTC e este motor calcula somente RGPS.",

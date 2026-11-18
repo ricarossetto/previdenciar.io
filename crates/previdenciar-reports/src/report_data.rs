@@ -126,6 +126,9 @@ fn best_rule_name(case: &Calculation, outcome: Option<&Value>) -> String {
             if let Some(name) = best_eleg {
                 return name.to_string();
             }
+            if let Some(p) = primeira_projecao(outcome) {
+                return format!("Sem direito na DIB; primeira regra possível: {}", p["nome"].as_str().unwrap_or(""));
+            }
             if let Some(first_name) = rules
                 .first()
                 .and_then(|r| r.get("nome").and_then(Value::as_str))
@@ -159,15 +162,19 @@ fn identification_with_rule(case: &Calculation, data_calculo: &str, outcome: Opt
             .as_deref()
             .or_else(|| case.cnis.as_ref().and_then(|c| c.identity.nit.as_deref())),
     );
-    let cpf = txt(case, case.identity.cpf.as_deref());
+    let cpf = mascara(&txt(case, case.identity.cpf.as_deref()), &[3, 3, 3, 2], "..-");
+    let nit = mascara(&nit, &[3, 5, 2, 1], "..-");
     let nasc = case
         .identity
         .birth_date
         .as_deref()
         .map(br_date)
         .unwrap_or_default();
-    let sexo = txt(case, case.sex.as_deref());
-    let especie = species_label(case.especie.as_deref().unwrap_or(""));
+    let sexo = titlecase(&txt(case, case.sex.as_deref()));
+    let especie = match species_label(case.especie.as_deref().unwrap_or("")) {
+        e if e.trim().is_empty() => "Aposentadoria programada (RGPS)".to_string(),
+        e => e,
+    };
     let regra = best_rule_name(case, outcome);
     json!({
         "rows": [
@@ -177,6 +184,21 @@ fn identification_with_rule(case: &Calculation, data_calculo: &str, outcome: Opt
             [["Regra de Cálculo", regra]],
         ]
     })
+}
+
+/// Pontua CPF/NIT só quando o texto tem exatamente os dígitos esperados.
+fn mascara(valor: &str, grupos: &[usize], seps: &str) -> String {
+    let digitos: String = valor.chars().filter(char::is_ascii_digit).collect();
+    if digitos.len() != grupos.iter().sum::<usize>() || digitos.len() != valor.trim().len() { return valor.to_string(); }
+    let mut out = String::new();
+    let mut i = 0;
+    let seps: Vec<char> = seps.chars().collect();
+    for (k, g) in grupos.iter().enumerate() {
+        out.push_str(&digitos[i..i + g]);
+        i += g;
+        if let Some(c) = seps.get(k) { out.push(*c); }
+    }
+    out
 }
 
 fn identification(case: &Calculation, data_calculo: &str) -> Value {
@@ -203,6 +225,32 @@ fn memoria_valor(n: &Value, tipo: &str) -> Option<Decimal> {
         })
         .and_then(|item| item.get("valor"))
         .and_then(decimal)
+}
+
+
+/// Projeção da regra (data e RMI) quando não há direito na DIB.
+fn projecao_regra<'a>(outcome: Option<&'a Value>, id: &str) -> Option<&'a Value> {
+    outcome?.pointer("/data/projecao_regras/regras")?.as_array()?.iter().find(|r| r["id"] == id)
+}
+fn sem_direito_na_dib(outcome: Option<&Value>) -> bool {
+    outcome.and_then(|o| o.pointer("/data/direito_na_dib")) == Some(&Value::Bool(false))
+}
+fn primeira_projecao(outcome: Option<&Value>) -> Option<&Value> {
+    outcome?.pointer("/data/projecao_regras/regras")?.as_array()?.first()
+}
+/// Texto do que falta, a partir de `faltas` do motor.
+fn faltas_texto(r: &Value) -> String {
+    let f = &r["faltas"];
+    if r["id"] == "direito-adquirido" && r["elegivel"] != true { return "Não completou o tempo mínimo até 13/11/2019".into(); }
+    if r["elegivel"] == true { return "Requisitos cumpridos na DIB".into(); }
+    if f["aplicavel"] == false { return "Regra não aplicável a este segurado".into(); }
+    let mut partes = Vec::new();
+    let meses = |k: &str| f.get(k).and_then(Value::as_i64).filter(|v| *v > 0);
+    if let Some(m) = meses("tempoMeses") { partes.push(format!("tempo: {}", period_from_months(m))); }
+    if let Some(m) = meses("idadeMeses") { partes.push(format!("idade: {}", period_from_months(m))); }
+    if let Some(m) = meses("pontosMeses") { partes.push(format!("pontos: {}", period_from_months(m))); }
+    if let Some(m) = meses("carenciaMeses") { partes.push(format!("carência: {m} contribuições")); }
+    if partes.is_empty() { "Requisitos cumpridos na DIB".into() } else { format!("Faltam {}", partes.join("; ")) }
 }
 
 fn analysis(case: &Calculation, outcome: Option<&Value>) -> Result<Value, String> {
@@ -253,11 +301,14 @@ fn analysis(case: &Calculation, outcome: Option<&Value>) -> Result<Value, String
     let sb = sb_fallback.map(brl_decimal).unwrap_or_else(|| "Não apurado".into());
     let soma_txt = soma.map(brl_decimal).unwrap_or_else(|| "Não apurado".into());
 
+    let direito = rmi.is_some() && !sem_direito_na_dib(outcome);
+    let valor = if direito { valor } else { "Sem direito na DIB".into() };
+    let projetada = primeira_projecao(outcome).and_then(|p| p.get("rmi")).and_then(decimal);
     let requirement_tempo = json!({
         "label": "TEMPO DE CONTRIBUIÇÃO",
         "value": tempo_txt,
-        "status": if rmi.is_some() { "Requisito atingido" } else { "Requisito não atingido" },
-        "ok": rmi.is_some(),
+        "status": if direito { "Requisito atingido" } else { "Requisito não atingido na DIB" },
+        "ok": direito,
     });
     let carencia_meses = n
         .and_then(|v| pick(v, &["/carencia/meses_apurados", "/carencia/competencias_salario", "/resumo/carencia_meses"]).and_then(Value::as_u64))
@@ -269,8 +320,8 @@ fn analysis(case: &Calculation, outcome: Option<&Value>) -> Result<Value, String
                 requirements.push(json!({
                     "label": "REQUISITO DA ESPÉCIE",
                     "value": txt_req,
-                    "status": if rmi.is_some() { "Conferido" } else { "Em conferência" },
-                    "ok": rmi.is_some(),
+                    "status": if direito { "Conferido" } else { "Em conferência" },
+                    "ok": direito,
                 }));
             }
         }
@@ -279,7 +330,7 @@ fn analysis(case: &Calculation, outcome: Option<&Value>) -> Result<Value, String
             "label": "IDADE NA DIB",
             "value": idade_txt,
             "status": format!("Carência apurada: {carencia_meses} meses"),
-            "ok": rmi.is_some(),
+            "ok": direito,
         }));
     } else {
         requirements.push(json!({
@@ -299,6 +350,8 @@ fn analysis(case: &Calculation, outcome: Option<&Value>) -> Result<Value, String
         .map(|m| format!("{m} meses"))
         .unwrap_or_else(|| "Não apurado".into());
     let irrf_comp = irrf_competencia(case);
+    let rmi = if sem_direito_na_dib(outcome) { projetada } else { rmi };
+    let valor_receber = if sem_direito_na_dib(outcome) { rmi.map(|v| format!("{} (projetado)", brl_decimal(v))).unwrap_or_else(|| "Não apurado".into()) } else { valor.clone() };
     let irrf_rec = rmi
         .and_then(|r| {
             let base = r.round_dp(2).to_string();
@@ -324,14 +377,22 @@ fn analysis(case: &Calculation, outcome: Option<&Value>) -> Result<Value, String
         _ => String::new(),
     };
 
+    let highlight = if sem_direito_na_dib(outcome) {
+        match primeira_projecao(outcome) {
+            Some(p) => json!([
+                ["Sem direito na DIB. Primeira data possível", br_date(p["data"].as_str().unwrap_or(""))],
+                [format!("Valor estimado ({})", p["nome"].as_str().unwrap_or("regra projetada")), p.get("rmi").and_then(decimal).map(brl_decimal).unwrap_or_else(|| "Não apurada".into())],
+            ]),
+            None => json!([["Situação na DIB", "Sem direito"], ["Valor estimado", "Não apurado"]]),
+        }
+    } else {
+        json!([["Data de aposentadoria", data_calculo], ["Valor estimado da aposentadoria", valor]])
+    };
     Ok(json!({
         "title": "Análise da Situação Atual do Benefício",
         "date": data_calculo,
         "identification": identification_with_rule(case, &data_calculo, outcome),
-        "highlight": [
-            ["Data de aposentadoria", data_calculo],
-            ["Valor estimado da aposentadoria", valor],
-        ],
+        "highlight": highlight,
         "requirements": requirements,
         "a_pagar": [
             ["Salário de contribuição", sb],
@@ -339,10 +400,10 @@ fn analysis(case: &Calculation, outcome: Option<&Value>) -> Result<Value, String
             ["Contribuição mensal (INSS)", contribuicao],
             ["IRRF", irrf_txt.clone()],
             ["Nº de contribuições", competencias.to_string()],
-            ["Total de contribuições (INSS + IRRF)", soma_txt],
+            ["Soma dos salários de contribuição corrigidos", soma_txt],
         ],
         "a_receber": [
-            ["Valor estimado da aposentadoria", valor],
+            ["Valor estimado da aposentadoria", valor_receber],
             ["Expectativa de sobrevida", es_txt],
             ["Nº estimado de meses a receber", meses_txt],
             ["IRRF", irrf_txt],
@@ -492,13 +553,25 @@ fn transitions(case: &Calculation, outcome: Option<&Value>) -> Result<Value, Str
                         .and_then(Value::as_i64)
                         .map(period_from_months)
                         .unwrap_or_default();
+                    let id = r.get("id").and_then(Value::as_str).unwrap_or("");
+                    let elegivel = r.get("elegivel").and_then(Value::as_bool).unwrap_or(false);
+                    let (der, rmi) = if elegivel {
+                        (data_calculo.clone(), rmi)
+                    } else if let Some(p) = projecao_regra(outcome, id) {
+                        (br_date(p["data"].as_str().unwrap_or("")), p.get("rmi").and_then(decimal).map(brl_decimal).unwrap_or_else(|| "Não apurada".into()))
+                    } else if r["faltas"]["aplicavel"] == false || id == "direito-adquirido" {
+                        ("Não se aplica".into(), "Não se aplica".into())
+                    } else {
+                        ("Sem direito nos próximos 15 anos".into(), "Não apurada".into())
+                    };
                     json!({
                         "nome": nome,
+                        "situacao": faltas_texto(r),
                         "tempo": tempo,
                         "carencia": format!("{carencia} contribuições"),
                         "idade": idade,
                         "rmi": rmi,
-                        "der": data_calculo,
+                        "der": der,
                         "chosen": chosen,
                     })
                 })
@@ -966,9 +1039,15 @@ fn regras(case: &Calculation, outcome: Option<&Value>) -> Result<Value, String> 
                         .find(|s| s.to_lowercase().contains("tempo"))
                         .cloned()
                         .unwrap_or_else(|| "não exigido".into());
+                    let id = r.get("id").and_then(Value::as_str).unwrap_or("");
+                    let elegivel = r.get("elegivel").and_then(Value::as_bool).unwrap_or(false);
+                    let projetada = (!elegivel).then(|| projecao_regra(outcome, id)).flatten();
+                    let der = if elegivel { data_calculo.clone() } else if let Some(p) = projetada { br_date(p["data"].as_str().unwrap_or("")) } else if r["faltas"]["aplicavel"] == false || id == "direito-adquirido" { "Não se aplica".into() } else { "Sem direito nos próximos 15 anos".into() };
+                    let rmi_txt = match projetada { Some(p) => p.get("rmi").and_then(decimal).map(brl_decimal).unwrap_or(rmi_txt), None if elegivel => rmi_txt, None => "Não apurada".into() };
+                    let retorno = if elegivel || projetada.is_some() { retorno } else { "Não apurado".into() };
                     json!({
                         "nome": nome,
-                        "der": data_calculo,
+                        "der": der,
                         "rmi": rmi_txt,
                         "idade_necessaria": idade_nec,
                         "idade_possui": format!("Possui {idade_possui}"),
@@ -1206,7 +1285,7 @@ mod tests {
         let _ = outcome;
         let mem_pers = build("memory", &case, Some(&outcome_val), true).unwrap().to_string();
         assert!(mem_pers.contains("Parecer Técnico Customizado"), "{mem_pers}");
-        assert!(mem_pers.contains("99988877766"), "{mem_pers}");
+        assert!(mem_pers.contains("999.88877.76-6"), "{mem_pers}");
         assert!(mem_pers.contains(" (D)"), "{mem_pers}");
         assert!(mem_pers.contains("\"30\""), "{mem_pers}");
 

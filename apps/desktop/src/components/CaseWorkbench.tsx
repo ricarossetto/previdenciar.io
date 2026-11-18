@@ -1161,21 +1161,22 @@ export function ResultView({ result }: { result: Json }) {
   const tempo = obj(data?.tempo);
   const transicoes = obj(data?.transicoes);
   const source = obj(envelope?.source_reconciliation);
-  const noEligibleRule = Boolean(transicoes && transicoes.regra_escolhida == null);
+  const noEligibleRule = envelope?.direito_na_dib === false || Boolean(transicoes && transicoes.regra_escolhida == null);
+  const projecao = (obj(envelope?.projecao_regras)?.regras ?? []) as Record<string, Json>[];
   if (r?.status === 'blocked') return <BlockedResult result={r} />;
   return (
     <>
       {noEligibleRule && (
         <Notice>
-          Nenhuma regra de transição está elegível nesta DIB. O valor abaixo é a memória da hipótese técnica e não representa um
-          benefício calculado.
+          Sem direito na DIB: nenhuma regra está cumprida nesta data. Veja abaixo quando cada regra pode ser cumprida, se as
+          contribuições continuarem.
         </Notice>
       )}
       <div className="result-hero">
         <div>
-          <small>RMI da hipótese técnica</small>
+          <small>{noEligibleRule ? 'Situação na DIB' : 'RMI da hipótese técnica'}</small>
           <div className="main-number" data-ui-number>
-            {missing(summary.rmi) ? 'Resultado técnico' : 'R$ ' + money(String(summary.rmi))}
+            {noEligibleRule ? 'Sem direito' : missing(summary.rmi) ? 'Resultado técnico' : 'R$ ' + money(String(summary.rmi))}
           </div>
         </div>
         <div>
@@ -1194,6 +1195,25 @@ export function ResultView({ result }: { result: Json }) {
             <strong>{String(especie.regra_nome ?? especie.regra_escolhida ?? 'Requisitos não cumpridos')}</strong>
           </div>
         </div>
+      )}
+      {projecao && projecao.length > 0 && (
+        <Panel title="Quando cada regra pode ser cumprida" subtitle={String(obj(envelope?.projecao_regras)?.premissa ?? '')}>
+          <div className="table-wrap">
+            <table className="data-table">
+              <thead><tr><th>Regra</th><th>Possível aposentadoria em</th><th>RMI estimada</th></tr></thead>
+              <tbody>
+                {projecao.map(regra => (
+                  <tr key={String(regra.id)}>
+                    <td>{String(regra.nome ?? '')}</td>
+                    <td>{String(regra.data ?? '').split('-').reverse().join('/')}</td>
+                    <td>{missing(regra.rmi) ? 'Não apurada' : 'R$ ' + money(String(regra.rmi))}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="form-note">Projeção para planejamento. Não é cálculo de benefício nem garantia de direito.</p>
+        </Panel>
       )}
       {beneficio && Array.isArray(beneficio.regras) && (
         <Panel

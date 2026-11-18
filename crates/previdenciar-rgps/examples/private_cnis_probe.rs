@@ -36,6 +36,8 @@ fn main() {
     println!("meses={} concomitantes={} prpps={} com_indicador={} abaixo_minimo={}", meses, meses_concomitantes, meses_prpps, meses_com_indicador, meses_abaixo_minimo);
     println!("warnings={:?}", cnis.warnings.iter().map(|w| w.code.as_str()).collect::<Vec<_>>());
     println!("beneficios={}", cnis.benefits.len());
+    for b in &cnis.benefits { println!("beneficio seq={} esp={:?} status={:?} {:?}..{:?} como_vinculo={}", b.sequence, b.species, b.status, b.start_date, b.end_date, b.included_as_employment_link); }
+    for l in cnis.links.iter().filter(|l| l.affiliation.as_deref().is_some_and(|a| a.to_lowercase().contains("benef"))) { println!("link_beneficio {} {:?}..{:?} {:?}", l.sequence, l.start_date, l.end_date, l.affiliation); }
     let case = previdenciar_workspace::Calculation {
         identity: cnis.identity.clone(),
         cnis: Some(cnis.clone()),
@@ -55,9 +57,23 @@ fn main() {
                 !prepared.manual_links.iter().any(|link| wage.competence.as_str() >= &link.start_date[..7] && wage.competence.as_str() <= &link.end_date[..7])
             }).map(|wage| wage.competence.clone()).collect();
             println!("nao_cobertos={:?}", nao_cobertos);            println!("preparado: vinculos={} salarios={}", prepared.manual_links.len(), prepared.manual_salaries.len());
+            if let Ok(out) = std::env::var("PROBE_CASE_OUT") {
+                std::fs::write(&out, serde_json::to_vec_pretty(&prepared).unwrap()).expect("gravar caso privado");
+            }
             match previdenciar_rgps::calculate_case(&prepared) {
                 Ok(result) => {
                     println!("status={} rmi={}", result["status"], result["data"]["native_result"]["resumo"]["rmi"]);
+                    for blocker in result["blockers"].as_array().into_iter().flatten() { println!("bloqueio: {} {}", blocker["code"], blocker["message"]); }
+                    if std::env::var("PROBE_DUMP").is_ok() {
+                        let mut v = result["data"]["native_result"].clone();
+                        if let Some(o) = v.as_object_mut() { o.remove("salarios"); o.remove("competencias"); o.remove("memoria"); }
+                        println!("PROJECAO {}", serde_json::to_string_pretty(&result["data"]["projecao_regras"]).unwrap_or_default());
+                        println!("RESUMO {}", serde_json::to_string_pretty(&v["resumo"]).unwrap_or_default());
+                        println!("CHAVES {:?}", v.as_object().map(|o| o.keys().cloned().collect::<Vec<_>>()));
+                        println!("TEMPO {}", serde_json::to_string(&v["tempo"]).unwrap_or_default());
+                        println!("TRANSICOES {}", serde_json::to_string_pretty(&v["transicoes"]).unwrap_or_default().chars().take(6000).collect::<String>());
+                        std::process::exit(0);
+                    }
                     for blocker in result["blockers"].as_array().into_iter().flatten() {
                         println!("bloqueio: {} {}", blocker["code"], blocker["message"]);
                     }

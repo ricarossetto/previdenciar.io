@@ -28,7 +28,9 @@
       [#text(size: fs-caption, fill: gray-text)[Provável RMI] #linebreak() #text(size: fs-body, weight: "bold", fill: navy)[#r.rmi]],
     )
     #v(4pt)
-    #text(size: fs-body, fill: gray-text)[Possível aposentadoria em #r.der]
+    #text(size: fs-body, fill: gray-text)[#r.situacao]
+    #linebreak()
+    #text(size: fs-body, weight: "bold")[Possível aposentadoria em #r.der]
   ]
 }
 
