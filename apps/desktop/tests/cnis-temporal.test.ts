@@ -105,7 +105,7 @@ describe('visao temporal do CNIS sem apagar a fonte', () => {
     expect(JSON.stringify(cnis)).toBe(before);
     const links: ManualLink[] = [{ id: 1, employer: 'Sintetico', start_date: '01/01/2022', end_date: '31/12/2023', regime: 'A confirmar', indicators: '', confirmed: false }];
     expect(confirmedRangesOf(links)).toEqual([]);
-    expect(calculationNotDone(blankCase())?.cause).toContain('Nenhuma remuneracao');
+    expect(calculationNotDone(blankCase())?.cause).toContain('Nenhuma remuneração');
   });
   it('lancamento de coluna de contribuicao nao vira salario zero', () => {
     const cnis = syntheticCnis(false);
@@ -128,12 +128,12 @@ describe('visao temporal do CNIS sem apagar a fonte', () => {
     c.cnis = syntheticCnis(false);
     const pending = calculationNotDone(c);
     expect(pending).not.toBeNull();
-    expect(pending!.cause).toContain('Parametros obrigatorios pendentes');
+    expect(pending!.cause).toContain('Parâmetros obrigatórios pendentes');
     expect(pending!.nextAction.length).toBeGreaterThan(0);
     c.result = { status: 'blocked', blockers: [{ code: 'wage_after_dib' }, { code: 'wage_outside_confirmed_links' }] };
     const blocked = calculationNotDone(c);
     expect(blocked!.cause).toContain('bloqueou');
-    expect(blocked!.cause).toContain('remuneracao posterior');
+    expect(blocked!.cause).toContain('remuneração posterior');
     expect(blocked!.nextAction).toContain('fonte');
     const ok = blankCase();
     ok.result = { status: 'ok', data: { resumo: { rmi: '100,00' } } };

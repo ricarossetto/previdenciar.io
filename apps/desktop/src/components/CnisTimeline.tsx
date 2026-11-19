@@ -34,7 +34,7 @@ export function CnisTimeline({ cnis, dib }: { cnis: Cnis; dib?: string | null })
           {year.months.map(month => <span
             key={month.competence}
             className={'cnis-timeline__month is-' + month.state + (month.competence === model.dibMonth ? ' is-dib' : '')}
-            title={month.competence + ' · ' + STATE_LABEL[month.state] + (month.competence === model.dibMonth ? ' · mes da DIB' : '')}
+            title={month.competence + ' · ' + STATE_LABEL[month.state] + (month.competence === model.dibMonth ? ' · mês da DIB' : '')}
             aria-label={month.competence + ': ' + STATE_LABEL[month.state]}
           />)}
         </span>

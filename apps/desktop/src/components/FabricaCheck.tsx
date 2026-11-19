@@ -972,12 +972,12 @@ function ProviderSummary({
         </Notice>
       )}
 
-      <div className="comparison-grid" aria-label="Comparação lado a lado entre Motor Local e Fábrica TRF3">
+      <div className="comparison-grid" aria-label="Comparação lado a lado entre motor local e Fábrica TRF3">
         <div className="comparison-card">
-          <span>Motor Local (Rust)</span>
+          <span>Motor local (Rust)</span>
           <strong>{local.rmi ? amount(local.rmi) : 'Não calculada'}</strong>
           <dl>
-            <dt>Salário de Benefício</dt>
+            <dt>Salário de benefício</dt>
             <dd>{local.salarioBeneficio ? amount(local.salarioBeneficio) : '—'}</dd>
             <dt>Coeficiente</dt>
             <dd>{local.coeficiente ?? '—'}</dd>
@@ -992,11 +992,11 @@ function ProviderSummary({
           <span>Fábrica de Cálculos / TRF3</span>
           <strong>{hasRmi ? amount(providerRmi) : 'Não apurada'}</strong>
           <dl>
-            <dt>Salário de Benefício</dt>
+            <dt>Salário de benefício</dt>
             <dd>{amount(best?.dadosRmi?.salarioBeneficio)}</dd>
             <dt>Coeficiente</dt>
             <dd>{coefficient(best?.dadosRmi?.coeficiente)}</dd>
-            <dt>Regra / Fundamento</dt>
+            <dt>Regra / fundamento</dt>
             <dd>{best?.fundamento ?? best?.chaveFundamento ?? '—'}</dd>
             <dt>Diferença (TRF3 vs Local)</dt>
             <dd>{diff ? `${deltaMoney(diff.cents)} (${percent(diff.percent)})` : '—'}</dd>
@@ -1052,7 +1052,7 @@ function ProviderSummary({
               <tr>
                 <th>Requisito</th>
                 <th>Resultado do provedor</th>
-                <th>Status</th>
+                <th>Situação</th>
               </tr>
             </thead>
             <tbody>

@@ -275,14 +275,12 @@ export function AiCopilot({ notify, workspace }: { notify: (message: string, err
         <strong>Copiloto opcional com provedor externo</strong>
         <p>O envio começa desativado. Sua pergunta e o histórico desta conversa só saem da máquina depois que você autorizar. Nenhum CNIS, cliente ou cálculo é enviado automaticamente.</p>
       </div>
-      <Badge tone="review">Nuvem opcional</Badge>
     </div>
 
     <div className="ai-layout">
       <section className="ai-chat-shell" aria-label="Conversa com o Copiloto">
         <header className="ai-chat-head">
           <div>
-            <span className="eyebrow">Apoio à pesquisa</span>
             <strong>Pergunte com fonte, revise antes de usar</strong>
           </div>
           <div className="ai-chat-head-actions">
@@ -295,7 +293,7 @@ export function AiCopilot({ notify, workspace }: { notify: (message: string, err
         <div className="ai-chat-scroll" ref={scrollRef} aria-live="polite">
           {messages.length === 0 ? <div className="ai-empty">
             <span className="ai-empty-icon"><Icon name="spark" size={28}/></span>
-            <h2>Um copiloto para conferir, não para decidir</h2>
+            <h2>Comece com uma pergunta</h2>
             <p>Use para localizar habilidades, normas, pareceres NatJus e ementas na base local, ou para organizar uma dúvida jurídica. Cálculos e conclusões continuam no motor e na sua revisão.</p>
             <div className="ai-suggestions">
               {SUGGESTIONS.map((suggestion) => <button key={suggestion} type="button" className="ai-suggestion" onClick={() => useSuggestion(suggestion)}>{suggestion}<Icon name="arrow" size={15}/></button>)}

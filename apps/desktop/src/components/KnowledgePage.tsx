@@ -111,7 +111,6 @@ export function KnowledgePage({ notify }: { notify: (message: string, error?: bo
     <div className="knowledge-shell">
       <header className="knowledge-head">
         <div>
-          <span className="eyebrow">Base de conhecimento · blocos locais</span>
           <h2>Pesquise antes de pedir ao modelo</h2>
           <p>{current.hint} A busca acontece no seu computador; nada aqui é enviado a um provedor.</p>
         </div>

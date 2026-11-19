@@ -430,7 +430,7 @@ export function MinutaPage({ workspace, notify, onOpenCopilot, onSaveTemplate, o
           <Button primary disabled={!classification.area.trim() || !classification.materia.trim() || busy !== null} onClick={confirmClassification}><Icon name="check" size={16}/>Confirmar classificação</Button>
         </div>
         {classificationConfirmed
-          ? <p className="minuta-classification__confirmed" role="status"><Icon name="check" size={15}/>Classificação confirmada por você — Área: {classification.area} · Matéria: {classification.materia}{classification.tecnicas ? ` · Técnicas: ${classification.tecnicas}` : ''}. A redação está liberada.</p>
+          ? <p className="minuta-classification__confirmed" role="status"><Icon name="check" size={15}/>Classificação confirmada por você. Área: {classification.area} · Matéria: {classification.materia}{classification.tecnicas ? ` · Técnicas: ${classification.tecnicas}` : ''}. A redação está liberada.</p>
           : <p className="form-note">A redação fica bloqueada até você confirmar a classificação. Preencha os campos manualmente ou peça uma proposta à IA. Qualquer alteração depois da confirmação exige confirmar de novo.</p>}
       </div>
     </Panel>

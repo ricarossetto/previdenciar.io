@@ -1058,7 +1058,7 @@ export function CaseWorkbench({
             <small>DIB {kpis.dib} · Esp. {draft.especie || '42'}</small>
           </div>
           <div className="previus-kpi">
-            <span>Tempo Apurado</span>
+            <span>Tempo apurado</span>
             <strong>{kpis.tempoLabel}</strong>
           </div>
           <div className="previus-kpi">
@@ -1066,11 +1066,11 @@ export function CaseWorkbench({
             <strong>{kpis.carenciaLabel}</strong>
           </div>
           <div className="previus-kpi">
-            <span>Melhor Regra</span>
+            <span>Melhor regra</span>
             <strong>{kpis.bestRule}</strong>
           </div>
           <div className="previus-kpi previus-kpi--accent">
-            <span>RMI Motor Local</span>
+            <span>RMI motor local</span>
             <strong>{kpis.localRmiLabel}</strong>
           </div>
           <div className="previus-kpi previus-kpi--gold">
@@ -1228,7 +1228,7 @@ export function ResultView({ result }: { result: Json }) {
                   <th>Requisito</th>
                   <th>Exigido</th>
                   <th>Apurado</th>
-                  <th>Status</th>
+                  <th>Situação</th>
                 </tr>
               </thead>
               <tbody>

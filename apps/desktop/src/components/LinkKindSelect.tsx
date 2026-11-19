@@ -17,7 +17,7 @@ export function LinkKindSelect({value,onChange}:{value:string|null;onChange:(val
     <select className="input" aria-label="Categoria dos períodos declarados" value={value ?? ''} onChange={event => onChange(event.target.value || null)}>
       <option value="">Selecione...</option>
       {SUPPORTED_LINK_KIND_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
-      {legacy && <option value={legacy} disabled>{legacy} — legado não suportado; revisar</option>}
+      {legacy && <option value={legacy} disabled>{legacy}: legado não suportado; revisar</option>}
     </select>
     {legacy && <small className="field-hint">Categoria legada preservada e pendente. Escolha uma categoria suportada; nada foi convertido automaticamente.</small>}
     <small className="field-hint">Rural, tempo especial e servidor sem CTC não são enquadrados por este motor local.</small>

@@ -902,7 +902,6 @@ function WorkspaceApp() {
         <PageTransition className="page-wrap" key={page} pointer={routeMotion === 'pointer'} page={page}>
           <header className="page-head">
             <div>
-              <div className="eyebrow">{page === 'wizard' ? 'Cálculo previdenciário' : 'Escritório · previdenciar.io'}</div>
               <h1 tabIndex={-1} data-od-id={'heading-' + page}>
                 {NAV.find(n => n.id === page)?.full ?? NAV.find(n => n.id === page)?.label}
               </h1>
@@ -1603,7 +1602,7 @@ function WorkspaceApp() {
                 {fabricaStatus && (
                   <div className="result-strip">
                     <div>
-                      <span>Status da conexão</span>
+                      <span>Situação da conexão</span>
                       <strong>{fabricaStatus.configured ? 'Pronta para consulta' : 'Chave ausente'}</strong>
                     </div>
                     <div>
@@ -1612,7 +1611,7 @@ function WorkspaceApp() {
                     </div>
                     {WEB_MODE ? (
                       <div>
-                        <span>Chave na sessão (sessionStorage)</span>
+                        <span>Chave nesta aba</span>
                         <strong>{fabricaStatus.sessionKeyConfigured ? 'Ativa nesta aba' : 'Não informada'}</strong>
                       </div>
                     ) : (
@@ -1622,7 +1621,7 @@ function WorkspaceApp() {
                       </div>
                     )}
                     <div>
-                      <span>Endpoint oficial</span>
+                      <span>Endereço oficial</span>
                       <strong>{fabricaStatus.upstream}</strong>
                     </div>
                   </div>
@@ -1672,7 +1671,7 @@ function WorkspaceApp() {
                   <Icon name="shield" />
                   <div className="work-copy">
                     <strong>Proteção local DPAPI</strong>
-                    <p>Arquivos corrompidos ou revisões conflitantes bloqueiam gravações. Não há fallback em texto claro.</p>
+                    <p>Arquivos corrompidos ou revisões conflitantes bloqueiam gravações. O aplicativo nunca grava em texto claro.</p>
                   </div>
                   <Badge tone={storageReady ? 'good' : 'error'}>
                     {storageReady ? 'Disponível' : 'Bloqueado'}

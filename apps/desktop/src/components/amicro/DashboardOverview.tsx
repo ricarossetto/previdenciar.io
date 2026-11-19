@@ -13,11 +13,7 @@ export function DashboardOverview({ workspace, onStart, onClient, onReports }: {
   const pending = active.filter(item => blockers(item).length > 0).length;
   return <section className="home-next" aria-labelledby="home-next-title">
     <header className="home-next-head">
-      <div>
-        <span className="eyebrow">PRÓXIMO PASSO</span>
-        <h2 id="home-next-title">O que você quer fazer agora?</h2>
-      </div>
-      <p>Comece pelo que está ao seu alcance. O restante continua salvo.</p>
+      <h2 id="home-next-title">O que você quer fazer agora?</h2>
     </header>
     <div className="home-next-actions">
       <button type="button" className="home-next-action home-next-action--primary" onClick={onStart}>

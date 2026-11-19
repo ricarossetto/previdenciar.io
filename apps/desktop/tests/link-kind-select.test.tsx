@@ -100,7 +100,7 @@ describe('categoria dos períodos manuais', () => {
     render(<Harness initial={legacy}/>);
     const select = screen.getByLabelText('Categoria dos períodos declarados') as HTMLSelectElement;
     expect(select.value).toBe(legacy);
-    const option = within(select).getByRole('option',{name:new RegExp('^'+legacy+' — legado')});
+    const option = within(select).getByRole('option',{name:new RegExp('^'+legacy+': legado')});
     expect(option).toBeDisabled();
     expect(screen.getByText(/Categoria legada preservada e pendente/)).toBeInTheDocument();
     expect(screen.getByText(/nada foi convertido automaticamente/)).toBeInTheDocument();

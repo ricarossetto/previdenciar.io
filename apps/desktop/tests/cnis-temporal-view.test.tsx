@@ -15,27 +15,27 @@ function cnisBase(): Cnis {
 }
 
 describe('CnisTemporalView', () => {
-  it('sem vinculos confirmados nao exibe zero; mostra Nao apurado', () => {
+  it('sem vínculos confirmados não exibe zero; mostra Não apurado', () => {
     const { container } = render(<CnisTemporalView cnis={cnisBase()} dib='2023-06-30' />);
-    expect(screen.getByTestId('temporal-unconfirmed').textContent).toBe('Nao apurado');
+    expect(screen.getByTestId('temporal-unconfirmed').textContent).toBe('Não apurado');
     expect(container.querySelector('[data-group="sem_periodo"]')).toBeNull();
   });
-  it('vinculo nao confirmado nao ativa contagem', () => {
+  it('vínculo não confirmado não ativa contagem', () => {
     const draft: ManualLink[] = [{ confirmed: false, start_date: '2023-01-01', end_date: '2023-05-31' } as ManualLink];
     render(<CnisTemporalView cnis={cnisBase()} dib='2023-06-30' confirmedLinks={draft} />);
-    expect(screen.getByTestId('temporal-unconfirmed').textContent).toBe('Nao apurado');
+    expect(screen.getByTestId('temporal-unconfirmed').textContent).toBe('Não apurado');
   });
 
-  it('com vinculo confirmado calcula a contagem real', () => {
+  it('com vínculo confirmado calcula a contagem real', () => {
     const confirmed: ManualLink[] = [{ confirmed: true, start_date: '2023-01-01', end_date: '2023-05-31' } as ManualLink];
     render(<CnisTemporalView cnis={cnisBase()} dib='2023-06-30' confirmedLinks={confirmed} />);
     expect(screen.getByTestId('temporal-unconfirmed').textContent).toBe('0');
-    expect(screen.queryByText('Nao apurado')).toBeNull();
+    expect(screen.queryByText('Não apurado')).toBeNull();
   });
-  it('DIB anterior a 07/1994 nao e rotulada como invalida', () => {
+  it('DIB anterior a 07/1994 não é rotulada como inválida', () => {
     render(<CnisTemporalView cnis={cnisBase()} dib='1990-01-01' />);
     expect(screen.getByText('Anterior a 07/1994 (fora do PBC)')).toBeTruthy();
-    expect(screen.queryByText('DIB invalida')).toBeNull();
+    expect(screen.queryByText('DIB inválida')).toBeNull();
   });
   it('reconhece DIB no formato brasileiro', () => {
     render(<CnisTemporalView cnis={cnisBase()} dib='30/06/1990' />);
