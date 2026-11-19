@@ -28,7 +28,6 @@ import { Badge, Button, Field, Icon, Notice, Panel, Select } from './ui';
 import { FabricaCheck } from './FabricaCheck';
 import { ReportCenter } from './ReportCenter';
 import { LinkKindSelect } from './LinkKindSelect';
-import { JourneyGuide } from './JourneyGuide';
 import { CnisTimeline } from './CnisTimeline';
 
 const STEPS = ['Identificação', 'CNIS', 'Cenário', 'Vínculos', 'Salários', 'Parâmetros', 'Revisão', 'Resultado'];
@@ -140,16 +139,76 @@ export function CaseWorkbench({
       return;
     }
     if (pending) {
+      const autoName =
+        !draft.name.trim() && pending.identity.full_name?.trim()
+          ? `Simulação RGPS — ${pending.identity.full_name.trim()}`
+          : draft.name;
       patch({
+        name: autoName,
         identity: { ...pending.identity },
         cnis: pending,
-        sex: null,
-        disability: null,
+        sex: draft.sex ?? null,
+        disability: draft.disability ?? 'Sem deficiência declarada',
         result: null,
         status: 'Dados importados; confirmação pendente',
       });
       setPending(null);
-      onNotify('CNIS aplicado somente ao rascunho. Sexo e deficiência aguardam confirmação.');
+      onNotify('CNIS aplicado ao cálculo. Selecione o sexo cadastral na faixa rápida acima para calcular em 1 clique.');
+    }
+  }
+
+  async function applyAndCalculateFast(selectedSex?: 'Feminino' | 'Masculino') {
+    if (!pending) return;
+    if (draft.contribution_review || draft.manual_links.some(link => link.source_review)) {
+      onNotify('Preserve o livro existente: duplique a hipótese ou crie outro cálculo para substituir o CNIS.', true);
+      return;
+    }
+    const autoName =
+      !draft.name.trim() && pending.identity.full_name?.trim()
+        ? `Simulação RGPS — ${pending.identity.full_name.trim()}`
+        : draft.name || 'Simulação RGPS';
+    const sexToUse = selectedSex ?? draft.sex ?? null;
+    const nextDraft: Calculation = {
+      ...draft,
+      name: autoName,
+      identity: { ...pending.identity },
+      cnis: pending,
+      sex: sexToUse,
+      disability: draft.disability || 'Sem deficiência declarada',
+      result: null,
+      status: 'Preparando e calculando...',
+    };
+    setPending(null);
+    setDraft(nextDraft);
+    latestDraft.current = nextDraft;
+    if (!sexToUse || !nextDraft.identity.birth_date) {
+      onNotify('CNIS aplicado. Informe sexo e data de nascimento na faixa rápida para calcular.');
+      return;
+    }
+    setFastTrackBusy(true);
+    const token = ++generation.current;
+    try {
+      const prepared = await api.prepareFromCnis(nextDraft, 'Conferência direta do extrato CNIS');
+      if (token !== generation.current) return;
+      const result = await api.calculate(prepared.calculation);
+      if (token !== generation.current) return;
+      const blocked = (result as Record<string, Json>)?.status === 'blocked';
+      setDraft({
+        ...prepared.calculation,
+        result,
+        status: blocked ? 'Execução bloqueada; dados pendentes' : 'Simulação técnica calculada',
+      });
+      setStep(7);
+      onNotify(
+        blocked
+          ? 'Hipótese preparada do CNIS, mas há pendências no resultado.'
+          : 'CNIS preparado e calculado com sucesso!',
+        blocked,
+      );
+    } catch (e) {
+      if (token === generation.current) onNotify(errorMessage(e), true);
+    } finally {
+      if (token === generation.current) setFastTrackBusy(false);
     }
   }
 
@@ -289,7 +348,64 @@ export function CaseWorkbench({
 
   return (
     <>
-      {!embedded && <JourneyGuide draft={draft} step={step} onStep={setStep} />}
+      {!embedded && (
+        <section className="previus-summary-bar" aria-label="Resumo rápido do cálculo">
+          <div className="previus-kpi">
+            <span>Segurado / DIB</span>
+            <strong>{kpis.segurado}</strong>
+            <small>DIB {kpis.dib} · Esp. {draft.especie || '42'}</small>
+          </div>
+          <div className="previus-kpi">
+            <span>Tempo apurado</span>
+            <strong>{kpis.tempoLabel}</strong>
+          </div>
+          <div className="previus-kpi">
+            <span>Carência</span>
+            <strong>{kpis.carenciaLabel}</strong>
+          </div>
+          <div className="previus-kpi">
+            <span>Melhor regra</span>
+            <strong>{kpis.bestRule}</strong>
+          </div>
+          <div className="previus-kpi previus-kpi--accent">
+            <span>RMI motor local</span>
+            <strong>{kpis.localRmiLabel}</strong>
+          </div>
+          <div className="previus-kpi previus-kpi--gold">
+            <span>RMI Fábrica TRF3</span>
+            <strong>{kpis.fabricaRmiLabel}</strong>
+          </div>
+          <div className="previus-kpi" style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            {imported ? (
+              <Button
+                primary
+                disabled={fastTrackBusy || calculationBusy || needsFastSex || needsFastBirth}
+                title={needsFastSex || needsFastBirth ? 'Preencha sexo e nascimento para calcular do CNIS' : 'Preparar do CNIS e recalcular'}
+                onClick={() => void fastTrackPrepareAndCalculate()}
+              >
+                <Icon name="calc" size={15} />
+                {fastTrackBusy ? 'Calculando...' : 'Calcular do CNIS'}
+              </Button>
+            ) : (
+              <Button
+                primary={step !== 7}
+                disabled={calculationBusy}
+                onClick={() => {
+                  setStep(7);
+                  void calculate();
+                }}
+              >
+                <Icon name="calc" size={15} />
+                {calculationBusy ? 'Calculando...' : 'Recalcular'}
+              </Button>
+            )}
+            <Button onClick={jumpToFabrica}>
+              <Icon name="spark" size={15} />
+              TRF3
+            </Button>
+          </div>
+        </section>
+      )}
 
       {showFastTrack && (
         <section className="fast-track-banner" aria-label="Atalho rápido a partir do CNIS">
@@ -454,11 +570,27 @@ export function CaseWorkbench({
                   Os dados ainda não foram aplicados. Esta ação substitui a cópia de origem apenas neste rascunho, nunca o
                   arquivo PDF.
                 </Notice>
-                <div className="form-actions" data-ui-actions>
+                <div className="form-actions" data-ui-actions style={{ flexWrap: 'wrap', gap: 8 }}>
                   <Button onClick={() => setPending(null)}>Descartar leitura</Button>
-                  <Button primary onClick={apply}>
+                  <Button onClick={apply}>
                     Aplicar ao rascunho
                     <Icon name="check" size={16} />
+                  </Button>
+                  <Button
+                    primary
+                    disabled={fastTrackBusy}
+                    onClick={() => void applyAndCalculateFast('Masculino')}
+                  >
+                    <Icon name="calc" size={16} />
+                    Aplicar e Calcular (Homem)
+                  </Button>
+                  <Button
+                    primary
+                    disabled={fastTrackBusy}
+                    onClick={() => void applyAndCalculateFast('Feminino')}
+                  >
+                    <Icon name="calc" size={16} />
+                    Aplicar e Calcular (Mulher)
                   </Button>
                 </div>
               </>
@@ -683,7 +815,7 @@ export function CaseWorkbench({
                       patch({
                         manual_salaries: [
                           ...draft.manual_salaries,
-                          { id: 0, competence: '', amount: '', indicators: '', confirmed: false },
+                          { id: 0, competence: '', amount: '', indicators: '', confirmed: true },
                         ],
                       })
                     }
@@ -691,6 +823,18 @@ export function CaseWorkbench({
                     <Icon name="plus" size={16} />
                     Adicionar competência
                   </Button>
+                  {draft.manual_salaries.some(s => !s.confirmed) && (
+                    <Button
+                      onClick={() =>
+                        patch({
+                          manual_salaries: draft.manual_salaries.map(s => ({ ...s, confirmed: true })),
+                          result: null,
+                        })
+                      }
+                    >
+                      Confirmar todos os salários
+                    </Button>
+                  )}
                 </div>
               }
             >
@@ -999,7 +1143,8 @@ export function CaseWorkbench({
             )}
             <div className="head-actions" data-ui-actions>
               <Button
-                disabled={calculationBusy || (draft.assistant?.mode === 'assisted' && (!reviewConfirmed || !interviewComplete))}
+                primary
+                disabled={calculationBusy}
                 onClick={() => void calculate()}
               >
                 {calculationBusy ? (
@@ -1014,6 +1159,15 @@ export function CaseWorkbench({
                   </>
                 )}
               </Button>
+              {imported && (
+                <Button
+                  disabled={fastTrackBusy || calculationBusy || needsFastSex || needsFastBirth}
+                  onClick={() => void fastTrackPrepareAndCalculate()}
+                >
+                  <Icon name="calc" size={16} />
+                  {fastTrackBusy ? 'Preparando do CNIS...' : 'Preparar do CNIS e Calcular'}
+                </Button>
+              )}
               <Button onClick={() => void onSave(draft)}>Salvar cálculo</Button>
               {draft.assistant?.mode === 'assisted' && !reviewConfirmed && (
                 <Button onClick={() => setStep(6)}>Ir para revisão</Button>
@@ -1047,44 +1201,6 @@ export function CaseWorkbench({
             />
           )}
         </>
-      )}
-
-      {!embedded && (
-        <section className="previus-summary-bar" aria-label="Resumo rápido do cálculo">
-          <div className="previus-kpi">
-            <span>Segurado / DIB</span>
-            <strong>{kpis.segurado}</strong>
-            <small>DIB {kpis.dib} · Esp. {draft.especie || '42'}</small>
-          </div>
-          <div className="previus-kpi">
-            <span>Tempo apurado</span>
-            <strong>{kpis.tempoLabel}</strong>
-          </div>
-          <div className="previus-kpi">
-            <span>Carência</span>
-            <strong>{kpis.carenciaLabel}</strong>
-          </div>
-          <div className="previus-kpi">
-            <span>Melhor regra</span>
-            <strong>{kpis.bestRule}</strong>
-          </div>
-          <div className="previus-kpi previus-kpi--accent">
-            <span>RMI motor local</span>
-            <strong>{kpis.localRmiLabel}</strong>
-          </div>
-          <div className="previus-kpi previus-kpi--gold">
-            <span>RMI Fábrica TRF3</span>
-            <strong>{kpis.fabricaRmiLabel}</strong>
-          </div>
-          {step !== 7 && (
-            <div className="previus-kpi">
-              <Button primary onClick={() => setStep(7)}>
-                Abrir Resultado / TRF3
-                <Icon name="arrow" size={15} />
-              </Button>
-            </div>
-          )}
-        </section>
       )}
 
       {!embedded && (
@@ -1198,13 +1314,36 @@ export function ResultView({ result }: { result: Json }) {
         <Panel title="Datas possíveis por regra" subtitle={String(obj(envelope?.projecao_regras)?.premissa ?? '')}>
           <div className="table-wrap">
             <table className="data-table">
-              <thead><tr><th>Regra</th><th>Possível aposentadoria em</th><th>RMI estimada</th></tr></thead>
+              <thead>
+                <tr>
+                  <th>Regra</th>
+                  <th>Possível aposentadoria em</th>
+                  <th className="num">Descartes ótimos</th>
+                  <th className="num">Carência após descarte</th>
+                  <th className="num">RMI estimada</th>
+                </tr>
+              </thead>
               <tbody>
                 {projecao.map(regra => (
                   <tr key={String(regra.id)}>
-                    <td>{String(regra.nome ?? '')}</td>
+                    <td>
+                      <strong>{String(regra.nome ?? '')}</strong>
+                      {regra.fundamento && <div className="secondary-line">{String(regra.fundamento)}</div>}
+                    </td>
                     <td>{String(regra.data ?? '').split('-').reverse().join('/')}</td>
-                    <td>{missing(regra.rmi) ? 'Não apurada' : 'R$ ' + money(String(regra.rmi))}</td>
+                    <td className="num">
+                      {regra.descartadas !== undefined && regra.descartadas !== null
+                        ? `${String(regra.descartadas)} comp.`
+                        : '0 comp.'}
+                    </td>
+                    <td className="num">
+                      {regra.carencia_meses !== undefined && regra.carencia_meses !== null
+                        ? `${String(regra.carencia_meses)} meses`
+                        : '—'}
+                    </td>
+                    <td className="num">
+                      <strong>{missing(regra.rmi) ? 'Não apurada' : 'R$ ' + money(String(regra.rmi))}</strong>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -1597,20 +1736,31 @@ function TransitionAudit({ transicoes }: { transicoes: JsonObj }) {
             </tr>
           </thead>
           <tbody>
-            {regras.map((regra, index) => (
-              <tr key={index}>
-                <td data-label="Regra">{txt(regra.nome)}</td>
-                <td data-label="Fundamento">{txt(regra.fundamento)}</td>
-                <td data-label="Situação">
-                  {regra.elegivel === true ? 'Elegível' : regra.elegivel === false ? 'Não elegível' : 'A verificar'}
-                </td>
-                <td className="num" data-label="RMI">
-                  {missing(regra.rmi_final) && missing(regra.rmi)
-                    ? 'Não apurado'
-                    : 'R$ ' + money(txt(regra.rmi_final ?? regra.rmi))}
-                </td>
-              </tr>
-            ))}
+            {regras.map((regra, index) => {
+              const textoFaltas = formatRuleFaltas(regra.faltas);
+              return (
+                <tr key={index}>
+                  <td data-label="Regra">{txt(regra.nome)}</td>
+                  <td data-label="Fundamento">{txt(regra.fundamento)}</td>
+                  <td data-label="Situação">
+                    {regra.elegivel === true
+                      ? 'Elegível'
+                      : textoFaltas === 'Não aplicável'
+                        ? 'Não aplicável'
+                        : regra.elegivel === false
+                          ? textoFaltas
+                            ? `Não elegível (${textoFaltas})`
+                            : 'Não elegível'
+                          : 'A verificar'}
+                  </td>
+                  <td className="num" data-label="RMI">
+                    {missing(regra.rmi_final) && missing(regra.rmi)
+                      ? 'Não apurado'
+                      : 'R$ ' + money(txt(regra.rmi_final ?? regra.rmi))}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

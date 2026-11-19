@@ -909,10 +909,25 @@ function WorkspaceApp() {
             </div>
             <div className="head-actions" data-ui-actions>
               {page === 'home' ? (
-                <Button onClick={loadDemoCase}>
-                  <Icon name="spark" size={16} />
-                  Carregar caso demonstrativo
-                </Button>
+                <>
+                  <Button
+                    primary
+                    onClick={() => {
+                      setDraft({ ...blankCase(), kind: 'RGPS', assistant: { ...blankInterview(), mode: 'manual' } });
+                      setSelected(null);
+                      setCaseTab(1);
+                      setWorkbenchKey(k => k + 1);
+                      go('wizard');
+                    }}
+                  >
+                    <Icon name="upload" size={16} />
+                    Importar CNIS (Cálculo Rápido)
+                  </Button>
+                  <Button onClick={loadDemoCase}>
+                    <Icon name="spark" size={16} />
+                    Carregar caso demonstrativo
+                  </Button>
+                </>
               ) : (page === 'cases' || page === 'rgps') && caseRows.length > 0 ? (
                 <Button primary onClick={() => start()}>
                   <Icon name="plus" size={17} />
@@ -1841,13 +1856,28 @@ function WorkspaceApp() {
                 <Icon name="file" size={30} />
               </span>
               <div>
-                <Badge>Editor direto</Badge>
-                <h3>Preenchimento manual</h3>
+                <Badge>Editor direto (Prévius + TRF3)</Badge>
+                <h3>Mesa de cálculo direta</h3>
                 <ul className="method-features" data-ui-stack>
-                  <li>Dados preenchidos nos painéis do editor.</li>
+                  <li>Importe o CNIS e calcule em 1 clique ou edite períodos e salários direto nas abas.</li>
                   <li>Origem dos documentos e limites preservados.</li>
                 </ul>
-                <Button onClick={() => begin(creationChoice, false)}>Não usar o assistente</Button>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <Button
+                    primary
+                    onClick={() => {
+                      setDraft({ ...blankCase(), kind: creationChoice, assistant: { ...blankInterview(), mode: 'manual' } });
+                      setSelected(null);
+                      setCaseTab(1);
+                      setWorkbenchKey(k => k + 1);
+                      setCreationChoice(null);
+                      go('wizard');
+                    }}
+                  >
+                    Importar CNIS direto
+                  </Button>
+                  <Button onClick={() => begin(creationChoice, false)}>Não usar o assistente</Button>
+                </div>
               </div>
             </div>
           </div>

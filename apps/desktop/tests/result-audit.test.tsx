@@ -67,7 +67,7 @@ describe('result audit panels',()=>{
     expect(screen.getByText('Datas possíveis por regra')).toBeInTheDocument();
     expect(screen.getByText('19/05/2027')).toBeInTheDocument();
     expect(screen.getByText('R$ 3.413,25')).toBeInTheDocument();
-    expect(screen.getByText(/Não aplicável/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Não aplicável/).length).toBeGreaterThan(0);
     expect(screen.queryByText(/Faltam: nada/)).not.toBeInTheDocument();
   });
 
