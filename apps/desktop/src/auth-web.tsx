@@ -55,6 +55,21 @@ async function completeAuthentication(code: string, verifier: string) {
   setSession(idToken, typeof parsed?.refresh_token === 'string' ? parsed.refresh_token : null);
 }
 
+async function loginWithAtriumCredentials(username: string, password: string, code: string) {
+  const response = await fetch('/api/auth/atrium-login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password, code }),
+  });
+  const text = await response.text();
+  const parsed = parseJsonSafe(text);
+  const idToken = typeof parsed?.id_token === 'string' ? parsed.id_token : '';
+  if (!response.ok || !idToken) {
+    throw new Error(describeFailure(response.status, parsed, 'Não foi possível entrar com a conta do Atrium.'));
+  }
+  setSession(idToken, null);
+}
+
 async function sessionState(): Promise<'ready' | 'terms' | 'login'> {
   const token = await validToken();
   if (!token) return 'login';
@@ -79,16 +94,75 @@ async function acceptTerms(): Promise<void> {
   if (!response.ok) throw new Error('Não foi possível registrar o aceite.');
 }
 
-function LoginPage({ onLogin, onSignup, error }: { onLogin: (provider?: 'Google') => void; onSignup: () => void; error: string | null }) {
+function LoginPage({
+  onLogin,
+  onSignup,
+  onAtriumLogin,
+  error,
+}: {
+  onLogin: (provider?: 'Google') => void;
+  onSignup: () => void;
+  onAtriumLogin: (username: string, password: string, code: string) => Promise<void>;
+  error: string | null;
+}) {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [code, setCode] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
   return <main className="loading-screen" style={{ padding: 24, paddingTop: 32, textAlign: 'left', maxWidth: 520, margin: '0 auto', height: 'auto', minHeight: '100dvh', placeContent: 'start center', overflowY: 'auto' }}>
-    <div className="brand-name">previdenciar.io</div>
+    <div className="brand-name">Atrium · Previdenciário</div>
     <h1 style={{ marginTop: 20 }}>Entrar no escritório</h1>
-    <p className="form-note">Use sua conta autorizada para abrir a base previdenciária.</p>
-    {GOOGLE_ENABLED && <Button primary onClick={() => onLogin('Google')}>Continuar com Google</Button>}
-    <Button primary={!GOOGLE_ENABLED} onClick={() => onLogin()}>Entrar com e-mail e senha</Button>
+    <p className="form-note">Use o mesmo usuário/e-mail e senha da sua assinatura do Atrium.</p>
+    <form
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (!username.trim() || !password) return;
+        setSubmitting(true);
+        void onAtriumLogin(username.trim(), password, code.trim()).finally(() => setSubmitting(false));
+      }}
+      style={{ display: 'grid', gap: 12, width: '100%', marginTop: 12, marginBottom: 16 }}
+    >
+      <label style={{ display: 'grid', gap: 4 }}>
+        <span className="form-note">Usuário ou e-mail do Atrium</span>
+        <input
+          type="text"
+          autoComplete="username"
+          value={username}
+          onChange={(event) => setUsername(event.target.value)}
+          placeholder="usuario ou email@escritorio.adv.br"
+        />
+      </label>
+      <label style={{ display: 'grid', gap: 4 }}>
+        <span className="form-note">Senha do Atrium</span>
+        <input
+          type="password"
+          autoComplete="current-password"
+          value={password}
+          onChange={(event) => setPassword(event.target.value)}
+          placeholder="Sua senha do Atrium"
+        />
+      </label>
+      <label style={{ display: 'grid', gap: 4 }}>
+        <span className="form-note">Código 2FA do Atrium (se o 2FA estiver ativo na sua conta)</span>
+        <input
+          type="text"
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          value={code}
+          onChange={(event) => setCode(event.target.value)}
+          placeholder="Opcional (6 dígitos)"
+        />
+      </label>
+      <Button primary type="submit" disabled={submitting || !username.trim() || !password}>
+        {submitting ? 'Entrando com Atrium...' : 'Entrar com conta Atrium'}
+      </Button>
+    </form>
+    {GOOGLE_ENABLED && <Button onClick={() => onLogin('Google')}>Continuar com Google</Button>}
+    <Button onClick={() => onLogin()}>Entrar com e-mail e senha</Button>
     <Button onClick={onSignup}>Criar conta</Button>
     {error && <p role="alert" className="notice error">{error}</p>}
-    <p className="form-note">O cadastro é aberto com confirmação de e-mail. O módulo avançado continua sujeito à permissão do piloto.</p>
+    <p className="form-note">Quem assina o Atrium (planos Pro e Pro IA) já tem acesso integrado com as mesmas credenciais.</p>
   </main>;
 }
 
@@ -119,6 +193,19 @@ export function WebAuthGate() {
     if (iniciado.current) return;
     iniciado.current = true;
     const url = new URL(window.location.href);
+    const hashParams = new URLSearchParams(url.hash.startsWith('#') ? url.hash.slice(1) : '');
+    const atriumSsoToken = hashParams.get('atrium_sso') ?? url.searchParams.get('atrium_sso');
+    if (atriumSsoToken) {
+      window.history.replaceState({}, '', '/');
+      setSession(atriumSsoToken, null);
+      void sessionState()
+        .then(setState)
+        .catch((reason) => {
+          setError(reason instanceof Error ? reason.message : 'Falha ao validar sessão do Atrium.');
+          setState('login');
+        });
+      return;
+    }
     const retorno = readCallback(url.pathname, url.searchParams);
     // A decisão e o consumo da tentativa acontecem antes de qualquer rede.
     // Limpar a URL na hora evita que um recarregamento reenvie o mesmo código;
@@ -149,7 +236,23 @@ export function WebAuthGate() {
   }, []);
 
   if (state === 'checking') return <div className="loading-screen" role="status">Verificando sessão...</div>;
-  if (state === 'login') return <LoginPage error={error} onLogin={(provider) => void beginAuthentication(provider)} onSignup={() => void beginAuthentication(undefined, true)} />;
+  if (state === 'login') return (
+    <LoginPage
+      error={error}
+      onLogin={(provider) => void beginAuthentication(provider)}
+      onSignup={() => void beginAuthentication(undefined, true)}
+      onAtriumLogin={async (username, password, code) => {
+        setError(null);
+        try {
+          await loginWithAtriumCredentials(username, password, code);
+          const next = await sessionState();
+          setState(next);
+        } catch (reason) {
+          setError(reason instanceof Error ? reason.message : 'Falha ao entrar com o Atrium.');
+        }
+      }}
+    />
+  );
   if (state === 'terms') return <TermsPage error={error} onAccept={() => void acceptTerms().then(() => setState('ready')).catch((reason) => setError(reason instanceof Error ? reason.message : 'Falha ao aceitar.'))} />;
   return <App />;
 }

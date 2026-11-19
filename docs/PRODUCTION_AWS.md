@@ -16,7 +16,8 @@ Este documento descreve a arquitetura de produção do **produto web oficial** (
 - RDS PostgreSQL `previdenciar-prod-db`, engine 18.3, classe `db.t4g.micro`, sem acesso público, backup automático de 1 dia.
 - S3 privado `<BUCKET_FILES>`; criptografia AES256; ciclo de vida para o prefixo `cnis/` de 1 dia e para `reports/` e `exports/` de 30 dias (detalhes em [Retenção de arquivos no S3](#retenção-de-arquivos-no-s3)).
 - Cognito: pool `<POOL_COGNITO>`; app client `<CLIENT_ID_COGNITO>`; domínio `<DOMINIO_COGNITO>`.
-- Login com Google e com e-mail/senha; cadastro aberto com confirmação de e-mail; MFA TOTP opcional.
+- Login integrado com o **Atrium** (`ATRIUM_AUTH_BASE_URL` = `https://api.atrium.adv.br`, `ATRIUM_SSO_SECRET` compartilhado com `PREVIDENCIAR_SSO_SECRET` no Atrium): valida o mesmo usuário/e-mail, senha, 2FA e assinatura ativa (`pro` / `pro_ia`) do Atrium via `/api/auth/atrium-login`, além de aceitar entrada direta com 1 clique (`/#atrium_sso=<jwt>`) emitida por `GET /api/auth/previdenciar-sso` no Atrium.
+- Login com Google e com e-mail/senha (Cognito) mantidos como compatibilidade; MFA TOTP opcional.
 - IA/CommandCode: `https://api.commandcode.ai/provider/v1`, modelo `deepseek/deepseek-v4-flash`.
 
 ## Segredos

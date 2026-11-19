@@ -86,6 +86,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/health", get(health))
         .route("/api/auth/token", post(auth_token))
         .route("/api/auth/refresh", post(auth_refresh))
+        .route("/api/auth/atrium-login", post(auth_atrium_login))
         .route("/api/bootstrap", get(bootstrap))
         .route("/api/me", get(me))
         .route("/api/terms/accept", post(accept_terms))
@@ -227,6 +228,159 @@ async fn auth_refresh(
     }
     let value: Value = serde_json::from_str(&text).map_err(ApiError::internal)?;
     Ok(Json(value))
+}
+
+#[derive(Deserialize)]
+struct AtriumLoginRequest {
+    username: String,
+    password: String,
+    #[serde(default)]
+    code: String,
+}
+
+async fn auth_atrium_login(
+    State(state): State<AppState>,
+    ip: ClientIp,
+    Json(body): Json<AtriumLoginRequest>,
+) -> Result<Json<Value>, ApiError> {
+    enforce(
+        &state,
+        vec![(format!("login:ip:{}", ip.0), LOGIN_WINDOW)],
+    )?;
+    if !state.config.atrium_sso_enabled() {
+        return Err(ApiError::unavailable(
+            "O login integrado com o Atrium ainda não foi habilitado neste servidor.".into(),
+        ));
+    }
+    let identifier = body.username.trim();
+    if identifier.is_empty() || body.password.is_empty() {
+        return Err(ApiError::bad_request(
+            "Informe seu usuário ou e-mail e a senha do Atrium.".into(),
+        ));
+    }
+    let login_url = format!("{}/api/auth/login", state.config.atrium_auth_base_url);
+    let response = state
+        .http
+        .post(&login_url)
+        .json(&json!({
+            "username": identifier,
+            "password": body.password,
+            "code": body.code.trim(),
+        }))
+        .send()
+        .await
+        .map_err(|_| {
+            ApiError::unavailable(
+                "Não foi possível conectar ao servidor do Atrium no momento.".into(),
+            )
+        })?;
+    let status = response.status();
+    let headers = response.headers().clone();
+    let text = response.text().await.map_err(ApiError::internal)?;
+    let payload: Value = serde_json::from_str(&text).unwrap_or_else(|_| json!({}));
+    if !status.is_success() {
+        let message = payload
+            .get("message")
+            .and_then(Value::as_str)
+            .unwrap_or("Usuário, senha ou código de verificação do Atrium inválido.");
+        return Err(ApiError::unauthorized(message.to_owned()));
+    }
+
+    let user_obj = payload.get("user").unwrap_or(&Value::Null);
+    let username = user_obj
+        .get("username")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or(identifier)
+        .to_lowercase();
+    let workspace_id = user_obj
+        .get("workspaceId")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or("default")
+        .to_owned();
+    let email = user_obj
+        .get("email")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(|value| value.to_lowercase());
+
+    // Consulta a situação da assinatura do escritório no Atrium quando o cookie de sessão está presente.
+    let mut subscription_active = true;
+    let mut plan = Some("pro".to_owned());
+    let session_cookie = headers
+        .get_all(header::SET_COOKIE)
+        .iter()
+        .filter_map(|val| val.to_str().ok())
+        .filter_map(|raw| raw.split(';').next())
+        .collect::<Vec<_>>()
+        .join("; ");
+    if !session_cookie.is_empty() {
+        let billing_url = format!("{}/api/billing/status", state.config.atrium_auth_base_url);
+        if let Ok(billing_res) = state
+            .http
+            .get(&billing_url)
+            .header(header::COOKIE, session_cookie)
+            .send()
+            .await
+        {
+            if billing_res.status().is_success() {
+                if let Ok(billing_json) = billing_res.json::<Value>().await {
+                    let access_mode = billing_json
+                        .get("access")
+                        .and_then(|acc| acc.get("access"))
+                        .and_then(Value::as_str)
+                        .unwrap_or("full");
+                    let plan_limited = billing_json
+                        .get("access")
+                        .and_then(|acc| acc.get("planLimited"))
+                        .and_then(Value::as_bool)
+                        .unwrap_or(false);
+                    let raw_plan = billing_json
+                        .get("plan")
+                        .and_then(Value::as_str)
+                        .unwrap_or("pro");
+                    subscription_active = access_mode == "full";
+                    plan = Some(if plan_limited {
+                        "basic".to_owned()
+                    } else {
+                        raw_plan.to_owned()
+                    });
+                }
+            }
+        }
+    }
+
+    if !subscription_active {
+        return Err(ApiError::forbidden(
+            "Sua assinatura do Atrium está com pendência. Regularize no Atrium para acessar o módulo Previdenciar.".into(),
+        ));
+    }
+    if plan.as_deref() == Some("basic") {
+        return Err(ApiError::forbidden(
+            "O módulo Previdenciar faz parte dos planos Atrium Pro e Pro IA. Atualize seu plano no Atrium.".into(),
+        ));
+    }
+
+    let sub = format!("atrium:{workspace_id}:{username}");
+    let id_token = auth::mint_atrium_hs256(
+        &state.config.atrium_sso_secret,
+        sub,
+        email,
+        Some(username),
+        subscription_active,
+        plan,
+    )
+    .map_err(ApiError::internal)?;
+
+    Ok(Json(json!({
+        "id_token": id_token,
+        "token_type": "Bearer",
+        "expires_in": auth::ATRIUM_SSO_TTL_SECS
+    })))
 }
 
 async fn ai_status(

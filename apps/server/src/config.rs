@@ -38,6 +38,8 @@ pub struct Config {
     pub cognito_user_pool_id: String,
     pub cognito_client_id: String,
     pub cognito_domain: String,
+    pub atrium_auth_base_url: String,
+    pub atrium_sso_secret: String,
     pub ai_provider_id: String,
     pub ai_base_url: String,
     pub ai_model: String,
@@ -96,8 +98,20 @@ impl Config {
         let cognito_user_pool_id = lookup("COGNITO_USER_POOL_ID").unwrap_or_default();
         let cognito_client_id = lookup("COGNITO_CLIENT_ID").unwrap_or_default();
         let cognito_domain = lookup("COGNITO_DOMAIN").unwrap_or_default();
-        if !auth_disabled && (cognito_user_pool_id.is_empty() || cognito_client_id.is_empty()) {
-            return Err("Configure COGNITO_USER_POOL_ID e COGNITO_CLIENT_ID ou use AUTH_DISABLED=1 com APP_ENV=development.".into());
+        let atrium_auth_base_url = lookup("ATRIUM_AUTH_BASE_URL")
+            .unwrap_or_else(|| "https://api.atrium.adv.br".into())
+            .trim()
+            .trim_end_matches('/')
+            .to_owned();
+        let atrium_sso_secret = lookup("ATRIUM_SSO_SECRET")
+            .unwrap_or_default()
+            .trim()
+            .to_owned();
+        let cognito_configured =
+            !cognito_user_pool_id.is_empty() && !cognito_client_id.is_empty();
+        let atrium_sso_configured = !atrium_sso_secret.is_empty();
+        if !auth_disabled && !cognito_configured && !atrium_sso_configured {
+            return Err("Configure COGNITO_USER_POOL_ID e COGNITO_CLIENT_ID (ou ATRIUM_SSO_SECRET) ou use AUTH_DISABLED=1 com APP_ENV=development.".into());
         }
         Ok(Self {
             environment,
@@ -118,6 +132,8 @@ impl Config {
             cognito_user_pool_id,
             cognito_client_id,
             cognito_domain,
+            atrium_auth_base_url,
+            atrium_sso_secret,
             ai_provider_id: lookup("AI_PROVIDER_ID").unwrap_or_else(|| "opencode-go".into()),
             ai_base_url: lookup("AI_BASE_URL")
                 .unwrap_or_else(|| "https://opencode.ai/inference/go/openai/v1".into()),
@@ -158,6 +174,8 @@ impl Config {
             cognito_user_pool_id: "sa-east-1_teste".to_owned(),
             cognito_client_id: "cliente-teste".to_owned(),
             cognito_domain: String::new(),
+            atrium_auth_base_url: "https://api.atrium.adv.br".to_owned(),
+            atrium_sso_secret: String::new(),
             ai_provider_id: "opencode-go".to_owned(),
             ai_base_url: "http://127.0.0.1:9".to_owned(),
             ai_model: "modelo-teste".to_owned(),
@@ -183,6 +201,10 @@ impl Config {
 
     pub fn s3_enabled(&self) -> bool {
         !self.s3_bucket.trim().is_empty()
+    }
+
+    pub fn atrium_sso_enabled(&self) -> bool {
+        !self.atrium_sso_secret.trim().is_empty()
     }
 
     pub fn is_admin(&self, email: &str) -> bool {

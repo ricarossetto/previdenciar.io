@@ -1,5 +1,5 @@
 import { StrictMode } from 'react';
-import { act, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { WebAuthGate } from '../src/auth-web';
 
@@ -123,5 +123,26 @@ describe('WebAuthGate no retorno do provedor', () => {
     // Uma única troca, sem mensagem de tentativa divergente.
     expect(chamadas.filter((c) => c.url === '/api/auth/token')).toHaveLength(1);
     expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('autentica diretamente com credenciais e assinatura do Atrium', async () => {
+    const chamadas = corpoFalso(200, '{"id_token":"eyJhbGciOiJIUzI1NiJ9.eyJleHAiOjQxMDI0NDQ4MDB9.sig"}');
+
+    render(<WebAuthGate />);
+    await act(async () => { await Promise.resolve(); });
+
+    const userInput = await screen.findByPlaceholderText(/usuario ou email/i);
+    const passInput = await screen.findByPlaceholderText(/Sua senha do Atrium/i);
+    fireEvent.change(userInput, { target: { value: 'advogado@atrium.adv.br' } });
+    fireEvent.change(passInput, { target: { value: 'SenhaForte123!' } });
+
+    const submitBtn = screen.getByRole('button', { name: /Entrar com conta Atrium/i });
+    fireEvent.click(submitBtn);
+
+    await act(async () => { await Promise.resolve(); });
+
+    expect(chamadas.some((c) => c.url === '/api/auth/atrium-login')).toBe(true);
+    const loginCall = chamadas.find((c) => c.url === '/api/auth/atrium-login');
+    expect(loginCall?.body).toContain('advogado@atrium.adv.br');
   });
 });
