@@ -84,7 +84,7 @@
   transform: translateX(-125%);
   transition: transform 600ms var(--amicro-ease);
 }
-.previdenciar-app .btn-primary { box-shadow: 0 3px 12px -6px color-mix(in oklch, var(--accent) 45%, transparent); }
+.previdenciar-app .btn-primary { box-shadow: none; }
 .previdenciar-app .btn:active:not(:disabled) { transform: scale(.975); }
 .previdenciar-app :is(.btn, .side-link, .robot-choice, .wizard-step, .seg button):focus-visible {
   outline: 2px solid var(--focus);
@@ -100,74 +100,6 @@
 .previdenciar-app .dialog { animation: none; border-radius: 20px; border-color: var(--amicro-line); }
 .previdenciar-app .report-paper-workspace { background: var(--inset); }
 .previdenciar-app .report-template { transition: border-color var(--amicro-fast), background var(--amicro-fast); }
-.amicro-overview {
-  position: relative;
-  isolation: isolate;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  overflow: hidden;
-  min-height: 236px;
-  padding: 32px 38px;
-  border: 1px solid var(--amicro-line);
-  border-radius: 20px;
-  background: var(--amicro-paper);
-}
-.amicro-orbit::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  background-image: radial-gradient(var(--amicro-line) .65px, transparent .65px);
-  background-size: 18px 18px;
-  mask-image: radial-gradient(black, transparent 70%);
-}
-.amicro-overview-copy { position: relative; z-index: 1; background: var(--amicro-paper); }
-.amicro-kicker { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; letter-spacing: .16em; color: var(--fg-2); }
-.amicro-kicker > span { width: 6px; height: 6px; border-radius: 50%; background: var(--focus); }
-.previdenciar-app .amicro-overview h2 {
-  font: 500 32px/1.13 var(--font-editorial);
-  font-size: 32px !important;
-  letter-spacing: -.055em;
-  margin: 18px 0 14px;
-  color: var(--fg);
-}
-.amicro-overview h2 em { color: var(--focus); font-weight: 500; }
-.amicro-overview-copy > p { margin: 0; font-size: 14px; line-height: 1.8; color: var(--fg-2); }
-.amicro-overview-meta { display: flex; align-items: center; gap: 8px; margin-top: 20px; font-size: 12px; color: var(--fg-2); }
-.amicro-orbit { position: relative; flex: 0 0 276px; height: 240px; margin-right: 24px; }
-.amicro-orbit-ring { position: absolute; border: 1px solid color-mix(in oklch, var(--focus) 22%, transparent); border-radius: 50%; }
-.amicro-orbit-ring--outer { inset: 0 18px; }
-.amicro-orbit-ring--inner { inset: 34px 52px; border-style: dashed; transform: rotate(-25deg); }
-.amicro-orbit-core {
-  position: absolute;
-  inset: 70px 87px;
-  display: grid;
-  place-items: center;
-  border: 1px solid var(--accent-line);
-  border-radius: 28px;
-  color: var(--focus);
-  background: linear-gradient(135deg, var(--accent-soft), var(--surface));
-  box-shadow: 0 18px 50px -30px var(--focus);
-  transform: rotate(-10deg);
-}
-.amicro-orbit-node {
-  position: absolute;
-  width: 54px;
-  height: 54px;
-  display: grid;
-  place-items: center;
-  border: 1px solid var(--amicro-line);
-  border-radius: 17px;
-  background: var(--surface);
-  color: var(--fg-2);
-  box-shadow: var(--lg-shadow);
-}
-.amicro-orbit-node--one { left: 23px; top: 30px; transform: rotate(-12deg); }
-.amicro-orbit-node--two { right: 3px; top: 90px; color: var(--focus); transform: rotate(10deg); }
-.amicro-orbit-node--three { left: 58px; bottom: 4px; color: var(--gold); transform: rotate(8deg); }
-.amicro-orbit-dot { position: absolute; width: 9px; height: 9px; background: var(--gold); border-radius: 50%; right: 77px; top: 6px; }
 .amicro-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid var(--amicro-line); border-radius: 16px; background: var(--surface); }
 .amicro-metric { min-width: 0; display: flex; flex-direction: column; padding: 20px 24px; position: relative; }
 .amicro-metric + .amicro-metric::before { content: ''; position: absolute; top: 22px; bottom: 22px; left: 0; width: 1px; background: var(--border); }
@@ -199,15 +131,11 @@
   .previdenciar-app .robot-choice:hover, .previdenciar-app .report-template:hover { border-color: var(--focus); }
 }
 @media (max-width: 1200px) {
-  .amicro-overview { padding: 28px; }
-  .amicro-orbit { flex-basis: 240px; margin-right: 0; }
   .amicro-metric { padding: 18px; }
   .amicro-metric-label { font-size: 12px; }
   .amicro-action-card { padding: 18px; }
 }
 @media (max-width: 767px) {
-  .amicro-overview { padding: 26px; min-height: 228px; }
-  .amicro-orbit { position: absolute; right: -100px; opacity: .18; width: 276px; z-index: -1; }
   .amicro-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .amicro-metric:nth-child(3)::before { display: none; }
   .amicro-metric:nth-child(n+3) { border-top: 1px solid var(--border); }
@@ -222,9 +150,6 @@
   .previdenciar-app .chrome-actions { gap: 8px; }
   .previdenciar-app .chrome-actions .btn { min-width: 40px; padding: 8px; }
   .previdenciar-app .chrome-actions .btn[aria-label="Buscar no escritório"] > span { display: none; }
-  .amicro-overview { padding: 24px; border-radius: 12px; }
-  .amicro-overview-meta { font-size: 12px; }
-  .amicro-kicker { font-size: 12px; }
   .amicro-metric { padding: 16px; }
   .amicro-metric-label { font-size: 12px; gap: 6px; }
   .amicro-metric strong { font-size: 32px; }
@@ -243,16 +168,13 @@
 :root[data-amicro-motion="off"] .amicro-loader i { opacity: 1; transform: none; }
 @media (prefers-reduced-motion: reduce) {
   .amicro-loader i { animation: none !important; transform: none; }
-  .amicro-action-card, .amicro-overview, .amicro-metric { transform: none !important; }
+  .amicro-action-card, .amicro-metric { transform: none !important; }
 }
 @media (prefers-contrast: more) {
-  .amicro-overview, .amicro-metrics, .amicro-action-card { border-color: var(--fg); }
-  .amicro-overview { background: var(--surface); }
-  .amicro-orbit { display: none; }
+  .amicro-metrics, .amicro-action-card { border-color: var(--fg); }
 }
 @media (forced-colors: active) {
-  .amicro-overview, .amicro-metrics, .amicro-action-card, .amicro-nav-indicator { border-color: CanvasText; }
-  .amicro-orbit { display: none; }
+  .amicro-metrics, .amicro-action-card, .amicro-nav-indicator { border-color: CanvasText; }
 }
 
 :root[data-amicro-motion="on"] .previdenciar-app .toast { animation: amicro-toast-in 240ms var(--amicro-ease) both; }
@@ -297,5 +219,4 @@
 
 .pcd-section{border-top:1px solid var(--border);padding-top:20px;margin-top:20px}.pcd-setup .checkline{margin:16px 0}.pcd-setup .form-note{overflow-wrap:anywhere}
 
-.previdenciar-app .amicro-overview h2 { font-size: var(--fs-title) !important; line-height: 1.23 !important; letter-spacing: -.035em !important; }
 

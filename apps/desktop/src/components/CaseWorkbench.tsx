@@ -1167,8 +1167,7 @@ export function ResultView({ result }: { result: Json }) {
     <>
       {noEligibleRule && (
         <Notice>
-          Sem direito na DIB: nenhuma regra está cumprida nesta data. Veja abaixo quando cada regra pode ser cumprida, se as
-          contribuições continuarem.
+          Nenhuma regra está cumprida na DIB.
         </Notice>
       )}
       <div className="result-hero">
@@ -1196,7 +1195,7 @@ export function ResultView({ result }: { result: Json }) {
         </div>
       )}
       {projecao && projecao.length > 0 && (
-        <Panel title="Quando cada regra pode ser cumprida" subtitle={String(obj(envelope?.projecao_regras)?.premissa ?? '')}>
+        <Panel title="Datas possíveis por regra" subtitle={String(obj(envelope?.projecao_regras)?.premissa ?? '')}>
           <div className="table-wrap">
             <table className="data-table">
               <thead><tr><th>Regra</th><th>Possível aposentadoria em</th><th>RMI estimada</th></tr></thead>
@@ -1606,7 +1605,7 @@ function TransitionAudit({ transicoes }: { transicoes: JsonObj }) {
             <li key={index}>
               <strong>{txt(regra.nome)}</strong>
               {arr(regra.requisitos).length > 0 && <span> · {arr(regra.requisitos).map(txt).join('; ')}</span>}
-              {regra.faltas != null && <span> · Faltas: {JSON.stringify(regra.faltas)}</span>}
+              {regra.faltas != null && <span> · Faltam: {Object.entries(obj(regra.faltas) ?? {}).filter(([k, v]) => k.endsWith('Meses') && Number(v) > 0).map(([k, v]) => `${({ tempoMeses: 'tempo', idadeMeses: 'idade', pontosMeses: 'pontos', carenciaMeses: 'carência' } as Record<string, string>)[k] ?? k} ${v} meses`).join('; ') || 'nada'}</span>}
               {regra.observacao != null && <span> · {txt(regra.observacao)}</span>}
             </li>
           ))}
