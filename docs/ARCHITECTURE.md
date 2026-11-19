@@ -6,18 +6,29 @@
 - apps/desktop/src/api.ts: fronteira IPC Tauri; não é um backend HTTP público.
 - apps/desktop/src/model.ts: contratos do workspace, origem e preparação de dados.
 - apps/desktop/src-tauri: comandos assíncronos, validação de payload completo, IO controlado e diálogos locais.
-- crates/previus-cnis: extração/parsing de PDF textual e estruturas de origem.
-- crates/previus-workspace: modelo persistente, revisão concorrente e cifra DPAPI no Windows.
-- crates/previus-core: funções de domínio, datas e finanças experimentais.
+- crates/previdenciar-cnis: extração/parsing de PDF textual e estruturas de origem.
+- crates/previdenciar-workspace: modelo persistente (schema 3), contratos de evidência/leitura, revisão concorrente e cifra DPAPI no Windows.
+- crates/previdenciar-core: funções de domínio, datas e finanças experimentais.
 - crates/rgps-core: motor computacional observacional com limitações explícitas.
-- crates/previus-rgps: adaptador JSON, política explícita e guardas antes do motor.
-- crates/previus-reports: PDFs reais multipágina, privacidade e formatos específicos.
+- crates/previdenciar-rgps: adaptador JSON, política explícita e guardas antes do motor.
+- crates/previdenciar-reports: PDFs reais multipágina, privacidade e formatos específicos.
+- crates/previdenciar-ai: catálogo de provedores, adaptadores OpenAI-compatible/Anthropic, cofre DPAPI de chaves, loop de ferramentas e leitura somente leitura da base local do Copiloto.
+- apps/desktop/src-tauri/src/ai.rs: fronteira Tauri do Copiloto, busca/leitura direta da base de conhecimento, importação com extração de PDF, canal de streaming, cancelamento cooperativo e caminhos fixos do cofre e da base local.
+- apps/desktop/src/components/KnowledgePage.tsx e MinutaPage.tsx: consulta local em blocos e fluxo de roteiro/redação/revisão, respectivamente.
 
 ## Invariantes
 
 Valores monetários não devem depender de ponto flutuante arbitrário. Origem importada é preservada. Dados ausentes não viram zero. Respostas desconhecidas não são inferidas de outros campos. Resultado bloqueado não é uma RMI válida. O backend recompõe a hipótese para gerar PDF; JSON de resultado salvo não substitui cálculo e renderer.
 
-Alterações de dados invalidam o resultado. Gravação requer workspace completo e revisão correta. A leitura não autoriza sobrescrever um armazenamento inválido. Preview e exportação usam a mesma fronteira do renderer.
+Alterações de dados invalidam o resultado. A criação de um caso exige gravação explícita; uma entrevista assistida já salva tem autosave local com debounce para preservar a retomada. Gravação requer workspace completo e revisão correta. A leitura não autoriza sobrescrever um armazenamento inválido. Preview e exportação usam a mesma fronteira do renderer.
+
+A PBC é reconciliada em quatro camadas distintas: lançamentos lidos do CNIS, entrada revisada enviada ao motor, competências excluídas antes de 07/1994 ou abaixo do mínimo e competências efetivamente usadas. A tabela de cenários de corte é descritiva e não escolhe regra, coeficiente, fator, tempo ou carência.
+
+O Copiloto é uma fronteira separada do workspace. `previdenciar-ai` não recebe o workspace inteiro, não grava no `.pvr` e não calcula benefício; pode receber um resumo estrutural de caso somente quando ele é selecionado e marcado na interface. O envio ao provedor exige `consent=true` no pedido; o histórico é limitado e mantido só em memória. A chave fica em um cofre DPAPI fora do workspace. As ferramentas locais são somente leitura, aceitam apenas IDs de índice e recusam caminhos absolutos ou travessia. Conteúdo de documento é dado não confiável, não instrução de sistema.
+
+## Evidência e leitura
+
+`source_documents`, `readings` e `facts` guardam proveniência de documento, página e trecho. O cálculo só aceita leitura confirmada e fato inferido confirmado. Contratos e limites estão em [Contratos de evidência](DOMAIN_CONTRACTS.md).
 
 ## Compatibilidade
 

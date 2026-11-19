@@ -1,11 +1,13 @@
 pub mod atualizacao;
 pub mod calendar;
 pub mod carencia;
+pub mod conferencia;
 pub mod dados;
 pub mod engine;
 pub mod especie;
 pub mod fiscal;
 pub mod money;
+pub mod perfil_correcao;
 pub mod projecao;
 pub mod rmi;
 pub mod tempo;

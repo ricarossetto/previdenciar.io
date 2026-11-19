@@ -1,7 +1,7 @@
 //! Narrow user-selected file I/O. No shell, URL opener, network, or overwrites.
 use crate::backend::{validate_calculation, validate_workspace};
-use previus_cnis::ImportResult;
-use previus_workspace::{Calculation, Workspace, MAX_WORKSPACE_BYTES};
+use previdenciar_cnis::ImportResult;
+use previdenciar_workspace::{Calculation, Workspace, MAX_WORKSPACE_BYTES};
 use serde_json::{json, Value};
 use std::{fs::{self, OpenOptions}, io::{Read, Write}, path::{Component, Path}};
 
@@ -73,7 +73,27 @@ pub fn import_path(path: &Path) -> Result<ImportResult, String> {
     let meta = fs::symlink_metadata(path).map_err(|_| "Não foi possível inspecionar o PDF selecionado.".to_owned())?;
     check_metadata(&meta, false)?;
     if meta.len() > MAX_WORKSPACE_BYTES { return Err("PDF excede o limite de 64 MiB.".into()); }
-    let result = previus_cnis::import_pdf(path).map_err(|e| e.to_string())?;
+    let result = match previdenciar_cnis::import_pdf(path) {
+        Ok(ok) => ok,
+        Err(previdenciar_cnis::ImportError::NoExtractableText)
+        | Err(previdenciar_cnis::ImportError::NotCnis) => {
+            let extracted = previdenciar_ai::extract_case_pdf(path)
+                .map_err(|e| e.to_string())?;
+            let mut parsed = previdenciar_cnis::import_text(&extracted.text)
+                .map_err(|e| e.to_string())?;
+            if extracted.used_ocr {
+                parsed.warnings.push(previdenciar_cnis::Finding {
+                    code: "cnis_ocr_fallback".into(),
+                    severity: previdenciar_cnis::Severity::Warning,
+                    message: "Extrato CNIS lido via OCR automático; confira os números antes de protocolar.".into(),
+                    count: 1,
+                    source: None,
+                });
+            }
+            parsed
+        }
+        Err(e) => return Err(e.to_string()),
+    };
     let check = Calculation { cnis: Some(result.clone()), ..Default::default() };
     validate_calculation(&check)?;
     Ok(result)
@@ -102,21 +122,22 @@ pub fn write_new(path: &Path, extension: &str, bytes: &[u8]) -> Result<String, S
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ReportFormat { Html, Csv, Json, Pdf(previus_reports::ReportKind) }
+pub enum ReportFormat { Html, Csv, Json, Pdf(previdenciar_reports::ReportKind) }
 impl ReportFormat {
     pub fn parse(value: &str) -> Result<Self, String> {
         match value {
             "html" => Ok(Self::Html), "csv" => Ok(Self::Csv), "json" => Ok(Self::Json),
-                "pdf" | "pdf_detailed" => Ok(Self::Pdf(previus_reports::ReportKind::Detailed)),
-                "pdf_summary" => Ok(Self::Pdf(previus_reports::ReportKind::Summary)),
-                "pdf_periods" => Ok(Self::Pdf(previus_reports::ReportKind::Periods)),
-                "pdf_salaries" => Ok(Self::Pdf(previus_reports::ReportKind::Salaries)),
-                "pdf_memory" => Ok(Self::Pdf(previus_reports::ReportKind::Memory)),
-                "pdf_transitions" => Ok(Self::Pdf(previus_reports::ReportKind::Transitions)),
-                "pdf_indicators" => Ok(Self::Pdf(previus_reports::ReportKind::Indicators)),
-                "pdf_quality" => Ok(Self::Pdf(previus_reports::ReportKind::Quality)),
-                "pdf_analysis" => Ok(Self::Pdf(previus_reports::ReportKind::Analysis)),
-                "pdf_roi" => Ok(Self::Pdf(previus_reports::ReportKind::Roi)),
+                "pdf" | "pdf_detailed" => Ok(Self::Pdf(previdenciar_reports::ReportKind::Detailed)),
+                "pdf_summary" => Ok(Self::Pdf(previdenciar_reports::ReportKind::Summary)),
+                "pdf_periods" => Ok(Self::Pdf(previdenciar_reports::ReportKind::Periods)),
+                "pdf_salaries" => Ok(Self::Pdf(previdenciar_reports::ReportKind::Salaries)),
+                "pdf_memory" => Ok(Self::Pdf(previdenciar_reports::ReportKind::Memory)),
+                "pdf_transitions" => Ok(Self::Pdf(previdenciar_reports::ReportKind::Transitions)),
+                "pdf_indicators" => Ok(Self::Pdf(previdenciar_reports::ReportKind::Indicators)),
+                "pdf_quality" => Ok(Self::Pdf(previdenciar_reports::ReportKind::Quality)),
+                "pdf_analysis" => Ok(Self::Pdf(previdenciar_reports::ReportKind::Analysis)),
+                "pdf_roi" => Ok(Self::Pdf(previdenciar_reports::ReportKind::Roi)),
+                "pdf_regras" => Ok(Self::Pdf(previdenciar_reports::ReportKind::Regras)),
             _ => Err("Formato não suportado. Use um relatório PDF conhecido, HTML, CSV ou JSON.".into()),
         }
     }
@@ -134,7 +155,7 @@ pub fn summary_json(calculation: &Calculation) -> Value {
         "benefits": cnis.benefits.len(), "warnings": cnis.warnings.len(),
         "pages": cnis.metadata.page_count,
     }));
-    json!({ "schema": "previus-next-summary/v1", "legal_validation_performed": false,
+    json!({ "schema": "previdenciar-next-summary/v1", "legal_validation_performed": false,
         "currency_policy": "currency_units_unverified", "cnis_counts": counts,
         "manual_link_count": calculation.manual_links.len(), "manual_salary_count": calculation.manual_salaries.len(),
         "warnings": ["Resumo técnico de importação, não concessão de benefício nem validação jurídica.",
@@ -182,7 +203,7 @@ fn private_case(calculation: &Calculation) -> Calculation {
 /// never accepts arbitrary stored JSON as a benefit.
 fn reviewed_outcome(calculation: &Calculation) -> Value {
     match crate::backend::validate_assistant_for_calculation(calculation) {
-        Ok(()) => match previus_rgps::calculate_case(calculation) {
+        Ok(()) => match previdenciar_rgps::calculate_case(calculation) {
             Ok(value) => value,
             Err(_) => serde_json::json!({"status":"blocked","data":null,"legal_validation_performed":false,
                 "warnings":["Não foi possível recalcular a hipótese; nenhum resultado armazenado foi aceito."],
@@ -193,14 +214,15 @@ fn reviewed_outcome(calculation: &Calculation) -> Value {
             "blockers":[{"code":"assistant_review_pending","message":message}]}),
     }
 }
-fn render_pdf_kind(calculation: &Calculation, workspace: &Workspace, kind: previus_reports::ReportKind,
-    include_personal: bool, outcome: &Value, presentation: previus_reports::Presentation) -> Result<Vec<u8>, String> {
-    // Novo motor Typst para os tipos já migrados; demais seguem no genpdf.
-    let bytes = if kind.has_typst_template() {
-        previus_reports::render_report(calculation, kind.slug(), Some(outcome), workspace, include_personal)?
+fn render_pdf_kind(calculation: &Calculation, workspace: &Workspace, kind: previdenciar_reports::ReportKind,
+    include_personal: bool, outcome: &Value, presentation: previdenciar_reports::Presentation) -> Result<Vec<u8>, String> {
+    // PcD LC 142 usa o renderizador dedicado em genpdf; todos os 11 tipos RGPS usam Typst.
+    let is_pcd_lc142 = outcome.pointer("/data/native_result/engine_id").and_then(Value::as_str) == Some("lc142-constant-grade-v1");
+    let bytes = if kind.has_typst_template() && !is_pcd_lc142 {
+        previdenciar_reports::render_report(calculation, kind.slug(), Some(outcome), workspace, include_personal)?
     } else {
-        previus_reports::render_pdf(calculation, workspace,
-            previus_reports::ReportOptions { kind, include_personal, presentation }, Some(outcome))?
+        previdenciar_reports::render_pdf(calculation, workspace,
+            previdenciar_reports::ReportOptions { kind, include_personal, presentation }, Some(outcome))?
     };
     if bytes.len() as u64 > MAX_WORKSPACE_BYTES { return Err("PDF excede o limite de 64 MiB.".into()); }
     Ok(bytes)
@@ -215,8 +237,8 @@ pub struct PresentationRequest {
     pub include_planning: Option<bool>,
 }
 impl PresentationRequest {
-    pub fn to_presentation(self) -> previus_reports::Presentation {
-        previus_reports::Presentation {
+    pub fn to_presentation(self) -> previdenciar_reports::Presentation {
+        previdenciar_reports::Presentation {
             include_appendix: self.include_appendix.unwrap_or(true),
             include_quality: self.include_quality.unwrap_or(true),
             include_planning: self.include_planning.unwrap_or(true),
@@ -240,7 +262,7 @@ fn render_report_with(calculation: &Calculation, workspace: &Workspace, format: 
         ReportFormat::Html => {
             let redacted;
             let case = if include_personal { calculation } else { redacted = private_case(calculation); &redacted };
-            let mut html = previus_workspace::report_html(case, workspace, include_personal);
+            let mut html = previdenciar_workspace::report_html(case, workspace, include_personal);
             if include_personal {
                 // Recompute from reviewed inputs; never trust arbitrary stored result JSON.
                 // This explicit identified report is not the private counts-only summary.
@@ -250,12 +272,12 @@ fn render_report_with(calculation: &Calculation, workspace: &Workspace, format: 
             html
         },
         ReportFormat::Csv => {
-            if include_personal { previus_workspace::export_salary_csv(calculation) }
+            if include_personal { previdenciar_workspace::export_salary_csv(calculation) }
             else {
                 // Source indicator/manual strings can contain arbitrary user text.
                 // Private CSV keeps only constrained numeric/date cells and fixed labels.
                 let redacted = private_case(calculation);
-                previus_workspace::export_salary_csv(&redacted)
+                previdenciar_workspace::export_salary_csv(&redacted)
             }
         }
         ReportFormat::Json => serde_json::to_string_pretty(&summary_json(calculation)).map_err(|_| "Falha ao gerar resumo.".to_owned())?,
@@ -308,7 +330,7 @@ pub fn dialog_export_with(calculation: Calculation, workspace: Workspace, format
     presentation: PresentationRequest) -> Result<Option<String>, String> {
     let format = ReportFormat::parse(&format)?;
     let bytes = render_report_with(&calculation, &workspace, format, include_personal, presentation)?;
-    let filename = format!("previus-relatorio.{}", format.extension());
+    let filename = format!("previdenciar-relatorio.{}", format.extension());
     let selected = rfd::FileDialog::new().set_title("Exportar para NOVO arquivo (não sobrescreve)")
         .add_filter(format.label(), &[format.extension()]).set_file_name(filename).save_file();
     selected.map(|path| write_new(&path, format.extension(), &bytes)).transpose()
@@ -316,17 +338,18 @@ pub fn dialog_export_with(calculation: Calculation, workspace: Workspace, format
 /// Fixed reading order for the seven report families supported by this app.
 /// The original exported one file per family; names are deterministic so a
 /// folder can be reviewed without guessing which PDF is which.
-const BATCH_REPORTS: [(&str, previus_reports::ReportKind, &str); 10] = [
-    ("pdf_detailed", previus_reports::ReportKind::Detailed, "previus-01-relatorio-completo.pdf"),
-    ("pdf_summary", previus_reports::ReportKind::Summary, "previus-02-resumo.pdf"),
-    ("pdf_periods", previus_reports::ReportKind::Periods, "previus-03-tempo-de-contribuicao.pdf"),
-    ("pdf_salaries", previus_reports::ReportKind::Salaries, "previus-04-remuneracoes.pdf"),
-    ("pdf_memory", previus_reports::ReportKind::Memory, "previus-05-memoria-rmi.pdf"),
-    ("pdf_transitions", previus_reports::ReportKind::Transitions, "previus-06-transicoes.pdf"),
-    ("pdf_indicators", previus_reports::ReportKind::Indicators, "previus-07-pendencias.pdf"),
-    ("pdf_quality", previus_reports::ReportKind::Quality, "previus-08-qualidade-de-segurado.pdf"),
-    ("pdf_analysis", previus_reports::ReportKind::Analysis, "previus-09-analise-situacao-atual.pdf"),
-    ("pdf_roi", previus_reports::ReportKind::Roi, "previus-10-retorno-investimento.pdf"),
+const BATCH_REPORTS: [(&str, previdenciar_reports::ReportKind, &str); 11] = [
+    ("pdf_detailed", previdenciar_reports::ReportKind::Detailed, "previdenciar-01-relatorio-completo.pdf"),
+    ("pdf_summary", previdenciar_reports::ReportKind::Summary, "previdenciar-02-resumo.pdf"),
+    ("pdf_periods", previdenciar_reports::ReportKind::Periods, "previdenciar-03-tempo-de-contribuicao.pdf"),
+    ("pdf_salaries", previdenciar_reports::ReportKind::Salaries, "previdenciar-04-remuneracoes.pdf"),
+    ("pdf_memory", previdenciar_reports::ReportKind::Memory, "previdenciar-05-memoria-rmi.pdf"),
+    ("pdf_transitions", previdenciar_reports::ReportKind::Transitions, "previdenciar-06-transicoes.pdf"),
+    ("pdf_indicators", previdenciar_reports::ReportKind::Indicators, "previdenciar-07-pendencias.pdf"),
+    ("pdf_quality", previdenciar_reports::ReportKind::Quality, "previdenciar-08-qualidade-de-segurado.pdf"),
+    ("pdf_analysis", previdenciar_reports::ReportKind::Analysis, "previdenciar-09-analise-situacao-atual.pdf"),
+    ("pdf_roi", previdenciar_reports::ReportKind::Roi, "previdenciar-10-retorno-investimento.pdf"),
+    ("pdf_regras", previdenciar_reports::ReportKind::Regras, "previdenciar-11-regras-ec103.pdf"),
 ];
 
 #[derive(serde::Serialize)]
@@ -340,11 +363,11 @@ fn checked_directory(path: &Path) -> Result<(), String> {
     validate_local_path(path)?;
     check_ancestors(path, false)
 }
-pub fn batch_export_formats(formats: &[String]) -> Result<Vec<(&'static str, previus_reports::ReportKind, &'static str)>, String> {
+pub fn batch_export_formats(formats: &[String]) -> Result<Vec<(&'static str, previdenciar_reports::ReportKind, &'static str)>, String> {
     if formats.is_empty() { return Err("Selecione ao menos um relatório para exportar em lote.".into()); }
     for value in formats {
         if !BATCH_REPORTS.iter().any(|(id, _, _)| id == value) {
-            return Err("Formato não suportado no lote. Use somente os oito relatórios PDF próprios.".into());
+            return Err("Formato não suportado no lote. Use somente os onze relatórios PDF próprios.".into());
         }
     }
     let selected = BATCH_REPORTS.into_iter().filter(|(id, _, _)| formats.iter().any(|value| value.as_str() == *id)).collect::<Vec<_>>();
@@ -353,11 +376,11 @@ pub fn batch_export_formats(formats: &[String]) -> Result<Vec<(&'static str, pre
 }
 #[cfg(test)]
 fn write_batch_to(directory: &Path, calculation: &Calculation, workspace: &Workspace,
-    selected: &[(&'static str, previus_reports::ReportKind, &'static str)], include_personal: bool) -> Result<BatchExport, String> {
+    selected: &[(&'static str, previdenciar_reports::ReportKind, &'static str)], include_personal: bool) -> Result<BatchExport, String> {
     write_batch_to_with(directory, calculation, workspace, selected, include_personal, PresentationRequest::default())
 }
 fn write_batch_to_with(directory: &Path, calculation: &Calculation, workspace: &Workspace,
-    selected: &[(&'static str, previus_reports::ReportKind, &'static str)], include_personal: bool,
+    selected: &[(&'static str, previdenciar_reports::ReportKind, &'static str)], include_personal: bool,
     presentation: PresentationRequest) -> Result<BatchExport, String> {
     checked_directory(directory)?;
     validate_workspace(workspace)?; validate_calculation(calculation)?;
@@ -414,11 +437,11 @@ pub fn dialog_merge_pdfs() -> Result<Option<String>, String> {
             .map_err(|e| format!("Falha ao ler {}: {e}", path.display()))?;
         parts.push(bytes);
     }
-    let merged = previus_reports::merge_pdfs(&parts)?;
+    let merged = previdenciar_reports::merge_pdfs(&parts)?;
     let output = rfd::FileDialog::new()
         .set_title("Salvar PDF mesclado em NOVO arquivo")
         .add_filter("PDF", &["pdf"])
-        .set_file_name("previus-mesclado.pdf")
+        .set_file_name("previdenciar-mesclado.pdf")
         .save_file();
     let Some(output) = output else { return Ok(None) };
     write_new(&output, "pdf", &merged)?;
@@ -427,19 +450,19 @@ pub fn dialog_merge_pdfs() -> Result<Option<String>, String> {
 pub fn dialog_document(text: String) -> Result<Option<String>, String> {
     if text.len() as u64 > MAX_WORKSPACE_BYTES { return Err("Documento excede o limite de 64 MiB.".into()); }
     let selected = rfd::FileDialog::new().set_title("Salvar documento em NOVO arquivo TXT")
-        .add_filter("Texto UTF-8", &["txt"]).set_file_name("previus-documento.txt").save_file();
+        .add_filter("Texto UTF-8", &["txt"]).set_file_name("previdenciar-documento.txt").save_file();
     selected.map(|path| write_new(&path, "txt", text.as_bytes())).transpose()
 }
 pub fn dialog_backup(bytes: Vec<u8>) -> Result<Option<String>, String> {
     let selected = rfd::FileDialog::new().set_title("Exportar backup cifrado: somente novo arquivo")
-        .add_filter("Backup cifrado PVRS2", &["pvr"]).set_file_name("previus-backup.pvr").save_file();
+        .add_filter("Backup cifrado PVRS2", &["pvr"]).set_file_name("previdenciar-backup.pvr").save_file();
     selected.map(|path| write_new(&path, "pvr", &bytes)).transpose()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use previus_workspace::ManualSalary;
+    use previdenciar_workspace::ManualSalary;
     use std::{path::PathBuf, sync::atomic::{AtomicU64, Ordering}};
     static SEQUENCE: AtomicU64 = AtomicU64::new(0);
     struct TestDir(PathBuf);
@@ -619,7 +642,7 @@ mod tests {
 
 fn html_escape_value(s:&str)->String{s.replace('&',"&amp;").replace('<',"&lt;").replace('>',"&gt;").replace('"',"&quot;").replace('\'',"&#39;")}
 fn recomputed_rgps_report(case:&Calculation)->String{
-    let outcome=match previus_rgps::calculate_case(case){Ok(v)=>v,Err(_)=>return "<h2>Simulação técnica</h2><p>Não foi possível recalcular a hipótese. Nenhuma RMI armazenada foi aceita como resultado verificado.</p>".into()};
+    let outcome=match previdenciar_rgps::calculate_case(case){Ok(v)=>v,Err(_)=>return "<h2>Simulação técnica</h2><p>Não foi possível recalcular a hipótese. Nenhuma RMI armazenada foi aceita como resultado verificado.</p>".into()};
     if outcome["status"]!="experimental"{return "<h2>Simulação técnica bloqueada</h2><p>Parâmetros ou origem não revisados. Nenhum valor financeiro foi gerado neste relatório.</p>".into()}
     let Some(summary)=outcome.pointer("/data/native_result/resumo")else{return "<p>O motor não retornou um resumo de cálculo completo.</p>".into()};
     let mut html=String::from("<h2>Simulação técnica recalculada em Rust</h2><p class=\"warning\">EXPERIMENTAL: resultado do motor próprio com parâmetros explícitos. Não certifica legislação, enquadramento ou concessão. Conferência profissional obrigatória.</p><table><tr><th>Grandeza</th><th>Valor do motor</th></tr>");
@@ -633,7 +656,7 @@ fn recomputed_rgps_report(case:&Calculation)->String{
 #[cfg(test)]mod recomputed_report_tests{
     use super::*;
     #[test]fn reviewed_report_recomputes_native_result_and_ignores_stored_json(){
-        let mut case:Calculation=serde_json::from_str(include_str!("../../../../crates/previus-rgps/tests/fixtures/calculation-synthetic.json")).unwrap();
+        let mut case:Calculation=serde_json::from_str(include_str!("../../../../crates/previdenciar-rgps/tests/fixtures/calculation-synthetic.json")).unwrap();
         case.result=Some(serde_json::json!({"rmi":"<script>privateFake()</script>"}));
         let html=recomputed_rgps_report(&case);assert!(html.contains("1600.00"));assert!(html.contains("EXPERIMENTAL"));assert!(!html.contains("privateFake"));
     }
@@ -644,13 +667,13 @@ fn recomputed_rgps_report(case:&Calculation)->String{
 
 #[cfg(test)]mod native_pdf_backend_tests{
  use super::*;
- #[test]fn binary_pdf_formats_are_exact_known_variants(){for input in["pdf","pdf_detailed","pdf_summary","pdf_periods","pdf_salaries","pdf_memory","pdf_transitions","pdf_indicators","pdf_quality","pdf_analysis","pdf_roi"]{let format=ReportFormat::parse(input).unwrap();assert_eq!(format.extension(),"pdf");assert!(format.label().contains("PDF"));}assert!(ReportFormat::parse("pdf_unrecognized").is_err());}
+ #[test]fn binary_pdf_formats_are_exact_known_variants(){for input in["pdf","pdf_detailed","pdf_summary","pdf_periods","pdf_salaries","pdf_memory","pdf_transitions","pdf_indicators","pdf_quality","pdf_analysis","pdf_roi","pdf_regras"]{let format=ReportFormat::parse(input).unwrap();assert_eq!(format.extension(),"pdf");assert!(format.label().contains("PDF"));}assert!(ReportFormat::parse("pdf_unrecognized").is_err());}
  #[test]fn incomplete_assistant_can_generate_conferencia_not_a_fake_financial_result(){
-  let c=Calculation{kind:"RGPS".into(),assistant:Some(previus_workspace::AssistantInterview{mode:"assisted".into(),..Default::default()}),result:Some(json!({"rmi":"999999.00"})),..Default::default()};
+  let c=Calculation{kind:"RGPS".into(),assistant:Some(previdenciar_workspace::AssistantInterview{mode:"assisted".into(),..Default::default()}),result:Some(json!({"rmi":"999999.00"})),..Default::default()};
   let original=serde_json::to_vec(&c).unwrap();let bytes=render_report(&c,&Workspace::default(),ReportFormat::parse("pdf").unwrap(),false).unwrap();assert!(bytes.starts_with(b"%PDF-"));assert!(bytes.len()>500);assert_eq!(original,serde_json::to_vec(&c).unwrap());
  }
  #[test]fn reviewed_synthetic_case_generates_real_binary_memory_pdf(){
-  let c:Calculation=serde_json::from_str(include_str!("../../../../crates/previus-rgps/tests/fixtures/calculation-synthetic.json")).unwrap();let bytes=render_report(&c,&Workspace::default(),ReportFormat::parse("pdf_memory").unwrap(),false).unwrap();assert!(bytes.starts_with(b"%PDF-"));assert!(bytes.len()>500);
+  let c:Calculation=serde_json::from_str(include_str!("../../../../crates/previdenciar-rgps/tests/fixtures/calculation-synthetic.json")).unwrap();let bytes=render_report(&c,&Workspace::default(),ReportFormat::parse("pdf_memory").unwrap(),false).unwrap();assert!(bytes.starts_with(b"%PDF-"));assert!(bytes.len()>500);
  }
 }
 

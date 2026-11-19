@@ -1,3 +1,4 @@
+import type { Documento, Fato, Leitura } from './domain/contracts';
 export type Json = null|boolean|number|string|Json[]|{[key:string]:Json};
 export interface Identity {full_name:string|null;cpf:string|null;nit:string|null;birth_date:string|null;mother_name:string|null}
 export interface Cnis {metadata:{page_count:number;source_sha256:string|null;extractor:string};identity:Identity;salary_entries:SalaryEntry[];salary_months:Record<string,{count:number;amount_sum_centavos:number;contains_unresolved_prpps:boolean}>;links:CnisLink[];benefits:{sequence:number;species:number|null;status:string}[];warnings:{code:string;message:string;count:number}[];findings:unknown[]}
@@ -14,22 +15,23 @@ export interface AssistantInterview{mode:string;current_benefit_received:boolean
 export interface ContributionRecord{key:string;source_indices:number[];competence:string;amount:string;currency:string;link_sequence:number|null;indicators:string;confirmed:boolean;excluded:boolean;evidence:string;amount_kind?:'remuneration'|'contribution_column_unresolved'|'consolidated_annual_value'}
 export interface ContributionChange{sequence:number;action:string;reason:string;at:string;before:ContributionRecord[];after:ContributionRecord[]}
 export interface ContributionReview{version:number;source_sha256:string|null;records:ContributionRecord[];history:ContributionChange[];applied:boolean}
-export interface Calculation{contribution_review:ContributionReview|null;assistant:AssistantInterview|null;fabrica:Json|null;id:number;name:string;client_id:number|null;kind:string;status:string;identity:Identity;cnis:Cnis|null;sex:string|null;disability:string|null;dib:string;scenario:string;especie:string|null;manual_links:ManualLink[];manual_salaries:ManualSalary[];options:CalcOptions;result:Json;notes:string;archived:boolean}
+export interface Calculation{contribution_review:ContributionReview|null;assistant:AssistantInterview|null;fabrica:Json|null;id:number;name:string;client_id:number|null;kind:string;status:string;identity:Identity;cnis:Cnis|null;sex:string|null;disability:string|null;dib:string;scenario:string;especie:string|null;manual_links:ManualLink[];manual_salaries:ManualSalary[];options:CalcOptions;result:Json;reading_ids:string[];fact_ids:string[];notes:string;archived:boolean}
 export interface ReferenceTable{id:number;name:string;unit:string;periodicity:string;entries:{period:string;value:string;note:string}[];provenance:string;verified:boolean}
 export interface Template{id:number;name:string;category:string;body:string}
 export interface Appointment{id:number;title:string;date:string;time:string;client_id:number|null;notes:string;completed:boolean}
-export interface Workspace{schema_version:number;revision:number;next_id:number;clients:Client[];calculations:Calculation[];reference_tables:ReferenceTable[];documents:Template[];appointments:Appointment[];settings:{office_name:string;report_footer:string;light_theme:boolean;logo_data_url:string;fabrica_api_key:string}}
+export interface Workspace{schema_version:number;revision:number;next_id:number;clients:Client[];calculations:Calculation[];reference_tables:ReferenceTable[];documents:Template[];appointments:Appointment[];source_documents:Documento[];readings:Leitura[];facts:Fato[];settings:{office_name:string;report_footer:string;light_theme:boolean;logo_data_url:string;fabrica_api_key:string}}
 export interface Boot{workspace:Workspace;storage_ready:boolean;message:string|null}
 export interface BatchExportFile{format:string;path:string}
 export interface BatchExportFailure{format:string;message:string}
 export interface BatchExport{directory:string;files:BatchExportFile[];errors:BatchExportFailure[]}
 export const emptyIdentity=():Identity=>({full_name:null,cpf:null,nit:null,birth_date:null,mother_name:null});
-export function blankWorkspace():Workspace{return{schema_version:2,revision:0,next_id:1,clients:[],calculations:[],reference_tables:[],documents:[],appointments:[],settings:{office_name:'',report_footer:'',light_theme:false,logo_data_url:'',fabrica_api_key:''}}}
+export function blankWorkspace():Workspace{return{schema_version:3,revision:0,next_id:1,clients:[],calculations:[],reference_tables:[],documents:[],appointments:[],source_documents:[],readings:[],facts:[],settings:{office_name:'',report_footer:'',light_theme:false,logo_data_url:'',fabrica_api_key:''}}}
 export function invalidateRmiAssumptions(c:Calculation):Calculation{try{const policy=JSON.parse(c.options.rule_policy);if(policy.lc142?.assumptions_confirmed)return {...c,options:{...c.options,rule_policy:JSON.stringify({...policy,lc142:{...policy.lc142,assumptions_confirmed:false}})}}}catch{/* Legacy incomplete policies remain drafts, never inferred approval. */}return c}
 export const blankClient=():Client=>({id:0,name:'',cpf:'',email:'',phone:'',birth_date:'',sex:null,notes:'',archived:false});
 export function localDate():string{const d=new Date();return [String(d.getDate()).padStart(2,'0'),String(d.getMonth()+1).padStart(2,'0'),d.getFullYear()].join('/')}
-export const blankCase=():Calculation=>({contribution_review:null,assistant:null,fabrica:null,id:0,name:'',client_id:null,kind:'RGPS',status:'Rascunho',identity:emptyIdentity(),cnis:null,sex:null,disability:null,dib:localDate(),scenario:'Simulação de novo benefício',especie:'42',manual_links:[],manual_salaries:[],options:{correction_index:'',interest_rate:'',interest_kind:'',fees_percent:'',fees_fixed:'',prescription_date:'',reference_base:'',include_thirteenth:false,rule_policy:'',report_title:''},result:null,notes:'',archived:false});
+export const blankCase=():Calculation=>({contribution_review:null,assistant:null,fabrica:null,id:0,name:'',client_id:null,kind:'RGPS',status:'Rascunho',identity:emptyIdentity(),cnis:null,sex:null,disability:null,dib:localDate(),scenario:'Simulação de novo benefício',especie:'42',manual_links:[],manual_salaries:[],options:{correction_index:'',interest_rate:'',interest_kind:'',fees_percent:'',fees_fixed:'',prescription_date:'',reference_base:'',include_thirteenth:false,rule_policy:'',report_title:''},result:null,reading_ids:[],fact_ids:[],notes:'',archived:false});
 export function allocate(w:Workspace):number{const ids=[...w.clients,...w.calculations,...w.reference_tables,...w.documents,...w.appointments,...w.calculations.flatMap(c=>[...c.manual_links,...c.manual_salaries])].map(x=>x.id);return Math.max(w.next_id,1,...ids.map(x=>x+1))}
+export function allocateStringId(w:Workspace,prefix:string):string{const id=allocate(w);w.next_id=id+1;return prefix+"-"+id}
 export function putEntity<T extends {id:number}>(items:T[],value:T):T[]{return items.some(x=>x.id===value.id)?items.map(x=>x.id===value.id?value:x):[...items,value]}
 export function isoDate(s:string):string|null{const m=/^(\d{2})\/(\d{2})\/(\d{4})$/.exec(s);const i=/^(\d{4})-(\d{2})-(\d{2})$/.exec(s);if(!m&&!i)return null;const y=Number(m?m[3]:i![1]),mo=Number(m?m[2]:i![2]),d=Number(m?m[1]:i![3]);if(y<1||y>9999)return null;const dt=new Date(0);dt.setUTCFullYear(y,mo-1,d);if(dt.getUTCFullYear()!==y||dt.getUTCMonth()!==mo-1||dt.getUTCDate()!==d)return null;return [y,String(mo).padStart(2,'0'),String(d).padStart(2,'0')].join('-')}
 export function brDate(s:string|null):string{if(!s)return 'Não informado';const p=/^(\d{4})-(\d{2})-(\d{2})$/.exec(s);return p?[p[3],p[2],p[1]].join('/'):s}
@@ -50,7 +52,7 @@ export function centavosMoney(value:number):string{
   const v=BigInt(value),absolute=v<0n?-v:v;
   return money((v<0n?'-':'')+(absolute/100n).toString()+'.'+(absolute%100n).toString().padStart(2,'0'));
 }
-export function blockers(c:Calculation):string[]{const out:string[]=[];if(!c.identity.full_name?.trim())out.push('Nome do segurado');if(!c.identity.birth_date||!isoDate(c.identity.birth_date))out.push('Nascimento válido');if(!['Feminino','Masculino'].includes(c.sex??''))out.push('Sexo cadastral confirmado');if(!c.disability||c.disability==='A apurar')out.push('Condição de deficiência confirmada');if(!isoDate(c.dib))out.push('DIB válida');if(c.cnis?.links.some(l=>l.prpps))out.push('Períodos PRPPS exigem conferência de regime e CTC');if(c.cnis?.links.some(l=>!l.end_date))out.push('Datas finais ausentes na origem');return out}
+export function blockers(c:Calculation):string[]{const out:string[]=[];if(!c.identity.full_name?.trim())out.push('Nome do segurado');if(!c.identity.birth_date||!isoDate(c.identity.birth_date))out.push('Nascimento válido');if(!['Feminino','Masculino'].includes(c.sex??''))out.push('Sexo cadastral');if(!c.disability||c.disability==='A apurar')out.push('Condição de deficiência');if(!isoDate(c.dib))out.push('DIB válida');if(c.cnis?.links.some(l=>l.prpps))out.push('Períodos PRPPS exigem conferência de regime e CTC');if(c.cnis?.links.some(l=>!l.end_date))out.push('Datas finais ausentes na origem');return out}
 export const KINDS=['RGPS','RPPS','Precatórios / RPV','Restituição de IRRF','Atualização de valores','Acúmulo de pensão','Descontos indevidos'];
 export const SCENARIOS=['Simulação de novo benefício','Revisão e valor da causa','Liquidação de sentença','Planejamento futuro','Melhor benefício no período','Contribuições em atraso'];
 /// Espécies INSS com motor próprio hoje. As demais existem no INSS, mas sem
@@ -63,6 +65,38 @@ export function normalizeCaseForEngine(c:Calculation):Calculation{const x=struct
 
 export function prepareCaseForSave(w:Workspace,c:Calculation):Calculation{let next=allocate(w);const saved=structuredClone(c);if(!saved.id)saved.id=next++;saved.manual_links=saved.manual_links.map(l=>({employer:l.employer,start_date:l.start_date,end_date:l.end_date,regime:l.regime,indicators:l.indicators,confirmed:l.confirmed,source_review:l.source_review??null,id:l.id||next++}));saved.manual_salaries=saved.manual_salaries.map(s=>({...s,id:s.id||next++}));return saved}
 
+function competenceMonth(value:string|null|undefined):string|null{
+  const iso=isoDate(value??'');
+  return iso?iso.slice(0,7):null;
+}
+function previousCompetence(key:string):string{
+  const [year,month]=key.split('-').map(Number);
+  return month===1?String(year-1).padStart(4,'0')+'-12':String(year)+'-'+String(month-1).padStart(2,'0');
+}
+function endOfMonth(key:string):string{
+  const [year,month]=key.split('-').map(Number);
+  return new Date(Date.UTC(year,month,0)).toISOString().slice(0,10);
+}
+function sourceLinkEnd(c:Cnis,link:CnisLink):string|null{
+  const explicit=isoDate(link.end_date??'');
+  if(explicit)return explicit;
+  const inferred=isoDate(link.inferred_last_salary_end?.date_candidate??'');
+  if(inferred&&link.inferred_last_salary_end?.requires_confirmation!==true)return inferred;
+  const last=(c.salary_entries??[]).filter(entry=>entry.link_sequence===link.sequence).map(entry=>entry.competence).sort().at(-1);
+  return last?endOfMonth(last):null;
+}
+function sourceLinkRegime(link:CnisLink):string{
+  if(link.prpps)return 'RPPS';
+  const affiliation=(link.affiliation??'').trim().toLowerCase();
+  if(!affiliation||['servidor','rural','rpps','prpps'].some(term=>affiliation.includes(term)))return 'A confirmar';
+  return 'RGPS';
+}
+function sourceLinkIndicators(link:CnisLink):string{
+  const indicators=[...link.indicators];
+  if(link.prpps&&!indicators.includes('PRPPS'))indicators.push('PRPPS');
+  return indicators.join(', ');
+}
+
 export function prepareImportedLinksForReview(c:Calculation):ManualLink[]{
   const current:ManualLink[]=c.manual_links.map(x=>({...x,source_review:x.source_review??null}));
   for(const l of c.cnis?.links??[]){
@@ -74,10 +108,78 @@ export function prepareImportedLinksForReview(c:Calculation):ManualLink[]{
   }
   return current;
 }
+/** Aplica o recorte efetivo do PBC sobre os vinculos preparados: PRPPS,
+ * vinculos sem data e trechos iniciados apos a DIB ficam fora da hipotese.
+ * Vinculos ja editados pelo operador nao sao reescritos. */
+export function prepareEffectiveLinksForReview(c:Calculation):ManualLink[]{
+  const cnis=c.cnis;
+  const prepared=prepareImportedLinksForReview(c);
+  if(!cnis)return prepared;
+  const dib=isoDate(c.dib);
+  return prepared.map(link=>{
+    const review=link.source_review;
+    if(!review||review.history.length>0||link.confirmed)return link;
+    const source=cnis.links.find(candidate=>candidate.sequence===review.sequence);
+    if(!source)return link;
+    const start=isoDate(source.start_date??'');
+    const sourceEnd=sourceLinkEnd(cnis,source);
+    const afterDib=Boolean(start&&dib&&start>dib);
+    const end=source.prpps||afterDib?sourceEnd:sourceEnd&&dib&&sourceEnd>dib?dib:sourceEnd;
+    const excluded=Boolean(source.prpps||!start||!end||afterDib);
+    const regime=sourceLinkRegime(source);
+    const indicators=sourceLinkIndicators(source);
+    const employer=source.raw_employer??'';
+    const before={employer,start_date:source.start_date??'',end_date:source.end_date??'',regime:source.prpps?'RPPS':'A confirmar',indicators,confirmed:false,excluded:false};
+    const after={employer,start_date:start??'',end_date:end??'',regime,indicators,confirmed:false,excluded};
+    const reason=excluded
+      ? 'Preparação efetiva a partir do CNIS: vínculo fora da hipótese RGPS (PRPPS, sem data ou iniciado após a DIB); a origem permanece íntegra e a conferência documental está pendente.'
+      : 'Preparação efetiva a partir do CNIS: período limitado à DIB; a origem permanece íntegra e a conferência documental está pendente.';
+    return {...link,start_date:start??'',end_date:end??'',regime,indicators,source_review:{...review,excluded,history:[{at:new Date().toISOString(),reason,before,after}]}};
+  });
+}
 export function prepareImportedWagesForReview(c:Calculation):ManualSalary[]{const current=c.manual_salaries.map(x=>({...x}));for(const[k,m]of Object.entries(c.cnis?.salary_months??{})){if(k<'1994-07'||current.some(x=>x.competence===k))continue;if(!Number.isSafeInteger(m.amount_sum_centavos))throw new Error('Valor nominal fora da precisão segura da interface. Nenhuma preparação parcial foi aceita.');const indicators=[...new Set((c.cnis?.salary_entries??[]).filter(x=>x.competence===k).flatMap(x=>x.indicators))];if(m.count>1)indicators.push('concomitancia_a_revisar');if(m.contains_unresolved_prpps&&!indicators.includes('PRPPS'))indicators.push('PRPPS');current.push({id:0,competence:k,amount:(BigInt(m.amount_sum_centavos)/100n).toString()+','+(BigInt(m.amount_sum_centavos)%100n).toString().padStart(2,'0'),indicators:indicators.join(', '),confirmed:false})}return current}
+/** Prepara somente remuneracoes RGPS dentro do PBC e cobertas por vinculo
+ * elegivel. Competencia sem lancamento ou posterior a DIB continua apenas na
+ * fonte e nunca vira zero. */
+export function prepareEffectiveWagesForReview(c:Calculation,links?:readonly ManualLink[]):ManualSalary[]{
+  const current=c.manual_salaries.map(x=>({...x}));
+  const cnis=c.cnis;
+  if(!cnis)return current;
+  const dib=isoDate(c.dib);
+  const dibMonth=dib?dib.slice(0,7):null;
+  const pbcEnd=dibMonth?previousCompetence(dibMonth):null;
+  const prpps=new Set(cnis.links.filter(link=>link.prpps).map(link=>link.sequence));
+  const effectiveLinks=links??prepareEffectiveLinksForReview(c);
+  const ranges=effectiveLinks.filter(link=>!link.source_review?.excluded).flatMap(link=>{
+    const start=competenceMonth(link.start_date);
+    const end=competenceMonth(link.end_date);
+    return start&&end?[{start,end}]:[];
+  });
+  for(const competence of Object.keys(cnis.salary_months??{})){
+    if(competence<'1994-07'||current.some(x=>x.competence===competence))continue;
+    if(pbcEnd&&competence>pbcEnd)continue;
+    if(!ranges.some(range=>competence>=range.start&&competence<=range.end))continue;
+    const used=(cnis.salary_entries??[]).filter(entry=>entry.competence===competence&&!(entry.link_sequence!==null&&prpps.has(entry.link_sequence))&&(entry.amount_kind===undefined||entry.amount_kind==='remuneration'));
+    if(!used.length)continue;
+    let total=0;
+    for(const entry of used){
+      if(!Number.isSafeInteger(entry.amount_centavos)||!Number.isSafeInteger(total+entry.amount_centavos))throw new Error('Valor nominal fora da precisão segura da interface. Nenhuma preparação parcial foi aceita.');
+      total+=entry.amount_centavos;
+    }
+    const indicators=[...new Set(used.flatMap(entry=>entry.indicators))];
+    if(used.length>1&&!indicators.includes('concomitancia_a_revisar'))indicators.push('concomitancia_a_revisar');
+    current.push({id:0,competence,amount:(BigInt(total)/100n).toString()+','+(BigInt(total)%100n).toString().padStart(2,'0'),indicators:indicators.join(', '),confirmed:false});
+  }
+  return current;
+}
+export function cnisSourceAudit(c:Cnis){const entries=c.salary_entries;return{pre1994:entries.filter(e=>e.competence<'1994-07').length,unassigned:entries.filter(e=>e.link_sequence===null).length,zero:entries.filter(e=>e.amount_centavos===0).length,benefits:c.benefits.length,months:Object.keys(c.salary_months).length}}
 
 export const blankInterview=():AssistantInterview=>({mode:'assisted',current_benefit_received:null,import_requested:null,process_kind:null,goal:null,review_confirmed:false,completed_steps:[]});
 export function interviewOf(c:Calculation):AssistantInterview{return c.assistant?.mode==='assisted'?structuredClone(c.assistant):blankInterview()}
 export function withInterviewAnswer(c:Calculation,answer:Partial<AssistantInterview>,completed?:string):Calculation{const a={...interviewOf(c),...answer};if(Object.keys(answer).some(k=>['mode','current_benefit_received','import_requested','process_kind','goal'].includes(k))&&!Object.prototype.hasOwnProperty.call(answer,'review_confirmed'))a.review_confirmed=false;if(completed&&!a.completed_steps.includes(completed))a.completed_steps=[...a.completed_steps,completed];return {...c,assistant:a,result:null}}
 export function robotParameterIssues(c:Calculation):string[]{const out:string[]=[];if(!c.identity.full_name?.trim())out.push('Nome do segurado');if(!c.identity.birth_date||!isoDate(c.identity.birth_date))out.push('Nascimento válido');if(!['Feminino','Masculino'].includes(c.sex??''))out.push('Sexo cadastral confirmado');if(!c.disability||c.disability==='A apurar')out.push('Condição de deficiência confirmada');if(!ESPECIES.includes(c.especie??'42'))out.push('Espécie do benefício');if(!isoDate(c.dib))out.push('DIB válida');return out}
+export type ParameterKey='name'|'birth'|'dib'|'sex'|'disability';
+export const PARAMETER_KEYS:ParameterKey[]=['name','birth','dib','sex','disability'];
+export function parameterComplete(c:Calculation,key:ParameterKey):boolean{switch(key){case'name':return Boolean(c.identity.full_name?.trim());case'birth':return Boolean(c.identity.birth_date&&isoDate(c.identity.birth_date));case'dib':return Boolean(isoDate(c.dib));case'sex':return ['Feminino','Masculino'].includes(c.sex??'');case'disability':return Boolean(c.disability&&c.disability!=='A apurar')}}
+export function missingParameterKeys(c:Calculation):ParameterKey[]{return PARAMETER_KEYS.filter(key=>!parameterComplete(c,key))}
 export function hasFinancialResult(c:Calculation):boolean{return Boolean(c.result&&(c.result as Record<string,Json>).status!=='blocked'&&((c.result as Record<string,Json>).data??(c.result as Record<string,Json>).result))}

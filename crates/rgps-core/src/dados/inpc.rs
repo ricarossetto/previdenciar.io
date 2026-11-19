@@ -3,7 +3,7 @@
 // Não editar à mão: a fonte oficial e a data de extração ficam declaradas aqui.
 //
 // (competência, valor). Ordenado por competência.
-pub static INPC_MENSAL: [(&str, &str); 387] = [
+pub static INPC_MENSAL: [(&str, &str); 388] = [
     ("1994-07", "7.75"),
     ("1994-08", "1.85"),
     ("1994-09", "1.40"),
@@ -391,6 +391,7 @@ pub static INPC_MENSAL: [(&str, &str); 387] = [
     ("2026-07", "-0.01"),
     ("2026-08", "-0.32"),
     ("2026-09", "0.82"),
+    ("2026-10", "0.22"),
 ];
 
-pub const INPC_FONTE: &str = "INPC/IBGE: variação mensal (SGS/BCB, série 188), extraída em 2026-10-22.";
+pub const INPC_FONTE: &str = "INPC/IBGE — variação mensal (SGS/BCB, série 188), extraída em 2026-11-19.";

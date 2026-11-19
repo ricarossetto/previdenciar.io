@@ -12,7 +12,7 @@ beforeEach(()=>{invoke.mockReset();invoke.mockImplementation(async(cmd:string,ar
 
 async function toConference(){
   render(<App/>);await screen.findByRole('heading',{name:'Início'});const u=userEvent.setup();
-  await u.click(screen.getByRole('button',{name:'Cálculos do RGPS',exact:true}));
+  await u.click(screen.getByRole('button',{name:'Meus cálculos',exact:true}));
   await u.click(screen.getByRole('button',{name:'Novo cálculo',exact:true}));
   await u.click(screen.getByRole('button',{name:'Usar o assistente de cálculos',exact:true}));
   await u.type(screen.getByLabelText('Nome do cálculo'),'Simulação Sintética do Assistente');
@@ -24,9 +24,10 @@ async function toConference(){
   await u.click(screen.getByRole('button',{name:/Simular um novo benefício/}));
   await u.click(screen.getByRole('button',{name:/Calcular um novo benefício/}));
   await u.selectOptions(screen.getByLabelText('Sexo cadastral do segurado'),'Feminino');
+  await u.click(screen.getByRole('button',{name:/Confirmar e avançar/}));
   await u.selectOptions(screen.getByLabelText('Deficiência na DIB'),'Grave');
   expect(screen.getByText(/Cenário PcD/)).toBeInTheDocument();
-  await u.click(screen.getByRole('button',{name:/Prosseguir para a conferência/}));
+  await u.click(screen.getByRole('button',{name:/Ir para a conferência/}));
   return u;
 }
 

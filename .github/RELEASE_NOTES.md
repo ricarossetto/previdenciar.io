@@ -1,3 +1,64 @@
+## previdenciar.io 0.16.3
+
+Identidade visual e README.
+
+### O que mudou
+
+- A marca quadrada virou o ícone do aplicativo e a aba; a logo horizontal entrou
+  no menu lateral, no cabeçalho móvel e na abertura.
+- O README ganhou a identidade, badges, tabelas de recursos e espécies, captura
+  da tela inicial e uma lista honesta de limites.
+- O item de menu virou **Assistente guiado**; antes o texto quebrava em duas
+  linhas.
+
+### Validação
+
+- Interface compilada; testes de interface e navegador executados.
+- Nenhum dado de cliente, CNIS ou chave no repositório.
+
+
+## previdenciar.io 0.16.2
+
+Rodada 46/57 no binário 0.16.1.
+
+### O que mudou
+
+- Os campos de tempo especial (46) e magistério (57) abrem por padrão, com
+  título próprio, em vez de ficarem escondidos em "Ajustar manualmente".
+- Se a identidade revisada divergir do CNIS (por exemplo, data de nascimento
+  corrigida), existe uma confirmação explícita; antes o cálculo bloqueava sem
+  saída.
+- O resultado do editor passou a ter a prévia e a exportação do PDF; antes só
+  apareciam na página Relatórios.
+- Mensagem de bloqueio de módulo corrigida.
+
+### Validação
+
+- Caso 46 com CNIS sintético: R$ 6.835,73, direito adquirido, requisitos
+  declarados e carência de 332 meses.
+- 64 testes da ponte + 5 de contribuições; interface compilada.
+
+
+## previdenciar.io 0.16.1
+
+Correções do teste de menu com advogado idoso.
+
+### O que mudou
+
+- O resultado do assistente agora tem **Novo cálculo**; ele não fica preso ao
+  último caso.
+- A navegação fala a língua do escritório: **Meus cálculos**, **Assistente
+  (passo a passo)**, **Editor avançado**, **Ferramentas** e **Cobertura e
+  validação**.
+- A cobertura foi atualizada para as seis espécies; 46/57 usam tempo
+  especial/magistério declarados e as demais continuam bloqueadas com motivo.
+- Tema, botões, inputs, textos e rolagem do menu lateral foram normalizados.
+
+### Validação
+
+- 509 testes Rust, 120 de interface e 36 de navegador.
+- Nenhum CNIS, nome, CPF, PDF ou chave no repositório/pacote.
+
 ## previdenciar.io 0.16.0
 
 As seis aposentadorias do RGPS agora têm motor: 42, 41, 32, 31, 46 e 57.

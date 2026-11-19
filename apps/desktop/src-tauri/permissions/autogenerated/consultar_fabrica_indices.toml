@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-consultar-fabrica-indices"
+description = "Enables the consultar_fabrica_indices command without any pre-configured scope."
+commands.allow = ["consultar_fabrica_indices"]
+
+[[permission]]
+identifier = "deny-consultar-fabrica-indices"
+description = "Denies the consultar_fabrica_indices command without any pre-configured scope."
+commands.deny = ["consultar_fabrica_indices"]

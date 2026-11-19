@@ -1,14 +1,14 @@
 //! Public economic data only. A CNIS, identity or API key can never enter this request.
-use previus_rgps::pcd::{Limits, Rate, Snapshot};
+use previdenciar_rgps::pcd::{Limits, Rate, Snapshot};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::io::Read;
 const BASE: &str = "https://fabrica-de-calculos.app.trf3.jus.br/indices/api/v1/";
 fn decimal(v: &Value) -> Result<String, String> {
     match v {
-        Value::Number(n) => previus_rgps::pcd::canonical_snapshot_decimal(&n.to_string()),
+        Value::Number(n) => previdenciar_rgps::pcd::canonical_snapshot_decimal(&n.to_string()),
         Value::String(s) if !s.trim().is_empty() => {
-            previus_rgps::pcd::canonical_snapshot_decimal(&s.trim().replace(',', "."))
+            previdenciar_rgps::pcd::canonical_snapshot_decimal(&s.trim().replace(',', "."))
         }
         _ => Err("Índice/limite ausente no provedor; nenhum zero foi presumido.".into()),
     }

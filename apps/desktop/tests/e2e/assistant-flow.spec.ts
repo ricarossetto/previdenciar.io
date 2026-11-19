@@ -20,8 +20,8 @@ async function start(page:import('@playwright/test').Page){
 }
 async function openAssistant(page:import('@playwright/test').Page,width:number,testInfo:import('@playwright/test').TestInfo){
   await page.setViewportSize({width,height:900});await start(page);
-  if(width<1024){await page.getByRole('button',{name:'Todas as páginas',exact:true}).click();await page.getByRole('dialog').getByRole('button',{name:'Cálculos do RGPS',exact:true}).click();}
-  else await page.getByRole('button',{name:'Cálculos do RGPS',exact:true}).click();
+  if(width<1024){await page.getByRole('button',{name:'Todas as páginas',exact:true}).click();await page.getByRole('dialog').getByRole('button',{name:'Meus cálculos',exact:true}).click();}
+  else await page.getByRole('button',{name:'Meus cálculos',exact:true}).click();
   await page.getByRole('button',{name:'Abrir',exact:true}).click();
   await expect(page.getByText('O que entra no cálculo')).toBeVisible();
   await expect(page.getByText('Pronto para o motor')).toBeVisible();
@@ -44,7 +44,7 @@ test('report center exposes the seven-family batch without generating a fake pre
   await page.getByLabel('Selecionar cálculo').selectOption('1');
   await expect(page.getByText('Exportar vários relatórios')).toBeVisible();
   await page.getByRole('button',{name:'Selecionar todos'}).click();
-  await expect(page.getByRole('button',{name:'Exportar 8 PDF(s)'})).toBeEnabled();
+  await expect(page.getByRole('button',{name:'Exportar 11 PDF(s)'})).toBeEnabled();
   expect(await page.locator('body').evaluate(el=>el.scrollWidth<=innerWidth)).toBe(true);
 });
 test('report center offers an editable title and presentation choices',async({page},testInfo)=>{

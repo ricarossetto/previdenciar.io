@@ -1,43 +1,2159 @@
-import{PcdSetup}from'./PcdSetup';
-import{PrepareFromCnis}from'./PrepareFromCnis';
-import{SourceLinksEditor}from'./SourceLinksEditor';
-import{beginContributionReview}from'../contributions';
-import{ContributionEditor}from'./ContributionEditor';
-import{useState,useRef,useEffect}from'react';import type{Calculation,Cnis,Workspace,ManualSalary,ContributionRecord,Json}from'../model';import{invalidateRmiAssumptions,blockers,KINDS,SCENARIOS,ESPECIES,brDate,isoDate,money,centavosMoney,prepareImportedWagesForReview,interviewOf}from'../model';import{api,errorMessage}from'../api';import{Badge,Button,Field,Icon,Notice,Panel,Select}from'./ui';
-import{FabricaCheck}from'./FabricaCheck';
-const STEPS=['Identificação','CNIS','Cenário','Vínculos','Salários','Parâmetros','Revisão','Resultado'];
-function warningLabel(code:string){const m:Record<string,string>={unresolved_prpps:'Períodos de regime próprio precisam de conferência de regime e CTC.',missing_end_date:'Datas finais ausentes na origem não foram transformadas em encerramento confirmado.',currency_units_unverified:'Valores históricos são nominais. A moeda da época não foi convertida para reais atuais.',nonadjacent_table_columns:'Linhas com colunas intercaladas precisam de revisão adicional.',benefit_not_employment:'Pedido de benefício foi separado dos vínculos. Indeferimento não é recebimento atual.',not_legal_validation:'Extração não valida enquadramento, direito ou concessão.',bounded_layout_support:'Somente as estruturas de CNIS reconhecidas são aceitas.'};return m[code]??'Conferência documental pendente.'}
-export function CaseWorkbench({draft,setDraft,workspace,onSave,onNotify,initialStep=0,embedded=false}:{draft:Calculation;setDraft:(c:Calculation)=>void;workspace:Workspace;onSave:(c:Calculation)=>Promise<void>;onNotify:(s:string,error?:boolean)=>void;initialStep?:number;embedded?:boolean}){const latestDraft=useRef(draft),generation=useRef(0);latestDraft.current=draft;useEffect(()=>()=>{generation.current+=1},[]);const[step,setStep]=useState(initialStep),[sourceRequest,setSourceRequest]=useState<{month:string;id:number}|null>(null),[busy,setBusy]=useState(false),[pending,setPending]=useState<Cnis|null>(null),[filter,setFilter]=useState(''),[calculationBusy,setCalculationBusy]=useState(false);const patch=(p:Partial<Calculation>)=>{let value={...draft,...p};if(Object.keys(p).some(k=>!['result','status','assistant'].includes(k))){value.result=null;if(!p.options||p.options.rule_policy===draft.options.rule_policy)value=invalidateRmiAssumptions(value);if(value.assistant?.mode==='assisted')value.assistant={...value.assistant,review_confirmed:false}}setDraft(value)};const options=(key:keyof Calculation['options'],v:string|boolean)=>patch({options:{...draft.options,[key]:v}});
-const assistant=draft.assistant??interviewOf(draft);const reviewConfirmed=Boolean(assistant.review_confirmed);const interviewComplete=assistant.current_benefit_received!==null&&Boolean(assistant.process_kind)&&Boolean(assistant.goal);const isPcd=['Grave','Moderada','Leve'].includes(draft.disability??'');
-function openSourceMonth(month:string){try{setDraft(beginContributionReview(draft));setSourceRequest({month,id:(sourceRequest?.id??0)+1})}catch(error){onNotify(errorMessage(error),true)}}
-async function pick(){setBusy(true);try{const data=await api.pickCnis();if(data)setPending(data)}catch(e){onNotify(errorMessage(e),true)}finally{setBusy(false)}}
-function apply(){if(draft.contribution_review||draft.manual_links.some(link=>link.source_review)){onNotify('Preserve o livro existente: duplique a hipótese ou crie outro cálculo para substituir o CNIS.',true);return}if(pending){patch({identity:{...pending.identity},cnis:pending,sex:null,disability:null,result:null,status:'Dados importados; confirmação pendente'});setPending(null);onNotify('CNIS aplicado somente ao rascunho. Sexo e deficiência aguardam confirmação.')}}
-async function calculate(){setCalculationBusy(true);const snapshot=draft,token=++generation.current;try{const result=await api.calculate(snapshot);if(token!==generation.current)return;if(latestDraft.current!==snapshot){onNotify('Hipótese alterada durante a execução; resultado antigo descartado. Execute novamente após revisar.',true);return}patch({result,status:(result as Record<string,Json>)?.status==='blocked'?'Execução bloqueada; dados pendentes':'Simulação técnica calculada'});onNotify((result as Record<string,Json>)?.status==='blocked'?'Execução bloqueada: confira as pendências identificadas.':'Motor executado. Confira a memória e as limitações antes de usar o resultado.',(result as Record<string,Json>)?.status==='blocked')}catch(e){if(token===generation.current)onNotify(errorMessage(e),true)}finally{if(token===generation.current)setCalculationBusy(false)}}
-const imported=draft.cnis,review=blockers(draft);
-const sourceMonthByIndex=new Map((imported?.salary_entries??[]).map(entry=>[entry.source.index,entry.competence]));
-const reviewedByMonth=new Map<string,ContributionRecord[]>();
-for(const record of draft.contribution_review?.records??[]){for(const month of new Set(record.source_indices.map(index=>sourceMonthByIndex.get(index)).filter((value):value is string=>Boolean(value)))){const rows=reviewedByMonth.get(month)??[];rows.push(record);reviewedByMonth.set(month,rows)}}
-const sourceRows=Object.entries(imported?.salary_months??{}).filter(([k])=>k.includes(filter));
-return <>{!embedded&&<div className="wizard-bar">{STEPS.map((s,i)=><button key={s} aria-label={(i+1)+'. '+s} className={'wizard-step '+(step===i?'active':i<step?'done':'')} onClick={()=>setStep(i)}><span>{i+1}.</span>{' '}{s}</button>)}</div>}
-{step===0&&<Panel title="Identificação do cálculo" subtitle="Um caso separado, com cliente e origem explícitos."><div className="form-grid" data-ui-stack><Field label="Nome do cálculo" required value={draft.name} onChange={name=>patch({name})} placeholder="Ex.: Simulação RGPS, revisão de dados"/><Select label="Módulo" value={draft.kind} onChange={kind=>patch({kind})} items={KINDS}/><label className="field"><span>Cliente vinculado</span><select className="input" value={draft.client_id??''} onChange={e=>patch({client_id:e.target.value?Number(e.target.value):null})}><option value="">Sem cliente vinculado</option>{workspace.clients.filter(c=>!c.archived).map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label><Field label="DIB / data de referência" required value={draft.dib} onChange={dib=>patch({dib,result:null})} placeholder="DD/MM/AAAA"/></div><p className="form-note">O cálculo é mantido na nova base local. O PDF e a instalação original do Previus não são alterados.</p></Panel>}
-{step===1&&<><Panel title="Importar CNIS" subtitle="Extração local em Rust; sem envio do documento para servidores."><div className="drop-area"><Icon name="upload" size={33}/><h3>Traga os dados de origem</h3><p>Selecione o extrato com remunerações. Confira as contagens e pendências antes de aplicar.</p><Button primary disabled={busy} onClick={()=>void pick()}>{busy?<><span className="spinner"/> Lendo PDF...</>:<><Icon name="plus" size={16}/>Selecionar CNIS PDF</>}</Button></div>{pending&&<><div className="import-summary"><div><strong>{pending.salary_entries.length}</strong><span>Lançamentos extraídos</span></div><div><strong>{Object.keys(pending.salary_months).length}</strong><span>Competências distintas</span></div><div><strong>{pending.links.length}</strong><span>Vínculos de origem</span></div></div><Notice>Os dados ainda não foram aplicados. Esta ação substitui a cópia de origem apenas neste rascunho, nunca o arquivo PDF.</Notice><div className="form-actions" data-ui-actions><Button onClick={()=>setPending(null)}>Descartar leitura</Button><Button primary onClick={apply}>Aplicar ao rascunho<Icon name="check" size={16}/></Button></div></>}</Panel>{imported&&<Panel title="Origem já aplicada" actions={<Badge tone="good">Leitura concluída</Badge>}><div className="import-summary"><div><strong>{imported.salary_entries.length}</strong><span>Lançamentos</span></div><div><strong>{Object.keys(imported.salary_months).length}</strong><span>Competências</span></div><div><strong>{imported.links.length}</strong><span>Vínculos</span></div></div><ul className="review-list">{imported.warnings.map(w=><li key={w.code}>{warningLabel(w.code)} {w.count>1&&<Badge tone="review">{w.count}</Badge>}</li>)}</ul></Panel>}</>}
-{step===2&&<Panel title="Segurado e cenário" subtitle="Nenhum parâmetro cadastral é inferido pelo nome."><div className="form-grid" data-ui-stack><Field required label="Nome do segurado" value={draft.identity.full_name??''} onChange={v=>patch({identity:{...draft.identity,full_name:v}})}/><Field label="CPF" value={draft.identity.cpf??''} onChange={v=>patch({identity:{...draft.identity,cpf:v}})}/><Field required label="Nascimento" value={brDate(draft.identity.birth_date)==='Não informado'?'':brDate(draft.identity.birth_date)} onChange={v=>patch({identity:{...draft.identity,birth_date:isoDate(v)??v},result:null})} placeholder="DD/MM/AAAA"/><Field label="NIT" value={draft.identity.nit??''} onChange={v=>patch({identity:{...draft.identity,nit:v}})}/><Select label="Sexo cadastral confirmado" value={draft.sex??''} onChange={sex=>patch({sex:sex||null,result:null})} items={['','Feminino','Masculino','A confirmar']}/><Select label="Condição de deficiência" value={draft.disability??''} onChange={disability=>patch({disability:disability||null,result:null})} items={['','Sem deficiência declarada','Leve','Moderada','Grave','A apurar']}/><Select label="Finalidade" value={draft.scenario} onChange={scenario=>patch({scenario,result:null})} items={SCENARIOS}/><Select label="Espécie do benefício" value={draft.especie??'42'} onChange={especie=>patch({especie:especie||'42',result:null})} items={ESPECIES}/><Field label="Data de referência" value={draft.dib} onChange={dib=>patch({dib,result:null})} placeholder="DD/MM/AAAA"/></div><p className="form-note">Parâmetros confirmados definem a hipótese. O extrato limita a atualidade dos vínculos e não comprova condições posteriores à emissão. Espécies 31 e 32: a incapacidade é declarada pelo operador; o motor calcula a renda, não a perícia.</p></Panel>}
-{step===3&&<SourceLinksEditor draft={draft} setDraft={setDraft} onNotify={onNotify}/>}
-{step===4&&<><Panel title="Competências e remunerações" subtitle="Clique na competência, no valor ou na linha para editar os lançamentos. Somas nominais sem conversão automática."><div className="toolbar"><div className="searchbox"><Icon name="search" size={16}/><input aria-label="Filtrar competências" placeholder="Filtrar AAAA-MM" value={filter} onChange={e=>setFilter(e.target.value)}/></div><span className="count">{sourceRows.length} competências</span></div><div className="table-wrap" style={{maxHeight:430,marginTop:16}}><table className="data-table"><thead><tr><th>Competência</th><th className="num">Lançamentos</th><th className="num">Soma nominal</th><th>Situação</th></tr></thead><tbody>{sourceRows.map(([k,m])=><tr key={k} className="source-edit-row" onClick={()=>openSourceMonth(k)}><td><Button className="source-cell" aria-label={'Editar competência '+k} onClick={event=>{event.stopPropagation();openSourceMonth(k)}}><strong>{k}</strong></Button></td><td className="num">{m.count}</td><td className="num"><Button className="source-cell" aria-label={'Editar remunerações de '+k} onClick={event=>{event.stopPropagation();openSourceMonth(k)}}>{centavosMoney(m.amount_sum_centavos)}</Button>{draft.contribution_review&&<div className="secondary-line">Ajustes: {(reviewedByMonth.get(k)??[]).map(record=>record.excluded?'excluído':record.competence+' · '+money(record.amount)+' ('+record.currency+')').join('; ')||'Sem ajuste'}</div>}</td><td><Button className="source-cell" aria-label={'Revisar competência '+k} onClick={event=>{event.stopPropagation();openSourceMonth(k)}}><Badge tone={m.contains_unresolved_prpps?'review':'neutral'}>{m.contains_unresolved_prpps?'PRPPS pendente':'Conferência pendente'}</Badge></Button></td></tr>)}</tbody></table></div></Panel><ContributionEditor draft={draft} setDraft={setDraft} onNotify={onNotify} sourceRequest={sourceRequest}/>{!draft.contribution_review&&<Panel title="Salários e ajustes declarados" actions={<div className="head-actions" data-ui-actions>{imported&&<Button onClick={()=>{try{patch({manual_salaries:prepareImportedWagesForReview(draft),result:null});onNotify('Competências pós-07/1994 preparadas sem validação. Concomitâncias e indicadores continuam pendentes.')}catch(e){onNotify(errorMessage(e),true)}}}>Preparar PBC para revisão</Button>}<Button onClick={()=>patch({manual_salaries:[...draft.manual_salaries,{id:0,competence:'',amount:'',indicators:'',confirmed:false}]})}><Icon name="plus" size={16}/>Adicionar competência</Button></div>}><div className="table-wrap"><table className="data-table"><thead><tr><th>Competência AAAA-MM</th><th>Valor nominal</th><th>Indicadores</th><th>Conferido</th></tr></thead><tbody>{draft.manual_salaries.map((s,i)=><ManualWage key={i} value={s} onChange={x=>patch({manual_salaries:draft.manual_salaries.map((a,j)=>j===i?x:a),result:null})}/>)}</tbody></table></div></Panel>}</>}
-{step===5&&<Panel title={['Grave','Moderada','Leve'].includes(draft.disability??'')?'Cenário PcD (LC 142/2013)':'Opções da RMI'} subtitle={['Grave','Moderada','Leve'].includes(draft.disability??'')?'A simulação PcD usa premissas declaradas. Preencha o que está documentado e execute na etapa seguinte.':'Defina como os salários revisados serão usados. Uma aba com o nome de uma lei não muda o cálculo por si só.'}>{!isPcd&&<PrepareFromCnis draft={draft} onResult={(prepared)=>{setDraft(prepared);setStep(7)}} onNotify={onNotify}/>}{isPcd&&draft.manual_salaries.length>0&&(!draft.contribution_review||!draft.contribution_review.applied)&&<Notice tone="error">O PcD usa o livro de contribuições revisado ou os salários do CNIS importado. Os {draft.manual_salaries.length} salários manuais não são usados sem aplicar o livro. <Button onClick={()=>{try{if(!draft.contribution_review)setDraft(beginContributionReview(draft));setStep(4)}catch(error){onNotify(errorMessage(error),true)}}}>Abrir o livro de contribuições</Button><Button onClick={()=>setDraft({...draft,manual_salaries:[],contribution_review:null,result:null,assistant:{...assistant,review_confirmed:false}})}>Usar os salários do CNIS no PcD</Button></Notice>}
-  <p>A RMI é o valor mensal inicial da hipótese. Confira vínculos, salários e as opções abaixo; depois execute.</p>
-  <details className="details"><summary>Como o motor usa estes campos</summary><p>Correção atualiza o salário nominal pela série disponível. Descarte escolhe salários para a média; divisor mínimo e teto só entram quando aplicáveis e documentados. Sem correção, o resultado é uma comparação nominal, não uma memória pronta para protocolo. Juros, honorários e valor da causa ficam fora deste cálculo.</p></details>
-  <details className="details" open={!imported||['Grave','Moderada','Leve'].includes(draft.disability??'')}><summary>{['Grave','Moderada','Leve'].includes(draft.disability??'')?'Preencher as premissas do cenário PcD':'Ajustar manualmente a política e a correção'}</summary><div className="form-grid" data-ui-stack><Field label="Origem das séries / correção" value={draft.options.correction_index} onChange={v=>options('correction_index',v)} placeholder="Índice efetivamente usado; o motor local aceita INPC quando suportado"/></div>
-  {['Grave','Moderada','Leve'].includes(draft.disability??'')?<PcdSetup draft={draft} onChange={v=>options('rule_policy',v)}/>:<RgpsPolicy value={draft.options.rule_policy} onChange={v=>options('rule_policy',v)} hasSource={Boolean(draft.cnis)} especie={draft.especie}/>}</details>
-  {Boolean(draft.options.interest_rate||draft.options.interest_kind||draft.options.fees_percent||draft.options.fees_fixed||draft.options.prescription_date||draft.options.reference_base||draft.options.include_thirteenth)&&<details className="details"><summary>Há parâmetros financeiros antigos que não pertencem a esta RMI</summary><Notice>O motor recusa esses campos em vez de ignorá-los. Preserve uma cópia da hipótese se precisar deles para atualização, atrasados ou honorários.</Notice><pre className="result-json">{JSON.stringify({juros:draft.options.interest_rate,tipo:draft.options.interest_kind,honorariosPercentuais:draft.options.fees_percent,honorariosFixos:draft.options.fees_fixed,prescricao:draft.options.prescription_date,base:draft.options.reference_base,decimoTerceiro:draft.options.include_thirteenth},null,2)}</pre><Button onClick={()=>patch({options:{...draft.options,interest_rate:'',interest_kind:'',fees_percent:'',fees_fixed:'',prescription_date:'',reference_base:'',include_thirteenth:false}})}>Retirar parâmetros financeiros desta hipótese de RMI</Button></details>}
-  <details className="details"><summary>Qual motor e quais limites estão sendo usados?</summary><p>Motor local experimental: rgps-core-observational-v1. Não tem atualização normativa automática nem todos os benefícios. A revisão de cada registro e o enquadramento continuam necessários; nenhuma opção confirma regime ou CTC.</p></details>
-</Panel>}
-{step===6&&<div className="split-content"><Panel title="Resumo para revisão"><div className="form-grid" data-ui-stack><div><span className="secondary-line">Cálculo</span><p><strong>{draft.name||'Sem nome'}</strong></p></div><div><span className="secondary-line">Módulo / cenário</span><p>{draft.kind} · {draft.scenario}</p></div><div><span className="secondary-line">Segurado</span><p>{draft.identity.full_name??'Não informado'}</p></div><div><span className="secondary-line">DIB / parâmetros</span><p>{draft.dib} · {draft.sex??'Sexo pendente'} · {draft.disability??'Deficiência pendente'}</p></div></div><label className="checkline"><input type="checkbox" checked={reviewConfirmed} onChange={e=>setDraft({...draft,assistant:{...assistant,review_confirmed:e.target.checked}})}/>Confirmo a revisão dos dados e das premissas desta hipótese; entendo que o resultado é uma simulação e não certifica o direito.</label><label className="field"><span>Notas e documentação de conferência</span><textarea className="text-area" value={draft.notes} onChange={e=>patch({notes:e.target.value})}/></label><div className="form-actions" data-ui-actions><Button onClick={()=>void onSave(draft)}>Salvar revisão</Button><Button primary onClick={()=>setStep(7)}>Ir para resultado<Icon name="arrow" size={16}/></Button></div></Panel><Panel title="Pendências identificadas" subtitle="Nenhuma marcação é resolvida por suposição.">{review.length?<ul className="review-list">{review.map(x=><li key={x}>{x}</li>)}</ul>:<Notice tone="ok">Campos mínimos preenchidos. O enquadramento e a memória ainda precisam de conferência.</Notice>}</Panel></div>}
-{step===7&&<><Panel title="Executar a simulação técnica" subtitle="Entrada tipada → motor Rust → memória de cálculo e avisos." actions={<Badge tone={draft.result&&(draft.result as Record<string,Json>)?.status!=='blocked'?'good':'review'}>{draft.result?(draft.result as Record<string,Json>)?.status==='blocked'?'Bloqueado por revisão':'Resultado disponível':'Ainda não executado'}</Badge>}><p className="form-note">O motor não transforma pendências em dados válidos. Se faltarem parâmetros ou houver períodos não resolvidos, a execução retorna erro claro, não resultado fictício.</p>{!reviewConfirmed&&<Notice tone="error">Confirme a revisão na etapa <strong>Revisão</strong> antes de executar.</Notice>}{!interviewComplete&&<Notice tone="error">Este caso não tem a entrevista completa. Abra <strong>Assistente de cálculos</strong> no menu e responda benefício atual, tipo de processo e finalidade.</Notice>}<div className="head-actions" data-ui-actions><Button primary disabled={calculationBusy||(draft.assistant?.mode==='assisted'&&(!reviewConfirmed||!interviewComplete))} onClick={()=>void calculate()}>{calculationBusy?<><span className="spinner"/>Calculando...</>:<><Icon name="calc" size={16}/>Executar motor RGPS</>}</Button><Button onClick={()=>void onSave(draft)}>Salvar cálculo</Button>{!reviewConfirmed&&<Button onClick={()=>setStep(6)}>Ir para revisão</Button>}</div></Panel>{draft.result&&<><ResultView result={draft.result}/><FabricaCheck draft={draft} workspace={workspace} onChange={setDraft}/></>}</>}
-{!embedded&&<footer className="wizard-foot"><Button disabled={step===0} onClick={()=>setStep(step-1)}>Voltar</Button><div><Button onClick={()=>void onSave(draft)}>Salvar rascunho</Button>{step<7&&<Button primary onClick={()=>setStep(step+1)}>Próxima etapa<Icon name="arrow" size={16}/></Button>}</div></footer>}</>}
-function ManualWage({value,onChange}:{value:ManualSalary;onChange:(x:ManualSalary)=>void}){const p=(v:Partial<ManualSalary>)=>onChange({...value,...v});return <tr><td><input className="inline-input" aria-label="Competência manual" value={value.competence} onChange={e=>p({competence:e.target.value})}/></td><td><input className="inline-input" aria-label="Salário manual" value={value.amount} onChange={e=>p({amount:e.target.value})}/></td><td><input className="inline-input" aria-label="Indicadores manuais" value={value.indicators} onChange={e=>p({indicators:e.target.value})}/></td><td><input type="checkbox" aria-label="Salário conferido" checked={value.confirmed} onChange={e=>p({confirmed:e.target.checked})}/></td></tr>}
-export function ResultView({result}:{result:Json}){const r=result as Record<string,Json>;const envelope=(r?.data??r?.result??{}) as Record<string,Json>;const data=(envelope?.native_result??envelope)as Record<string,Json>;const summary=(data?.resumo??{}) as Record<string,Json>;const warnings=(r?.warnings??data?.avisos??[]) as Json[];const memory=(data?.memoria??[])as Record<string,Json>[];const especie=(data?.especie??null)as Record<string,Json>|null;const beneficio=(data?.beneficio??null)as Record<string,Json>|null;if(r?.status==='blocked'){const issues=(r.blockers??[])as Record<string,Json>[];return <Panel title="Execução bloqueada" subtitle="Nenhum resultado financeiro foi gerado. Confira os dados e sua origem."><ul className="review-list">{issues.map((b,i)=><li key={i}>{String(b.message??b.code??'Parâmetro pendente')}</li>)}</ul><details className="details"><summary>Trilha do bloqueio</summary><div className="mono">{JSON.stringify(result,null,2)}</div></details></Panel>}return <><div className="result-hero"><div><small>RMI da hipótese técnica</small><div className="main-number" data-ui-number>{summary.rmi!=null?'R$ '+money(String(summary.rmi)):'Resultado técnico'}</div></div><div><Badge tone="review">Revisão profissional necessária</Badge><p className="form-note">Saída do motor com parâmetros declarados, não certificação de direito ou concessão.</p></div></div>{especie&&<div className="result-strip"><div><span>Espécie</span><strong>{String(especie.nome??'')}</strong></div><div><span>Regra</span><strong>{String(especie.regra_nome??especie.regra_escolhida??'Requisitos não cumpridos')}</strong></div></div>}{summary.rmi!=null&&<div className="result-strip"><div><span>Salário de benefício</span><strong>R$ {money(String(summary.salario_beneficio??''))}</strong></div><div><span>Competências</span><strong>{String(summary.competencias??'Sem dado')}</strong></div><div><span>Coeficiente</span><strong>{summary.coeficiente!=null?String(summary.coeficiente)+(String(summary.coeficiente).includes('%')?'':'%'):'Sem dado'}</strong></div><div><span>Carência calculada</span><strong>{String(summary.carencia_meses??'Sem dado')} meses</strong></div></div>}{beneficio&&Array.isArray(beneficio.regras)&&<Panel title="Requisitos da espécie" subtitle="Cumprimento declarado; o motor não verifica perícia, PPP ou tempo especial."><div className="table-wrap"><table className="data-table"><thead><tr><th>Regra</th><th>Requisito</th><th>Exigido</th><th>Apurado</th><th>Status</th></tr></thead><tbody>{(beneficio.regras as Record<string,Json>[]).flatMap((regra,ri)=>((regra.requisitos??[]) as Record<string,Json>[]).map((req,i)=><tr key={ri+'-'+i}><td>{String(regra.nome??'')}</td><td>{String(req.descricao??'')}</td><td>{String(req.exigido??'')}</td><td>{String(req.apurado??'')}</td><td>{req.cumprido?'Cumprido':'Não cumprido'}{req.verificado_pelo_motor===false?' (declarado)':''}</td></tr>))}</tbody></table></div></Panel>}{warnings.length>0&&<Panel title="Avisos do motor"><ul className="review-list">{warnings.map((w,i)=><li key={i}>{typeof w==='string'?w:typeof w==='object'&&w?String((w as Record<string,Json>).message??JSON.stringify(w)):String(w)}</li>)}</ul></Panel>}{memory.length>0&&<Panel title="Memória de cálculo" subtitle="Etapas e valores informados pelo motor Rust."><div className="table-wrap"><table className="data-table"><thead><tr><th>Etapa</th><th>Descrição</th><th className="num">Valor</th></tr></thead><tbody>{memory.map((m,i)=><tr key={i}><td>{String(m.tipo??'')}</td><td>{String(m.descricao??'')}</td><td className="num">{String(m.valor??'')}</td></tr>)}</tbody></table></div></Panel>}<details className="details"><summary>Dados estruturados e trilha técnica</summary><div className="result-json mono">{JSON.stringify(result,null,2)}</div></details></>}
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { PcdSetup } from './PcdSetup';
+import { PrepareFromCnis } from './PrepareFromCnis';
+import { SourceLinksEditor } from './SourceLinksEditor';
+import { beginContributionReview } from '../contributions';
+import { ContributionEditor } from './ContributionEditor';
+import { groupEngineBlockers, calculationNotDone } from '../temporal';
+import { CnisTemporalView } from './CnisTemporalView';
+import type { Calculation, Cnis, Workspace, ManualSalary, ContributionRecord, Json } from '../model';
+import {
+  invalidateRmiAssumptions,
+  blockers,
+  KINDS,
+  SCENARIOS,
+  ESPECIES,
+  brDate,
+  isoDate,
+  money,
+  centavosMoney,
+  prepareEffectiveLinksForReview,
+  prepareEffectiveWagesForReview,
+  interviewOf,
+  hasFinancialResult,
+} from '../model';
+import { localRmi, type FabricaSummary } from '../fabrica';
+import { api, errorMessage } from '../api';
+import { Badge, Button, Field, Icon, Notice, Panel, Select } from './ui';
+import { FabricaCheck } from './FabricaCheck';
+import { ReportCenter } from './ReportCenter';
+import { LinkKindSelect } from './LinkKindSelect';
+import { CnisTimeline } from './CnisTimeline';
 
-interface Policy{version:string|null;review_evidence:string|null;manual_link_kind:string|null;manual_currency:string|null;native_options:{corrigirSalarios:boolean|null;descarte:boolean|null;divisorMinimo:boolean|null;aplicarTetoVigenteDer:boolean|null;referenciaCorrecao:string|null;expectativaSobrevida:string|null;regraAlvo:string|null;incapacidadeOrigem:string|null;grauEspecial:string|null;tempoEspecialMeses:number|null;especialAntesReforma:boolean|null;magisterioMeses:number|null;magisterioExclusivo:boolean|null;magisterioAntesReforma:boolean|null};exclude_imported_source:boolean;source_exclusion_evidence:string|null}
-function defaultPolicy():Policy{return{version:'rgps-core-observational-v1',review_evidence:null,manual_link_kind:null,manual_currency:null,native_options:{corrigirSalarios:false,descarte:false,divisorMinimo:false,aplicarTetoVigenteDer:false,referenciaCorrecao:null,expectativaSobrevida:null,regraAlvo:null,incapacidadeOrigem:null,grauEspecial:null,tempoEspecialMeses:null,especialAntesReforma:null,magisterioMeses:null,magisterioExclusivo:null,magisterioAntesReforma:null},exclude_imported_source:false,source_exclusion_evidence:null}}
-function RgpsPolicy({value,onChange,hasSource,especie}:{value:string;onChange:(s:string)=>void;hasSource:boolean;especie?:string|null}){let p:Policy;try{p={...defaultPolicy(),...JSON.parse(value)}}catch{p=defaultPolicy()}const patch=(a:Partial<Policy>)=>onChange(JSON.stringify({...p,...a}));const native=(a:Partial<Policy['native_options']>)=>patch({native_options:{...p.native_options,...a}});return <div style={{marginTop:24}}><h3 style={{fontSize:14}}>1. Dados conferidos</h3><p className="form-note">Informe a referência da conferência, a categoria e a moeda. Campos em branco mantêm a execução bloqueada.</p><div className="form-grid" data-ui-stack><Field required label="Referência documental da revisão" value={p.review_evidence??''} onChange={review_evidence=>patch({review_evidence:review_evidence||null})} placeholder="Referência técnica, sem dados pessoais"/><Select label="Categoria dos períodos declarados" value={p.manual_link_kind??''} onChange={manual_link_kind=>patch({manual_link_kind:manual_link_kind||null})} items={['','empregado','normal','individual','facultativo','rural','especial']}/><Select label="Moeda dos salários manuais pós-07/1994" value={p.manual_currency??''} onChange={manual_currency=>patch({manual_currency:manual_currency||null})} items={['','BRL']}/><Field label="Referência de correção AAAA-MM" value={p.native_options.referenciaCorrecao??''} onChange={referenciaCorrecao=>native({referenciaCorrecao:referenciaCorrecao||null})}/><Field label="Expectativa de sobrevida declarada" value={p.native_options.expectativaSobrevida??''} onChange={expectativaSobrevida=>native({expectativaSobrevida:expectativaSobrevida||null})}/><Field label="Regra-alvo declarada (opcional)" value={p.native_options.regraAlvo??''} onChange={regraAlvo=>native({regraAlvo:regraAlvo||null})}/><Select label="Origem da incapacidade (31/32)" hint="Acidente/doença ocupacional dá 100% na incapacidade permanente; a lista isenta carência." value={p.native_options.incapacidadeOrigem??''} onChange={incapacidadeOrigem=>native({incapacidadeOrigem:incapacidadeOrigem||null})} items={['','comum','acidente','doenca_ocupacional','doenca_do_trabalho','doenca_listada']}/></div><h3 style={{marginTop:20}}>2. Operações sobre os salários</h3><p className="form-note">Escolha correção, descarte e limites. Sem correção, o resultado é nominal, não uma memória pronta para protocolo.</p><div style={{display:'flex',flexDirection:'column',gap:8,marginTop:15}}>{[['corrigirSalarios','Aplicar correção com a série do motor e referência declarada'],['descarte','Comparar a média com o descarte dos menores salários (modelo local experimental)'],['divisorMinimo','Usar divisor mínimo do modelo local quando aplicável'],['aplicarTetoVigenteDer','Aplicar teto vigente da tabela do motor (exige cobertura da DIB)']].map(([key,label])=><label key={key} className="checkline"><input type="checkbox" checked={Boolean(p.native_options[key as keyof Policy['native_options']])} onChange={e=>native({[key]:e.target.checked})}/>{label}</label>)}</div>{hasSource&&<div style={{marginTop:16}}><Notice>O CNIS permanece não validado por registro. O adaptador atual só calcula períodos e salários manuais confirmados. Excluir a origem de uma hipótese exige decisão documental explícita, e não autoriza apagar o documento ou ignorar CTC.</Notice><label className="checkline" style={{marginTop:12}}><input type="checkbox" checked={p.exclude_imported_source} onChange={e=>patch({exclude_imported_source:e.target.checked})}/>Usar somente registros manuais neste cenário, mantendo a origem separada</label>{p.exclude_imported_source&&<div style={{marginTop:12}}><Field required label="Justificativa documental dessa exclusão" value={p.source_exclusion_evidence??''} onChange={source_exclusion_evidence=>patch({source_exclusion_evidence:source_exclusion_evidence||null})}/></div>}</div>}<p className="form-note">A seleção destas operações não é escolha automática da melhor regra. A comparação de regras e LC 142 deve vir de um motor validado para esse cenário; informação ausente continua pendente.</p>{especie==='46'&&<><h3 style={{marginTop:20}}>3. Tempo especial (46)</h3><p className="form-note">O PPP e o enquadramento são declarados; o motor não os verifica. O tempo abaixo é o de efetiva exposição, não o tempo comum.</p><div className="form-grid"><Select label="Grau/agente" value={p.native_options.grauEspecial??''} onChange={grauEspecial=>native({grauEspecial:grauEspecial||null})} items={['','15','20','25']}/><Field type="number" label="Tempo especial efetivo (meses)" value={String(p.native_options.tempoEspecialMeses??'')} onChange={v=>native({tempoEspecialMeses:v.trim()?Number(v):null})}/><label className="checkline"><input type="checkbox" checked={p.native_options.especialAntesReforma===true} onChange={e=>native({especialAntesReforma:e.target.checked})}/>Tempo especial completo até 13/11/2019 (direito adquirido)</label></div></>}{especie==='57'&&<><h3 style={{marginTop:20}}>3. Magistério (57)</h3><p className="form-note">O tempo de magistério e a exclusividade são declarados; o motor não verifica a prova. Sem magistério exclusivo, a regra do professor não se aplica.</p><div className="form-grid"><Field type="number" label="Tempo de efetivo magistério (meses)" value={String(p.native_options.magisterioMeses??'')} onChange={v=>native({magisterioMeses:v.trim()?Number(v):null})}/><label className="checkline"><input type="checkbox" checked={p.native_options.magisterioExclusivo===true} onChange={e=>native({magisterioExclusivo:e.target.checked})}/>Magistério exclusivo na educação infantil, fundamental ou médio</label><label className="checkline"><input type="checkbox" checked={p.native_options.magisterioAntesReforma===true} onChange={e=>native({magisterioAntesReforma:e.target.checked})}/>Tempo de magistério completo até 13/11/2019 (direito adquirido)</label></div></>}</div>}
+const STEPS = ['Identificação', 'CNIS', 'Cenário', 'Vínculos', 'Salários', 'Parâmetros', 'Revisão', 'Resultado'];
+
+function warningLabel(code: string) {
+  const m: Record<string, string> = {
+    unresolved_prpps: 'Períodos de regime próprio precisam de conferência de regime e CTC.',
+    missing_end_date: 'Datas finais ausentes na origem não foram transformadas em encerramento confirmado.',
+    currency_units_unverified: 'Valores históricos são nominais. A moeda da época não foi convertida para reais atuais.',
+    nonadjacent_table_columns: 'Linhas com colunas intercaladas precisam de revisão adicional.',
+    benefit_not_employment: 'Pedido de benefício foi separado dos vínculos. Indeferimento não é recebimento atual.',
+    not_legal_validation: 'Extração não valida enquadramento, direito ou concessão.',
+    bounded_layout_support: 'Somente as estruturas de CNIS reconhecidas são aceitas.',
+  };
+  return m[code] ?? 'Conferência documental pendente.';
+}
+
+function sourceRemuneration(imported: Cnis | null, competence: string): number | null | undefined {
+  if (!imported) return undefined;
+  const entries = imported.salary_entries.filter(entry => entry.competence === competence);
+  if (!entries.length) return undefined;
+  const paid = entries.filter(entry => entry.amount_kind === undefined || entry.amount_kind === 'remuneration');
+  if (!paid.length) return null;
+  let total = 0;
+  for (const entry of paid) {
+    if (!Number.isSafeInteger(entry.amount_centavos) || !Number.isSafeInteger(total + entry.amount_centavos)) return null;
+    total += entry.amount_centavos;
+  }
+  return total;
+}
+
+export function CaseWorkbench({
+  draft,
+  setDraft,
+  workspace,
+  onSave,
+  onNotify,
+  initialStep = 0,
+  embedded = false,
+}: {
+  draft: Calculation;
+  setDraft: (c: Calculation) => void;
+  workspace: Workspace;
+  onSave: (c: Calculation) => Promise<void>;
+  onNotify: (s: string, error?: boolean) => void;
+  initialStep?: number;
+  embedded?: boolean;
+}) {
+  const latestDraft = useRef(draft);
+  const generation = useRef(0);
+  latestDraft.current = draft;
+  useEffect(() => () => { generation.current += 1; }, []);
+
+  const [step, setStep] = useState(initialStep);
+  useEffect(() => {
+    setStep(initialStep);
+  }, [initialStep]);
+
+  const [sourceRequest, setSourceRequest] = useState<{ month: string; id: number } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [pending, setPending] = useState<Cnis | null>(null);
+  const [filter, setFilter] = useState('');
+  const [calculationBusy, setCalculationBusy] = useState(false);
+  const [fastTrackBusy, setFastTrackBusy] = useState(false);
+
+  const patch = (p: Partial<Calculation>) => {
+    let value = { ...draft, ...p };
+    if (Object.keys(p).some(k => !['result', 'status', 'assistant'].includes(k))) {
+      value.result = null;
+      if (!p.options || p.options.rule_policy === draft.options.rule_policy) value = invalidateRmiAssumptions(value);
+      if (value.assistant?.mode === 'assisted') value.assistant = { ...value.assistant, review_confirmed: false };
+    }
+    setDraft(value);
+  };
+
+  const options = (key: keyof Calculation['options'], v: string | boolean) =>
+    patch({ options: { ...draft.options, [key]: v } });
+
+  const assistant = draft.assistant ?? interviewOf(draft);
+  const reviewConfirmed = Boolean(assistant.review_confirmed);
+  const interviewComplete =
+    assistant.current_benefit_received !== null && Boolean(assistant.process_kind) && Boolean(assistant.goal);
+  const isPcd = ['Grave', 'Moderada', 'Leve'].includes(draft.disability ?? '');
+
+  function openSourceMonth(month: string) {
+    try {
+      setDraft(beginContributionReview(draft));
+      setSourceRequest({ month, id: (sourceRequest?.id ?? 0) + 1 });
+    } catch (error) {
+      onNotify(errorMessage(error), true);
+    }
+  }
+
+  async function pick() {
+    setBusy(true);
+    try {
+      const data = await api.pickCnis();
+      if (data) setPending(data);
+    } catch (e) {
+      onNotify(errorMessage(e), true);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function apply() {
+    if (draft.contribution_review || draft.manual_links.some(link => link.source_review)) {
+      onNotify('Preserve o livro existente: duplique a hipótese ou crie outro cálculo para substituir o CNIS.', true);
+      return;
+    }
+    if (pending) {
+      const autoName =
+        !draft.name.trim() && pending.identity.full_name?.trim()
+          ? `Simulação RGPS — ${pending.identity.full_name.trim()}`
+          : draft.name;
+      patch({
+        name: autoName,
+        identity: { ...pending.identity },
+        cnis: pending,
+        sex: draft.sex ?? null,
+        disability: draft.disability ?? 'Sem deficiência declarada',
+        result: null,
+        status: 'Dados importados; confirmação pendente',
+      });
+      setPending(null);
+      onNotify('CNIS aplicado ao cálculo. Selecione o sexo cadastral na faixa rápida acima para calcular em 1 clique.');
+    }
+  }
+
+  async function applyAndCalculateFast(selectedSex?: 'Feminino' | 'Masculino') {
+    if (!pending) return;
+    if (draft.contribution_review || draft.manual_links.some(link => link.source_review)) {
+      onNotify('Preserve o livro existente: duplique a hipótese ou crie outro cálculo para substituir o CNIS.', true);
+      return;
+    }
+    const autoName =
+      !draft.name.trim() && pending.identity.full_name?.trim()
+        ? `Simulação RGPS — ${pending.identity.full_name.trim()}`
+        : draft.name || 'Simulação RGPS';
+    const sexToUse = selectedSex ?? draft.sex ?? null;
+    const nextDraft: Calculation = {
+      ...draft,
+      name: autoName,
+      identity: { ...pending.identity },
+      cnis: pending,
+      sex: sexToUse,
+      disability: draft.disability || 'Sem deficiência declarada',
+      result: null,
+      status: 'Preparando e calculando...',
+    };
+    setPending(null);
+    setDraft(nextDraft);
+    latestDraft.current = nextDraft;
+    if (!sexToUse || !nextDraft.identity.birth_date) {
+      onNotify('CNIS aplicado. Informe sexo e data de nascimento na faixa rápida para calcular.');
+      return;
+    }
+    setFastTrackBusy(true);
+    const token = ++generation.current;
+    try {
+      const prepared = await api.prepareFromCnis(nextDraft, 'Conferência direta do extrato CNIS');
+      if (token !== generation.current) return;
+      const result = await api.calculate(prepared.calculation);
+      if (token !== generation.current) return;
+      const blocked = (result as Record<string, Json>)?.status === 'blocked';
+      setDraft({
+        ...prepared.calculation,
+        result,
+        status: blocked ? 'Execução bloqueada; dados pendentes' : 'Simulação do CNIS calculada; dados ainda não revisados',
+      });
+      setStep(7);
+      onNotify(
+        blocked
+          ? 'Hipótese preparada do CNIS, mas há pendências no resultado.'
+          : 'Cálculo feito com os dados do CNIS. Revise vínculos e salários antes de usar no parecer.',
+        blocked,
+      );
+    } catch (e) {
+      if (token === generation.current) onNotify(errorMessage(e), true);
+    } finally {
+      if (token === generation.current) setFastTrackBusy(false);
+    }
+  }
+
+  async function calculate() {
+    setCalculationBusy(true);
+    const snapshot = draft;
+    const token = ++generation.current;
+    try {
+      const result = await api.calculate(snapshot);
+      if (token !== generation.current) return;
+      if (latestDraft.current !== snapshot) {
+        onNotify(
+          'Hipótese alterada durante a execução; resultado antigo descartado. Execute novamente após revisar.',
+          true,
+        );
+        return;
+      }
+      const blocked = (result as Record<string, Json>)?.status === 'blocked';
+      patch({
+        result,
+        status: blocked ? 'Execução bloqueada; dados pendentes' : 'Simulação técnica calculada',
+      });
+      onNotify(
+        blocked
+          ? 'Execução bloqueada: confira as pendências identificadas.'
+          : 'Motor executado. Confira a memória e as limitações antes de usar o resultado.',
+        blocked,
+      );
+    } catch (e) {
+      if (token === generation.current) onNotify(errorMessage(e), true);
+    } finally {
+      if (token === generation.current) setCalculationBusy(false);
+    }
+  }
+
+  async function fastTrackPrepareAndCalculate() {
+    setFastTrackBusy(true);
+    const snapshot = draft;
+    const token = ++generation.current;
+    try {
+      const prepared = await api.prepareFromCnis(snapshot, 'Conferência direta do extrato CNIS');
+      if (token !== generation.current) return;
+      if (latestDraft.current !== snapshot) {
+        onNotify('Hipótese alterada durante a preparação; execute novamente após revisar.', true);
+        return;
+      }
+      const result = await api.calculate(prepared.calculation);
+      if (token !== generation.current) return;
+      if (latestDraft.current !== snapshot) {
+        onNotify('Hipótese alterada durante a execução; resultado antigo descartado.', true);
+        return;
+      }
+      const blocked = (result as Record<string, Json>)?.status === 'blocked';
+      setDraft({
+        ...prepared.calculation,
+        result,
+        status: blocked ? 'Execução bloqueada; dados pendentes' : 'Simulação técnica calculada',
+      });
+      setStep(7);
+      onNotify(
+        blocked
+          ? 'Hipótese preparada, mas o motor ainda bloqueia. Confira as pendências no resultado.'
+          : 'Hipótese preparada do CNIS e calculada. Confira a memória e a Fábrica TRF3.',
+        blocked,
+      );
+    } catch (e) {
+      if (token === generation.current) onNotify(errorMessage(e), true);
+    } finally {
+      if (token === generation.current) setFastTrackBusy(false);
+    }
+  }
+
+  function jumpToFabrica() {
+    setStep(7);
+    requestAnimationFrame(() => {
+      document.getElementById('fabrica-hub')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
+
+  const imported = draft.cnis;
+  const review = blockers(draft);
+  const sourceMonthByIndex = new Map((imported?.salary_entries ?? []).map(entry => [entry.source.index, entry.competence]));
+  const reviewedByMonth = new Map<string, ContributionRecord[]>();
+  for (const record of draft.contribution_review?.records ?? []) {
+    for (const month of new Set(
+      record.source_indices.map(index => sourceMonthByIndex.get(index)).filter((value): value is string => Boolean(value)),
+    )) {
+      const rows = reviewedByMonth.get(month) ?? [];
+      rows.push(record);
+      reviewedByMonth.set(month, rows);
+    }
+  }
+  const sourceRows = Object.entries(imported?.salary_months ?? {}).filter(([k]) => k.includes(filter));
+
+  const needsFastSex = !['Feminino', 'Masculino'].includes(draft.sex ?? '');
+  const needsFastBirth = !draft.identity.birth_date || !isoDate(draft.identity.birth_date);
+  const showFastTrack = !embedded && Boolean(imported) && !hasFinancialResult(draft);
+
+  const kpis = useMemo(() => {
+    const r = obj(draft.result);
+    const envelope = obj(r?.data ?? r?.result);
+    const data = obj(envelope?.native_result) ?? envelope;
+    const summary = obj(data?.resumo);
+    const tempo = obj(data?.tempo);
+    const total = obj(tempo?.total);
+    const transicoes = obj(data?.transicoes);
+    const especie = obj(data?.especie);
+    const local = localRmi(draft.result);
+    const fab = (draft.fabrica ?? null) as FabricaSummary | null;
+    const fabBest = fab?.provider?.beneficios?.[0];
+    const fabRmi = fab?.provider?.maiorRmi && fab.provider.maiorRmi !== '0.00' ? fab.provider.maiorRmi : null;
+
+    const tempoLabel =
+      total && (!missing(total.anos) || !missing(total.meses) || !missing(total.dias))
+        ? `${missing(total.anos) ? '0' : txt(total.anos)}a ${missing(total.meses) ? '0' : txt(total.meses)}m ${missing(total.dias) ? '0' : txt(total.dias)}d`
+        : 'Não apurado';
+    const carenciaRaw = tempo?.carencia_meses ?? summary?.carencia_meses;
+    const carenciaLabel = !missing(carenciaRaw) ? `${txt(carenciaRaw)} meses` : 'Não apurado';
+    const bestRule =
+      txt(transicoes?.regra_escolhida) ||
+      txt(especie?.regra_nome) ||
+      txt(especie?.regra_escolhida) ||
+      fabBest?.fundamento ||
+      fabBest?.chaveFundamento ||
+      'A apurar';
+
+    return {
+      segurado: draft.identity.full_name?.trim() || 'Sem nome',
+      dib: draft.dib ? brDate(draft.dib) : 'Sem DIB',
+      tempoLabel,
+      carenciaLabel,
+      bestRule,
+      localRmiLabel: local.rmi ? `R$ ${money(local.rmi)} (${local.corrected ? 'INPC' : 'nominal'})` : 'Não calculada',
+      fabricaRmiLabel: fabRmi ? `R$ ${money(fabRmi)} (TRF3)` : 'Não consultada',
+    };
+  }, [draft]);
+
+  return (
+    <>
+      {!embedded && (
+        <section className="previus-summary-bar" aria-label="Resumo rápido do cálculo">
+          <div className="previus-kpi">
+            <span>Segurado / DIB</span>
+            <strong>{kpis.segurado}</strong>
+            <small>DIB {kpis.dib} · Esp. {draft.especie || '42'}</small>
+          </div>
+          <div className="previus-kpi">
+            <span>Tempo apurado</span>
+            <strong>{kpis.tempoLabel}</strong>
+          </div>
+          <div className="previus-kpi">
+            <span>Carência</span>
+            <strong>{kpis.carenciaLabel}</strong>
+          </div>
+          <div className="previus-kpi">
+            <span>Melhor regra</span>
+            <strong>{kpis.bestRule}</strong>
+          </div>
+          <div className="previus-kpi previus-kpi--accent">
+            <span>RMI motor local</span>
+            <strong>{kpis.localRmiLabel}</strong>
+          </div>
+          <div className="previus-kpi previus-kpi--gold">
+            <span>RMI Fábrica TRF3</span>
+            <strong>{kpis.fabricaRmiLabel}</strong>
+          </div>
+          <div className="previus-kpi" style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            {imported ? (
+              <Button
+                primary
+                disabled={fastTrackBusy || calculationBusy || needsFastSex || needsFastBirth}
+                title={needsFastSex || needsFastBirth ? 'Preencha sexo e nascimento para calcular do CNIS' : 'Preparar do CNIS e recalcular'}
+                onClick={() => void fastTrackPrepareAndCalculate()}
+              >
+                <Icon name="calc" size={15} />
+                {fastTrackBusy ? 'Calculando...' : 'Calcular do CNIS'}
+              </Button>
+            ) : (
+              <Button
+                primary={step !== 7}
+                disabled={calculationBusy}
+                onClick={() => {
+                  setStep(7);
+                  void calculate();
+                }}
+              >
+                <Icon name="calc" size={15} />
+                {calculationBusy ? 'Calculando...' : 'Recalcular'}
+              </Button>
+            )}
+            <Button onClick={jumpToFabrica}>
+              <Icon name="spark" size={15} />
+              TRF3
+            </Button>
+          </div>
+        </section>
+      )}
+
+      {showFastTrack && (
+        <section className="fast-track-banner" aria-label="Atalho rápido a partir do CNIS">
+          <div className="fast-track-banner__copy">
+            <strong>CNIS importado pronto para conferência rápida</strong>
+            <p>
+              Complete os dados essenciais ausentes e calcule em 1 clique no motor local ou consulte direto a Fábrica de
+              Cálculos TRF3.
+            </p>
+          </div>
+          {(needsFastSex || needsFastBirth) && (
+            <div className="fast-track-banner__fields">
+              {needsFastBirth && (
+                <label className="field">
+                  <span>Nascimento</span>
+                  <input
+                    className="input"
+                    aria-label="Data de nascimento (atalho CNIS)"
+                    placeholder="DD/MM/AAAA"
+                    value={brDate(draft.identity.birth_date) === 'Não informado' ? '' : brDate(draft.identity.birth_date)}
+                    onChange={e => patch({ identity: { ...draft.identity, birth_date: isoDate(e.target.value) ?? e.target.value }, result: null })}
+                  />
+                </label>
+              )}
+              {needsFastSex && (
+                <label className="field">
+                  <span>Sexo cadastral</span>
+                  <select
+                    className="input"
+                    aria-label="Sexo cadastral (atalho CNIS)"
+                    value={draft.sex ?? ''}
+                    onChange={e => patch({ sex: e.target.value || null, result: null })}
+                  >
+                    <option value="">Selecione...</option>
+                    <option value="Feminino">Feminino</option>
+                    <option value="Masculino">Masculino</option>
+                  </select>
+                </label>
+              )}
+            </div>
+          )}
+          <div className="fast-track-banner__actions" data-ui-actions>
+            <Button
+              primary
+              disabled={fastTrackBusy || calculationBusy}
+              onClick={() => void fastTrackPrepareAndCalculate()}
+            >
+              {fastTrackBusy ? (
+                <>
+                  <span className="spinner" />
+                  Preparando e calculando...
+                </>
+              ) : (
+                <>
+                  <Icon name="calc" size={16} />
+                  Preparar do CNIS e Calcular Agora
+                </>
+              )}
+            </Button>
+            <Button disabled={fastTrackBusy || calculationBusy} onClick={jumpToFabrica}>
+              <Icon name="spark" size={16} />
+              Consultar Fábrica TRF3 Direto
+            </Button>
+          </div>
+        </section>
+      )}
+
+      {!embedded && (
+        <div className="wizard-bar">
+          {STEPS.map((s, i) => (
+            <button
+              key={s}
+              aria-label={i + 1 + '. ' + s}
+              className={'wizard-step ' + (step === i ? 'active' : i < step ? 'done' : '')}
+              onClick={() => setStep(i)}
+            >
+              <span>{i + 1}.</span> {s}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {step === 0 && (
+        <Panel title="Identificação do cálculo">
+          <div className="form-grid" data-ui-stack>
+            <Field
+              label="Nome do cálculo"
+              required
+              value={draft.name}
+              onChange={name => patch({ name })}
+              placeholder="Ex.: Simulação RGPS, revisão de dados"
+            />
+            <Select label="Módulo" value={draft.kind} onChange={kind => patch({ kind })} items={KINDS} />
+            <label className="field">
+              <span>Cliente vinculado</span>
+              <select
+                className="input"
+                value={draft.client_id ?? ''}
+                onChange={e => patch({ client_id: e.target.value ? Number(e.target.value) : null })}
+              >
+                <option value="">Sem cliente vinculado</option>
+                {workspace.clients
+                  .filter(c => !c.archived)
+                  .map(c => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+              </select>
+            </label>
+            <Field
+              label="DIB / data de referência"
+              required
+              value={draft.dib}
+              onChange={dib => patch({ dib, result: null })}
+              placeholder="DD/MM/AAAA"
+            />
+          </div>
+          <p className="form-note">
+            O cálculo é mantido na nova base local. O PDF e a instalação original do Previus não são alterados.
+          </p>
+        </Panel>
+      )}
+
+      {step === 1 && (
+        <>
+          <Panel title="Importar CNIS" subtitle="Extração local em Rust; sem envio do documento para servidores.">
+            <div className="drop-area">
+              <Icon name="upload" size={33} />
+              <h3>Traga os dados de origem</h3>
+              <p>Selecione o extrato com remunerações. Confira as contagens e pendências antes de aplicar.</p>
+              <Button primary disabled={busy} onClick={() => void pick()}>
+                {busy ? (
+                  <>
+                    <span className="spinner" /> Lendo PDF...
+                  </>
+                ) : (
+                  <>
+                    <Icon name="plus" size={16} />
+                    Selecionar CNIS PDF
+                  </>
+                )}
+              </Button>
+            </div>
+            {pending && (
+              <>
+                <div className="import-summary">
+                  <div>
+                    <strong>{pending.salary_entries.length}</strong>
+                    <span>Lançamentos extraídos</span>
+                  </div>
+                  <div>
+                    <strong>{Object.keys(pending.salary_months).length}</strong>
+                    <span>Competências distintas</span>
+                  </div>
+                  <div>
+                    <strong>{pending.links.length}</strong>
+                    <span>Vínculos de origem</span>
+                  </div>
+                </div>
+                <Notice>
+                  Os dados ainda não foram aplicados. Esta ação substitui a cópia de origem apenas neste rascunho, nunca o
+                  arquivo PDF.
+                </Notice>
+                <div className="form-actions" data-ui-actions style={{ flexWrap: 'wrap', gap: 8 }}>
+                  <Button onClick={() => setPending(null)}>Descartar leitura</Button>
+                  <Button onClick={apply}>
+                    Aplicar ao rascunho
+                    <Icon name="check" size={16} />
+                  </Button>
+                  <Button
+                    primary
+                    disabled={fastTrackBusy}
+                    onClick={() => void applyAndCalculateFast('Masculino')}
+                  >
+                    <Icon name="calc" size={16} />
+                    Aplicar e Calcular (Homem)
+                  </Button>
+                  <Button
+                    primary
+                    disabled={fastTrackBusy}
+                    onClick={() => void applyAndCalculateFast('Feminino')}
+                  >
+                    <Icon name="calc" size={16} />
+                    Aplicar e Calcular (Mulher)
+                  </Button>
+                </div>
+              </>
+            )}
+          </Panel>
+          {imported && (
+            <Panel title="Origem já aplicada" actions={<Badge tone="good">Leitura concluída</Badge>}>
+              <div className="import-summary">
+                <div>
+                  <strong>{imported.salary_entries.length}</strong>
+                  <span>Lançamentos</span>
+                </div>
+                <div>
+                  <strong>{Object.keys(imported.salary_months).length}</strong>
+                  <span>Competências</span>
+                </div>
+                <div>
+                  <strong>{imported.links.length}</strong>
+                  <span>Vínculos</span>
+                </div>
+              </div>
+              <ul className="review-list">
+                {imported.warnings.map(w => (
+                  <li key={w.code}>
+                    {warningLabel(w.code)} {w.count > 1 && <Badge tone="review">{w.count}</Badge>}
+                  </li>
+                ))}
+              </ul>
+              <CnisTimeline cnis={imported} dib={draft.dib} />
+            </Panel>
+          )}
+        </>
+      )}
+
+      {step === 2 && (
+        <Panel title="Segurado e cenário" subtitle="Nenhum parâmetro cadastral é inferido pelo nome.">
+          <div className="form-grid" data-ui-stack>
+            <Field
+              required
+              label="Nome do segurado"
+              value={draft.identity.full_name ?? ''}
+              onChange={v => patch({ identity: { ...draft.identity, full_name: v } })}
+            />
+            <Field
+              label="CPF"
+              value={draft.identity.cpf ?? ''}
+              onChange={v => patch({ identity: { ...draft.identity, cpf: v } })}
+            />
+            <Field
+              required
+              label="Nascimento"
+              value={brDate(draft.identity.birth_date) === 'Não informado' ? '' : brDate(draft.identity.birth_date)}
+              onChange={v => patch({ identity: { ...draft.identity, birth_date: isoDate(v) ?? v }, result: null })}
+              placeholder="DD/MM/AAAA"
+            />
+            <Field
+              label="NIT"
+              value={draft.identity.nit ?? ''}
+              onChange={v => patch({ identity: { ...draft.identity, nit: v } })}
+            />
+            <Select
+              label="Sexo cadastral confirmado"
+              value={draft.sex ?? ''}
+              onChange={sex => patch({ sex: sex || null, result: null })}
+              items={['', 'Feminino', 'Masculino', 'A confirmar']}
+            />
+            <Select
+              label="Condição de deficiência"
+              value={draft.disability ?? ''}
+              onChange={disability => patch({ disability: disability || null, result: null })}
+              items={['', 'Sem deficiência declarada', 'Leve', 'Moderada', 'Grave', 'A apurar']}
+            />
+            <Select
+              label="Finalidade"
+              value={draft.scenario}
+              onChange={scenario => patch({ scenario, result: null })}
+              items={SCENARIOS}
+            />
+            <Select
+              label="Espécie do benefício"
+              value={draft.especie ?? '42'}
+              onChange={especie => patch({ especie: especie || '42', result: null })}
+              items={ESPECIES}
+            />
+          </div>
+          <p className="form-note">
+            Parâmetros confirmados definem a hipótese. O extrato limita a atualidade dos vínculos e não comprova condições
+            posteriores à emissão. Espécies 31 e 32: a incapacidade é declarada pelo operador; o motor calcula a renda, não
+            a perícia.
+          </p>
+        </Panel>
+      )}
+
+      {step === 3 && <SourceLinksEditor draft={draft} setDraft={setDraft} onNotify={onNotify} />}
+
+      {step === 4 && (
+        <>
+          <Panel
+            title="Competências e remunerações"
+            subtitle="Somas nominais, sem conversão automática."
+          >
+            <div className="toolbar">
+              <div className="searchbox">
+                <Icon name="search" size={16} />
+                <input
+                  aria-label="Filtrar competências"
+                  placeholder="Filtrar AAAA-MM"
+                  value={filter}
+                  onChange={e => setFilter(e.target.value)}
+                />
+              </div>
+              <span className="count">{sourceRows.length} competências</span>
+            </div>
+            <div className="table-wrap" style={{ maxHeight: 430, marginTop: 16 }}>
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Competência</th>
+                    <th className="num">Lançamentos</th>
+                    <th className="num">Soma nominal</th>
+                    <th>Situação</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sourceRows.map(([k, m]) => (
+                    <tr key={k} className="source-edit-row" onClick={() => openSourceMonth(k)}>
+                      <td>
+                        <Button
+                          className="source-cell"
+                          aria-label={'Editar competência ' + k}
+                          onClick={event => {
+                            event.stopPropagation();
+                            openSourceMonth(k);
+                          }}
+                        >
+                          <strong>{k}</strong>
+                        </Button>
+                      </td>
+                      <td className="num">{m.count}</td>
+                      <td className="num">
+                        <Button
+                          className="source-cell"
+                          aria-label={'Editar remunerações de ' + k}
+                          onClick={event => {
+                            event.stopPropagation();
+                            openSourceMonth(k);
+                          }}
+                        >
+                          {(() => {
+                            const amount = sourceRemuneration(imported, k);
+                            return amount === undefined
+                              ? centavosMoney(m.amount_sum_centavos)
+                              : amount === null
+                                ? 'Sem remuneração'
+                                : centavosMoney(amount);
+                          })()}
+                        </Button>
+                        {draft.contribution_review && (
+                          <div className="secondary-line">
+                            Ajustes:{' '}
+                            {(reviewedByMonth.get(k) ?? [])
+                              .map(record =>
+                                record.excluded
+                                  ? 'excluído'
+                                  : record.competence + ' · ' + money(record.amount) + ' (' + record.currency + ')',
+                              )
+                              .join('; ') || 'Sem ajuste'}
+                          </div>
+                        )}
+                      </td>
+                      <td>
+                        <Button
+                          className="source-cell"
+                          aria-label={'Revisar competência ' + k}
+                          onClick={event => {
+                            event.stopPropagation();
+                            openSourceMonth(k);
+                          }}
+                        >
+                          <Badge tone={m.contains_unresolved_prpps ? 'review' : 'neutral'}>
+                            {m.contains_unresolved_prpps ? 'PRPPS pendente' : 'Conferência pendente'}
+                          </Badge>
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Panel>
+          <ContributionEditor draft={draft} setDraft={setDraft} onNotify={onNotify} sourceRequest={sourceRequest} />
+          {!draft.contribution_review && (
+            <Panel
+              title="Salários e ajustes declarados"
+              actions={
+                <div className="head-actions" data-ui-actions>
+                  {imported && (
+                    <Button
+                      onClick={() => {
+                        try {
+                          const manual_links = prepareEffectiveLinksForReview(draft);
+                          const manual_salaries = prepareEffectiveWagesForReview(draft, manual_links);
+                          patch({ manual_links, manual_salaries, result: null });
+                          const excluded = manual_links.filter(link => link.source_review?.excluded).length;
+                          onNotify(
+                            'Vínculos e competências do PBC preparados para revisão' +
+                              (excluded
+                                ? '; ' + excluded + ' vínculo(s) fora da hipótese por PRPPS, data ausente ou início após a DIB'
+                                : '') +
+                              '. A fonte permanece intacta e a confirmação continua pendente.',
+                          );
+                        } catch (e) {
+                          onNotify(errorMessage(e), true);
+                        }
+                      }}
+                    >
+                      Preparar vínculos e PBC
+                    </Button>
+                  )}
+                  <Button
+                    onClick={() =>
+                      patch({
+                        manual_salaries: [
+                          ...draft.manual_salaries,
+                          { id: 0, competence: '', amount: '', indicators: '', confirmed: true },
+                        ],
+                      })
+                    }
+                  >
+                    <Icon name="plus" size={16} />
+                    Adicionar competência
+                  </Button>
+                  {draft.manual_salaries.some(s => !s.confirmed) && (
+                    <Button
+                      onClick={() =>
+                        patch({
+                          manual_salaries: draft.manual_salaries.map(s => ({ ...s, confirmed: true })),
+                          result: null,
+                        })
+                      }
+                    >
+                      Confirmar todos os salários
+                    </Button>
+                  )}
+                </div>
+              }
+            >
+              <div className="table-wrap">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Competência AAAA-MM</th>
+                      <th>Valor nominal</th>
+                      <th>Indicadores</th>
+                      <th>Conferido</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {draft.manual_salaries.map((s, i) => (
+                      <ManualWage
+                        key={i}
+                        value={s}
+                        onChange={x =>
+                          patch({
+                            manual_salaries: draft.manual_salaries.map((a, j) => (j === i ? x : a)),
+                            result: null,
+                          })
+                        }
+                      />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Panel>
+          )}
+          {imported && <CnisTemporalView cnis={imported} dib={draft.dib} confirmedLinks={draft.manual_links} />}
+        </>
+      )}
+
+      {step === 5 && (
+        <Panel
+          title={
+            ['Grave', 'Moderada', 'Leve'].includes(draft.disability ?? '')
+              ? 'Cenário PcD (LC 142/2013)'
+              : 'Opções da RMI'
+          }
+          subtitle={
+            ['Grave', 'Moderada', 'Leve'].includes(draft.disability ?? '')
+              ? 'A simulação PcD usa premissas declaradas. Preencha o que está documentado e execute na etapa seguinte.'
+              : 'Defina como os salários revisados serão usados. Uma aba com o nome de uma lei não muda o cálculo por si só.'
+          }
+        >
+          {!isPcd && (
+            <PrepareFromCnis
+              draft={draft}
+              onResult={prepared => {
+                setDraft(prepared);
+                setStep(7);
+              }}
+              onNotify={onNotify}
+            />
+          )}
+          {isPcd &&
+            draft.manual_salaries.length > 0 &&
+            (!draft.contribution_review || !draft.contribution_review.applied) && (
+              <Notice tone="error">
+                O PcD usa o livro de contribuições revisado ou os salários do CNIS importado. Os{' '}
+                {draft.manual_salaries.length} salários manuais não são usados sem aplicar o livro.{' '}
+                <Button
+                  onClick={() => {
+                    try {
+                      if (!draft.contribution_review) setDraft(beginContributionReview(draft));
+                      setStep(4);
+                    } catch (error) {
+                      onNotify(errorMessage(error), true);
+                    }
+                  }}
+                >
+                  Abrir o livro de contribuições
+                </Button>
+                <Button
+                  onClick={() =>
+                    setDraft({
+                      ...draft,
+                      manual_salaries: [],
+                      contribution_review: null,
+                      result: null,
+                      assistant: { ...assistant, review_confirmed: false },
+                    })
+                  }
+                >
+                  Usar os salários do CNIS no PcD
+                </Button>
+              </Notice>
+            )}
+          <p>A RMI é o valor mensal inicial da hipótese. Confira vínculos, salários e as opções abaixo; depois execute.</p>
+          <details className="details">
+            <summary>Como o motor usa estes campos</summary>
+            <p>
+              Correção atualiza o salário nominal pela série disponível. Descarte escolhe salários para a média; divisor mínimo
+              e teto só entram quando aplicáveis e documentados. Sem correção, o resultado é uma comparação nominal, não uma
+              memória pronta para protocolo. Juros, honorários e valor da causa ficam fora deste cálculo.
+            </p>
+          </details>
+          <details
+            className="details"
+            open={
+              !imported ||
+              ['Grave', 'Moderada', 'Leve'].includes(draft.disability ?? '') ||
+              draft.especie === '46' ||
+              draft.especie === '57'
+            }
+          >
+            <summary>
+              {['Grave', 'Moderada', 'Leve'].includes(draft.disability ?? '')
+                ? 'Preencher as premissas do cenário PcD'
+                : draft.especie === '46'
+                  ? 'Tempo especial (46) e política do cálculo'
+                  : draft.especie === '57'
+                    ? 'Magistério (57) e política do cálculo'
+                    : 'Ajustar manualmente a política e a correção'}
+            </summary>
+            <div className="form-grid" data-ui-stack>
+              <Field
+                label="Origem das séries / correção"
+                value={draft.options.correction_index}
+                onChange={v => options('correction_index', v)}
+                placeholder="Índice efetivamente usado; o motor local aceita INPC quando suportado"
+              />
+            </div>
+            {['Grave', 'Moderada', 'Leve'].includes(draft.disability ?? '') ? (
+              <PcdSetup draft={draft} onChange={v => options('rule_policy', v)} />
+            ) : (
+              <RgpsPolicy
+                value={draft.options.rule_policy}
+                onChange={v => options('rule_policy', v)}
+                hasSource={Boolean(draft.cnis)}
+                especie={draft.especie}
+              />
+            )}
+          </details>
+          {Boolean(
+            draft.options.interest_rate ||
+              draft.options.interest_kind ||
+              draft.options.fees_percent ||
+              draft.options.fees_fixed ||
+              draft.options.prescription_date ||
+              draft.options.reference_base ||
+              draft.options.include_thirteenth,
+          ) && (
+            <details className="details">
+              <summary>Há parâmetros financeiros antigos que não pertencem a esta RMI</summary>
+              <Notice>
+                O motor recusa esses campos em vez de ignorá-los. Preserve uma cópia da hipótese se precisar deles para
+                atualização, atrasados ou honorários.
+              </Notice>
+              <pre className="result-json">
+                {JSON.stringify(
+                  {
+                    juros: draft.options.interest_rate,
+                    tipo: draft.options.interest_kind,
+                    honorariosPercentuais: draft.options.fees_percent,
+                    honorariosFixos: draft.options.fees_fixed,
+                    prescricao: draft.options.prescription_date,
+                    base: draft.options.reference_base,
+                    decimoTerceiro: draft.options.include_thirteenth,
+                  },
+                  null,
+                  2,
+                )}
+              </pre>
+              <Button
+                onClick={() =>
+                  patch({
+                    options: {
+                      ...draft.options,
+                      interest_rate: '',
+                      interest_kind: '',
+                      fees_percent: '',
+                      fees_fixed: '',
+                      prescription_date: '',
+                      reference_base: '',
+                      include_thirteenth: false,
+                    },
+                  })
+                }
+              >
+                Retirar parâmetros financeiros desta hipótese de RMI
+              </Button>
+            </details>
+          )}
+          <details className="details">
+            <summary>Qual motor e quais limites estão sendo usados?</summary>
+            <p>
+              Motor local experimental: rgps-core-observational-v1. Não tem atualização normativa automática nem todos os
+              benefícios. A revisão de cada registro e o enquadramento continuam necessários; nenhuma opção confirma regime ou
+              CTC.
+            </p>
+          </details>
+        </Panel>
+      )}
+
+      {step === 6 && (
+        <div className="split-content">
+          <Panel title="Resumo para revisão">
+            <div className="form-grid" data-ui-stack>
+              <div>
+                <span className="secondary-line">Cálculo</span>
+                <p>
+                  <strong>{draft.name || 'Sem nome'}</strong>
+                </p>
+              </div>
+              <div>
+                <span className="secondary-line">Módulo / cenário</span>
+                <p>
+                  {draft.kind} · {draft.scenario}
+                </p>
+              </div>
+              <div>
+                <span className="secondary-line">Segurado</span>
+                <p>{draft.identity.full_name ?? 'Não informado'}</p>
+              </div>
+              <div>
+                <span className="secondary-line">DIB / parâmetros</span>
+                <p>
+                  {draft.dib} · {draft.sex ?? 'Sexo pendente'} · {draft.disability ?? 'Deficiência pendente'}
+                </p>
+              </div>
+            </div>
+            {draft.assistant?.mode === 'assisted' ? (
+              <label className="checkline">
+                <input
+                  type="checkbox"
+                  checked={reviewConfirmed}
+                  onChange={e => setDraft({ ...draft, assistant: { ...assistant, review_confirmed: e.target.checked } })}
+                />
+                Confirmo a revisão dos dados e das premissas desta hipótese; entendo que o resultado é uma simulação e não
+                certifica o direito.
+              </label>
+            ) : (
+              <Notice>
+                Editor manual: a conferência é registrada pela referência documental da política e pela confirmação de vínculos e
+                remunerações. A entrevista guiada não se aplica a este caso.
+              </Notice>
+            )}
+            <label className="field">
+              <span>Notas e documentação de conferência</span>
+              <textarea
+                className="text-area"
+                value={draft.notes}
+                onChange={e => patch({ notes: e.target.value })}
+              />
+            </label>
+            <div className="form-actions" data-ui-actions>
+              <Button onClick={() => void onSave(draft)}>Salvar revisão</Button>
+              <Button primary onClick={() => setStep(7)}>
+                Ir para resultado
+                <Icon name="arrow" size={16} />
+              </Button>
+            </div>
+          </Panel>
+          <Panel title="Pendências identificadas" subtitle="Nenhuma marcação é resolvida por suposição.">
+            {review.length ? (
+              <ul className="review-list">
+                {review.map(x => (
+                  <li key={x}>{x}</li>
+                ))}
+              </ul>
+            ) : (
+              <Notice tone="ok">
+                Campos mínimos preenchidos. O enquadramento e a memória ainda precisam de conferência.
+              </Notice>
+            )}
+          </Panel>
+        </div>
+      )}
+
+      {step === 7 && (
+        <>
+          <Panel
+            title="Executar a simulação técnica"
+            actions={
+              <Badge
+                tone={
+                  draft.result && (draft.result as Record<string, Json>)?.status !== 'blocked' ? 'good' : 'review'
+                }
+              >
+                {draft.result
+                  ? (draft.result as Record<string, Json>)?.status === 'blocked'
+                    ? 'Bloqueado por revisão'
+                    : 'Resultado disponível'
+                  : 'Ainda não executado'}
+              </Badge>
+            }
+          >
+            <p className="form-note">
+              O motor não transforma pendências em dados válidos. Se faltarem parâmetros ou houver períodos não resolvidos, a
+              execução retorna erro claro, não resultado fictício.
+            </p>
+            {draft.assistant?.mode === 'assisted' && !reviewConfirmed && (
+              <Notice tone="error">
+                Confirme a revisão na etapa <strong>Revisão</strong> antes de executar.
+              </Notice>
+            )}
+            {draft.assistant?.mode === 'assisted' && !interviewComplete && (
+              <Notice tone="error">
+                Este caso não tem a entrevista completa. Abra <strong>Assistente de cálculo</strong> no menu e responda
+                benefício atual, tipo de processo e finalidade.
+              </Notice>
+            )}
+            <div className="head-actions" data-ui-actions>
+              <Button
+                primary
+                disabled={calculationBusy}
+                onClick={() => void calculate()}
+              >
+                {calculationBusy ? (
+                  <>
+                    <span className="spinner" />
+                    Calculando...
+                  </>
+                ) : (
+                  <>
+                    <Icon name="calc" size={16} />
+                    Executar motor RGPS
+                  </>
+                )}
+              </Button>
+              {imported && (
+                <Button
+                  disabled={fastTrackBusy || calculationBusy || needsFastSex || needsFastBirth}
+                  onClick={() => void fastTrackPrepareAndCalculate()}
+                >
+                  <Icon name="calc" size={16} />
+                  {fastTrackBusy ? 'Preparando do CNIS...' : 'Preparar do CNIS e Calcular'}
+                </Button>
+              )}
+              <Button onClick={() => void onSave(draft)}>Salvar cálculo</Button>
+              {draft.assistant?.mode === 'assisted' && !reviewConfirmed && (
+                <Button onClick={() => setStep(6)}>Ir para revisão</Button>
+              )}
+            </div>
+          </Panel>
+
+          {!draft.result &&
+            (() => {
+              const s = calculationNotDone(draft);
+              return s ? (
+                <Panel title="Cálculo não concluído" subtitle="Nenhum resultado financeiro válido foi produzido.">
+                  <Notice tone="error">{s.cause}</Notice>
+                  <p className="form-note">Próxima ação: {s.nextAction}</p>
+                </Panel>
+              ) : null;
+            })()}
+
+          {draft.result && <ResultView result={draft.result} />}
+
+          <FabricaCheck draft={draft} workspace={workspace} onChange={setDraft} />
+
+          {(draft.result || draft.fabrica || draft.cnis) && (
+            <ReportCenter
+              workspace={workspace}
+              draftCase={draft}
+              selected={draft.id}
+              onSelect={() => {}}
+              onNotify={onNotify}
+              onChangeCase={setDraft}
+            />
+          )}
+        </>
+      )}
+
+      {!embedded && (
+        <footer className="wizard-foot">
+          <Button disabled={step === 0} onClick={() => setStep(step - 1)}>
+            Voltar
+          </Button>
+          <div>
+            <Button onClick={() => void onSave(draft)}>Salvar rascunho</Button>
+            {step < 7 && (
+              <Button primary onClick={() => setStep(step + 1)}>
+                Próxima etapa
+                <Icon name="arrow" size={16} />
+              </Button>
+            )}
+          </div>
+        </footer>
+      )}
+    </>
+  );
+}
+
+function ManualWage({ value, onChange }: { value: ManualSalary; onChange: (x: ManualSalary) => void }) {
+  const p = (v: Partial<ManualSalary>) => onChange({ ...value, ...v });
+  return (
+    <tr>
+      <td>
+        <input
+          className="inline-input"
+          aria-label="Competência manual"
+          value={value.competence}
+          onChange={e => p({ competence: e.target.value })}
+        />
+      </td>
+      <td>
+        <input
+          className="inline-input"
+          aria-label="Salário manual"
+          value={value.amount}
+          onChange={e => p({ amount: e.target.value })}
+        />
+      </td>
+      <td>
+        <input
+          className="inline-input"
+          aria-label="Indicadores manuais"
+          value={value.indicators}
+          onChange={e => p({ indicators: e.target.value })}
+        />
+      </td>
+      <td>
+        <input
+          type="checkbox"
+          aria-label="Salário conferido"
+          checked={value.confirmed}
+          onChange={e => p({ confirmed: e.target.checked })}
+        />
+      </td>
+    </tr>
+  );
+}
+
+export function ResultView({ result }: { result: Json }) {
+  const r = result as Record<string, Json>;
+  const envelope = (r?.data ?? r?.result ?? {}) as Record<string, Json>;
+  const data = (envelope?.native_result ?? envelope) as Record<string, Json>;
+  const summary = (data?.resumo ?? {}) as Record<string, Json>;
+  const warnings = (r?.warnings ?? data?.avisos ?? []) as Json[];
+  const memory = (data?.memoria ?? []) as Record<string, Json>[];
+  const especie = (data?.especie ?? null) as Record<string, Json> | null;
+  const beneficio = (data?.beneficio ?? null) as Record<string, Json> | null;
+  const pbc = obj(data?.correcao);
+  const tempo = obj(data?.tempo);
+  const transicoes = obj(data?.transicoes);
+  const source = obj(envelope?.source_reconciliation);
+  const noEligibleRule = envelope?.direito_na_dib === false || Boolean(transicoes && transicoes.regra_escolhida == null);
+  const projecao = (obj(envelope?.projecao_regras)?.regras ?? []) as Record<string, Json>[];
+  if (r?.status === 'blocked') return <BlockedResult result={r} />;
+  return (
+    <>
+      {noEligibleRule && (
+        <Notice>
+          Nenhuma regra está cumprida na DIB.
+        </Notice>
+      )}
+      <div className="result-hero">
+        <div>
+          <small>{noEligibleRule ? 'Situação na DIB' : 'RMI da hipótese técnica'}</small>
+          <div className="main-number" data-ui-number>
+            {noEligibleRule ? 'Sem direito' : missing(summary.rmi) ? 'Resultado técnico' : 'R$ ' + money(String(summary.rmi))}
+          </div>
+        </div>
+        <div>
+          <Badge tone="review">Revisão profissional necessária</Badge>
+          <p className="form-note">Saída do motor com parâmetros declarados, não certificação de direito ou concessão.</p>
+        </div>
+      </div>
+      {especie && (
+        <div className="result-strip">
+          <div>
+            <span>Espécie</span>
+            <strong>{String(especie.nome ?? '')}</strong>
+          </div>
+          <div>
+            <span>Regra</span>
+            <strong>{String(especie.regra_nome ?? especie.regra_escolhida ?? 'Requisitos não cumpridos')}</strong>
+          </div>
+        </div>
+      )}
+      {projecao && projecao.length > 0 && (
+        <Panel title="Datas possíveis por regra" subtitle={String(obj(envelope?.projecao_regras)?.premissa ?? '')}>
+          <div className="table-wrap">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Regra</th>
+                  <th>Possível aposentadoria em</th>
+                  <th className="num">Descartes ótimos</th>
+                  <th className="num">Carência após descarte</th>
+                  <th className="num">RMI estimada</th>
+                </tr>
+              </thead>
+              <tbody>
+                {projecao.map(regra => (
+                  <tr key={String(regra.id)}>
+                    <td>
+                      <strong>{String(regra.nome ?? '')}</strong>
+                      {regra.fundamento && <div className="secondary-line">{String(regra.fundamento)}</div>}
+                    </td>
+                    <td>{String(regra.data ?? '').split('-').reverse().join('/')}</td>
+                    <td className="num">
+                      {regra.descartadas !== undefined && regra.descartadas !== null
+                        ? `${String(regra.descartadas)} comp.`
+                        : '0 comp.'}
+                    </td>
+                    <td className="num">
+                      {regra.carencia_meses !== undefined && regra.carencia_meses !== null
+                        ? `${String(regra.carencia_meses)} meses`
+                        : '—'}
+                    </td>
+                    <td className="num">
+                      <strong>{missing(regra.rmi) ? 'Não apurada' : 'R$ ' + money(String(regra.rmi))}</strong>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="form-note">Projeção para planejamento. Não é cálculo de benefício nem garantia de direito.</p>
+        </Panel>
+      )}
+      {beneficio && Array.isArray(beneficio.regras) && (
+        <Panel
+          title="Requisitos da espécie"
+          subtitle="Cumprimento declarado; o motor não verifica perícia, PPP ou tempo especial."
+        >
+          <div className="table-wrap">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Regra</th>
+                  <th>Requisito</th>
+                  <th>Exigido</th>
+                  <th>Apurado</th>
+                  <th>Situação</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(beneficio.regras as Record<string, Json>[]).flatMap((regra, ri) =>
+                  ((regra.requisitos ?? []) as Record<string, Json>[]).map((req, i) => (
+                    <tr key={ri + '-' + i}>
+                      <td>{String(regra.nome ?? '')}</td>
+                      <td>{String(req.descricao ?? '')}</td>
+                      <td>{String(req.exigido ?? '')}</td>
+                      <td>{String(req.apurado ?? '')}</td>
+                      <td>
+                        {req.cumprido ? 'Cumprido' : 'Não cumprido'}
+                        {req.verificado_pelo_motor === false ? ' (declarado)' : ''}
+                      </td>
+                    </tr>
+                  )),
+                )}
+              </tbody>
+            </table>
+          </div>
+        </Panel>
+      )}
+      {summary.rmi != null && (
+        <div className="result-strip">
+          <div>
+            <span>Salário de benefício</span>
+            <strong>{missing(summary.salario_beneficio) ? 'Não apurado' : 'R$ ' + money(String(summary.salario_beneficio))}</strong>
+          </div>
+          <div>
+            <span>Competências</span>
+            <strong>{missing(summary.competencias) ? 'Sem dado' : String(summary.competencias)}</strong>
+          </div>
+          <div>
+            <span>Coeficiente</span>
+            <strong>
+              {missing(summary.coeficiente)
+                ? 'Sem dado'
+                : String(summary.coeficiente) + (String(summary.coeficiente).includes('%') ? '' : '%')}
+            </strong>
+          </div>
+          <div>
+            <span>Carência calculada</span>
+            <strong>{missing(summary.carencia_meses) ? 'Sem dado' : String(summary.carencia_meses) + ' meses'}</strong>
+          </div>
+        </div>
+      )}
+      {warnings.length > 0 && (
+        <Panel title="Avisos do motor">
+          <ul className="review-list">
+            {warnings.map((w, i) => (
+              <li key={i}>
+                {typeof w === 'string'
+                  ? w
+                  : typeof w === 'object' && w
+                    ? String((w as Record<string, Json>).message ?? JSON.stringify(w))
+                    : String(w)}
+              </li>
+            ))}
+          </ul>
+        </Panel>
+      )}
+      {tempo && <TimeAudit tempo={tempo} />}
+      {pbc && <PbcAudit pbc={pbc} source={source} />}
+      {transicoes && <TransitionAudit transicoes={transicoes} />}
+      {memory.length > 0 && (
+        <Panel title="Memória de cálculo" subtitle="Etapas e valores informados pelo motor Rust.">
+          <div className="table-wrap">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Etapa</th>
+                  <th>Descrição</th>
+                  <th className="num">Valor</th>
+                </tr>
+              </thead>
+              <tbody>
+                {memory.map((m, i) => (
+                  <tr key={i}>
+                    <td>{String(m.tipo ?? '')}</td>
+                    <td>{String(m.descricao ?? '')}</td>
+                    <td className="num">{String(m.valor ?? '')}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Panel>
+      )}
+      <details className="details">
+        <summary>Dados estruturados e trilha técnica</summary>
+        <div className="result-json mono">{JSON.stringify(result, null, 2)}</div>
+      </details>
+    </>
+  );
+}
+
+type JsonObj = Record<string, Json>;
+function obj(value: Json | undefined): JsonObj | null {
+  return value !== null && value !== undefined && typeof value === 'object' && !Array.isArray(value)
+    ? (value as JsonObj)
+    : null;
+}
+function arr(value: Json | undefined): Json[] {
+  return Array.isArray(value) ? value : [];
+}
+function txt(value: Json | undefined): string {
+  return value === null || value === undefined ? '' : String(value);
+}
+function count(value: Json | undefined): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+}
+function missing(value: Json | undefined): boolean {
+  return value === null || value === undefined || (typeof value === 'string' && value.trim() === '');
+}
+function part(value: Json | undefined, suffix: string): string {
+  return missing(value) ? 'Sem dado' : txt(value) + suffix;
+}
+
+function TimeAudit({ tempo }: { tempo: JsonObj }) {
+  const total = obj(tempo.total) ?? {};
+  const marcos = obj(tempo.marcos) ?? {};
+  const links = arr(tempo.vinculos)
+    .map(obj)
+    .filter((x): x is JsonObj => x !== null);
+  const avisos = arr(tempo.avisos);
+  return (
+    <Panel
+      className="time-audit"
+      title="Tempo de contribuição"
+      subtitle="Contagem efetiva do motor; sobreposições são deduplicadas antes do total."
+    >
+      <div className="result-strip">
+        <div>
+          <span>Total efetivo</span>
+          <strong>
+            {missing(total.anos) && missing(total.meses) && missing(total.dias)
+              ? 'Não apurado'
+              : part(total.anos, 'a') + ' ' + part(total.meses, 'm') + ' ' + part(total.dias, 'd')}
+          </strong>
+        </div>
+        <div>
+          <span>Carência</span>
+          <strong>{missing(tempo.carencia_meses) ? 'Sem dado' : txt(tempo.carencia_meses) + ' meses'}</strong>
+        </div>
+        <div>
+          <span>Até EC 103</span>
+          <strong>{missing(marcos.ate_ec103) ? 'Sem dado' : Math.floor(count(marcos.ate_ec103) / 30) + ' meses'}</strong>
+        </div>
+        <div>
+          <span>Períodos processados</span>
+          <strong>{Array.isArray(tempo.vinculos) ? links.length : 'Sem dado'}</strong>
+        </div>
+      </div>
+      {avisos.length > 0 && (
+        <Notice>
+          {avisos.map((item, index) => (
+            <div key={index}>{txt(item)}</div>
+          ))}
+        </Notice>
+      )}
+      {links.length > 0 && (
+        <details className="details">
+          <summary>Períodos processados · {links.length}</summary>
+          <div className="table-wrap" style={{ maxHeight: 320 }}>
+            <table className="data-table">
+              <caption>Períodos de contribuição processados</caption>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Tipo</th>
+                  <th>Início</th>
+                  <th>Fim</th>
+                  <th className="num">Dias</th>
+                  <th className="num">Efetivos</th>
+                  <th>Concomitante</th>
+                </tr>
+              </thead>
+              <tbody>
+                {links.map((link, index) => (
+                  <tr key={index}>
+                    <td data-label="#">{txt(link.indice)}</td>
+                    <td data-label="Tipo">{txt(link.tipo)}</td>
+                    <td data-label="Início">{brDate(txt(link.inicio))}</td>
+                    <td data-label="Fim">{brDate(txt(link.fim))}</td>
+                    <td className="num" data-label="Dias">
+                      {txt(link.dias)}
+                    </td>
+                    <td className="num" data-label="Efetivos">
+                      {txt(link.dias_efetivos)}
+                    </td>
+                    <td data-label="Concomitante">{link.concomitante === true ? 'Sim' : 'Não'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </details>
+      )}
+    </Panel>
+  );
+}
+
+function PbcAudit({ pbc, source }: { pbc: JsonObj; source: JsonObj | null }) {
+  const parcelas = arr(pbc.parcelas)
+    .map(obj)
+    .filter((x): x is JsonObj => x !== null);
+  const descartadas = new Set(arr(pbc.parcelas_descartadas).map(txt));
+  const cenarios = arr(pbc.cenarios)
+    .map(obj)
+    .filter((x): x is JsonObj => x !== null);
+  return (
+    <Panel
+      className="pbc-audit"
+      title="PBC e descartes"
+      subtitle="Reconciliação dos salários que entram na média. O efeito do descarte sobre tempo e carência depende do tipo de descarte e aparece nos avisos do motor e no painel de tempo de contribuição."
+    >
+      <div className="result-strip">
+        <div>
+          <span>Competências no PBC</span>
+          <strong>{missing(pbc.pbc) ? 'Sem dado' : txt(pbc.pbc)}</strong>
+        </div>
+        <div>
+          <span>Usadas</span>
+          <strong>{missing(pbc.consideradas) ? 'Sem dado' : txt(pbc.consideradas)}</strong>
+        </div>
+        <div>
+          <span>Descartadas</span>
+          <strong>{missing(pbc.descartadas) ? 'Sem dado' : txt(pbc.descartadas)}</strong>
+        </div>
+        <div>
+          <span>Média</span>
+          <strong>{missing(pbc.media) ? 'Não apurado' : 'R$ ' + money(txt(pbc.media))}</strong>
+        </div>
+      </div>
+      {source && (
+        <Notice tone={count(source.below_minimum_excluded) > 0 ? 'review' : 'ok'}>
+          Entrada revisada do motor: {txt(source.input_wages)} competência(s) recebida(s);{' '}
+          {txt(source.pre_1994_excluded)} anterior(es) a 07/1994 fora do PBC; {txt(source.below_minimum_excluded)} abaixo do
+          mínimo fora do PBC; {txt(source.pbc_wages)} no PBC; término do PBC em {txt(source.pbc_end) || 'Sem dado'}. Nenhum
+          salário foi elevado ao mínimo silenciosamente.
+        </Notice>
+      )}
+      {cenarios.length > 0 && (
+        <div className="table-wrap" style={{ marginTop: 16 }}>
+          <table className="data-table pbc-scenarios">
+            <caption>Comparação descritiva de médias, sem escolher regra, coeficiente ou fator</caption>
+            <thead>
+              <tr>
+                <th>Cenário</th>
+                <th className="num">Competências</th>
+                <th className="num">Descartadas</th>
+                <th className="num">Média</th>
+              </tr>
+            </thead>
+            <tbody>
+              {cenarios.map((item, index) => (
+                <tr key={index}>
+                  <td data-label="Cenário">{txt(item.rotulo)}</td>
+                  <td className="num" data-label="Competências">
+                    {txt(item.consideradas)}
+                  </td>
+                  <td className="num" data-label="Descartadas">
+                    {txt(item.descartadas)}
+                  </td>
+                  <td className="num" data-label="Média">
+                    R$ {money(txt(item.media))}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {pbc.descarte_aplicado === true && (
+        <Notice tone="review">
+          O descarte selecionado foi aplicado à média. Quando a política exige, o motor também recalcula tempo e carência;
+          confira o efeito nos avisos do motor e no painel de tempo de contribuição. O descarte não escolhe regra jurídica nem
+          confirma direito.
+        </Notice>
+      )}
+      {parcelas.length > 0 && (
+        <details className="details">
+          <summary>Parcelas do PBC · {parcelas.length}</summary>
+          <div className="table-wrap" style={{ maxHeight: 360 }}>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Competência</th>
+                  <th className="num">Salário</th>
+                  <th className="num">Corrigido</th>
+                  <th>Uso</th>
+                </tr>
+              </thead>
+              <tbody>
+                {parcelas.map((item, index) => (
+                  <tr key={index}>
+                    <td>{txt(item.competencia)}</td>
+                    <td className="num">R$ {money(txt(item.salario))}</td>
+                    <td className="num">R$ {money(txt(item.corrigido))}</td>
+                    <td>{descartadas.has(txt(item.competencia)) ? 'Descartada' : 'Usada'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </details>
+      )}
+    </Panel>
+  );
+}
+
+function formatRuleFaltas(faltas: Json | undefined): string | null {
+  const data = obj(faltas);
+  if (!data) return null;
+  if (data.aplicavel === false) return 'Não aplicável';
+  const labels: Record<string, string> = {
+    tempoMeses: 'tempo',
+    idadeMeses: 'idade',
+    pontosMeses: 'pontos',
+    carenciaMeses: 'carência',
+  };
+  const items = Object.entries(data)
+    .filter(([k, v]) => k.endsWith('Meses') && Number(v) > 0)
+    .map(([k, v]) => `${labels[k] ?? k} ${v} meses`);
+  return items.length > 0 ? `Faltam: ${items.join('; ')}` : null;
+}
+
+function TransitionAudit({ transicoes }: { transicoes: JsonObj }) {
+  const regras = arr(transicoes.regras)
+    .map(obj)
+    .filter((x): x is JsonObj => x !== null);
+  const escolhida = txt(transicoes.regra_escolhida);
+  return (
+    <Panel
+      className="transition-audit"
+      title="Regras de transição"
+      subtitle="Comparação do motor; elegibilidade e RMI são observações experimentais."
+    >
+      <div className="result-strip">
+        <div>
+          <span>Regra escolhida</span>
+          <strong>{escolhida || 'Nenhuma regra elegível'}</strong>
+        </div>
+        <div>
+          <span>RMI da regra</span>
+          <strong>{missing(transicoes.rmi_escolhida) ? 'Não apurado' : 'R$ ' + money(txt(transicoes.rmi_escolhida))}</strong>
+        </div>
+        <div>
+          <span>Tempo até a reforma</span>
+          <strong>
+            {missing(transicoes.tempo_ate_reforma_meses) ? 'Sem dado' : txt(transicoes.tempo_ate_reforma_meses) + ' meses'}
+          </strong>
+        </div>
+        <div>
+          <span>Regras comparadas</span>
+          <strong>{Array.isArray(transicoes.regras) ? regras.length : 'Sem dado'}</strong>
+        </div>
+      </div>
+      <div className="table-wrap">
+        <table className="data-table">
+          <caption>Regras de transição comparadas</caption>
+          <thead>
+            <tr>
+              <th>Regra</th>
+              <th>Fundamento</th>
+              <th>Situação</th>
+              <th className="num">RMI</th>
+            </tr>
+          </thead>
+          <tbody>
+            {regras.map((regra, index) => {
+              const textoFaltas = formatRuleFaltas(regra.faltas);
+              return (
+                <tr key={index}>
+                  <td data-label="Regra">{txt(regra.nome)}</td>
+                  <td data-label="Fundamento">{txt(regra.fundamento)}</td>
+                  <td data-label="Situação">
+                    {regra.elegivel === true
+                      ? 'Elegível'
+                      : textoFaltas === 'Não aplicável'
+                        ? 'Não aplicável'
+                        : regra.elegivel === false
+                          ? textoFaltas
+                            ? `Não elegível (${textoFaltas})`
+                            : 'Não elegível'
+                          : 'A verificar'}
+                  </td>
+                  <td className="num" data-label="RMI">
+                    {missing(regra.rmi_final) && missing(regra.rmi)
+                      ? 'Não apurado'
+                      : 'R$ ' + money(txt(regra.rmi_final ?? regra.rmi))}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <details className="details">
+        <summary>Requisitos, faltas e observações</summary>
+        <ul className="review-list">
+          {regras.map((regra, index) => (
+            <li key={index}>
+              <strong>{txt(regra.nome)}</strong>
+              {arr(regra.requisitos).length > 0 && <span> · {arr(regra.requisitos).map(txt).join('; ')}</span>}
+              {(() => {
+                const textoFaltas = formatRuleFaltas(regra.faltas);
+                return textoFaltas ? <span> · {textoFaltas}</span> : null;
+              })()}
+              {regra.observacao != null && <span> · {txt(regra.observacao)}</span>}
+            </li>
+          ))}
+        </ul>
+      </details>
+    </Panel>
+  );
+}
+
+const BLOCKER_GROUPS: Record<string, { title: string; hint: string }> = {
+  vinculos: { title: 'Revisar vínculos e regime', hint: 'Datas, regime, CTC e indicadores dos vínculos.' },
+  salarios: { title: 'Revisar competências e remunerações', hint: 'Competências, salários, moeda e limites do PBC.' },
+  parametros: { title: 'Confirmar parâmetros e revisão', hint: 'Identidade, deficiência, espécie, política e revisão documental.' },
+  outros: { title: 'Outras pendências', hint: 'Itens que exigem conferência antes de executar.' },
+};
+
+function blockerGroup(b: JsonObj): string {
+  const code = String(b.code ?? '');
+  const field = String(b.field ?? '');
+  if (
+    code.startsWith('source_wage') ||
+    code.startsWith('wage_') ||
+    code.startsWith('pbc_') ||
+    code.includes('currency') ||
+    code.includes('salario') ||
+    code.includes('duplicate_month') ||
+    code.includes('contribution_review') ||
+    field.startsWith('competencias')
+  )
+    return 'salarios';
+  if (
+    code.startsWith('link_') ||
+    code.startsWith('source_') ||
+    code.includes('regime') ||
+    code.includes('ctc') ||
+    code.includes('prpps') ||
+    field.startsWith('vinculos') ||
+    field.startsWith('manual_links')
+  )
+    return 'vinculos';
+  if (
+    code.startsWith('disability') ||
+    code.startsWith('identity') ||
+    code.startsWith('case_') ||
+    code.startsWith('option') ||
+    code.startsWith('review') ||
+    code.startsWith('birth') ||
+    code.startsWith('especie') ||
+    code.startsWith('pcd_') ||
+    code.startsWith('workspace_options') ||
+    field.startsWith('segurado') ||
+    field.startsWith('opcoes') ||
+    field === 'kind' ||
+    field === 'especie'
+  )
+    return 'parametros';
+  return 'outros';
+}
+
+function BlockedResult({ result }: { result: JsonObj }) {
+  const issues = arr(result.blockers)
+    .map(obj)
+    .filter((x): x is JsonObj => x !== null);
+  const grouped = new Map<string, JsonObj[]>();
+  for (const issue of issues) {
+    const key = blockerGroup(issue);
+    grouped.set(key, [...(grouped.get(key) ?? []), issue]);
+  }
+  return (
+    <Panel
+      title="Execução bloqueada"
+      subtitle="Nenhum resultado financeiro foi gerado. As pendências estão agrupadas pela próxima ação."
+    >
+      {issues.length === 0 ? (
+        <Notice tone="review">O motor bloqueou a execução, mas não detalhou as pendências. Consulte a trilha abaixo.</Notice>
+      ) : (
+        ['vinculos', 'salarios', 'parametros', 'outros']
+          .filter(key => grouped.has(key))
+          .map(key => {
+            const items = grouped.get(key)!;
+            const families = groupEngineBlockers(items);
+            return (
+              <details key={key} className="details" open>
+                <summary>
+                  <strong>{BLOCKER_GROUPS[key].title}</strong> - {items.length}
+                  <span className="secondary-line"> {BLOCKER_GROUPS[key].hint}</span>
+                </summary>
+                <ul className="review-list" data-testid="blocker-families">
+                  {families.map(family => (
+                    <li key={family.key} data-family={family.key}>
+                      <strong>{family.title}</strong> - {family.count}
+                      {family.messages.map(message => (
+                        <div key={message} className="secondary-line">
+                          {message}
+                        </div>
+                      ))}
+                      {family.fields.map(field => (
+                        <div key={field} className="secondary-line">
+                          Origem: <code>{field}</code>
+                        </div>
+                      ))}
+                      <div className="secondary-line">Próxima ação: {family.nextAction}</div>
+                      {family.codes.length > 0 && (
+                        <div className="secondary-line">Códigos: {family.codes.join(', ')}</div>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            );
+          })
+      )}
+      <details className="details">
+        <summary>Trilha completa do bloqueio</summary>
+        <div className="mono">{JSON.stringify(result, null, 2)}</div>
+      </details>
+    </Panel>
+  );
+}
+
+interface Policy {
+  version: string | null;
+  review_evidence: string | null;
+  manual_link_kind: string | null;
+  manual_currency: string | null;
+  native_options: {
+    corrigirSalarios: boolean | null;
+    descarte: boolean | null;
+    divisorMinimo: boolean | null;
+    aplicarTetoVigenteDer: boolean | null;
+    referenciaCorrecao: string | null;
+    expectativaSobrevida: string | null;
+    regraAlvo: string | null;
+    incapacidadeOrigem: string | null;
+    grauEspecial: string | null;
+    tempoEspecialMeses: number | null;
+    especialAntesReforma: boolean | null;
+    magisterioMeses: number | null;
+    magisterioExclusivo: boolean | null;
+    magisterioAntesReforma: boolean | null;
+  };
+  exclude_imported_source: boolean;
+  source_exclusion_evidence: string | null;
+  identity_confirmed: boolean;
+}
+
+function defaultPolicy(): Policy {
+  return {
+    version: 'rgps-core-observational-v1',
+    review_evidence: null,
+    manual_link_kind: null,
+    manual_currency: null,
+    native_options: {
+      corrigirSalarios: false,
+      descarte: false,
+      divisorMinimo: false,
+      aplicarTetoVigenteDer: false,
+      referenciaCorrecao: null,
+      expectativaSobrevida: null,
+      regraAlvo: null,
+      incapacidadeOrigem: null,
+      grauEspecial: null,
+      tempoEspecialMeses: null,
+      especialAntesReforma: null,
+      magisterioMeses: null,
+      magisterioExclusivo: null,
+      magisterioAntesReforma: null,
+    },
+    exclude_imported_source: false,
+    source_exclusion_evidence: null,
+    identity_confirmed: false,
+  };
+}
+
+export function RgpsPolicy({
+  value,
+  onChange,
+  hasSource,
+  especie,
+}: {
+  value: string;
+  onChange: (s: string) => void;
+  hasSource: boolean;
+  especie?: string | null;
+}) {
+  let p: Policy;
+  try {
+    const parsed = JSON.parse(value);
+    const defaults = defaultPolicy();
+    const source =
+      parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : {};
+    const native =
+      source.native_options && typeof source.native_options === 'object' && !Array.isArray(source.native_options)
+        ? (source.native_options as Record<string, unknown>)
+        : {};
+    p = {
+      ...defaults,
+      ...source,
+      native_options: { ...defaults.native_options, ...native },
+    } as Policy;
+  } catch {
+    p = defaultPolicy();
+  }
+  const patch = (a: Partial<Policy>) => onChange(JSON.stringify({ ...p, ...a }));
+  const native = (a: Partial<Policy['native_options']>) => patch({ native_options: { ...p.native_options, ...a } });
+  return (
+    <div style={{ marginTop: 24 }}>
+      <h3 style={{ fontSize: 14 }}>1. Dados conferidos</h3>
+      <p className="form-note">
+        Informe a referência da conferência, a categoria e a moeda. Campos em branco mantêm a execução bloqueada.
+      </p>
+      <div className="form-grid" data-ui-stack>
+        <Field
+          required
+          label="Referência documental da revisão"
+          value={p.review_evidence ?? ''}
+          onChange={review_evidence => patch({ review_evidence: review_evidence || null })}
+          placeholder="Referência técnica, sem dados pessoais"
+        />
+        <LinkKindSelect value={p.manual_link_kind} onChange={manual_link_kind => patch({ manual_link_kind })} />
+        <Select
+          label="Moeda dos salários manuais pós-07/1994"
+          value={p.manual_currency ?? ''}
+          onChange={manual_currency => patch({ manual_currency: manual_currency || null })}
+          items={['', 'BRL']}
+        />
+        {hasSource && (
+          <label className="checkline">
+            <input
+              type="checkbox"
+              checked={p.identity_confirmed === true}
+              onChange={e => patch({ identity_confirmed: e.target.checked })}
+            />
+            Confirmo a identidade revisada; não sobrescrever o CNIS importado
+          </label>
+        )}
+        <Field
+          label="Referência de correção AAAA-MM"
+          value={p.native_options.referenciaCorrecao ?? ''}
+          onChange={referenciaCorrecao => native({ referenciaCorrecao: referenciaCorrecao || null })}
+        />
+        <Field
+          label="Expectativa de sobrevida declarada"
+          value={p.native_options.expectativaSobrevida ?? ''}
+          onChange={expectativaSobrevida => native({ expectativaSobrevida: expectativaSobrevida || null })}
+        />
+        <Field
+          label="Regra-alvo declarada (opcional)"
+          value={p.native_options.regraAlvo ?? ''}
+          onChange={regraAlvo => native({ regraAlvo: regraAlvo || null })}
+        />
+        <Select
+          label="Origem da incapacidade (31/32)"
+          hint="Acidente/doença ocupacional dá 100% na incapacidade permanente; a lista isenta carência."
+          value={p.native_options.incapacidadeOrigem ?? ''}
+          onChange={incapacidadeOrigem => native({ incapacidadeOrigem: incapacidadeOrigem || null })}
+          items={['', 'comum', 'acidente', 'doenca_ocupacional', 'doenca_do_trabalho', 'doenca_listada']}
+        />
+      </div>
+      <h3 style={{ marginTop: 20 }}>2. Operações sobre os salários</h3>
+      <p className="form-note">
+        Escolha correção, descarte e limites. Sem correção, o resultado é nominal, não uma memória pronta para protocolo.
+      </p>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 15 }}>
+        {(
+          [
+            ['corrigirSalarios', 'Aplicar correção com a série do motor e referência declarada'],
+            ['descarte', 'Comparar a média com o descarte dos menores salários (modelo local experimental)'],
+            ['divisorMinimo', 'Usar divisor mínimo do modelo local quando aplicável'],
+            ['aplicarTetoVigenteDer', 'Aplicar teto vigente da tabela do motor (exige cobertura da DIB)'],
+          ] as const
+        ).map(([key, label]) => (
+          <label key={key} className="checkline">
+            <input
+              type="checkbox"
+              checked={Boolean(p.native_options[key])}
+              onChange={e => native({ [key]: e.target.checked })}
+            />
+            {label}
+          </label>
+        ))}
+      </div>
+      {hasSource && (
+        <div style={{ marginTop: 16 }}>
+          <Notice>
+            O CNIS permanece não validado por registro. O adaptador atual só calcula períodos e salários manuais confirmados.
+            Excluir a origem de uma hipótese exige decisão documental explícita, e não autoriza apagar o documento ou ignorar
+            CTC.
+          </Notice>
+          <label className="checkline" style={{ marginTop: 12 }}>
+            <input
+              type="checkbox"
+              checked={p.exclude_imported_source}
+              onChange={e => patch({ exclude_imported_source: e.target.checked })}
+            />
+            Usar somente registros manuais neste cenário, mantendo a origem separada
+          </label>
+          {p.exclude_imported_source && (
+            <div style={{ marginTop: 12 }}>
+              <Field
+                required
+                label="Justificativa documental dessa exclusão"
+                value={p.source_exclusion_evidence ?? ''}
+                onChange={source_exclusion_evidence =>
+                  patch({ source_exclusion_evidence: source_exclusion_evidence || null })
+                }
+              />
+            </div>
+          )}
+        </div>
+      )}
+      <p className="form-note">
+        A seleção destas operações não é escolha automática da melhor regra. A comparação de regras e LC 142 deve vir de um
+        motor validado para esse cenário; informação ausente continua pendente.
+      </p>
+      {especie === '46' && (
+        <>
+          <h3 style={{ marginTop: 20 }}>3. Tempo especial (46)</h3>
+          <p className="form-note">
+            O PPP e o enquadramento são declarados; o motor não os verifica. O tempo abaixo é o de efetiva exposição, não o
+            tempo comum.
+          </p>
+          <div className="form-grid">
+            <Select
+              label="Grau/agente"
+              value={p.native_options.grauEspecial ?? ''}
+              onChange={grauEspecial => native({ grauEspecial: grauEspecial || null })}
+              items={['', '15', '20', '25']}
+            />
+            <Field
+              type="number"
+              label="Tempo especial efetivo (meses)"
+              value={String(p.native_options.tempoEspecialMeses ?? '')}
+              onChange={v => native({ tempoEspecialMeses: v.trim() ? Number(v) : null })}
+            />
+            <label className="checkline">
+              <input
+                type="checkbox"
+                checked={p.native_options.especialAntesReforma === true}
+                onChange={e => native({ especialAntesReforma: e.target.checked })}
+              />
+              Tempo especial completo até 13/11/2019 (direito adquirido)
+            </label>
+          </div>
+        </>
+      )}
+      {especie === '57' && (
+        <>
+          <h3 style={{ marginTop: 20 }}>3. Magistério (57)</h3>
+          <p className="form-note">
+            O tempo de magistério e a exclusividade são declarados; o motor não verifica a prova. Sem magistério exclusivo, a
+            regra do professor não se aplica.
+          </p>
+          <div className="form-grid">
+            <Field
+              type="number"
+              label="Tempo de efetivo magistério (meses)"
+              value={String(p.native_options.magisterioMeses ?? '')}
+              onChange={v => native({ magisterioMeses: v.trim() ? Number(v) : null })}
+            />
+            <label className="checkline">
+              <input
+                type="checkbox"
+                checked={p.native_options.magisterioExclusivo === true}
+                onChange={e => native({ magisterioExclusivo: e.target.checked })}
+              />
+              Magistério exclusivo na educação infantil, fundamental ou médio
+            </label>
+            <label className="checkline">
+              <input
+                type="checkbox"
+                checked={p.native_options.magisterioAntesReforma === true}
+                onChange={e => native({ magisterioAntesReforma: e.target.checked })}
+              />
+              Tempo de magistério completo até 13/11/2019 (direito adquirido)
+            </label>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}

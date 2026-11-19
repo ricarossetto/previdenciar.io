@@ -23,7 +23,7 @@ for(const width of[390,1440]){
 }
 test('calculation choices expose real named buttons and welcome fits before the first interview question',async({page})=>{
  await page.setViewportSize({width:390,height:844});await start(page);
- await page.getByRole('button',{name:'Todas as páginas',exact:true}).click();await page.getByRole('dialog').getByRole('button',{name:'Cálculos do RGPS',exact:true}).click();
+ await page.getByRole('button',{name:'Todas as páginas',exact:true}).click();await page.getByRole('dialog').getByRole('button',{name:'Meus cálculos',exact:true}).click();
  await page.getByRole('button',{name:'Novo cálculo',exact:true}).click();const dialog=page.getByRole('dialog');
  const guided=dialog.getByRole('button',{name:'Usar o assistente de cálculos',exact:true});const manual=dialog.getByRole('button',{name:'Não usar o assistente',exact:true});
  await expect(guided).toHaveText('Usar o assistente de cálculos');await expect(manual).toHaveText('Não usar o assistente');

@@ -1,20 +1,23 @@
 {
   "name": "previdenciar-io-ui",
   "private": true,
-  "version": "0.16.0",
+  "version": "0.16.3",
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 1427 --strictPort",
     "build": "tsc -b && vite build",
+    "build:web": "tsc -b && vite build --mode web",
     "test": "vitest run",
     "test:e2e": "playwright test",
     "typecheck": "tsc -b --pretty false",
+    "check:health": "node ../../scripts/check-health.mjs",
     "preview": "vite preview --host 127.0.0.1 --port 1427 --strictPort"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.8.0",
     "@tauri-apps/plugin-process": "^2.4.0",
     "@tauri-apps/plugin-updater": "^2.14.0",
+    "docx": "^9.5.1",
     "motion": "12.42.2",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"

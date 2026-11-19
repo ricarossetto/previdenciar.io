@@ -1,0 +1,18 @@
+target
+**/node_modules
+.git
+.gitignore
+work
+**/target
+**/dist/*.map
+
+# Segredos locais nunca entram no contexto de build: o Dockerfile copia
+# `apps/server` inteiro e levaria o `.env` de desenvolvimento (AUTH_DISABLED,
+# DATABASE_URL e AI_API_KEY) para a imagem.
+**/.env
+**/.env.*
+**/*.pvr
+**/*.pvr.*
+**/verification
+**/test-results
+**/playwright-report

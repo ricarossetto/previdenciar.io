@@ -1,0 +1,1285 @@
+/* Mesa de Trabalho Previdenciária · Sistema visual jurídico e contábil */
+
+html,
+body,
+.previdenciar-app {
+  max-width: 100%;
+  overflow-x: clip;
+}
+
+/* Foco programático em títulos de rota não desenha borda visual */
+.previdenciar-app .page-head h1:focus,
+.previdenciar-app .page-head h1:focus-visible,
+.previdenciar-app .robot-question h2:focus {
+  outline: none;
+}
+
+:where(button, [href], input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+:where(button, input, select, textarea, summary) {
+  scroll-margin-block: 24px;
+}
+
+:where(.app-content, .side-nav, .dialog__body, .table-wrap, .report-template-list, .fabrica-tabs) {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+html[data-theme-switching] * {
+  transition: none !important;
+  animation: none !important;
+}
+
+/* ============================================================================
+   Contratos E2E obrigatórios: skip-link, ui-tooltip, sr-only
+   ============================================================================ */
+
+.skip-link,
+.previdenciar-app .skip-link {
+  position: fixed;
+  top: -80px;
+  left: 16px;
+  z-index: 100;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: auto;
+  height: 40px;
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 10px;
+  background: var(--elevated);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-elevated);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.skip-link:focus,
+.skip-link:focus-visible,
+.previdenciar-app .skip-link:focus,
+.previdenciar-app .skip-link:focus-visible {
+  top: 12px;
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.ui-tooltip {
+  position: fixed;
+  z-index: 10001;
+  max-width: min(280px, calc(100vw - 16px));
+  padding: 8px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--elevated);
+  color: var(--fg);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  pointer-events: none;
+  box-shadow: var(--shadow-elevated);
+}
+
+.ui-tooltip[hidden] {
+  display: none;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ============================================================================
+   Tipografia & Numeração Tabular
+   ============================================================================ */
+
+.previdenciar-app .page-head h1 {
+  font-family: var(--font-editorial);
+  font-size: 32px;
+  line-height: 1.22;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+
+.previdenciar-app h2 {
+  font-family: var(--font-editorial);
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--fg);
+}
+
+.previdenciar-app .card__title {
+  font-family: var(--font-ui);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.previdenciar-app :is(
+  table,
+  .data-table,
+  .num,
+  .mini-stat strong,
+  .main-number,
+  .result-strip strong,
+  .import-summary strong,
+  .previus-summary-bar,
+  .previus-kpi strong,
+  .comparison-grid
+) {
+  font-variant-numeric: tabular-nums;
+}
+
+.previdenciar-app code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--inset);
+  border: 1px solid var(--border-subtle);
+  color: var(--fg);
+}
+
+/* ============================================================================
+   Navegação Lateral Agrupada (.side-group-label) & Barra Superior
+   ============================================================================ */
+
+.previdenciar-app .side-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.previdenciar-app .side-group + .side-group {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.previdenciar-app .side-group-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 6px 10px 4px;
+  user-select: none;
+}
+
+.previdenciar-app .side-link {
+  position: relative;
+  isolation: isolate;
+  min-height: 38px;
+  padding: 7px 8px;
+  gap: 9px;
+  border-radius: 8px;
+  font-size: 13.5px;
+  line-height: 1.35;
+  color: var(--fg-2);
+  transition: background var(--fast) var(--ease-out), color var(--fast) var(--ease-out), border-color var(--fast) var(--ease-out);
+}
+
+.previdenciar-app .side-link:hover {
+  background: var(--surface-hover);
+  color: var(--fg);
+}
+
+.previdenciar-app .side-link.active {
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.previdenciar-app .chrome-mobile-brand {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-editorial);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--fg);
+  min-width: 0;
+}
+
+.previdenciar-app .chrome-mobile-brand img {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  object-fit: contain;
+  background: #f7f3ea;
+  padding: 2px;
+  flex-shrink: 0;
+}
+
+/* ============================================================================
+   Controles Unificados (.btn, .input, select, textarea, option, checkboxes)
+   ============================================================================ */
+
+.previdenciar-app .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  height: auto;
+  max-width: 100%;
+  padding: 8px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--fg);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.3;
+  white-space: normal;
+  text-align: center;
+  cursor: pointer;
+  transition: background var(--fast) var(--ease-out), border-color var(--fast) var(--ease-out), color var(--fast) var(--ease-out);
+}
+
+.previdenciar-app .btn .ic {
+  width: 17px;
+  height: 17px;
+  flex-shrink: 0;
+}
+
+.previdenciar-app .btn:hover:not(:disabled) {
+  background: var(--surface-hover);
+  border-color: var(--fg-2);
+  color: var(--fg);
+}
+
+.previdenciar-app .btn:disabled {
+  opacity: 0.58;
+  cursor: not-allowed;
+}
+
+.previdenciar-app .btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--btn-primary-fg);
+  box-shadow: var(--shadow-xs);
+}
+
+.previdenciar-app .btn-primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+  color: var(--btn-primary-fg);
+}
+
+.previdenciar-app .btn-primary:disabled {
+  background: var(--surface-2);
+  border-color: var(--border);
+  color: var(--muted);
+  opacity: 1;
+  box-shadow: none;
+}
+
+.previdenciar-app .btn-ghost {
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--fg);
+}
+
+.previdenciar-app .btn-ghost:hover:not(:disabled) {
+  background: var(--surface-hover);
+  border-color: var(--border-strong);
+  color: var(--fg);
+}
+
+.previdenciar-app .btn-icon {
+  width: 40px;
+  min-width: 40px;
+  min-height: 40px;
+  padding: 0;
+}
+
+.previdenciar-app .btn-sm {
+  min-height: 34px;
+  padding: 5px 10px;
+  font-size: 13px;
+}
+
+.previdenciar-app .iconbtn {
+  display: inline-grid;
+  place-items: center;
+  min-width: 36px;
+  min-height: 36px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--fg-2);
+  cursor: pointer;
+}
+
+.previdenciar-app .iconbtn:hover {
+  background: var(--surface-hover);
+  color: var(--fg);
+}
+
+.previdenciar-app .input,
+.previdenciar-app select,
+.previdenciar-app textarea,
+.previdenciar-app .text-area,
+.previdenciar-app .report-controls select {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 40px;
+  height: auto;
+  padding: 8px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--inset);
+  color: var(--fg);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 1.45;
+  caret-color: var(--accent);
+}
+
+.previdenciar-app select {
+  cursor: pointer;
+}
+
+.previdenciar-app option,
+.previdenciar-app select option,
+.previdenciar-app optgroup,
+option {
+  background: var(--elevated);
+  color: var(--fg);
+}
+
+.previdenciar-app .input::placeholder,
+.previdenciar-app textarea::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+
+.previdenciar-app .input:focus,
+.previdenciar-app select:focus,
+.previdenciar-app textarea:focus,
+.previdenciar-app .text-area:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.previdenciar-app .toolbar .input {
+  width: auto;
+  max-width: 240px;
+}
+
+.previdenciar-app .searchbox:focus-within {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.previdenciar-app .field-hint {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--fg-2);
+  line-height: 1.45;
+}
+
+.previdenciar-app .field-error {
+  display: block;
+  margin-top: 2px;
+  color: var(--danger);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+.previdenciar-app .field:has(.field-error) .input,
+.previdenciar-app .field:has(.field-error) .text-area,
+.previdenciar-app .input[aria-invalid="true"] {
+  border-color: var(--danger);
+}
+
+.previdenciar-app .checkline.field {
+  flex-direction: row;
+  align-items: center;
+}
+
+.previdenciar-app .page-head .head-actions {
+  flex-shrink: 0;
+}
+
+@media (min-width: 601px) {
+  .previdenciar-app .page-head .head-actions .btn {
+    white-space: nowrap;
+  }
+}
+
+.previdenciar-app .result-strip > div {
+  min-width: 0;
+}
+
+.previdenciar-app .result-strip > div strong {
+  overflow-wrap: anywhere;
+}
+
+.previdenciar-app .robot-answer-summary > div {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.previdenciar-app .robot-answer-summary span {
+  margin-bottom: 0;
+}
+
+.previdenciar-app .new-calculation-choice .status-tag {
+  align-self: flex-start;
+}
+
+.previdenciar-app .method-features {
+  padding: 0;
+  margin: 4px 0 16px;
+  display: grid;
+  gap: 6px;
+}
+
+.previdenciar-app .method-features li {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.previdenciar-app input[type="checkbox"] {
+  appearance: none;
+  width: 17px;
+  height: 17px;
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  background: var(--inset);
+  display: inline-grid;
+  place-content: center;
+  padding: 0;
+  min-height: 0;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.previdenciar-app input[type="checkbox"]::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  transform: scale(0);
+  transition: transform 120ms ease;
+  clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+  background: var(--btn-primary-fg);
+}
+
+.previdenciar-app input[type="checkbox"]:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.previdenciar-app input[type="checkbox"]:checked::before {
+  transform: scale(1);
+}
+
+/* ============================================================================
+   Garantia de Contraste WCAG AA em superfícies --inset / --surface-2 / --bg
+   (Lista separada por vírgula para não inflar especificidade com :is())
+   ============================================================================ */
+
+.previdenciar-app .import-summary span,
+.previdenciar-app .journey-guide__stage p,
+.previdenciar-app .journey-guide__action small,
+.previdenciar-app .journey-layer__metrics dt,
+.previdenciar-app .journey-pendencies header p,
+.previdenciar-app .journey-pendencies.is-empty p,
+.previdenciar-app .journey-pendency__copy small,
+.previdenciar-app .journey-guide__tech dt,
+.previdenciar-app .cnis-timeline__head p,
+.previdenciar-app .cnis-timeline__year-label,
+.previdenciar-app .cnis-timeline__counts dt,
+.previdenciar-app .assistant-case-context span,
+.previdenciar-app .assistant-steps .robot-progress button small,
+.previdenciar-app .assistant-domain-nav button small,
+.previdenciar-app .assistant-stepbar p,
+.previdenciar-app .cnis-review__tabs button span,
+.previdenciar-app .cnis-review__identity dt,
+.previdenciar-app .cnis-review table caption,
+.previdenciar-app .cnis-review td small,
+.previdenciar-app .cnis-review__pagination,
+.previdenciar-app .consideration-panel .eyebrow,
+.previdenciar-app .consideration-card > span,
+.previdenciar-app .consideration-card > small,
+.previdenciar-app .consideration-effect,
+.previdenciar-app .conference-tabs button small,
+.previdenciar-app .conference-interview .eyebrow,
+.previdenciar-app .conference-prepare .eyebrow,
+.previdenciar-app .conference-interview__answers dt,
+.previdenciar-app .report-saved__meta span,
+.previdenciar-app .report-saved__status,
+.previdenciar-app .report-template small,
+.previdenciar-app .report-help,
+.previdenciar-app .report-footer-note,
+.previdenciar-app .report-toolbar p,
+.previdenciar-app .report-document-status > span:last-child,
+.previdenciar-app .report-empty-document p,
+.previdenciar-app .report-preview-fallback,
+.previdenciar-app .ai-empty p,
+.previdenciar-app .ai-message header > span:first-child,
+.previdenciar-app .ai-message header small,
+.previdenciar-app .ai-typing,
+.previdenciar-app .ai-tool,
+.previdenciar-app .ai-source-title,
+.previdenciar-app .ai-disclaimer,
+.previdenciar-app .ai-test-result,
+.previdenciar-app .ai-data-grid span,
+.previdenciar-app .ai-command,
+.previdenciar-app .ai-case-preview pre,
+.previdenciar-app .knowledge-summary span,
+.previdenciar-app .knowledge-summary-status small,
+.previdenciar-app .knowledge-head p,
+.previdenciar-app .knowledge-tabs button:not(.active),
+.previdenciar-app .knowledge-tabs button small,
+.previdenciar-app .knowledge-hit-copy small,
+.previdenciar-app .knowledge-hit.active .knowledge-hit-copy small,
+.previdenciar-app .knowledge-read-meta,
+.previdenciar-app .knowledge-reading,
+.previdenciar-app .knowledge-empty p,
+.previdenciar-app .knowledge-cards p,
+.previdenciar-app .minuta-case-preview pre,
+.previdenciar-app .minuta-tool,
+.previdenciar-app .minuta-citations span:not(.verified):not(.unverified),
+.previdenciar-app .minuta-version small,
+.previdenciar-app .minuta-pdf-attach span,
+.previdenciar-app .minuta-saved-readings li span,
+.previdenciar-app .details summary,
+.previdenciar-app .data-table th,
+.previdenciar-app .secondary-line,
+.previdenciar-app .form-note,
+.previdenciar-app .wizard-step:not(.active):not(.done),
+.previdenciar-app .robot-progress button:not(.active):not(.done),
+.previdenciar-app .card__hint {
+  color: var(--fg-2);
+}
+
+.previdenciar-app .knowledge-tabs button.active {
+  color: var(--fg);
+  font-weight: 600;
+}
+
+/* Tabelas diretas dentro de painéis (ex.: CoverageMap) */
+.previdenciar-app .card__body:has(> table) {
+  overflow-x: auto;
+}
+
+.previdenciar-app .card__body > table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 13px;
+  margin-top: 12px;
+}
+
+.previdenciar-app .card__body > table th {
+  background: var(--surface-2);
+  color: var(--fg-2);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.previdenciar-app .card__body > table td {
+  padding: 11px 12px;
+  border-top: 1px solid var(--border-subtle);
+  color: var(--fg);
+  vertical-align: middle;
+}
+
+/* ============================================================================
+   Fluxo do Assistente (.flow-v2) integrado aos temas Claro e Escuro
+   ============================================================================ */
+
+.previdenciar-app .flow-v2 {
+  --paper: var(--surface);
+  --paper-2: var(--surface-2);
+  --paper-3: var(--elevated);
+  --ink: var(--fg);
+  --ink-2: var(--fg-2);
+  --rule: var(--border);
+  --action: var(--accent);
+  --action-hover: var(--accent-hover);
+  --action-ink: var(--btn-primary-fg);
+  --alert: var(--gold);
+  --alert-soft: var(--gold-soft);
+  --ok: var(--accent);
+  --ok-soft: var(--accent-soft);
+  background: var(--surface);
+  color: var(--fg);
+  border-color: var(--border);
+}
+
+.previdenciar-app .flow-v2 .btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--btn-primary-fg);
+}
+
+.previdenciar-app .flow-v2 .btn-primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+  color: var(--btn-primary-fg);
+}
+
+.previdenciar-app .flow-v2 .btn-ghost {
+  background: var(--surface-2);
+  border-color: var(--border-strong);
+  color: var(--fg);
+}
+
+/* ============================================================================
+   Novos Blocos da Mesa de Trabalho Previdenciária (Prévius + Central TRF3)
+   ============================================================================ */
+
+.fast-track-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 20px;
+  border: 1px solid var(--accent-line);
+  border-left: 4px solid var(--accent);
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--accent-soft), var(--surface) 68%);
+  box-shadow: var(--shadow-xs);
+}
+
+.fast-track-banner > div:first-child {
+  flex: 1 1 280px;
+  min-width: 0;
+}
+
+.fast-track-banner__copy strong {
+  display: block;
+  font-family: var(--font-editorial);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--fg);
+  margin: 0 0 4px;
+}
+
+.fast-track-banner h3,
+.fast-track-banner strong {
+  font-family: var(--font-editorial);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--fg);
+  margin: 0 0 4px;
+}
+
+.fast-track-banner p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--fg-2);
+  line-height: 1.5;
+}
+
+.fast-track-banner__fields,
+.fast-track-banner__controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.fast-track-banner__fields .field,
+.fast-track-banner__controls .field {
+  min-width: 165px;
+  flex: 1 1 165px;
+}
+
+.fast-track-banner__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Barra resumo persistente estilo Prévius */
+.previus-summary-bar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
+  gap: 10px 14px;
+  align-items: center;
+  padding: 14px 18px;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-top: 3px solid var(--accent);
+  border-radius: 12px;
+  box-shadow: var(--shadow-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.previus-kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  padding: 2px 10px 2px 0;
+  border-right: 1px solid var(--border-subtle);
+}
+
+.previus-kpi:last-child,
+.previus-kpi:has(> .btn) {
+  border-right: 0;
+  padding-right: 0;
+}
+
+.previus-kpi:has(> .btn) {
+  justify-content: center;
+}
+
+.previus-kpi > span,
+.previus-kpi > small {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--fg-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.previus-kpi > strong {
+  font-family: var(--font-editorial);
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--fg);
+  overflow-wrap: anywhere;
+}
+
+.previus-kpi.is-highlight > strong,
+.previus-kpi--accent > strong {
+  color: var(--accent);
+}
+
+.previus-kpi.is-gold > strong,
+.previus-kpi--gold > strong {
+  color: var(--gold);
+}
+
+/* Central TRF3 de 5 Abas (.fabrica-hub + .fabrica-tabs) */
+.fabrica-hub {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: var(--shadow-xs);
+  min-width: 0;
+}
+
+.fabrica-hub__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.fabrica-hub__head h2,
+.fabrica-hub__head h3 {
+  margin: 0 0 4px;
+  font-family: var(--font-editorial);
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.fabrica-tabs {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 6px;
+  padding: 5px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--inset);
+  overflow-x: auto;
+  max-width: 100%;
+  overscroll-behavior-x: contain;
+}
+
+.fabrica-tabs button {
+  flex: 0 0 auto;
+  min-height: 40px;
+  padding: 8px 14px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--fg-2);
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--fast) var(--ease-out), color var(--fast) var(--ease-out), border-color var(--fast) var(--ease-out);
+}
+
+.fabrica-tabs button:hover {
+  background: var(--surface-hover);
+  color: var(--fg);
+}
+
+.fabrica-tabs button[aria-selected="true"],
+.fabrica-tabs button.active {
+  background: var(--surface);
+  color: var(--accent);
+  border-color: var(--accent-line);
+  box-shadow: var(--shadow-xs);
+}
+
+/* Comparativo Lado a Lado: Motor Local vs Fábrica TRF3 */
+.comparison-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 14px;
+  margin: 10px 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.comparison-grid > div,
+.comparison-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px 18px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--inset);
+  min-width: 0;
+}
+
+.comparison-grid > div.is-primary,
+.comparison-grid > div.is-provider,
+.comparison-card--accent {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+}
+
+.comparison-grid > div.is-diff,
+.comparison-card--diff {
+  border-color: var(--gold-line);
+  background: var(--gold-soft);
+}
+
+.comparison-grid > div > span,
+.comparison-grid > div > small {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--fg-2);
+}
+
+.comparison-grid > div > strong {
+  font-family: var(--font-editorial);
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--fg);
+  overflow-wrap: anywhere;
+}
+
+.comparison-grid dl {
+  margin: 6px 0 0;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-subtle);
+  display: grid;
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr);
+  gap: 6px 12px;
+  font-size: 12.5px;
+}
+
+.comparison-grid dt {
+  color: var(--fg-2);
+}
+
+.comparison-grid dd {
+  margin: 0;
+  text-align: right;
+  font-weight: 600;
+  color: var(--fg);
+  overflow-wrap: anywhere;
+}
+
+/* ============================================================================
+   Responsividade Mobile & Dock Inferior (<=1023px, 390px, 320px)
+   ============================================================================ */
+
+@media (max-width: 1023px) {
+  .previdenciar-app {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: 58px minmax(0, 1fr);
+  }
+
+  .previdenciar-app .app-side {
+    display: none;
+  }
+
+  .previdenciar-app .top-chrome,
+  .previdenciar-app .app-content {
+    grid-column: 1;
+    padding-inline: 16px;
+  }
+
+  .previdenciar-app .app-content {
+    padding-top: 20px;
+    padding-bottom: calc(96px + env(safe-area-inset-bottom));
+  }
+
+  .previdenciar-app .page-head h1 {
+    font-size: 24px;
+  }
+
+  .previdenciar-app .chrome-mobile-brand {
+    display: flex;
+  }
+
+  .previdenciar-app .breadcrumb {
+    display: none;
+  }
+
+  .previdenciar-app .mobile-dock {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    position: fixed;
+    bottom: calc(10px + env(safe-area-inset-bottom));
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(500px, calc(100% - 16px));
+    padding: 6px;
+    gap: 4px;
+    border-radius: 16px;
+    border: 1px solid var(--border-strong);
+    background: var(--elevated);
+    box-shadow: var(--shadow-elevated);
+    z-index: 30;
+  }
+
+  .previdenciar-app .mobile-dock button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    min-width: 0;
+    min-height: 48px;
+    padding: 5px 2px;
+    border: 1px solid transparent;
+    border-radius: 11px;
+    background: transparent;
+    color: var(--fg-2);
+    font-size: 11px;
+    line-height: 1.2;
+  }
+
+  .previdenciar-app .mobile-dock button span {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+  }
+
+  .previdenciar-app .mobile-dock button[aria-current="page"],
+  .previdenciar-app .mobile-dock button[aria-expanded="true"] {
+    background: var(--accent-soft);
+    border-color: var(--accent-line);
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  .mobile-menu-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .mobile-menu-list button {
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    text-align: left;
+    background: var(--surface-2);
+    color: var(--fg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 500;
+  }
+
+  .mobile-menu-list button[aria-current="page"] {
+    background: var(--accent-soft);
+    border-color: var(--accent-line);
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  .previdenciar-app .toast {
+    bottom: calc(88px + env(safe-area-inset-bottom));
+    right: 12px;
+    left: 12px;
+    max-width: none;
+  }
+}
+
+@media (max-width: 700px) {
+  .previus-summary-bar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .previus-kpi {
+    border-right: 0;
+    border-bottom: 1px solid var(--border-subtle);
+    padding: 6px 2px;
+  }
+
+  .previus-kpi:last-child {
+    border-bottom: 0;
+  }
+
+  .previus-kpi:has(> .btn) {
+    grid-column: 1 / -1;
+    border-bottom: 0;
+    padding-top: 4px;
+  }
+}
+
+@media (max-width: 600px) {
+  .previdenciar-app .toolbar .searchbox {
+    flex-basis: 100%;
+    max-width: none;
+    min-width: 0;
+  }
+
+  .previdenciar-app .toolbar .input {
+    max-width: none;
+    width: 100%;
+  }
+
+  .previdenciar-app .toolbar .count {
+    margin-left: 0;
+  }
+
+  .previdenciar-app .wizard-bar,
+  .previdenciar-app .robot-progress,
+  .previdenciar-app .seg {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    max-width: 100%;
+    overscroll-behavior-x: contain;
+  }
+
+  .previdenciar-app .wizard-step,
+  .previdenciar-app .robot-progress button,
+  .previdenciar-app .seg button {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
+  .previdenciar-app .wizard-foot {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .previdenciar-app .wizard-foot > div {
+    display: flex;
+  }
+
+  .previdenciar-app .wizard-foot .btn,
+  .previdenciar-app .form-actions .btn {
+    flex: 1 1 auto;
+  }
+
+  .previdenciar-app .chrome-new {
+    min-width: 40px;
+    width: 40px;
+    padding: 0;
+  }
+
+  .previdenciar-app .chrome-new span {
+    display: none;
+  }
+
+  .fabrica-hub {
+    padding: 14px;
+  }
+
+  .mobile-menu-list {
+    grid-template-columns: 1fr;
+  }
+
+  .previdenciar-app .new-calculation-choice {
+    flex-direction: column;
+    min-height: auto;
+    padding: 16px;
+    gap: 12px;
+  }
+}
+
+@media (max-width: 640px) {
+  .previdenciar-app .app-content {
+    padding-top: 12px;
+  }
+
+  .previdenciar-app .page-wrap {
+    gap: 10px;
+  }
+
+  .previdenciar-app .page-head {
+    padding-bottom: 10px;
+    gap: 8px;
+  }
+
+  .previdenciar-app:has(.robot-workspace) .page-head p {
+    display: none;
+  }
+
+  .previdenciar-app .flow-v2 {
+    padding: 12px 14px 18px;
+    gap: 10px;
+  }
+
+  .previdenciar-app .flow-v2 .assistant-stepbar {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px 12px;
+    padding-bottom: 10px;
+  }
+
+  .previdenciar-app .flow-v2 .assistant-stepbar p {
+    font-size: 18px;
+    margin: 2px 0 6px;
+  }
+
+  .previdenciar-app .flow-v2 .assistant-stepbar progress {
+    max-width: 140px;
+    margin-top: 4px;
+  }
+
+  .previdenciar-app .flow-v2 .assistant-case-context {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 12px;
+    padding: 10px 12px;
+  }
+
+  .previdenciar-app .flow-v2 .assistant-case-context > div {
+    min-width: 0;
+  }
+
+  .previdenciar-app .flow-v2 .assistant-case-context span {
+    margin-bottom: 2px;
+  }
+
+  .previdenciar-app .flow-v2 .assistant-case-context .btn {
+    grid-column: 1 / -1;
+    min-height: 36px;
+    padding: 6px 10px;
+    font-size: 13px;
+  }
+
+  .previdenciar-app .flow-v2 .assistant-steps summary {
+    padding: 4px 0;
+  }
+
+  .previdenciar-app .flow-v2 .robot-question {
+    padding: 8px 0 4px;
+    gap: 8px;
+  }
+
+  .previdenciar-app .flow-v2 .robot-question h2,
+  .previdenciar-app .flow-v2 .robot-question h3 {
+    font-size: 20px;
+    line-height: 1.25;
+  }
+
+  .previdenciar-app .flow-v2 .card,
+  .previdenciar-app .flow-v2 .panel {
+    padding: 12px 0 4px;
+  }
+
+  .previdenciar-app .flow-v2 .card__head {
+    padding: 0 0 8px;
+  }
+}
+
+@media (max-width: 359px) {
+  .previdenciar-app .top-chrome,
+  .previdenciar-app .app-content {
+    padding-inline: 12px;
+  }
+
+  .previdenciar-app .chrome-mobile-brand span {
+    display: none;
+  }
+
+  .previdenciar-app .mobile-dock {
+    width: calc(100% - 12px);
+    padding: 4px;
+    gap: 2px;
+  }
+
+  .previdenciar-app .mobile-dock button {
+    padding: 4px 1px;
+    font-size: 10px;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .previdenciar-app .card,
+  .previdenciar-app .btn,
+  .previdenciar-app .input,
+  .previdenciar-app select,
+  .previdenciar-app textarea {
+    border-color: var(--fg-2);
+  }
+}
+
+@media (forced-colors: active) {
+  .previdenciar-app :is(.btn, .side-link, .dialog, .mobile-dock, .input, .text-area, .fabrica-hub, .previus-summary-bar) {
+    border: 1px solid ButtonText;
+  }
+  .previdenciar-app [aria-current="page"] {
+    outline: 2px solid Highlight;
+    outline-offset: -3px;
+  }
+}

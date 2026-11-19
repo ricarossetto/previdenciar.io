@@ -1,0 +1,28 @@
+name: web
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+        working-directory: apps/desktop
+      - run: npm run build:web
+        working-directory: apps/desktop
+      - run: npm test
+        working-directory: apps/desktop
+      - run: cargo test --workspace --locked
+      - run: docker build -f apps/server/Dockerfile -t previdenciar-web:ci .

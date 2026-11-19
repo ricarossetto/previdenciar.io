@@ -65,7 +65,7 @@ pub const ${config.fonte}: &str = "${config.label} — variação mensal (SGS/BC
 }
 
 const extractedAt = new Date().toISOString().slice(0, 10);
-const publicJsonPath = path.join(repo, 'crates/previus-rgps/src/public-economic.json');
+const publicJsonPath = path.join(repo, 'crates/previdenciar-rgps/src/public-economic.json');
 const publicJson = JSON.parse(fs.readFileSync(publicJsonPath, 'utf8'));
 
 for (const [key, config] of Object.entries(source)) {

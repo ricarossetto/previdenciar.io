@@ -1,0 +1,13 @@
+[package]
+name = "previdenciar-core"
+version = "0.1.0"
+edition = "2021"
+description = "Pure, explicitly experimental domain core based on bounded Previdenciar observations"
+
+[dependencies]
+chrono = { version = "0.4", default-features = false, features = ["std"] }
+serde = { version = "1", features = ["derive"] }
+
+serde_json = "1"
+rgps-core = { path = "../rgps-core" }
+rust_decimal = { version = "=1.43.0" }

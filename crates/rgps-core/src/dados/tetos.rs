@@ -1,4 +1,4 @@
-// GERADO AUTOMATICAMENTE a partir do ATRIUM lib/calc/dados: não editar à mão.
+// GERADO AUTOMATICAMENTE a partir da implementação de referência lib/calc/dados: não editar à mão.
 // Regenerar com o script gerar-dados.mjs (fonte canônica: dados oficiais com fonte declarada).
 
 /// (competência, valor). Ordenado por competência.

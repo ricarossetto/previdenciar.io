@@ -3,7 +3,14 @@ import {isoDate, parseMoney, robotParameterIssues, hasFinancialResult} from './m
 
 /** Versioned policy accepted by the local RGPS adapter. */
 export const POLICY_VERSION = 'rgps-core-observational-v1';
-const LINK_KINDS = ['empregado','empregado_domestico','contribuinte_individual','avulso','facultativo'];
+export const LINK_KINDS = ['empregado','empregado_domestico','contribuinte_individual','avulso','facultativo'];
+export const LINK_KIND_LABELS: Record<string,string> = {
+  empregado: 'Empregado (RGPS)',
+  empregado_domestico: 'Empregado doméstico',
+  contribuinte_individual: 'Contribuinte individual',
+  avulso: 'Trabalhador avulso',
+  facultativo: 'Facultativo',
+};
 
 export type ConsiderationFix = 'interview'|'source'|'links'|'salaries'|'policy'|'parameters';
 export interface ConsiderationIssue {
@@ -152,7 +159,7 @@ export function assistantConsideration(c: Calculation, _interview?: AssistantInt
   else {
     if (policyVersion !== POLICY_VERSION) add('policy_version','Política fora da versão suportada pelo motor.','policy');
     if (!reviewEvidence) add('review_evidence','Referência documental da revisão ausente.','policy');
-    if (!LINK_KINDS.includes(text(policy.manual_link_kind))) add('manual_link_kind','Categoria dos períodos manuais não declarada.','policy');
+    if (!LINK_KINDS.includes(text(policy.manual_link_kind))) add('manual_link_kind','Categoria dos períodos manuais ausente ou não suportada pelo motor local.','policy');
     if (salaries.length > 0 && text(policy.manual_currency) !== 'BRL') add('manual_currency','Moeda dos salários manuais não declarada como BRL.','policy');
     const optionKeys = ['corrigirSalarios','descarte','divisorMinimo','aplicarTetoVigenteDer'];
     const missingOptions = optionKeys.filter(key => typeof native?.[key] !== 'boolean');
@@ -198,8 +205,8 @@ export function assistantConsideration(c: Calculation, _interview?: AssistantInt
   if (salaries.some(s => !positiveMoney(s.amount))) add('salaries_amount','Valor de remuneração ausente, não positivo ou inválido.','salaries');
   const competences = salaries.map(s => s.competence).filter(validCompetence);
   if (new Set(competences).size !== competences.length) add('salaries_duplicate','Competência duplicada: concomitância exige consolidação documental.','salaries');
-  if (dib && competences.some(month => month > dib.slice(0,7))) add('salaries_after_dib','Existe remuneração posterior à DIB.','salaries');
-  if (links.length && competences.some(month => !links.some(link => { const range = dateRange(link); return range ? monthInside(month,range.start,range.end) : false; }))) add('salaries_outside_links','Existe remuneração sem vínculo confirmado correspondente.','salaries');
+  if (dib && competences.some(month => month > dib.slice(0,7))) add('salaries_after_dib','Existe remuneração posterior à DIB; ela fica fora do PBC e é preservada na fonte.','salaries',false);
+  if (links.length && competences.some(month => !links.some(link => { const range = dateRange(link); return range ? monthInside(month,range.start,range.end) : false; }))) add('salaries_outside_links','Existe remuneração sem vínculo confirmado correspondente; a competência permanece pendente e não vira zero.','salaries',false);
   const pre94 = competences.filter(month => month < '1994-07').length;
   if (pre94) add('salaries_pre94',pre94 + ' competência(s) anterior(es) a 07/1994 serão preservadas, mas ficam fora do PBC.', 'salaries', false);
 

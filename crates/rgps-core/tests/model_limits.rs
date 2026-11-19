@@ -6,7 +6,7 @@ use rgps_core::tempo::{calcular_tempo,VinculoEntrada};
 use rust_decimal::Decimal;
 fn date(s:&str)->IsoDate{IsoDate::parse(s,"fixture").unwrap()}
 #[test] fn fator_previdenciario_reduces_when_expectativa_is_long(){
-    let f=rgps_core::transicoes::fator_previdenciario("masculino",120,600,Decimal::from(40)).unwrap();
+    let f=rgps_core::transicoes::fator_previdenciario("masculino",Decimal::from(120),600,Decimal::from(40)).unwrap();
     assert!(f<Decimal::ONE,"Lei 9.876/1999 aplica o fator ainda que redutor: {f}");
     assert!(f>Decimal::ZERO);
 }
@@ -22,7 +22,9 @@ fn date(s:&str)->IsoDate{IsoDate::parse(s,"fixture").unwrap()}
     let l=VinculoEntrada{inicio:date("2019-01-01"),fim:Some(date("2019-10-31")),tipo:"empregado".into(),empresa:None,fator:1.0};
     let r=calcular_tempo(&[l.clone(),l],Some(&date("2025-01-31"))).unwrap();
     let v=serde_json::to_value(r).unwrap();
-    let total=v["total_dias_efetivos"].as_i64().unwrap();
-    assert!(total>0);
-    assert_eq!(v["marcos"]["ate_ec103"].as_i64().unwrap(),total,"marcos usam os segmentos efetivos, sem dupla contagem");
+    let total_ef=v["total_dias_efetivos"].as_i64().unwrap();
+    let total_360=v["total_360"].as_i64().unwrap();
+    assert_eq!(total_ef,304);
+    assert_eq!(total_360,300);
+    assert_eq!(v["marcos"]["ate_ec103"].as_i64().unwrap(),total_360,"marcos usam os segmentos efetivos na convenção 30/360, sem dupla contagem");
 }

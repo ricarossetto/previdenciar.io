@@ -1,0 +1,19 @@
+[package]
+name = "previdenciar-rgps"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Fail-closed private adapter for the owned observational RGPS engine"
+
+[dependencies]
+previdenciar-cnis = { path = "../previdenciar-cnis" }
+chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
+rgps-core = { path = "../rgps-core" }
+previdenciar-workspace = { path = "../previdenciar-workspace" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rust_decimal = { version = "=1.43.0", features = ["serde"] }
+sha2 = "0.10"
+
+[dev-dependencies]
+previdenciar-cnis = { path = "../previdenciar-cnis" }
