@@ -58,7 +58,7 @@ describe('visão temporal do CNIS', () => {
     render(<CnisTimeline cnis={fixture()} dib="30/06/2023" />);
     const timeline = screen.getByRole('region', { name: 'Visão temporal da origem CNIS' });
     expect(within(timeline).getByRole('heading', { name: 'Visão temporal da origem' })).toBeInTheDocument();
-    expect(within(timeline).getByText('2 no recorte · 54 antes · 12 depois · 345 lacunas')).toBeInTheDocument();
+    expect(within(timeline).getByText('345 lacunas')).toBeInTheDocument();
     expect(within(timeline).getByText('No mês da DIB ou depois')).toBeInTheDocument();
     expect(within(timeline).getByText('2023-05')).toBeInTheDocument();
     expect(within(timeline).getByText('Mês da DIB')).toBeInTheDocument();

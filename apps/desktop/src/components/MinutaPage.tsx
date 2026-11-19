@@ -420,10 +420,10 @@ export function MinutaPage({ workspace, notify, onOpenCopilot, onSaveTemplate, o
       </Panel>
     </div>
 
-    <Panel title="Classificação da peça" subtitle="Área, matéria e técnicas da peça, com confirmação explícita antes da redação." actions={<Badge tone={classificationConfirmed ? 'good' : (classification.area.trim() || classification.materia.trim()) ? 'review' : 'neutral'}>{classificationConfirmed ? 'Classificação confirmada' : 'A confirmar'}</Badge>}>
+    <Panel title="Classificação da peça" actions={<Badge tone={classificationConfirmed ? 'good' : (classification.area.trim() || classification.materia.trim()) ? 'review' : 'neutral'}>{classificationConfirmed ? 'Classificação confirmada' : 'A confirmar'}</Badge>}>
       <div className="minuta-classification">
         <label className="field"><span>Área</span><input className="input" value={classification.area} onChange={(event) => updateClassification({ area: event.target.value })} placeholder="Ex.: Direito Previdenciário" disabled={busy !== null}/></label>
-        <label className="field"><span>Matéria</span><input className="input" value={classification.materia} onChange={(event) => updateClassification({ materia: event.target.value })} placeholder="Ex.: Aposentadoria por idade — revisão de DIB" disabled={busy !== null}/></label>
+        <label className="field"><span>Matéria</span><input className="input" value={classification.materia} onChange={(event) => updateClassification({ materia: event.target.value })} placeholder="Ex.: Aposentadoria por idade, revisão de DIB" disabled={busy !== null}/></label>
         <label className="field wide"><span>Técnicas</span><input className="input" value={classification.tecnicas} onChange={(event) => updateClassification({ tecnicas: event.target.value })} placeholder="Ex.: petição inicial; tutela de urgência; perícia técnica" disabled={busy !== null}/></label>
         <div className="minuta-classification__actions wide" data-ui-actions>
           <Button disabled={!ready || busy !== null || !objective.trim()} onClick={proposeClassification}><Icon name="spark" size={16}/>{busy === 'chat' ? 'Classificando…' : 'Propor classificação com a IA'}</Button>
@@ -471,7 +471,7 @@ export function MinutaPage({ workspace, notify, onOpenCopilot, onSaveTemplate, o
       </div>}
       <p className="form-note">“Retornada nesta sessão” não significa fonte oficial conferida. Abra a Base de conhecimento e o link oficial antes de usar a citação.</p>
     </Panel>
-    <Panel title="Revisão crítica" subtitle="Checklist de riscos, citações e dados faltantes." actions={<Badge tone={review.trim() ? 'review' : 'neutral'}>{review.trim() ? 'Revisão' : 'Não executada'}</Badge>}>
+    <Panel title="Revisão crítica" subtitle="Lista de riscos, citações e dados faltantes." actions={<Badge tone={review.trim() ? 'review' : 'neutral'}>{review.trim() ? 'Revisão' : 'Não executada'}</Badge>}>
       <pre className="minuta-review">{review || 'Execute a revisão depois de gerar a minuta. Ela não substitui a leitura humana.'}</pre>
     </Panel>
   </div>;

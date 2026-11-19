@@ -57,41 +57,41 @@ const NAV: { id: Page; label: string; full?: string; icon: string; group: string
   { id: 'cases', label: 'Cálculos', icon: 'calc', group: 'Escritório' },
   { id: 'reports', label: 'Relatórios', icon: 'file', group: 'Escritório' },
   { id: 'settings', label: 'Configurações', icon: 'settings', group: 'Escritório' },
-  { id: 'rgps', label: 'Meus cálculos', icon: 'calc', group: 'Cálculo e Revisão' },
-  { id: 'robot', label: 'Assistente de cálculo', icon: 'file', group: 'Cálculo e Revisão' },
-  { id: 'wizard', label: 'Cálculo previdenciário', icon: 'file', group: 'Cálculo e Revisão' },
-  { id: 'tables', label: 'Tabelas e índices', icon: 'chart', group: 'Cálculo e Revisão' },
-  { id: 'tools', label: 'Ferramentas', icon: 'tool', group: 'Cálculo e Revisão' },
-  { id: 'ai', label: 'Copiloto IA', icon: 'spark', group: 'Apoio e Pesquisa' },
-  { id: 'minuta', label: 'Minuta assistida', icon: 'file', group: 'Apoio e Pesquisa' },
-  { id: 'knowledge', label: 'Base de conhecimento', icon: 'library', group: 'Apoio e Pesquisa' },
-  { id: 'documents', label: 'Documentos', icon: 'book', group: 'Apoio e Pesquisa' },
-  { id: 'agenda', label: 'Agenda', icon: 'calendar', group: 'Apoio e Pesquisa' },
-  { id: 'coverage', label: 'Cobertura e validação', icon: 'shield', group: 'Apoio e Pesquisa' },
+  { id: 'rgps', label: 'Meus cálculos', icon: 'calc', group: 'Cálculo e revisão' },
+  { id: 'robot', label: 'Assistente de cálculo', icon: 'file', group: 'Cálculo e revisão' },
+  { id: 'wizard', label: 'Cálculo previdenciário', icon: 'file', group: 'Cálculo e revisão' },
+  { id: 'tables', label: 'Tabelas e índices', icon: 'chart', group: 'Cálculo e revisão' },
+  { id: 'tools', label: 'Ferramentas', icon: 'tool', group: 'Cálculo e revisão' },
+  { id: 'ai', label: 'Copiloto IA', icon: 'spark', group: 'Apoio e pesquisa' },
+  { id: 'minuta', label: 'Minuta assistida', icon: 'file', group: 'Apoio e pesquisa' },
+  { id: 'knowledge', label: 'Base de conhecimento', icon: 'library', group: 'Apoio e pesquisa' },
+  { id: 'documents', label: 'Documentos', icon: 'book', group: 'Apoio e pesquisa' },
+  { id: 'agenda', label: 'Agenda', icon: 'calendar', group: 'Apoio e pesquisa' },
+  { id: 'coverage', label: 'Cobertura e validação', icon: 'shield', group: 'Apoio e pesquisa' },
 ];
 
-const NAV_GROUPS = ['Escritório', 'Cálculo e Revisão', 'Apoio e Pesquisa'] as const;
+const NAV_GROUPS = ['Escritório', 'Cálculo e revisão', 'Apoio e pesquisa'] as const;
 
 const WEB_MODE = import.meta.env.MODE === 'web';
 
 const DESCRIPTIONS: Record<Page, string> = {
-  home: 'Continue seu trabalho, revise pendências e acompanhe os casos do escritório.',
-  clients: 'Cadastro local, pesquisa e vínculo com os cálculos, sem misturar dados de demonstração.',
-  cases: 'Cálculos separados por módulo, com estado de revisão e origem preservados.',
-  rgps: 'Meus cálculos RGPS: abra um caso ou inicie um novo cálculo com o robô assistente.',
-  robot: 'Entrevista guiada: responder, importar, conferir e calcular uma etapa de cada vez.',
-  ai: 'Copiloto opcional com IA: pesquisa a base local e envia ao provedor apenas o que você autorizar.',
-  knowledge: 'Consulte, sem IA, as habilidades, normas, pareceres NatJus e ementas importados da base de conhecimento.',
-  minuta: 'Planeje, redija e revise uma minuta com o provedor configurado, mantendo o texto editável e as pendências visíveis.',
-  wizard: 'Da identificação à memória do motor, com parâmetros confirmados e revisão explícita.',
-  tables: 'Séries, fontes e períodos consultáveis. Nenhum coeficiente oficial é inventado.',
-  tools: 'Operações com parâmetros informados e resultados rastreáveis.',
-  documents: 'Modelos locais com campos de substituição, prontos para revisão profissional.',
+  home: '',
+  clients: 'Cadastro local, sem dados de demonstração.',
+  cases: '',
+  rgps: '',
+  robot: '',
+  ai: 'Envia ao provedor apenas o que você autorizar.',
+  knowledge: 'Consulta local, sem IA.',
+  minuta: '',
+  wizard: '',
+  tables: 'Nenhum coeficiente oficial é inventado.',
+  tools: '',
+  documents: 'Modelos locais com campos de substituição.',
   reports: WEB_MODE
     ? 'Relatórios gerados no servidor da sua conta. O cálculo é enviado ao servidor autorizado e os PDFs salvos expiram.'
     : 'Dados, memória e pendências em arquivos locais, sem envio a terceiros.',
-  agenda: 'Compromissos do escritório e acompanhamento local.',
-  settings: 'Identidade do escritório, apresentação, conexão TRF3 e armazenamento protegido.',
+  agenda: '',
+  settings: '',
   coverage: 'O que foi observado com REA, implementado e efetivamente testado.',
 };
 
@@ -905,7 +905,7 @@ function WorkspaceApp() {
               <h1 tabIndex={-1} data-od-id={'heading-' + page}>
                 {NAV.find(n => n.id === page)?.full ?? NAV.find(n => n.id === page)?.label}
               </h1>
-              <p>{DESCRIPTIONS[page]}</p>
+              {DESCRIPTIONS[page] && <p>{DESCRIPTIONS[page]}</p>}
             </div>
             <div className="head-actions" data-ui-actions>
               {page === 'home' ? (
@@ -937,7 +937,6 @@ function WorkspaceApp() {
           {page === 'home' && openLoop && resume && (
             <Panel
               title="Retomar revisão"
-              subtitle="Um caso já começado, com o próximo passo identificado."
               actions={<Badge tone="review">Em aberto</Badge>}
             >
               <div className="work-item">
@@ -964,7 +963,6 @@ function WorkspaceApp() {
               <div className={'cockpit' + (w.appointments.filter(a => !a.completed).length ? '' : ' single')}>
                 <Panel
                   title="Continue de onde parou"
-                  subtitle="Casos locais, origem registrada e revisão ainda em aberto."
                   actions={
                     w.calculations.filter(c => !c.archived).length ? (
                       <Button onClick={() => go('cases')}>
@@ -1631,7 +1629,7 @@ function WorkspaceApp() {
                     <Field
                       type="password"
                       label="Chave da API da Fábrica de Cálculos (opcional na sessão)"
-                      hint="Armazenada somente em sessionStorage nesta aba e enviada no cabeçalho x-fabrica-key. Nunca é gravada no workspace ou banco de dados."
+                      hint="Fica só nesta aba e nunca é gravada no workspace nem no banco de dados."
                       value={webFabricaKey}
                       onChange={setWebFabricaKey}
                       placeholder="Cole aqui sua chave TRF3 se o servidor não fornecer uma"
@@ -1791,7 +1789,6 @@ function WorkspaceApp() {
       {mobileMenu && (
         <Modal
           title="Todas as páginas"
-          subtitle="Todas as áreas do previdenciar.io, também no celular."
           onClose={() => setMobileMenu(false)}
         >
           <nav className="mobile-menu-list" aria-label="Todas as áreas">
@@ -2006,7 +2003,7 @@ function WorkspaceApp() {
       {template && (
         <Modal
           title="Modelo de documento"
-          subtitle="Texto local com campos substituíveis. Conteúdo não é executado como instrução."
+          subtitle="Texto local com campos substituíveis."
           wide
           onClose={() => {
             setFormError(null);
@@ -2157,7 +2154,7 @@ function WorkspaceApp() {
       {palette && (
         <Modal
           title="Buscar no escritório"
-          subtitle="Pesquisa local e determinística, sem envio de dados a modelos."
+          subtitle="Pesquisa local, sem envio de dados a modelos."
           onClose={() => setPalette(false)}
         >
           <Search value={paletteQuery} onChange={setPaletteQuery} placeholder="Cliente, cálculo ou área" />

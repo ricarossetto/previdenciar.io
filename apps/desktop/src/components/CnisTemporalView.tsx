@@ -55,7 +55,7 @@ export function CnisTemporalView({ cnis, dib, confirmedLinks }: CnisTemporalView
   const missing = layers.filter(layer => layer.salaryStatus === 'missing');
   const calculationLayers = layers.filter(layer => layer.inPbcWindow && layer.amountCentavos !== null && layer.relativeToDib !== 'after');
   const beforeWindow = layers.filter(layer => layer.pbcStatus === 'before_window' && layer.relativeToDib !== 'after');
-  return <Panel title='Visão temporal do CNIS' subtitle='Camada derivada e aditiva: a fonte importada não é apagada nem reescrita; o recorte de cálculo termina na DIB/PBC.'>
+  return <Panel title='Visão temporal do CNIS' subtitle='A fonte importada não é apagada nem reescrita; o recorte de cálculo termina na DIB/PBC.'>
     <div className='result-strip' data-testid='temporal-summary'>
       <div><span>Janela do PBC</span><strong>{window ? window.from + ' a ' + window.to : (dibKey ? 'Anterior a 07/1994 (fora do PBC)' : 'DIB não informada')}</strong></div>
       <div><span>Dentro do PBC</span><strong>{summary.inPbc}</strong></div>
@@ -73,7 +73,7 @@ export function CnisTemporalView({ cnis, dib, confirmedLinks }: CnisTemporalView
       </li>)}</ul>
     </div>}
     <Table title='Posterior a DIB: fora do PBC, preservada na fonte' layers={postDib} open={postDib.length > 0 && postDib.length <= 40} />
-    <Table title='Sem remuneração lancada: valor desconhecido, não zero' layers={missing} />
+    <Table title='Sem remuneração lançada: valor desconhecido, não zero' layers={missing} />
     <Table title='Recorte de cálculo: competências com remuneração dentro do PBC' layers={calculationLayers} />
     <Table title='Anterior a janela do PBC (antes de 1994-07)' layers={beforeWindow} />
     <p className='form-note'>Fonte preservada: {cnis.salary_entries.length} lançamentos, {cnis.links.length} vínculos e {Object.keys(cnis.salary_months).length} competências. Esta visão não altera o documento importado.</p>

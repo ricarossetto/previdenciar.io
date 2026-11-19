@@ -373,7 +373,7 @@ export function CaseWorkbench({
       )}
 
       {step === 0 && (
-        <Panel title="Identificação do cálculo" subtitle="Um caso separado, com cliente e origem explícitos.">
+        <Panel title="Identificação do cálculo">
           <div className="form-grid" data-ui-stack>
             <Field
               label="Nome do cálculo"
@@ -558,7 +558,7 @@ export function CaseWorkbench({
         <>
           <Panel
             title="Competências e remunerações"
-            subtitle="Clique na competência, no valor ou na linha para editar os lançamentos. Somas nominais sem conversão automática."
+            subtitle="Somas nominais, sem conversão automática."
           >
             <div className="toolbar">
               <div className="searchbox">
@@ -968,7 +968,6 @@ export function CaseWorkbench({
         <>
           <Panel
             title="Executar a simulação técnica"
-            subtitle="Entrada tipada → motor Rust → memória de cálculo e avisos."
             actions={
               <Badge
                 tone={

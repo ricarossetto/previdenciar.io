@@ -212,7 +212,7 @@ export function RobotAssistant({draft,setDraft,workspace,onSave,onNotify,onManua
     setTab('periods');setScreen('conference');
   }
   const question:Record<Screen,string>={
-    intro:'Olá! Sou seu assistente de cálculos. Vamos analisar esse caso com calma?',
+    intro:'Sou o assistente de cálculos. Vamos analisar este caso?',
     situation:'O segurado recebe algum benefício previdenciário atualmente?',
     objective:'O que este cálculo precisa resolver?',
     parameters:'Vamos confirmar apenas os dados que alteram o cálculo.',
@@ -235,7 +235,7 @@ export function RobotAssistant({draft,setDraft,workspace,onSave,onNotify,onManua
     {error&&<Notice tone="error">{error}</Notice>}
     {unsupported&&<Notice><div className="assistant-scope-notice"><p><strong>Confira o objetivo antes de continuar.</strong> {unsupported} Você pode salvar a entrevista e conferir os documentos.</p><Button onClick={()=>setScreen(a.current_benefit_received===true?'situation':'objective')}>Rever resposta</Button></div></Notice>}
 
-    {screen==='intro'&&<Panel title="Identifique o cálculo" subtitle="Um nome para localizar este trabalho depois."><Field required label="Nome do cálculo" value={draft.name} onChange={name=>update({name})} placeholder="Ex.: Simulação CNIS, revisão de origem"/><p className="form-note">A entrevista pode ser salva como rascunho. Nenhum cálculo existente é substituído automaticamente.</p><div className="form-actions" data-ui-actions><Button onClick={onManual}>Preencher sem assistente</Button><Button primary disabled={!draft.name.trim()} onClick={()=>next('situation')}>Prosseguir<Icon name="arrow" size={16}/></Button></div></Panel>}
+    {screen==='intro'&&<Panel title="Identifique o cálculo"><Field required label="Nome do cálculo" value={draft.name} onChange={name=>update({name})} placeholder="Ex.: Simulação CNIS, revisão de origem"/><p className="form-note">A entrevista pode ser salva como rascunho. Nenhum cálculo existente é substituído automaticamente.</p><div className="form-actions" data-ui-actions><Button onClick={onManual}>Preencher sem assistente</Button><Button primary disabled={!draft.name.trim()} onClick={()=>next('situation')}>Prosseguir<Icon name="arrow" size={16}/></Button></div></Panel>}
 
     {screen==='situation'&&<>
       {(!a.completed_steps.includes('benefit')||benefitEditing)?<div className="robot-choices" data-ui-stack>
