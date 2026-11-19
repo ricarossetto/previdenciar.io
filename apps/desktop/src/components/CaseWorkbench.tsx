@@ -196,13 +196,13 @@ export function CaseWorkbench({
       setDraft({
         ...prepared.calculation,
         result,
-        status: blocked ? 'Execução bloqueada; dados pendentes' : 'Simulação técnica calculada',
+        status: blocked ? 'Execução bloqueada; dados pendentes' : 'Simulação do CNIS calculada; dados ainda não revisados',
       });
       setStep(7);
       onNotify(
         blocked
           ? 'Hipótese preparada do CNIS, mas há pendências no resultado.'
-          : 'CNIS preparado e calculado com sucesso!',
+          : 'Cálculo feito com os dados do CNIS. Revise vínculos e salários antes de usar no parecer.',
         blocked,
       );
     } catch (e) {

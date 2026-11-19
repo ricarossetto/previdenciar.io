@@ -309,8 +309,10 @@ async fn auth_atrium_login(
         .map(|value| value.to_lowercase());
 
     // Consulta a situação da assinatura do escritório no Atrium quando o cookie de sessão está presente.
-    let mut subscription_active = true;
-    let mut plan = Some("pro".to_owned());
+    // Sem confirmação da assinatura, o acesso fica bloqueado.
+    let mut subscription_checked = false;
+    let mut subscription_active = false;
+    let mut plan: Option<String> = None;
     let session_cookie = headers
         .get_all(header::SET_COOKIE)
         .iter()
@@ -333,7 +335,7 @@ async fn auth_atrium_login(
                         .get("access")
                         .and_then(|acc| acc.get("access"))
                         .and_then(Value::as_str)
-                        .unwrap_or("full");
+                        .unwrap_or("");
                     let plan_limited = billing_json
                         .get("access")
                         .and_then(|acc| acc.get("planLimited"))
@@ -343,6 +345,7 @@ async fn auth_atrium_login(
                         .get("plan")
                         .and_then(Value::as_str)
                         .unwrap_or("pro");
+                    subscription_checked = true;
                     subscription_active = access_mode == "full";
                     plan = Some(if plan_limited {
                         "basic".to_owned()
@@ -354,6 +357,11 @@ async fn auth_atrium_login(
         }
     }
 
+    if !subscription_checked {
+        return Err(ApiError::forbidden(
+            "Não foi possível confirmar sua assinatura no Atrium. Tente de novo em instantes.".into(),
+        ));
+    }
     if !subscription_active {
         return Err(ApiError::forbidden(
             "Sua assinatura do Atrium está com pendência. Regularize no Atrium para acessar o módulo Previdenciar.".into(),
