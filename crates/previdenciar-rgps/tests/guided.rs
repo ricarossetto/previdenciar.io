@@ -348,3 +348,42 @@ fn guided_real_case_analogue_loses_no_false_pbc_blockers() {
         );
     }
 }
+
+#[test]
+fn guided_intercalated_benefit_adds_minimum_wage_and_trf3_profile() {
+    let mut case = case();
+    case.dib = "2023-06-30".into();
+    let cnis = case.cnis.as_mut().unwrap();
+    cnis.links[0].start_date = Some("2018-01-01".into());
+    cnis.links[0].end_date = Some("2022-12-31".into());
+    add_salary(cnis, "2018-06", 250_000, 3);
+    add_salary(cnis, "2019-12", 250_000, 4);
+    cnis.benefits.push(previdenciar_cnis::BenefitRecord {
+        sequence: 10,
+        species: Some(31),
+        status: previdenciar_cnis::BenefitStatus::Ceased,
+        start_date: Some("2018-08-05".into()),
+        end_date: Some("2018-11-10".into()),
+        included_as_employment_link: false,
+        source: previdenciar_cnis::SourceRef {
+            page: 1,
+            line: 10,
+            index: 10,
+            byte_offset: 0,
+        },
+    });
+    let (prepared, notes) = prepare_from_cnis(&case, "CNIS conferido em 2026-11-18").unwrap();
+    let policy: serde_json::Value = serde_json::from_str(&prepared.options.rule_policy).unwrap();
+    assert_eq!(policy["native_options"]["perfilCorrecao"], "trf3-v1");
+    for comp in ["2018-08", "2018-09", "2018-10", "2018-11"] {
+        let w = prepared
+            .manual_salaries
+            .iter()
+            .find(|s| s.competence == comp)
+            .unwrap_or_else(|| panic!("esperava competência intercalada {comp}"));
+        assert_eq!(w.amount, "954.00");
+        assert_eq!(w.indicators, "BENEFICIO_INTERCALADO_SM");
+        assert!(w.confirmed);
+    }
+    assert!(notes.iter().any(|n| n.contains("art. 29, § 5º")));
+}

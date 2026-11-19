@@ -117,6 +117,10 @@ pub struct TransicoesEntrada {
     pub rmi_direito_adquirido: Option<Decimal>,
     /// Observação complementar sobre a apuração do direito adquirido.
     pub obs_direito_adquirido: Option<String>,
+    /// Carência apurada para exigir mínimo de 180 contribuições nas regras pós-EC 103.
+    pub carencia_meses: Option<usize>,
+    /// Tempo até 13/11/2019 em dias 30/360 exatos (0 = usa meses_ate_reforma).
+    pub ate_ec103_360: i64,
 }
 
 fn aplicar_limites(rmi: Decimal, teto: Option<Decimal>, piso: Option<Decimal>) -> (Decimal, Option<&'static str>) {
@@ -143,6 +147,10 @@ pub fn build_transicoes(entrada: &TransicoesEntrada) -> Result<TransicoesResulta
     let idade_meses = idade_em_meses(&entrada.data_nascimento, referencia);
     let ano_referencia = referencia.ano;
     let tempo_minimo = kv(&TEMPO_MINIMO_MESES, sexo);
+    let falta_carencia_180 = entrada
+        .carencia_meses
+        .map(|c| (180i64 - c as i64).max(0))
+        .unwrap_or(0);
 
     let mut regras: Vec<RegraTransicao> = Vec::new();
 
@@ -197,7 +205,7 @@ pub fn build_transicoes(entrada: &TransicoesEntrada) -> Result<TransicoesResulta
         id: "pontos",
         nome: format!("Transição por pontos ({pontos} pontos em {ano_referencia})"),
         fundamento: "EC 103/2019, art. 15",
-        elegivel: falta_tempo == 0 && falta_meses_pontos == 0,
+        elegivel: falta_tempo == 0 && falta_meses_pontos == 0 && falta_carencia_180 == 0,
         criterio_rmi: "coeficiente-progressivo",
         rmi: Some(crate::money::money(rmi_coeficiente)),
         rmi_final: Some(crate::money::money(rmi_coef_final)),
@@ -210,8 +218,10 @@ pub fn build_transicoes(entrada: &TransicoesEntrada) -> Result<TransicoesResulta
                 tempo_total as f64 / 12.0
             ),
         ],
-        faltas: if falta_tempo == 0 && falta_meses_pontos == 0 {
+        faltas: if falta_tempo == 0 && falta_meses_pontos == 0 && falta_carencia_180 == 0 {
             None
+        } else if falta_carencia_180 > 0 {
+            Some(serde_json::json!({ "tempoMeses": falta_tempo, "pontos": falta_pontos, "pontosMeses": falta_meses_pontos, "carenciaMeses": falta_carencia_180 }))
         } else {
             Some(serde_json::json!({ "tempoMeses": falta_tempo, "pontos": falta_pontos, "pontosMeses": falta_meses_pontos }))
         },
@@ -228,7 +238,7 @@ pub fn build_transicoes(entrada: &TransicoesEntrada) -> Result<TransicoesResulta
             idade_exigida as f64 / 12.0
         ),
         fundamento: "EC 103/2019, art. 16",
-        elegivel: falta_tempo == 0 && falta_idade == 0,
+        elegivel: falta_tempo == 0 && falta_idade == 0 && falta_carencia_180 == 0,
         criterio_rmi: "coeficiente-progressivo",
         rmi: Some(crate::money::money(rmi_coeficiente)),
         rmi_final: Some(crate::money::money(rmi_coef_final)),
@@ -236,8 +246,10 @@ pub fn build_transicoes(entrada: &TransicoesEntrada) -> Result<TransicoesResulta
             format!("Tempo mínimo de {} anos", tempo_minimo / 12),
             "Idade mínima progressiva".into(),
         ],
-        faltas: if falta_tempo == 0 && falta_idade == 0 {
+        faltas: if falta_tempo == 0 && falta_idade == 0 && falta_carencia_180 == 0 {
             None
+        } else if falta_carencia_180 > 0 {
+            Some(serde_json::json!({ "tempoMeses": falta_tempo, "idadeMeses": falta_idade, "carenciaMeses": falta_carencia_180 }))
         } else {
             Some(serde_json::json!({ "tempoMeses": falta_tempo, "idadeMeses": falta_idade }))
         },
@@ -294,7 +306,7 @@ pub fn build_transicoes(entrada: &TransicoesEntrada) -> Result<TransicoesResulta
         id: "pedagio-50",
         nome: "Transição por pedágio de 50%".into(),
         fundamento: "EC 103/2019, art. 17",
-        elegivel: aplica50 && tempo_total >= tempo_minimo + pedagio50,
+        elegivel: aplica50 && falta_carencia_180 == 0 && tempo_total >= tempo_minimo + pedagio50,
         criterio_rmi: "fator-previdenciario",
         rmi: rmi_fator.map(crate::money::money),
         rmi_final: rmi_fator_final.map(crate::money::money),
@@ -304,27 +316,39 @@ pub fn build_transicoes(entrada: &TransicoesEntrada) -> Result<TransicoesResulta
         ],
         faltas: Some(if !aplica50 {
             serde_json::json!({ "aplicavel": false })
-        } else if tempo_total >= tempo_minimo + pedagio50 {
+        } else if falta_carencia_180 == 0 && tempo_total >= tempo_minimo + pedagio50 {
             serde_json::Value::Null
+        } else if falta_carencia_180 > 0 {
+            serde_json::json!({ "tempoMeses": (tempo_minimo + pedagio50 - tempo_total).max(0), "carenciaMeses": falta_carencia_180 })
         } else {
             serde_json::json!({ "tempoMeses": tempo_minimo + pedagio50 - tempo_total })
         }),
         observacao: observacao_fator,
     });
 
-    // 5. Pedágio de 100% (art. 20): RMI de 100% da média.
-    let aplica100 = tempo_ate_reforma > 0 && tempo_ate_reforma < tempo_minimo;
-    let pedagio100 = faltava50;
+    // 5. Pedágio de 100% (art. 20): RMI de 100% da média (usa dias 30/360 exatos quando disponíveis).
+    let usar_dias_100 = entrada.tempo_total_360 > 0 && entrada.ate_ec103_360 > 0;
+    let (aplica100, pedagio100, falta_tempo_100, falta_tempo_100_cumprido) = if usar_dias_100 {
+        let tempo_minimo_360 = tempo_minimo * 30;
+        let aplica = entrada.ate_ec103_360 > 0 && entrada.ate_ec103_360 < tempo_minimo_360;
+        let faltava_360 = (tempo_minimo_360 - entrada.ate_ec103_360).max(0);
+        let falta_360 = (tempo_minimo_360 + faltava_360 - entrada.tempo_total_360).max(0);
+        (aplica, (faltava_360 + 29) / 30, (falta_360 + 29) / 30, falta_360 == 0)
+    } else {
+        let aplica = tempo_ate_reforma > 0 && tempo_ate_reforma < tempo_minimo;
+        let pedagio = faltava50;
+        let falta = (tempo_minimo + pedagio - tempo_total).max(0);
+        (aplica, pedagio, falta, falta == 0)
+    };
     let idade_100_exigida = kv(&PEDAGIO_100_IDADE, sexo) * 12;
     let falta_idade_100 = (idade_100_exigida - idade_meses).max(0);
-    let falta_tempo_100 = (tempo_minimo + pedagio100 - tempo_total).max(0);
     let rmi_media = to_cents(entrada.salario_beneficio);
     let (rmi_media_final, limite_media) = aplicar_limites(rmi_media, entrada.teto, entrada.piso);
     regras.push(RegraTransicao {
         id: "pedagio-100",
         nome: "Transição por pedágio de 100%".into(),
         fundamento: "EC 103/2019, art. 20",
-        elegivel: aplica100 && falta_idade_100 == 0 && falta_tempo_100 == 0,
+        elegivel: aplica100 && falta_carencia_180 == 0 && falta_idade_100 == 0 && falta_tempo_100_cumprido,
         criterio_rmi: "100%-media",
         rmi: Some(crate::money::money(rmi_media)),
         rmi_final: Some(crate::money::money(rmi_media_final)),
@@ -335,8 +359,10 @@ pub fn build_transicoes(entrada: &TransicoesEntrada) -> Result<TransicoesResulta
         ],
         faltas: Some(if !aplica100 {
             serde_json::json!({ "aplicavel": false })
-        } else if falta_idade_100 == 0 && falta_tempo_100 == 0 {
+        } else if falta_carencia_180 == 0 && falta_idade_100 == 0 && falta_tempo_100_cumprido {
             serde_json::Value::Null
+        } else if falta_carencia_180 > 0 {
+            serde_json::json!({ "tempoMeses": falta_tempo_100, "idadeMeses": falta_idade_100, "carenciaMeses": falta_carencia_180 })
         } else {
             serde_json::json!({ "tempoMeses": falta_tempo_100, "idadeMeses": falta_idade_100 })
         }),
@@ -355,7 +381,7 @@ pub fn build_transicoes(entrada: &TransicoesEntrada) -> Result<TransicoesResulta
             65 * 12
         };
         let falta_idade_18 = (idade_art18 - idade_meses).max(0);
-        let falta_tempo_18 = (180 - tempo_total).max(0);
+        let falta_tempo_18 = (180 - tempo_total).max(falta_carencia_180).max(0);
         regras.push(RegraTransicao {
             id: "idade-transicao",
             nome: format!("Transição por idade ({:.1} anos em {ano_referencia})", idade_art18 as f64 / 12.0),
@@ -381,7 +407,7 @@ pub fn build_transicoes(entrada: &TransicoesEntrada) -> Result<TransicoesResulta
     let idade_regra_geral = if sexo == "feminino" { 62 * 12 } else { 65 * 12 };
     let tempo_regra_geral = if sexo == "feminino" { 180 } else { 240 };
     let falta_idade_geral = (idade_regra_geral - idade_meses).max(0);
-    let falta_carencia = (tempo_regra_geral - tempo_total).max(0);
+    let falta_carencia = (tempo_regra_geral - tempo_total).max(falta_carencia_180).max(0);
     regras.push(RegraTransicao {
         id: "idade-permanente",
         nome: format!("Regra permanente por idade ({})", idade_regra_geral / 12),
@@ -458,6 +484,8 @@ mod tests {
             filiado_antes_reforma: None,
             rmi_direito_adquirido: None,
             obs_direito_adquirido: None,
+            carencia_meses: None,
+            ate_ec103_360: 0,
         }
     }
 
@@ -533,5 +561,38 @@ mod tests {
     fn coeficiente_progressivo_60_2() {
         let coeficiente = coeficiente_progressivo("feminino", 300);
         assert_eq!(coeficiente, Decimal::from(80));
+    }
+
+    #[test]
+    fn carencia_menor_que_180_bloqueia_regras_pos_ec103() {
+        let mut ent = entrada("masculino", "1960-01-01", "2026-01-01", 300, 120);
+        ent.carencia_meses = Some(179);
+        let res = build_transicoes(&ent).unwrap();
+        assert!(res.regra_escolhida.is_none());
+        let art18 = res.regras.iter().find(|r| r.id == "idade-transicao").unwrap();
+        assert!(!art18.elegivel);
+        assert_eq!(art18.faltas.as_ref().unwrap()["carenciaMeses"], 1);
+        let art16 = res.regras.iter().find(|r| r.id == "idade-progressiva").unwrap();
+        assert!(!art16.elegivel);
+        assert_eq!(art16.faltas.as_ref().unwrap()["carenciaMeses"], 1);
+    }
+
+    #[test]
+    fn pedagio_100_usa_dias_30_360_exatos() {
+        let mut ent = entrada("masculino", "1967-05-19", "2027-05-19", 379, 85);
+        // 31a 7m 13d até EC 103 = 11383 dias (faltavam 1217d -> total 13817d);
+        // após descartar 2 meses pré-reforma: 11323d (faltavam 1277d -> total 13877d).
+        ent.ate_ec103_360 = 11323;
+        ent.tempo_total_360 = 13879;
+        let res = build_transicoes(&ent).unwrap();
+        let p100 = res.regras.iter().find(|r| r.id == "pedagio-100").unwrap();
+        assert!(p100.elegivel, "esperava elegível com 13879 >= 13877: {p100:?}");
+
+        // Se descartar 1 mês a mais pré-reforma (-30d em ambos => falta sobe 30d e total cai 30d => déficit 60d):
+        ent.ate_ec103_360 = 11293;
+        ent.tempo_total_360 = 13849;
+        let res2 = build_transicoes(&ent).unwrap();
+        let p100_2 = res2.regras.iter().find(|r| r.id == "pedagio-100").unwrap();
+        assert!(!p100_2.elegivel, "13849 < 13907 deve bloquear: {p100_2:?}");
     }
 }

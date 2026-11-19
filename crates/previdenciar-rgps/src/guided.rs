@@ -247,6 +247,44 @@ pub fn prepare_from_cnis(case: &Calculation, reference: &str) -> Result<(Calcula
             confirmed: true,
         });
     }
+    // Salários das competências cheias de auxílio por incapacidade intercalado
+    // entram pelo salário mínimo vigente quando não há remuneração no CNIS
+    // (Lei 8.213/1991, art. 29, § 5º; Decreto 3.048/1999, art. 36, § 7º).
+    let mut existentes: HashSet<String> = wages.iter().map(|w| w.competence.clone()).collect();
+    let mut competencias_intercaladas_sm = 0usize;
+    for (_, _, start, end) in &incapacidade {
+        if let (Ok(mut cur), Ok(fim_comp)) = (
+            rgps_core::calendar::Competencia::parse(&start[..7], "beneficio.inicio"),
+            rgps_core::calendar::Competencia::parse(&end[..7], "beneficio.fim"),
+        ) {
+            while cur <= fim_comp {
+                let comp_str = cur.to_string();
+                if comp_str.as_str() >= "1994-07"
+                    && comp_str.as_str() <= pbc_end.as_str()
+                    && !existentes.contains(&comp_str)
+                {
+                    if let Ok(sm) = rgps_core::atualizacao::salario_minimo_vigente(&cur) {
+                        existentes.insert(comp_str.clone());
+                        wages.push(ManualSalary {
+                            id: 0,
+                            competence: comp_str,
+                            amount: rgps_core::money::money(sm),
+                            indicators: "BENEFICIO_INTERCALADO_SM".into(),
+                            confirmed: true,
+                        });
+                        competencias_intercaladas_sm += 1;
+                    }
+                }
+                cur = cur.next();
+            }
+        }
+    }
+    wages.sort_by(|a, b| a.competence.cmp(&b.competence));
+    if competencias_intercaladas_sm > 0 {
+        notes.push(format!(
+            "{competencias_intercaladas_sm} competência(s) de benefício por incapacidade intercalado sem remuneração no CNIS foram incluídas pelo salário mínimo vigente da época (Lei 8.213/1991, art. 29, § 5º; Decreto 3.048/1999, art. 36, § 7º). Confira o salário de benefício na carta de concessão."
+        ));
+    }
     if meses_sem_remuneracao > 0 {
         notes.push(format!(
             "{} mês(es) sem remuneração RGPS (PRPPS ou coluna de contribuição) ficaram fora do PBC.",
@@ -315,6 +353,18 @@ pub fn prepare_from_cnis(case: &Calculation, reference: &str) -> Result<(Calcula
     }
     prepared.manual_links = links;
     prepared.manual_salaries = wages;
+    let mut native_options = json!({
+        "corrigirSalarios": true,
+        "descarte": false,
+        "descarteOtimo": true,
+        "divisorMinimo": false,
+        "aplicarPisoAutomatico": true,
+        "aplicarTetoVigenteDer": true,
+        "referenciaCorrecao": dib_mes
+    });
+    if dib_iso.as_str() >= "1994-07-01" {
+        native_options["perfilCorrecao"] = json!("trf3-v1");
+    }
     prepared.options.rule_policy = serde_json::to_string(&json!({
         "version": crate::POLICY_VERSION,
         "review_evidence": reference,
@@ -322,15 +372,7 @@ pub fn prepare_from_cnis(case: &Calculation, reference: &str) -> Result<(Calcula
         "manual_currency": "BRL",
         "exclude_imported_source": true,
         "source_exclusion_evidence": reference,
-        "native_options": {
-            "corrigirSalarios": true,
-            "descarte": false,
-            "descarteOtimo": true,
-            "divisorMinimo": false,
-            "aplicarPisoAutomatico": true,
-            "aplicarTetoVigenteDer": true,
-            "referenciaCorrecao": dib_mes
-        }
+        "native_options": native_options
     }))
     .map_err(|_| "Não foi possível registrar a política da hipótese.".to_string())?;
     if prepared.disability.as_deref().map(str::trim).map(str::to_lowercase).is_none_or(|value| value.is_empty() || value == "a apurar") {

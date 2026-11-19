@@ -1,4 +1,4 @@
-use crate::{blocked, calculate_json, issue, POLICY_VERSION};
+use crate::{blocked, calculate_json_for_rule, issue, POLICY_VERSION};
 use crate::contracts::*;
 use previdenciar_workspace::Calculation;
 use serde_json::Value;
@@ -64,7 +64,11 @@ pub fn calculate_case(case: &Calculation) -> Result<Value,String> {
     Ok(outcome)
 }
 
-fn calcular_na_dib(case: &Calculation) -> Result<Value,String> {
+fn calcular_na_dib(case: &Calculation) -> Result<Value, String> {
+    calcular_na_dib_com_regra(case, None)
+}
+
+fn calcular_na_dib_com_regra(case: &Calculation, target_rule: Option<&str>) -> Result<Value, String> {
     if case.options.rule_policy.trim().starts_with('{') {
         let policy:CasePolicy=serde_json::from_str(&case.options.rule_policy).map_err(|_|"Política de cálculo inválida.")?;
         if let Some(pcd)=policy.lc142 { return crate::pcd::calculate(case,&pcd); }
@@ -228,7 +232,7 @@ fn calcular_na_dib(case: &Calculation) -> Result<Value,String> {
     };
     // Unsafe source never reaches native calculation, not even temporarily.
     if !blockers.is_empty() { return Ok(blocked(blockers,warnings)); }
-    let mut outcome=calculate_json(serde_json::to_value(request).map_err(|e|e.to_string())?)?;
+    let mut outcome=calculate_json_for_rule(serde_json::to_value(request).map_err(|e|e.to_string())?, target_rule)?;
     if !warnings.is_empty() {
         outcome["warnings"].as_array_mut().expect("adapter envelope").extend(warnings.into_iter().map(Value::String));
     }
@@ -302,14 +306,22 @@ fn somar_meses(data: chrono::NaiveDate, meses: u32) -> Option<chrono::NaiveDate>
 }
 
 /// Projeta, mês a mês após a DIB, a primeira data em que cada regra de
-/// transição fica elegível. Premissa declarada: contribuição contínua com o
+/// transição fica elegível e otimiza o descarte EC 103 por regra na data exata.
+/// Premissa declarada: contribuição contínua a partir do mês da DIB com o
 /// último salário conferido, sem reajuste real. É planejamento, não direito.
 pub fn project_rules(case: &Calculation, outcome: &Value) -> Option<Value> {
+    use chrono::Datelike;
     const LIMITE_MESES: u32 = 180;
     let regras = outcome["data"]["native_result"]["transicoes"]["regras"].as_array()?;
+    let tem_idade_transicao = regras.iter().any(|r| r["id"] == "idade-transicao");
     let mut pendentes: Vec<String> = regras
         .iter()
-        .filter(|r| r["elegivel"] != true && r["id"] != "direito-adquirido" && r["faltas"]["aplicavel"] != false)
+        .filter(|r| {
+            r["elegivel"] != true
+                && r["id"] != "direito-adquirido"
+                && r["faltas"]["aplicavel"] != false
+                && !(tem_idade_transicao && r["id"] == "idade-permanente")
+        })
         .filter_map(|r| r["id"].as_str().map(str::to_string))
         .collect();
     if pendentes.is_empty() {
@@ -323,8 +335,12 @@ pub fn project_rules(case: &Calculation, outcome: &Value) -> Option<Value> {
         .filter(|l| l.confirmed && !l.source_review.as_ref().is_some_and(|r| r.excluded))
         .filter_map(|l| chrono::NaiveDate::parse_from_str(&l.end_date, "%Y-%m-%d").ok())
         .max()?;
-    let mut policy: Value = serde_json::from_str(&case.options.rule_policy).ok()?;
-    let simular_com = |data: chrono::NaiveDate, descarte: bool| -> Option<(String, Value)> {
+    let inicio_mes_dib = chrono::NaiveDate::from_ymd_opt(dib.year(), dib.month(), 1)?;
+    let inicio_proj_vinculo = fim_vinculos.succ_opt()?.max(inicio_mes_dib);
+    let ultima_comp_data = chrono::NaiveDate::parse_from_str(&format!("{}-01", ultimo.competence), "%Y-%m-%d").ok()?;
+    let inicio_proj_salario = somar_meses(ultima_comp_data, 1)?.max(inicio_mes_dib);
+    let policy: Value = serde_json::from_str(&case.options.rule_policy).ok()?;
+    let simular_com = |data: chrono::NaiveDate, descarte: bool, target_rule: Option<&str>| -> Option<(String, Value)> {
         let mut policy = policy.clone();
         policy["native_options"]["descarteOtimo"] = Value::Bool(descarte);
         let mut simulado = case.clone();
@@ -332,11 +348,11 @@ pub fn project_rules(case: &Calculation, outcome: &Value) -> Option<Value> {
         let competencia_dib = data.format("%Y-%m").to_string();
         policy["native_options"]["referenciaCorrecao"] = Value::String(competencia_dib.clone());
         simulado.options.rule_policy = policy.to_string();
-        if data > fim_vinculos {
+        if data >= inicio_proj_vinculo {
             simulado.manual_links.push(previdenciar_workspace::ManualLink {
                 id: 0,
                 employer: "Projeção: contribuição contínua".into(),
-                start_date: fim_vinculos.succ_opt()?.format("%Y-%m-%d").to_string(),
+                start_date: inicio_proj_vinculo.format("%Y-%m-%d").to_string(),
                 end_date: simulado.dib.clone(),
                 regime: "RGPS".into(),
                 indicators: "PROJECAO".into(),
@@ -344,10 +360,9 @@ pub fn project_rules(case: &Calculation, outcome: &Value) -> Option<Value> {
                 source_review: None,
             });
         }
-        // Salários projetados até o mês anterior à DIB simulada.
-        let mut competencia = chrono::NaiveDate::parse_from_str(&format!("{}-01", ultimo.competence), "%Y-%m-%d").ok()?;
+        // Salários projetados a partir do mês da DIB até o mês anterior à DIB simulada.
+        let mut competencia = inicio_proj_salario;
         loop {
-            competencia = somar_meses(competencia, 1)?;
             let texto = competencia.format("%Y-%m").to_string();
             if texto >= competencia_dib {
                 break;
@@ -359,64 +374,69 @@ pub fn project_rules(case: &Calculation, outcome: &Value) -> Option<Value> {
                 indicators: "PROJECAO".into(),
                 confirmed: true,
             });
+            competencia = somar_meses(competencia, 1)?;
         }
-        calcular_na_dib(&simulado).ok().map(|r| (simulado.dib, r))
-    };
-    // O descarte (EC 103, art. 26, § 6º) reduz o tempo e pode tirar o requisito de
-    // outra regra; por isso cada regra é avaliada com e sem descarte, e vale o
-    // cenário elegível de maior RMI.
-    let simular = |data: chrono::NaiveDate| -> Option<(String, Value)> {
-        let com = simular_com(data, true);
-        let sem = simular_com(data, false);
-        match (com, sem) {
-            (Some((d, mut a)), Some((_, b))) => {
-                let tempo_com = a["data"]["native_result"]["transicoes"]["tempo_total_meses"].as_i64().unwrap_or(0);
-                let tempo_base = if case.sex.as_deref().is_some_and(|s| s.trim().eq_ignore_ascii_case("feminino")) { 180 } else { 240 };
-                if let (Some(ra), Some(rb)) = (
-                    a["data"]["native_result"]["transicoes"]["regras"].as_array_mut(),
-                    b["data"]["native_result"]["transicoes"]["regras"].as_array(),
-                ) {
-                    for regra in ra.iter_mut() {
-                        let Some(outra) = rb.iter().find(|x| x["id"] == regra["id"]) else { continue };
-                        let valor = |r: &Value| r["rmi_final"].as_str().and_then(|v| v.parse::<f64>().ok()).unwrap_or(0.0);
-                        // Como no Prévius: o descarte não pode deixar o tempo abaixo do
-                        // tempo-base do coeficiente (20 anos homem, 15 anos mulher).
-                        let descarte_valido = tempo_com >= tempo_base;
-                        let usar_outra = outra["elegivel"] == true && (!descarte_valido || regra["elegivel"] != true || valor(outra) > valor(regra));
-                        if !descarte_valido && outra["elegivel"] != true { regra["elegivel"] = Value::Bool(false); }
-                        if usar_outra { *regra = outra.clone(); regra["sem_descarte"] = Value::Bool(true); }
-                    }
-                }
-                Some((d, a))
-            }
-            (a, b) => a.or(b),
-        }
+        calcular_na_dib_com_regra(&simulado, target_rule).ok().map(|r| (simulado.dib, r))
     };
     let elegivel = |resultado: &Value, id: &str| {
         resultado["data"]["native_result"]["transicoes"]["regras"]
             .as_array()
             .is_some_and(|regras| regras.iter().any(|r| r["id"] == id && r["elegivel"] == true))
     };
+    let regra_do = |resultado: &Value, id: &str| -> Option<Value> {
+        resultado["data"]["native_result"]["transicoes"]["regras"]
+            .as_array()?
+            .iter()
+            .find(|x| x["id"] == id)
+            .cloned()
+    };
+    let valor_rmi = |regra: &Value| -> f64 {
+        regra["rmi_final"].as_str().and_then(|v| v.parse::<f64>().ok()).unwrap_or(-1.0)
+    };
     let mut achadas = Vec::new();
     let mut anterior = dib;
     for meses in 1..=LIMITE_MESES {
         let data = somar_meses(dib, meses)?;
-        let Some((_, resultado)) = simular(data) else { anterior = data; continue };
+        let Some((_, resultado)) = simular_com(data, false, None) else { anterior = data; continue };
         let novas: Vec<String> = pendentes.iter().filter(|id| elegivel(&resultado, id)).cloned().collect();
         for id in novas {
-            // Busca binária do primeiro dia elegível entre a data anterior e esta.
+            // Etapa 1: busca binária da primeira data elegível sem descarte.
             let (mut baixo, mut alto) = (anterior, data);
-            let mut melhor = (data.format("%Y-%m-%d").to_string(), resultado.clone());
             while (alto - baixo).num_days() > 1 {
                 let meio = baixo + chrono::Duration::days((alto - baixo).num_days() / 2);
-                match simular(meio) {
-                    Some((dib_meio, r)) if elegivel(&r, &id) => { alto = meio; melhor = (dib_meio, r); }
+                match simular_com(meio, false, None) {
+                    Some((_, r)) if elegivel(&r, &id) => alto = meio,
                     _ => baixo = meio,
                 }
             }
-            let (data_texto, r) = melhor;
+            // Etapa 2: na data exata, otimiza o descarte exclusivamente para a regra `id`.
+            let sem = simular_com(alto, false, Some(&id));
+            let com = simular_com(alto, true, Some(&id));
+            let melhor = match (com, sem) {
+                (Some((d_com, r_com)), Some((d_sem, r_sem))) => {
+                    let reg_com = regra_do(&r_com, &id);
+                    let reg_sem = regra_do(&r_sem, &id);
+                    let ok_com = reg_com.as_ref().is_some_and(|x| x["elegivel"] == true);
+                    let ok_sem = reg_sem.as_ref().is_some_and(|x| x["elegivel"] == true);
+                    match (ok_com, ok_sem) {
+                        (true, true) => {
+                            if valor_rmi(reg_com.as_ref().unwrap()) > valor_rmi(reg_sem.as_ref().unwrap()) {
+                                Some((d_com, r_com))
+                            } else {
+                                Some((d_sem, r_sem))
+                            }
+                        }
+                        (true, false) => Some((d_com, r_com)),
+                        (false, true) => Some((d_sem, r_sem)),
+                        (false, false) => Some((d_sem, r_sem)),
+                    }
+                }
+                (a, b) => a.or(b),
+            };
+            let Some((data_texto, r)) = melhor else { pendentes.retain(|p| p != &id); continue };
             let t = &r["data"]["native_result"]["transicoes"];
-            let regra = t["regras"].as_array().and_then(|rs| rs.iter().find(|x| x["id"] == id.as_str())).cloned().unwrap_or(Value::Null);
+            let regra = regra_do(&r, &id).unwrap_or(Value::Null);
+            let descartadas = r["data"]["native_result"]["correcao"]["descartadas"].as_u64().unwrap_or(0);
             pendentes.retain(|p| p != &id);
             achadas.push(serde_json::json!({
                 "id": id,
@@ -427,7 +447,8 @@ pub fn project_rules(case: &Calculation, outcome: &Value) -> Option<Value> {
                 "tempo_total_meses": t["tempo_total_meses"],
                 "idade_meses": t["idade_meses"],
                 "carencia_meses": r["data"]["native_result"]["resumo"]["carencia_meses"],
-                "descarte_aplicado": regra["sem_descarte"] != true,
+                "descarte_aplicado": descartadas > 0,
+                "descartadas": descartadas,
             }));
         }
         anterior = data;
@@ -437,7 +458,7 @@ pub fn project_rules(case: &Calculation, outcome: &Value) -> Option<Value> {
     }
     achadas.sort_by(|a, b| a["data"].as_str().cmp(&b["data"].as_str()));
     Some(serde_json::json!({
-        "premissa": format!("Contribuição contínua com o último salário conferido (competência {}, R$ {}), sem reajuste real, a partir de {}.", ultimo.competence, ultimo.amount, fim_vinculos.format("%d/%m/%Y")),
+        "premissa": format!("Contribuição contínua com o último salário conferido (competência {}, R$ {}), sem reajuste real, a partir de {}.", ultimo.competence, ultimo.amount, inicio_proj_vinculo.format("%d/%m/%Y")),
         "limite_meses": LIMITE_MESES,
         "regras": achadas,
         "sem_projecao": pendentes,

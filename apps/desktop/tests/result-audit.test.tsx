@@ -13,7 +13,62 @@ describe('result audit panels',()=>{
     expect(screen.getByText('Regras de transição')).toBeInTheDocument();
     expect(screen.getAllByText('Regra sintética').length).toBeGreaterThan(0);
     expect(screen.getByText(/Nenhum salário foi elevado ao mínimo silenciosamente/)).toBeInTheDocument();
-    expect(screen.getByText('R$ 1.600,00')).toBeInTheDocument();
+    expect(screen.getByText('Sem direito')).toBeInTheDocument();
+    expect(screen.getByText('Nenhuma regra está cumprida na DIB.')).toBeInTheDocument();
+  });
+
+  it('shows the RMI in hero when an eligible transition rule is chosen',()=>{
+    const eligible:Json={
+      status:'experimental',
+      data:{
+        direito_na_dib:true,
+        native_result:{
+          resumo:{rmi:'1600.00',salario_beneficio:'2000.00',competencias:300,coeficiente:'80',carencia_meses:300},
+          transicoes:{
+            regra_escolhida:'pontos',
+            rmi_escolhida:'1600.00',
+            regras:[{id:'pontos',nome:'Pontos',fundamento:'EC 103/2019, art. 15',elegivel:true,rmi_final:'1600.00',requisitos:[],faltas:null,observacao:null}],
+          },
+          memoria:[],
+        },
+      },
+    };
+    render(<ResultView result={eligible}/>);
+    expect(screen.queryByText('Sem direito')).not.toBeInTheDocument();
+    expect(screen.getAllByText('R$ 1.600,00').length).toBeGreaterThan(0);
+  });
+
+  it('shows projected rules panel and renders non-applicable rules clearly without Faltam nada',()=>{
+    const projected:Json={
+      status:'experimental',
+      data:{
+        direito_na_dib:false,
+        projecao_regras:{
+          premissa:'Contribuição contínua a partir de 01/11/2026.',
+          regras:[
+            {id:'pedagio-100',nome:'Transição por pedágio de 100%',data:'2027-05-19',rmi:'3413.25'},
+          ],
+        },
+        native_result:{
+          resumo:{rmi:'3295.72',salario_beneficio:'3433.04',competencias:350,coeficiente:'96',carencia_meses:345},
+          transicoes:{
+            regra_escolhida:null,
+            rmi_escolhida:null,
+            regras:[
+              {id:'pedagio-50',nome:'Pedágio de 50%',fundamento:'EC 103/2019, art. 17',elegivel:false,rmi:null,rmi_final:null,requisitos:[],faltas:{aplicavel:false},observacao:null},
+              {id:'pedagio-100',nome:'Transição por pedágio de 100%',fundamento:'EC 103/2019, art. 20',elegivel:false,rmi:'3433.04',rmi_final:'3433.04',requisitos:[],faltas:{idadeMeses:7,tempoMeses:4},observacao:null},
+            ],
+          },
+          memoria:[],
+        },
+      },
+    };
+    render(<ResultView result={projected}/>);
+    expect(screen.getByText('Datas possíveis por regra')).toBeInTheDocument();
+    expect(screen.getByText('19/05/2027')).toBeInTheDocument();
+    expect(screen.getByText('R$ 3.413,25')).toBeInTheDocument();
+    expect(screen.getByText(/Não aplicável/)).toBeInTheDocument();
+    expect(screen.queryByText(/Faltam: nada/)).not.toBeInTheDocument();
   });
 
   it('shows missing time as not measured instead of zero',()=>{

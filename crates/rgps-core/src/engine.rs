@@ -830,6 +830,8 @@ pub fn calcular(entrada: &RgpsEntrada) -> Result<RgpsResultado> {
             }),
             rmi_direito_adquirido,
             obs_direito_adquirido: obs_direito_adquirido.clone(),
+            carencia_meses: Some(carencia_meses),
+            ate_ec103_360: tempo.as_ref().map(|t| t.marcos.ate_ec103).unwrap_or(0),
         })?;
         if let (Some(id), Some(rmi)) = (resultado.regra_escolhida, resultado.rmi_escolhida.as_ref()) {
             if let Ok(valor) = parse_money(rmi, "RMI da regra escolhida") {
@@ -1355,6 +1357,13 @@ fn simular_descarte_otimo(
             .map(|r| d < r)
     });
 
+    let regra_alvo = entrada
+        .opcoes
+        .regra_alvo
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty());
+
     let avaliar_n = |n: usize, soma_rem: Decimal, ate_360: i64, apos_360: i64, total_360: i64, rem_car: usize| -> Result<(bool, Option<String>, Decimal, Decimal)> {
         let consideradas = parcelas.len() - n;
         let divisor = divisor_usado(consideradas, entrada.opcoes.divisor_minimo);
@@ -1376,7 +1385,18 @@ fn simular_descarte_otimo(
                     filiado_antes_reforma: filiado_pre,
                     rmi_direito_adquirido: if n == 0 { rmi_direito_adquirido } else { None },
                     obs_direito_adquirido: obs_direito_adquirido.map(str::to_string),
+                    carencia_meses: Some(rem_car),
+                    ate_ec103_360: ate_360,
                 })?;
+                if let Some(alvo) = regra_alvo {
+                    if let Some(regra) = res.regras.iter().find(|r| r.id == alvo && r.elegivel) {
+                        if let Some(rmi_s) = regra.rmi_final.as_deref() {
+                            let rmi_val = parse_money(rmi_s, "rmi")?;
+                            return Ok((true, Some(alvo.to_string()), sb, rmi_val));
+                        }
+                    }
+                    return Ok((false, None, sb, Decimal::ZERO));
+                }
                 if let (Some(id), Some(rmi_s)) = (res.regra_escolhida, res.rmi_escolhida.as_deref()) {
                     let rmi_val = parse_money(rmi_s, "rmi")?;
                     return Ok((true, Some(id.to_string()), sb, rmi_val));
@@ -1870,5 +1890,60 @@ mod tests {
         let obs = da["observacao"].as_str().unwrap();
         assert!(obs.contains("SB R$ "), "{obs}");
         assert!(da_rmi < Decimal::from(3500), "divisor 182 deve reduzir SB/RMI no direito adquirido: {da_rmi} ({obs})");
+    }
+
+    #[test]
+    fn descarte_otimo_por_regra_alvo_respeita_minimos_proprios() {
+        // Homem nascido 1967-01-01, DER 2032-02-01 (65a1m), 380 competências:
+        // 150 menores de R$ 1500 e 230 maiores de R$ 5000, com vínculo de 460 meses (1994-07..2032-01).
+        // Nota: 180+ meses pós-1994-07. Com 380 contribuições e 460m tempo:
+        // - `idade-progressiva` exige >= 35a (420m tempo -> pode descartar até 40 meses -> 340 consideradas -> RMI sobe vs 0 descartes).
+        // - `idade-transicao` exige >= 15a (180m tempo e >= 180 carência -> descarta todos os 150 menores (deixa 230 >= 180!) -> RMI ainda maior).
+        let mut competencias = Vec::new();
+        let mut c = Competencia { ano: 1994, mes: 7 };
+        for i in 0..380 {
+            let v = if i < 150 { "500.00" } else { "6000.00" };
+            competencias.push((c, parse_money(v, "s").unwrap()));
+            c = c.next();
+        }
+        let base_vinculos = vec![VinculoEntrada {
+            inicio: IsoDate::parse("1994-07-01", "i").unwrap(),
+            fim: Some(IsoDate::parse("2032-01-31", "f").unwrap()),
+            tipo: "empregado".into(),
+            empresa: None,
+            fator: 1.0,
+        }];
+        let make = |alvo: &str| RgpsEntrada {
+            nome: None,
+            especie: Some("42".into()),
+            sexo: "masculino".into(),
+            data_nascimento: Some(IsoDate::parse("1967-01-01", "n").unwrap()),
+            data_referencia: Some(IsoDate::parse("2032-02-01", "d").unwrap()),
+            vinculos: base_vinculos.clone(),
+            competencias: competencias.clone(),
+            opcoes: RgpsOpcoes {
+                corrigir_salarios: true,
+                descarte_otimo: true,
+                referencia_correcao: Some(Competencia { ano: 2026, mes: 10 }),
+                regra_alvo: Some(alvo.into()),
+                ..RgpsOpcoes::default()
+            },
+        };
+        let res_prog = calcular(&make("idade-progressiva")).unwrap();
+        let regras_prog = res_prog.transicoes.unwrap();
+        let reg_prog = regras_prog["regras"].as_array().unwrap().iter().find(|r| r["id"] == "idade-progressiva").unwrap().clone();
+        assert_eq!(reg_prog["elegivel"], true);
+        let descartadas_prog = res_prog.correcao.as_ref().unwrap()["descartadas"].as_u64().unwrap();
+        assert!(descartadas_prog > 0 && descartadas_prog <= 40, "esperava até 40 descartes para manter 35a, teve {descartadas_prog}");
+
+        let res_art18 = calcular(&make("idade-transicao")).unwrap();
+        assert!(res_art18.resumo.carencia_meses >= 180, "carência mínima 180 preservada");
+        let descartadas_18 = res_art18.correcao.as_ref().unwrap()["descartadas"].as_u64().unwrap();
+        assert!(descartadas_18 > descartadas_prog, "art. 18 (15a) pode descartar mais que art. 16 (35a): {descartadas_18} vs {descartadas_prog}");
+        let rmi_prog: Decimal = reg_prog["rmi_final"].as_str().unwrap().parse().unwrap();
+        let reg_18 = res_art18.transicoes.unwrap()["regras"].as_array().unwrap().iter().find(|r| r["id"] == "idade-transicao").unwrap().clone();
+        assert_eq!(reg_18["elegivel"], true);
+        let rmi_18: Decimal = reg_18["rmi_final"].as_str().unwrap().parse().unwrap();
+        assert!(rmi_18 > rmi_prog, "RMI art.18 ({rmi_18}) deveria superar art.16 ({rmi_prog})");
     }
 }

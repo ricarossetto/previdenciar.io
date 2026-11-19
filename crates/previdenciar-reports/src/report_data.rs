@@ -523,7 +523,14 @@ fn transitions(case: &Calculation, outcome: Option<&Value>) -> Result<Value, Str
         .and_then(|v| v.pointer("/transicoes/regras"))
         .and_then(Value::as_array)
         .map(|arr| {
+            let tem_idade_transicao = arr
+                .iter()
+                .any(|r| r.get("id").and_then(Value::as_str) == Some("idade-transicao"));
             arr.iter()
+                .filter(|r| {
+                    !(tem_idade_transicao
+                        && r.get("id").and_then(Value::as_str) == Some("idade-permanente"))
+                })
                 .map(|r| {
                     let nome = r.get("nome").and_then(Value::as_str).unwrap_or("").to_string();
                     let rmi = r
@@ -1010,7 +1017,14 @@ fn regras(case: &Calculation, outcome: Option<&Value>) -> Result<Value, String> 
         .and_then(|v| v.pointer("/transicoes/regras"))
         .and_then(Value::as_array)
         .map(|arr| {
+            let tem_idade_transicao = arr
+                .iter()
+                .any(|r| r.get("id").and_then(Value::as_str) == Some("idade-transicao"));
             arr.iter()
+                .filter(|r| {
+                    !(tem_idade_transicao
+                        && r.get("id").and_then(Value::as_str) == Some("idade-permanente"))
+                })
                 .map(|r| {
                     let nome = r.get("nome").and_then(Value::as_str).unwrap_or("").to_string();
                     let rmi = r
@@ -1346,6 +1360,42 @@ mod tests {
             let built = build(kind, &case, Some(&outcome_val), false).unwrap().to_string();
             assert!(!built.contains("SEGURADO SECRETO"), "{kind}: {built}");
             assert!(!built.contains("123.456.789-00"), "{kind}: {built}");
+        }
+    }
+
+    #[test]
+    fn transitions_omits_idade_permanente_when_idade_transicao_exists_and_masks_cpf_nit() {
+        let mut case = Calculation::default();
+        case.dib = "2026-11-18".into();
+        case.identity.cpf = Some("12345678901".into());
+        case.identity.nit = Some("999.88877.66-5".into());
+        let per = build("periods", &case, None, true).unwrap();
+        let rows = per["identification"]["rows"].to_string();
+        assert!(rows.contains("123.456.789-01"), "{rows}");
+        assert!(rows.contains("999.88877.66-5"), "{rows}");
+        let priv_per = build("periods", &case, None, false).unwrap();
+        assert!(!priv_per["identification"].to_string().contains("123.456.789-01"));
+
+        let outcome_val = serde_json::json!({
+            "status": "experimental",
+            "data": {
+                "native_result": {
+                    "transicoes": {
+                        "regra_escolhida": null,
+                        "regras": [
+                            { "id": "pontos", "nome": "Pontos", "elegivel": false, "rmi_final": "3000.00", "faltas": { "pontosMeses": 10 }, "requisitos": [] },
+                            { "id": "idade-transicao", "nome": "Transição por idade (art. 18)", "elegivel": false, "rmi_final": "3900.00", "faltas": { "idadeMeses": 60 }, "requisitos": [] },
+                            { "id": "idade-permanente", "nome": "Regra permanente por idade (art. 19)", "elegivel": false, "rmi_final": "3500.00", "faltas": { "idadeMeses": 60 }, "requisitos": [] }
+                        ]
+                    }
+                }
+            }
+        });
+        for kind in ["transitions", "regras"] {
+            let doc = build(kind, &case, Some(&outcome_val), false).unwrap();
+            let list = doc["regras"].as_array().unwrap();
+            assert_eq!(list.len(), 2, "{kind}: {list:?}");
+            assert!(list.iter().all(|r| !r["nome"].as_str().unwrap().contains("permanente")));
         }
     }
 }

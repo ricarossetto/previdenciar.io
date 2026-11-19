@@ -173,6 +173,8 @@ pub fn projetar(req: &ProjecaoRequisicao) -> Result<ProjecaoResultado> {
             filiado_antes_reforma: None,
             rmi_direito_adquirido: None,
             obs_direito_adquirido: None,
+            carencia_meses: None,
+            ate_ec103_360: 0,
         })?;
 
         return Ok(ProjecaoResultado {

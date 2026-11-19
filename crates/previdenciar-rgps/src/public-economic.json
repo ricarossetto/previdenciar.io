@@ -4,11 +4,11 @@
   "validated_official_values": false,
   "inpc": {
     "source_path": "src/dados/inpc.rs",
-    "source_sha256": "e011007efc2c9f6f3216cdee9cabce7a9183defbf42aa34beb6d39088e6cce17",
-    "source_declaration": "INPC/IBGE: variação mensal (SGS/BCB, série 188), extraída em 2026-10-22.",
+    "source_sha256": "0901a74509250e92922e0a92c9de5d8ff0eb29764dc15298451ca0e1b64ff40d",
+    "source_declaration": "INPC/IBGE — variação mensal (SGS/BCB, série 188), extraída em 2026-11-19.",
     "first": "1994-07",
-    "last": "2026-09",
-    "count": 387,
+    "last": "2026-10",
+    "count": 388,
     "values": [
       {
         "period": "1994-07",
@@ -1557,6 +1557,10 @@
       {
         "period": "2026-09",
         "value": "0.82"
+      },
+      {
+        "period": "2026-10",
+        "value": "0.22"
       }
     ]
   },
@@ -2824,11 +2828,11 @@
   },
   "igpdi": {
     "source_path": "src/dados/igpdi.rs",
-    "source_sha256": "d49e6e6cc5f0a29e074c0f2872df23be1113030dc58a514194e0ea0cf5219bfe",
-    "source_declaration": "IGP-DI/FGV: variação mensal (SGS/BCB, série 190), extraída em 2026-10-22.",
+    "source_sha256": "cf6b603730626405f074b4a44410447d2689e839d65db9cdf012eb897e176851",
+    "source_declaration": "IGP-DI/FGV — variação mensal (SGS/BCB, série 190), extraída em 2026-11-19.",
     "first": "1994-07",
-    "last": "2026-09",
-    "count": 387,
+    "last": "2026-10",
+    "count": 388,
     "values": [
       {
         "period": "1994-07",
@@ -4377,6 +4381,10 @@
       {
         "period": "2026-09",
         "value": "1.50"
+      },
+      {
+        "period": "2026-10",
+        "value": "1.15"
       }
     ]
   }

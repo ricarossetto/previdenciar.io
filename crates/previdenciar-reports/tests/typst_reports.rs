@@ -23,7 +23,7 @@ fn consolidated_merges_all_parts() {
     let pdf = previdenciar_reports::render_report(&case, "detailed", Some(&outcome), &_workspace, true).unwrap();
     assert!(pdf.starts_with(b"%PDF-"));
     let doc = lopdf::Document::load_mem(&pdf).unwrap();
-    assert!(doc.get_pages().len() > 6, "consolidado deve ter mais de 6 paginas");
+    assert!(doc.get_pages().len() >= 6, "consolidado deve ter ao menos 6 paginas (uma por parte)");
 }
 
 #[test]

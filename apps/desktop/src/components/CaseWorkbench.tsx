@@ -1538,6 +1538,22 @@ function PbcAudit({ pbc, source }: { pbc: JsonObj; source: JsonObj | null }) {
   );
 }
 
+function formatRuleFaltas(faltas: Json | undefined): string | null {
+  const data = obj(faltas);
+  if (!data) return null;
+  if (data.aplicavel === false) return 'Não aplicável';
+  const labels: Record<string, string> = {
+    tempoMeses: 'tempo',
+    idadeMeses: 'idade',
+    pontosMeses: 'pontos',
+    carenciaMeses: 'carência',
+  };
+  const items = Object.entries(data)
+    .filter(([k, v]) => k.endsWith('Meses') && Number(v) > 0)
+    .map(([k, v]) => `${labels[k] ?? k} ${v} meses`);
+  return items.length > 0 ? `Faltam: ${items.join('; ')}` : null;
+}
+
 function TransitionAudit({ transicoes }: { transicoes: JsonObj }) {
   const regras = arr(transicoes.regras)
     .map(obj)
@@ -1605,7 +1621,10 @@ function TransitionAudit({ transicoes }: { transicoes: JsonObj }) {
             <li key={index}>
               <strong>{txt(regra.nome)}</strong>
               {arr(regra.requisitos).length > 0 && <span> · {arr(regra.requisitos).map(txt).join('; ')}</span>}
-              {regra.faltas != null && <span> · Faltam: {Object.entries(obj(regra.faltas) ?? {}).filter(([k, v]) => k.endsWith('Meses') && Number(v) > 0).map(([k, v]) => `${({ tempoMeses: 'tempo', idadeMeses: 'idade', pontosMeses: 'pontos', carenciaMeses: 'carência' } as Record<string, string>)[k] ?? k} ${v} meses`).join('; ') || 'nada'}</span>}
+              {(() => {
+                const textoFaltas = formatRuleFaltas(regra.faltas);
+                return textoFaltas ? <span> · {textoFaltas}</span> : null;
+              })()}
               {regra.observacao != null && <span> · {txt(regra.observacao)}</span>}
             </li>
           ))}

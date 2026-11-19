@@ -127,12 +127,16 @@ fn salario_minimo_vigente(competencia: &Competencia) -> Option<Decimal> {
 /// Malformed/unknown JSON fields return Err. Missing/unsafe domain data returns a
 /// blocked envelope with data:null. Successful output is explicitly experimental.
 pub fn calculate_json(input: Value) -> Result<Value, String> {
-    if !input.is_object() { return Err("invalid_input_schema: expected JSON object".into()); }
-    let request: CalculationInput = serde_json::from_value(input).map_err(|e| format!("invalid_input_schema: {e}"))?;
-    calculate_input(request)
+    calculate_json_for_rule(input, None)
 }
 
-fn calculate_input(r: CalculationInput) -> Result<Value, String> {
+pub(crate) fn calculate_json_for_rule(input: Value, target_rule: Option<&str>) -> Result<Value, String> {
+    if !input.is_object() { return Err("invalid_input_schema: expected JSON object".into()); }
+    let request: CalculationInput = serde_json::from_value(input).map_err(|e| format!("invalid_input_schema: {e}"))?;
+    calculate_input_with_rule(request, target_rule)
+}
+
+fn calculate_input_with_rule(r: CalculationInput, target_rule: Option<&str>) -> Result<Value, String> {
     let mut b = Vec::new();
     let mut warnings = vec!["Resultado experimental do código próprio copiado; sem validação normativa ou equivalência comprovada com o Previdenciar.".into()];
     if !r.revisao.confirmada || !nonempty(&r.revisao.evidencia) {
@@ -378,7 +382,7 @@ fn calculate_input(r: CalculationInput) -> Result<Value, String> {
         .collect();
     let native = RgpsEntrada {
         nome:None, especie:r.segurado.especie.clone(), sexo:sex, data_nascimento:birth, data_referencia:Some(dib), vinculos:links, competencias:wages,
-        opcoes:RgpsOpcoes {corrigir_salarios:o.corrigir_salarios.unwrap(),descarte:o.descarte.unwrap(),descarte_otimo:o.descarte_otimo.unwrap_or(false),divisor_minimo:o.divisor_minimo.unwrap(),descartar_menores_minimo:o.descartar_menores_minimo,meses_fora_do_tempo,competencias_contribuicao:r.contribution_months.iter().filter_map(|value|{let mut ignored=Vec::new();month(&Some(value.clone()),"competencia de contribuicao",&mut ignored)}).collect(),competencias_sem_carencia:o.competencias_sem_carencia.iter().filter_map(|value|{let mut ignored=Vec::new();month(&Some(value.clone()),"competencia sem carencia",&mut ignored)}).collect(),referencia_correcao:reference.or(Some(Competencia {ano:dib.ano as u16,mes:dib.mes})),teto:ceiling,piso:floor,aplicar_piso_automatico:o.aplicar_piso_automatico.unwrap_or(false),aplicar_teto_vigente_der:o.aplicar_teto_vigente_der.unwrap(),expectativa_sobrevida:expectation,periodos_graca:vec![],recolhimentos_atraso:vec![],regra_alvo:None,incapacidade_origem:o.incapacidade_origem.clone(),especial_grau:o.grau_especial.clone(),tempo_especial_meses:o.tempo_especial_meses,especial_antes_reforma:o.especial_antes_reforma,magisterio_meses:o.magisterio_meses,magisterio_exclusivo:o.magisterio_exclusivo,magisterio_antes_reforma:o.magisterio_antes_reforma,perfil_correcao:o.perfil_correcao.clone(),fallback_inpc_documentado:o.fallback_inpc_documentado.unwrap_or(false)}
+        opcoes:RgpsOpcoes {corrigir_salarios:o.corrigir_salarios.unwrap(),descarte:o.descarte.unwrap(),descarte_otimo:o.descarte_otimo.unwrap_or(false),divisor_minimo:o.divisor_minimo.unwrap(),descartar_menores_minimo:o.descartar_menores_minimo,meses_fora_do_tempo,competencias_contribuicao:r.contribution_months.iter().filter_map(|value|{let mut ignored=Vec::new();month(&Some(value.clone()),"competencia de contribuicao",&mut ignored)}).collect(),competencias_sem_carencia:o.competencias_sem_carencia.iter().filter_map(|value|{let mut ignored=Vec::new();month(&Some(value.clone()),"competencia sem carencia",&mut ignored)}).collect(),referencia_correcao:reference.or(Some(Competencia {ano:dib.ano as u16,mes:dib.mes})),teto:ceiling,piso:floor,aplicar_piso_automatico:o.aplicar_piso_automatico.unwrap_or(false),aplicar_teto_vigente_der:o.aplicar_teto_vigente_der.unwrap(),expectativa_sobrevida:expectation,periodos_graca:vec![],recolhimentos_atraso:vec![],regra_alvo:target_rule.map(str::to_string),incapacidade_origem:o.incapacidade_origem.clone(),especial_grau:o.grau_especial.clone(),tempo_especial_meses:o.tempo_especial_meses,especial_antes_reforma:o.especial_antes_reforma,magisterio_meses:o.magisterio_meses,magisterio_exclusivo:o.magisterio_exclusivo,magisterio_antes_reforma:o.magisterio_antes_reforma,perfil_correcao:o.perfil_correcao.clone(),fallback_inpc_documentado:o.fallback_inpc_documentado.unwrap_or(false)}
     };
     // The copied core is kept byte-identical; overflow/panic never becomes a zero result.
     let result = std::panic::catch_unwind(|| rgps_core::calcular(&native))
