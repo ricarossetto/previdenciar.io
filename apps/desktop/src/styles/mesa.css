@@ -732,21 +732,21 @@ option {
 /* Barra resumo persistente estilo Prévius */
 .previus-summary-bar {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
+  grid-template-columns: minmax(175px, 1.35fr) repeat(5, minmax(110px, 1fr)) auto;
   gap: 10px 14px;
-  align-items: center;
+  align-items: stretch;
   padding: 14px 18px;
   background: var(--surface);
   border: 1px solid var(--border-strong);
-  border-top: 3px solid var(--accent);
   border-radius: 12px;
-  box-shadow: var(--shadow-xs);
+  box-shadow: inset 0 2px 0 var(--accent), var(--shadow-xs);
   font-variant-numeric: tabular-nums;
 }
 
 .previus-kpi {
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
   gap: 3px;
   min-width: 0;
   padding: 2px 10px 2px 0;
@@ -763,8 +763,7 @@ option {
   justify-content: center;
 }
 
-.previus-kpi > span,
-.previus-kpi > small {
+.previus-kpi > span {
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
@@ -773,6 +772,17 @@ option {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.previus-kpi > small {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--fg-2);
+  white-space: normal;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 
 .previus-kpi > strong {
@@ -792,6 +802,12 @@ option {
 .previus-kpi.is-gold > strong,
 .previus-kpi--gold > strong {
   color: var(--gold);
+}
+
+@media (max-width: 1180px) {
+  .previus-summary-bar {
+    grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
+  }
 }
 
 /* Central TRF3 de 5 Abas (.fabrica-hub + .fabrica-tabs) */
@@ -943,12 +959,19 @@ option {
 
 @media (max-width: 1023px) {
   .previdenciar-app {
+    height: 100dvh;
+    overflow: hidden;
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: 58px minmax(0, 1fr);
+    grid-template-rows: 58px minmax(0, 1fr) auto;
   }
 
   .previdenciar-app .app-side {
     display: none;
+  }
+
+  .previdenciar-app .top-chrome {
+    grid-column: 1;
+    grid-row: 1;
   }
 
   .previdenciar-app .top-chrome,
@@ -958,8 +981,10 @@ option {
   }
 
   .previdenciar-app .app-content {
+    grid-row: 2;
+    overflow-y: auto;
     padding-top: 20px;
-    padding-bottom: calc(96px + env(safe-area-inset-bottom));
+    padding-bottom: 24px;
   }
 
   .previdenciar-app .page-head h1 {
@@ -975,12 +1000,15 @@ option {
   }
 
   .previdenciar-app .mobile-dock {
+    grid-column: 1;
+    grid-row: 3;
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
-    position: fixed;
-    bottom: calc(10px + env(safe-area-inset-bottom));
-    left: 50%;
-    transform: translateX(-50%);
+    position: relative;
+    bottom: auto;
+    left: auto;
+    transform: none;
+    margin: 8px auto calc(10px + env(safe-area-inset-bottom));
     width: min(500px, calc(100% - 16px));
     padding: 6px;
     gap: 4px;
@@ -1051,7 +1079,7 @@ option {
     font-weight: 600;
   }
 
-  .previdenciar-app .toast {
+  .previdenciar-app .toast:not(.toast-inline) {
     bottom: calc(88px + env(safe-area-inset-bottom));
     right: 12px;
     left: 12px;
@@ -1156,6 +1184,7 @@ option {
 @media (max-width: 640px) {
   .previdenciar-app .app-content {
     padding-top: 12px;
+    padding-bottom: 20px;
   }
 
   .previdenciar-app .page-wrap {

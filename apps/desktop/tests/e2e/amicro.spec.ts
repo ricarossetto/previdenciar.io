@@ -90,9 +90,10 @@ test('Demo case button opens Previus summary bar and 5-tab TRF3 hub cleanly', as
     await expect(page.getByRole('tab', { name: label, exact: true })).toBeVisible();
   }
   await expect.poll(() => page.locator('body').evaluate(el => el.scrollWidth <= innerWidth)).toBe(true);
-  await page.locator('#fabrica-hub').scrollIntoViewIfNeeded();
+  await expect(page.locator('#fabrica-hub')).toBeVisible();
+  await page.locator('#main-content').evaluate(el => { el.scrollTop = 0; });
   await page.screenshot({ path: 'verification/ui-fabrica-hub.png', fullPage: true });
   await page.getByRole('button', { name: 'Alternar tema', exact: true }).click();
-  await page.locator('.previus-summary-bar').scrollIntoViewIfNeeded();
+  await page.locator('#main-content').evaluate(el => { el.scrollTop = 0; });
   await page.screenshot({ path: 'verification/ui-fabrica-hub-light.png', fullPage: true });
 });

@@ -495,20 +495,18 @@ export function CaseWorkbench({
                 >
                   {tab.label}
                 </button>
-                {tab.steps.length > 1 && (
-                  <div className="wizard-tab-steps">
-                    {tab.steps.map(i => (
-                      <button
-                        key={STEPS[i]}
-                        aria-label={i + 1 + '. ' + STEPS[i]}
-                        className={'wizard-step ' + (step === i ? 'active' : i < step ? 'done' : '')}
-                        onClick={() => setStep(i)}
-                      >
-                        <span>{i + 1}.</span> {STEPS[i]}
-                      </button>
-                    ))}
-                  </div>
-                )}
+                <div className="wizard-tab-steps">
+                  {tab.steps.map(i => (
+                    <button
+                      key={STEPS[i]}
+                      aria-label={i + 1 + '. ' + STEPS[i]}
+                      className={'wizard-step ' + (step === i ? 'active' : i < step ? 'done' : '')}
+                      onClick={() => setStep(i)}
+                    >
+                      <span>{i + 1}.</span> {STEPS[i]}
+                    </button>
+                  ))}
+                </div>
               </div>
             );
           })}

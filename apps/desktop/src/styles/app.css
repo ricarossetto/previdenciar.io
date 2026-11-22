@@ -895,7 +895,13 @@ p {
 }
 
 .wizard-step.done {
+  color: var(--fg-2);
+}
+
+.wizard-step.done span {
+  border-color: var(--border-strong);
   color: var(--fg);
+  background: var(--surface-2);
 }
 
 .wizard-foot {
@@ -1088,6 +1094,13 @@ p {
   padding: 14px 0;
 }
 
+.result-hero + .result-strip {
+  padding: 14px 18px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
 .result-strip > div span {
   display: block;
   font-size: 12px;
@@ -1129,9 +1142,9 @@ p {
   position: static;
   inset: auto;
   transform: none;
-  width: auto;
-  max-width: 780px;
-  margin: 0 0 8px;
+  width: 100%;
+  max-width: 1360px;
+  margin: 0 auto 12px;
   box-shadow: none;
 }
 
@@ -1779,20 +1792,26 @@ p {
 
 /* Mesa do cálculo em 4 abas; as etapas numeradas ficam dentro de cada aba. */
 .wizard-tabs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr));
   align-items: stretch;
+  gap: 8px;
 }
 
 .wizard-tab {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 4px;
+  justify-content: flex-start;
+  gap: 6px;
+  padding: 6px 8px;
   border-radius: 8px;
-  border: 1px solid transparent;
+  background: var(--inset);
+  border: 1px solid var(--border-subtle, var(--border));
+  min-width: 0;
 }
 
 .wizard-tab.active {
-  border-color: var(--border);
+  border-color: var(--accent-line, var(--accent));
   background: var(--surface-hover);
 }
 

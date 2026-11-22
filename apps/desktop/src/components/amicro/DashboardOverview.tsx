@@ -18,7 +18,7 @@ export function DashboardOverview({ workspace, onStart, onClient, onReports }: {
     <div className="home-next-actions">
       <button type="button" className="home-next-action home-next-action--primary" onClick={onStart}>
         <span className="home-next-icon"><Icon name="calc" size={22} /></span>
-        <span className="home-next-copy"><strong>Novo cálculo</strong><small>Abrir a conferência em sete passos.</small></span>
+        <span className="home-next-copy"><strong>Novo cálculo</strong><small>Importar o CNIS ou abrir a mesa em quatro abas.</small></span>
         <Icon name="arrow" size={17} />
       </button>
       <button type="button" className="home-next-action" onClick={onClient}>
