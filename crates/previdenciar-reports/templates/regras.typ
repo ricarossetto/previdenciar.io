@@ -25,7 +25,7 @@
   #text(size: fs-body, weight: "bold")[Retorno do Investimento: #r.retorno]
 ]
 
-#report(title: d.title, identification: d.identification, date: d.date)[
+#report(title: d.title, identification: d.identification, date: d.date, aviso: d.at("aviso", default: none))[
   #v(2pt)
   #for r in d.regras [
     #card(r)

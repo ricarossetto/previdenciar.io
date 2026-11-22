@@ -52,25 +52,26 @@ type Page =
   | 'coverage';
 
 const NAV: { id: Page; label: string; full?: string; icon: string; group: string }[] = [
-  { id: 'home', label: 'Início', icon: 'home', group: 'Escritório' },
-  { id: 'clients', label: 'Clientes', icon: 'users', group: 'Escritório' },
-  { id: 'cases', label: 'Cálculos', icon: 'calc', group: 'Escritório' },
-  { id: 'reports', label: 'Relatórios', icon: 'file', group: 'Escritório' },
-  { id: 'settings', label: 'Configurações', icon: 'settings', group: 'Escritório' },
-  { id: 'rgps', label: 'Meus cálculos', icon: 'calc', group: 'Cálculo e revisão' },
-  { id: 'robot', label: 'Assistente de cálculo', icon: 'file', group: 'Cálculo e revisão' },
-  { id: 'wizard', label: 'Cálculo previdenciário', icon: 'file', group: 'Cálculo e revisão' },
-  { id: 'tables', label: 'Tabelas e índices', icon: 'chart', group: 'Cálculo e revisão' },
-  { id: 'tools', label: 'Ferramentas', icon: 'tool', group: 'Cálculo e revisão' },
-  { id: 'ai', label: 'Copiloto IA', icon: 'spark', group: 'Apoio e pesquisa' },
-  { id: 'minuta', label: 'Minuta assistida', icon: 'file', group: 'Apoio e pesquisa' },
-  { id: 'knowledge', label: 'Base de conhecimento', icon: 'library', group: 'Apoio e pesquisa' },
-  { id: 'documents', label: 'Documentos', icon: 'book', group: 'Apoio e pesquisa' },
-  { id: 'agenda', label: 'Agenda', icon: 'calendar', group: 'Apoio e pesquisa' },
-  { id: 'coverage', label: 'Cobertura e validação', icon: 'shield', group: 'Apoio e pesquisa' },
+  { id: 'home', label: 'Início', icon: 'home', group: 'Início' },
+  { id: 'cases', label: 'Cálculos', icon: 'calc', group: 'Cálculos' },
+  { id: 'robot', label: 'Assistente de cálculo', icon: 'file', group: 'Cálculos' },
+  { id: 'wizard', label: 'Cálculo previdenciário', icon: 'file', group: 'Mesa do cálculo' },
+  { id: 'reports', label: 'Relatórios', icon: 'file', group: 'Relatórios PDF' },
+  { id: 'tables', label: 'Tabelas e índices', icon: 'chart', group: 'Ferramentas e índices' },
+  { id: 'tools', label: 'Ferramentas', icon: 'tool', group: 'Ferramentas e índices' },
+  { id: 'clients', label: 'Clientes', icon: 'users', group: 'Clientes e configurações' },
+  { id: 'settings', label: 'Configurações', icon: 'settings', group: 'Clientes e configurações' },
+  { id: 'rgps', label: 'Meus cálculos', icon: 'calc', group: 'Mais' },
+  { id: 'ai', label: 'Copiloto IA', icon: 'spark', group: 'Mais' },
+  { id: 'minuta', label: 'Minuta assistida', icon: 'file', group: 'Mais' },
+  { id: 'knowledge', label: 'Base de conhecimento', icon: 'library', group: 'Mais' },
+  { id: 'documents', label: 'Documentos', icon: 'book', group: 'Mais' },
+  { id: 'agenda', label: 'Agenda', icon: 'calendar', group: 'Mais' },
+  { id: 'coverage', label: 'Cobertura e validação', icon: 'shield', group: 'Mais' },
 ];
 
-const NAV_GROUPS = ['Escritório', 'Cálculo e revisão', 'Apoio e pesquisa'] as const;
+/** Áreas do menu lateral. As páginas do grupo "Mais" ficam no botão "Mais páginas". */
+const NAV_GROUPS = ['Início', 'Cálculos', 'Mesa do cálculo', 'Relatórios PDF', 'Ferramentas e índices', 'Clientes e configurações'] as const;
 
 const WEB_MODE = import.meta.env.MODE === 'web';
 
@@ -817,7 +818,7 @@ function WorkspaceApp() {
         <nav className="side-nav" aria-label="Navegação principal">
           {NAV_GROUPS.map(group => (
             <div className="side-group" key={group}>
-              <div className="side-group-label">{group}</div>
+              {group !== 'Início' && <div className="side-group-label">{group}</div>}
               {NAV.filter(n => n.group === group).map(n => (
                 <div key={n.id}>
                   <button
@@ -837,6 +838,19 @@ function WorkspaceApp() {
               ))}
             </div>
           ))}
+          <div className="side-group">
+            <button
+              type="button"
+              className={'side-link ' + (NAV.some(n => n.group === 'Mais' && n.id === page) ? 'active' : '')}
+              aria-label="Mais páginas"
+              title="Mais páginas"
+              data-od-id="nav-more"
+              onClick={() => setMobileMenu(true)}
+            >
+              <Icon name="menu" />
+              <span className="side-label">Mais páginas</span>
+            </button>
+          </div>
         </nav>
         <div className="side-foot">
           <Icon name="shield" size={18} />

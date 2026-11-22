@@ -3,7 +3,7 @@
 
 #let d = inputs.data
 
-#report(title: d.title, identification: d.identification, date: d.date)[
+#report(title: d.title, identification: d.identification, date: d.date, aviso: d.at("aviso", default: none))[
   #v(2pt)
   #data-table(d.headers, d.rows)
   #v(8pt)

@@ -30,7 +30,15 @@ import { ReportCenter } from './ReportCenter';
 import { LinkKindSelect } from './LinkKindSelect';
 import { CnisTimeline } from './CnisTimeline';
 
-const STEPS = ['Identificação', 'CNIS', 'Cenário', 'Vínculos', 'Salários', 'Parâmetros', 'Revisão', 'Resultado'];
+const STEPS = ['Identificação', 'CNIS', 'Cenário', 'Vínculos', 'Salários', 'Parâmetros', 'Revisão', 'Resultado', 'Comparativo'];
+const LAST_STEP = STEPS.length - 1;
+/** Abas da mesa do cálculo. Cada aba agrupa etapas; os índices de etapa continuam os mesmos. */
+const TABS: { label: string; steps: number[] }[] = [
+  { label: 'Dados e CNIS', steps: [0, 1, 2] },
+  { label: 'Períodos e salários', steps: [3, 4] },
+  { label: 'Resultado e relatórios PDF', steps: [5, 6, 7] },
+  { label: 'Fábrica TRF3', steps: [8] },
+];
 
 function warningLabel(code: string) {
   const m: Record<string, string> = {
@@ -282,7 +290,7 @@ export function CaseWorkbench({
   }
 
   function jumpToFabrica() {
-    setStep(7);
+    setStep(8);
     requestAnimationFrame(() => {
       document.getElementById('fabrica-hub')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
@@ -474,17 +482,36 @@ export function CaseWorkbench({
       )}
 
       {!embedded && (
-        <div className="wizard-bar">
-          {STEPS.map((s, i) => (
-            <button
-              key={s}
-              aria-label={i + 1 + '. ' + s}
-              className={'wizard-step ' + (step === i ? 'active' : i < step ? 'done' : '')}
-              onClick={() => setStep(i)}
-            >
-              <span>{i + 1}.</span> {s}
-            </button>
-          ))}
+        <div className="wizard-bar wizard-tabs" role="navigation" aria-label="Abas da mesa do cálculo">
+          {TABS.map(tab => {
+            const activeTab = tab.steps.includes(step);
+            return (
+              <div key={tab.label} className={'wizard-tab ' + (activeTab ? 'active' : '')}>
+                <button
+                  type="button"
+                  className="wizard-tab-head"
+                  aria-current={activeTab ? 'step' : undefined}
+                  onClick={() => setStep(tab.steps[0])}
+                >
+                  {tab.label}
+                </button>
+                {tab.steps.length > 1 && (
+                  <div className="wizard-tab-steps">
+                    {tab.steps.map(i => (
+                      <button
+                        key={STEPS[i]}
+                        aria-label={i + 1 + '. ' + STEPS[i]}
+                        className={'wizard-step ' + (step === i ? 'active' : i < step ? 'done' : '')}
+                        onClick={() => setStep(i)}
+                      >
+                        <span>{i + 1}.</span> {STEPS[i]}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -1188,7 +1215,7 @@ export function CaseWorkbench({
 
           {draft.result && <ResultView result={draft.result} />}
 
-          <FabricaCheck draft={draft} workspace={workspace} onChange={setDraft} />
+          {embedded && <FabricaCheck draft={draft} workspace={workspace} onChange={setDraft} />}
 
           {(draft.result || draft.fabrica || draft.cnis) && (
             <ReportCenter
@@ -1203,6 +1230,12 @@ export function CaseWorkbench({
         </>
       )}
 
+      {step === 8 && !embedded && (
+        <div>
+          <FabricaCheck draft={draft} workspace={workspace} onChange={setDraft} />
+        </div>
+      )}
+
       {!embedded && (
         <footer className="wizard-foot">
           <Button disabled={step === 0} onClick={() => setStep(step - 1)}>
@@ -1210,7 +1243,7 @@ export function CaseWorkbench({
           </Button>
           <div>
             <Button onClick={() => void onSave(draft)}>Salvar rascunho</Button>
-            {step < 7 && (
+            {step < LAST_STEP && (
               <Button primary onClick={() => setStep(step + 1)}>
                 Próxima etapa
                 <Icon name="arrow" size={16} />

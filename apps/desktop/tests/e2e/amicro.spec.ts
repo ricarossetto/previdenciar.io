@@ -28,6 +28,9 @@ for (const width of [1440, 1152, 768, 390, 320]) {
       if (width < 1024) {
         await page.getByRole('button', { name: 'Todas as páginas', exact: true }).click();
         await page.getByRole('dialog').getByRole('button', { name: route, exact: true }).click();
+      } else if (['Meus cálculos', 'Documentos', 'Agenda', 'Cobertura e validação'].includes(route)) {
+        await page.getByRole('button', { name: 'Mais páginas', exact: true }).click();
+        await page.getByRole('dialog').getByRole('button', { name: route, exact: true }).click();
       } else await page.getByRole('navigation', { name: 'Navegação principal' }).getByRole('button', { name: route, exact: true }).click();
       await expect(page.getByRole('heading', { name: route, exact: true })).toBeVisible();
       await expect.poll(() => page.locator('body').evaluate(el => el.scrollWidth <= innerWidth)).toBe(true);
@@ -82,6 +85,7 @@ test('Demo case button opens Previus summary bar and 5-tab TRF3 hub cleanly', as
   await page.getByRole('button', { name: 'Carregar caso demonstrativo', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Cálculo previdenciário', level: 1 })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Resumo rápido do cálculo' })).toBeVisible();
+  await page.getByRole('button', { name: 'Fábrica TRF3', exact: true }).click();
   for (const label of ['RMI (17 Espécies)', 'Tempo de Contribuição', 'Atrasados / Liquidação', 'Leitor Documental', 'Índices e Tabelas']) {
     await expect(page.getByRole('tab', { name: label, exact: true })).toBeVisible();
   }

@@ -1222,10 +1222,23 @@ pub fn build(kind: &str, case: &Calculation, outcome: Option<&Value>, personal: 
             obj.insert("title".into(), json!(custom_title));
         }
     }
+    if let Some(aviso) = unreviewed_notice(case) {
+        if let Some(obj) = data.as_object_mut() {
+            obj.insert("aviso".into(), json!(aviso));
+        }
+    }
     if !personal {
         mask_identification(&mut data);
     }
     Ok(data)
+}
+
+/// Aviso de capa quando o cálculo saiu direto do CNIS, sem revisão de vínculos e salários.
+/// Usa a mesma situação que a tela mostra, para o PDF não dizer menos que a aplicação.
+fn unreviewed_notice(case: &Calculation) -> Option<&'static str> {
+    case.status.contains("não revisados").then_some(
+        "Dados do CNIS não revisados. Este cálculo usou o extrato como veio, sem conferência de vínculos e salários. Revise antes de usar em parecer ou petição.",
+    )
 }
 
 /// Substitui as células de identificação direta sem tocar em datas, sexo ou valores.
@@ -1246,6 +1259,17 @@ fn mask_identification(data: &mut Value) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn cnis_sem_revisao_leva_aviso_ao_pdf() {
+        let mut case = Calculation::default();
+        case.status = "Simulação do CNIS calculada; dados ainda não revisados".into();
+        let data = build("summary", &case, None, false).unwrap();
+        assert!(data["aviso"].as_str().unwrap().starts_with("Dados do CNIS não revisados"));
+        case.status = "Simulação técnica calculada".into();
+        let data = build("summary", &case, None, false).unwrap();
+        assert!(data.get("aviso").is_none());
+    }
 
     #[test]
     fn identification_follows_the_personal_option() {

@@ -75,7 +75,7 @@
 
 // Relatório padrão. Cabeçalho (logo + título) repete em cada página; a
 // identificação fica no corpo (limitação do header do Typst com conteúdo gerado).
-#let report(title: "", identification: (:), date: "", body) = {
+#let report(title: "", identification: (:), date: "", aviso: none, body) = {
   set page(
     paper: "a4",
     margin: (top: 3.2cm, bottom: 1.8cm, x: 1.5cm),
@@ -94,6 +94,17 @@
       )
     ],
   )
+  if aviso != none {
+    rect(
+      width: 100%,
+      inset: (x: 6pt, y: 5pt),
+      fill: rgb("#FFF4E0"),
+      stroke: 0.6pt + rgb("#C98A1B"),
+      radius: 3pt,
+      text(size: fs-body, weight: "bold", fill: rgb("#7A4E00"))[#aviso],
+    )
+    v(6pt)
+  }
   identification-block(identification)
   v(2pt)
   line(length: 100%, stroke: 0.5pt + gray-line)

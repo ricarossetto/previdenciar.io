@@ -15,7 +15,7 @@
   ),
 )
 
-#report(title: d.title, identification: d.identification, date: d.date)[
+#report(title: d.title, identification: d.identification, date: d.date, aviso: d.at("aviso", default: none))[
   #for (i, r) in d.regras.enumerate() [
     #if i > 0 { pagebreak() }
     #rect(width: 100%, inset: (x: 10pt, y: 6pt), fill: navy-soft, radius: 3pt)[

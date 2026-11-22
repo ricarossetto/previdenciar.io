@@ -49,7 +49,7 @@
   )),
 )
 
-#report(title: d.title, identification: d.identification, date: d.date)[
+#report(title: d.title, identification: d.identification, date: d.date, aviso: d.at("aviso", default: none))[
   #v(4pt)
   #grid(
     columns: (1fr, 1fr),

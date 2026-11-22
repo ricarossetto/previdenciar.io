@@ -3,7 +3,7 @@
 
 #let d = inputs.data
 
-#report(title: d.title, identification: d.identification, date: d.date)[
+#report(title: d.title, identification: d.identification, date: d.date, aviso: d.at("aviso", default: none))[
   #for s in d.sections [
     #section-title(s.titulo)
     #v(5pt)

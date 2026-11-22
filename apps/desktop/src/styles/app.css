@@ -1776,3 +1776,48 @@ p {
     scroll-behavior: auto !important;
   }
 }
+
+/* Mesa do cálculo em 4 abas; as etapas numeradas ficam dentro de cada aba. */
+.wizard-tabs {
+  align-items: stretch;
+}
+
+.wizard-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+}
+
+.wizard-tab.active {
+  border-color: var(--border);
+  background: var(--surface-hover);
+}
+
+.wizard-tab-head {
+  background: transparent;
+  border: 0;
+  color: var(--fg-2);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: left;
+  padding: 4px 8px;
+  min-height: 28px;
+  border-radius: 6px;
+}
+
+.wizard-tab.active .wizard-tab-head {
+  color: var(--accent);
+}
+
+.wizard-tab-head:hover {
+  color: var(--fg);
+}
+
+.wizard-tab-steps {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
