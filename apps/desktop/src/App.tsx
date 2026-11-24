@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { api, errorMessage, type FabricaStatus } from './api';
 import { repararJson } from './web-api';
 import { checkForUpdates } from './updater';
@@ -23,13 +23,9 @@ import {
 } from './model';
 import { Badge, Button, Empty, Field, Icon, Modal, Notice, Panel, Select } from './components/ui';
 import { CaseWorkbench } from './components/CaseWorkbench';
-import { ToolsPage } from './components/ToolsPage';
 import { RobotAssistant, RobotFace, assistantResume } from './components/RobotAssistant';
 import { ReportCenter } from './components/ReportCenter';
-import { CoverageMap } from './components/CoverageMap';
-import { AiCopilot } from './components/AiCopilot';
-import { KnowledgePage } from './components/KnowledgePage';
-import { MinutaPage, type CaseDocument } from './components/MinutaPage';
+import type { CaseDocument } from './components/MinutaPage';
 import { MotionProvider, PageTransition, NavIndicator, useMotionPolicy } from './components/amicro/motion';
 import { DashboardOverview } from './components/amicro/DashboardOverview';
 import { AppSkeleton } from './components/lucian/AppSkeleton';
@@ -37,6 +33,14 @@ import { LucianToast } from './components/lucian/LucianToast';
 import { LucianEmpty } from './components/lucian/LucianEmpty';
 import { revealTheme, SunMoon } from './components/lucian/ThemeReveal';
 import { flushSync } from 'react-dom';
+
+// Páginas pouco usadas carregam sob demanda para a primeira abertura ficar mais leve.
+const ToolsPage = lazy(() => import('./components/ToolsPage').then(m => ({ default: m.ToolsPage })));
+const CoverageMap = lazy(() => import('./components/CoverageMap').then(m => ({ default: m.CoverageMap })));
+const AiCopilot = lazy(() => import('./components/AiCopilot').then(m => ({ default: m.AiCopilot })));
+const KnowledgePage = lazy(() => import('./components/KnowledgePage').then(m => ({ default: m.KnowledgePage })));
+const MinutaPage = lazy(() => import('./components/MinutaPage').then(m => ({ default: m.MinutaPage })));
+const pageFallback = <p className="form-note" role="status">Carregando a página...</p>;
 
 type Page =
   | 'home'
@@ -214,21 +218,23 @@ function WorkspaceApp() {
   const sideNav = useRef<HTMLElement>(null);
   const sidePill = useRef<HTMLSpanElement>(null);
   const sideFirst = useRef(true);
+  const [mobileLayout, setMobileLayout] = useState(
+    () => typeof window.matchMedia === 'function' && window.matchMedia('(max-width:1023px)').matches,
+  );
   useLayoutEffect(() => {
     const nav = sideNav.current, pill = sidePill.current;
     if (!nav || !pill) return;
     const btn = nav.querySelector<HTMLElement>('.side-link.active');
     pill.style.opacity = btn ? '1' : '0';
     if (!btn) return;
-    const top = btn.getBoundingClientRect().top - nav.getBoundingClientRect().top + nav.scrollTop;
+    // Mede só quando a página ativa muda: medir a cada render forçava o navegador a recalcular o layout.
+    let top = 0;
+    for (let el: HTMLElement | null = btn; el && el !== nav; el = el.offsetParent as HTMLElement | null) top += el.offsetTop;
     if (sideFirst.current) pill.style.transition = 'none';
     pill.style.setProperty('--py', top + 'px');
     pill.style.height = btn.offsetHeight + 'px';
     if (sideFirst.current) { void pill.offsetWidth; pill.style.transition = ''; sideFirst.current = false; }
-  });
-  const [mobileLayout, setMobileLayout] = useState(
-    () => typeof window.matchMedia === 'function' && window.matchMedia('(max-width:1023px)').matches,
-  );
+  }, [page, mobileLayout]);
   const [fabricaStatus, setFabricaStatus] = useState<FabricaStatus | null>(null);
   const [fabricaStatusBusy, setFabricaStatusBusy] = useState(false);
   const [fabricaStatusError, setFabricaStatusError] = useState('');
@@ -1315,16 +1321,18 @@ function WorkspaceApp() {
             </>
           )}
 
-          {page === 'ai' && <AiCopilot notify={notify} workspace={w} />}
-          {page === 'knowledge' && <KnowledgePage notify={notify} />}
+          {page === 'ai' && <Suspense fallback={pageFallback}><AiCopilot notify={notify} workspace={w} /></Suspense>}
+          {page === 'knowledge' && <Suspense fallback={pageFallback}><KnowledgePage notify={notify} /></Suspense>}
           {page === 'minuta' && (
-            <MinutaPage
-              workspace={w}
-              notify={notify}
-              onOpenCopilot={() => go('ai')}
-              onSaveTemplate={(name, body) => saveMinutaTemplate(name, body)}
-              onSaveReading={saveMinutaReading}
-            />
+            <Suspense fallback={pageFallback}>
+              <MinutaPage
+                workspace={w}
+                notify={notify}
+                onOpenCopilot={() => go('ai')}
+                onSaveTemplate={(name, body) => saveMinutaTemplate(name, body)}
+                onSaveReading={saveMinutaReading}
+              />
+            </Suspense>
           )}
           {page === 'robot' && (
             <RobotAssistant
@@ -1357,7 +1365,7 @@ function WorkspaceApp() {
               initialStep={caseTab}
             />
           )}
-          {page === 'tools' && <ToolsPage notify={notify} />}
+          {page === 'tools' && <Suspense fallback={pageFallback}><ToolsPage notify={notify} /></Suspense>}
 
           {page === 'tables' && (
             <>
@@ -1758,7 +1766,7 @@ function WorkspaceApp() {
 
           {page === 'coverage' && (
             <>
-              <CoverageMap />
+              <Suspense fallback={pageFallback}><CoverageMap /></Suspense>
               <Panel
                 title="Investigação com REA"
                 subtitle="Ferramentas reais, evidências locais e distinção entre observação e inferência."
@@ -1809,7 +1817,7 @@ function WorkspaceApp() {
             onClick={() => go(n.id)}
             data-od-id={'dock-' + n.id}
           >
-            {page === n.id && <NavIndicator id="mobile-active-page" />}
+            {mobileLayout && page === n.id && <NavIndicator id="mobile-active-page" />}
             <Icon name={n.icon} size={19} />
             <span>{n.label}</span>
           </button>
@@ -1842,7 +1850,7 @@ function WorkspaceApp() {
                 data-od-id={'menu-' + n.id}
                 onClick={() => go(n.id)}
               >
-                {page === n.id && <NavIndicator id="mobile-menu-active-page" />}
+                {mobileLayout && page === n.id && <NavIndicator id="mobile-menu-active-page" />}
                 <Icon name={n.icon} />
                 <span>{n.label}</span>
               </button>
