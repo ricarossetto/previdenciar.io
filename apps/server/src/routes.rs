@@ -2188,7 +2188,11 @@ async fn ensure_user_guarded(
     ip: &ClientIp,
     user: &auth::AuthUser,
 ) -> Result<Uuid, ApiError> {
-    let known = sqlx::query_scalar::<_, Uuid>("SELECT id FROM users WHERE cognito_sub = $1")
+    let known = sqlx::query_scalar::<_, Uuid>(
+        "SELECT id FROM users WHERE cognito_sub = $1
+         UNION ALL SELECT user_id FROM user_identities WHERE subject = $1
+         LIMIT 1",
+    )
         .bind(&user.subject)
         .fetch_optional(&state.db)
         .await

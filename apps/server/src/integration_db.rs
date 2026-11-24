@@ -385,6 +385,41 @@ async fn usuario_e_workspace_persistem_entre_chamadas() {
 }
 
 #[tokio::test]
+async fn entrada_atrium_com_email_existente_abre_a_mesma_conta() {
+    let banco = banco_do_teste!();
+    let conta = db::ensure_user(&banco.pool, &usuario("advogado@teste.local"))
+        .await
+        .expect("conta existente");
+
+    let atrium = auth::AuthUser {
+        subject: "atrium:ws-teste:advogado".to_owned(),
+        email: "Advogado@Teste.local".to_owned(),
+        admin_email: None,
+    };
+    let ligada = db::ensure_user(&banco.pool, &atrium).await.expect("entrada pelo Atrium");
+    assert_eq!(ligada, conta, "o Atrium deve abrir a conta que já tinha o e-mail");
+    let de_novo = db::ensure_user(&banco.pool, &atrium).await.expect("segunda entrada");
+    assert_eq!(de_novo, conta);
+    let original = db::ensure_user(&banco.pool, &usuario("advogado@teste.local"))
+        .await
+        .expect("entrada original continua");
+    assert_eq!(original, conta);
+    let usuarios: i64 = sqlx::query_scalar("SELECT count(*) FROM users")
+        .fetch_one(&banco.pool)
+        .await
+        .expect("contagem");
+    assert_eq!(usuarios, 1, "nenhum usuário duplicado");
+
+    // Identidade que não é do Atrium com e-mail repetido continua recusada.
+    let outra = auth::AuthUser {
+        subject: "cognito-outro".to_owned(),
+        email: "advogado@teste.local".to_owned(),
+        admin_email: None,
+    };
+    assert!(db::ensure_user(&banco.pool, &outra).await.is_err());
+}
+
+#[tokio::test]
 async fn save_workspace_recusa_revisao_antiga_pelo_http() {
     let banco = banco_do_teste!();
     let servidor = subir_servidor(estado(Config::for_tests(), banco.pool.clone())).await;

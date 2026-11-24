@@ -4,7 +4,16 @@ use sqlx::{PgPool, Row};
 use uuid::Uuid;
 
 pub async fn ensure_user(pool: &PgPool, user: &AuthUser) -> Result<Uuid, sqlx::Error> {
-    let row = sqlx::query(
+    // Identidade já ligada a uma conta (por exemplo, a entrada pelo Atrium de
+    // quem já tinha conta pelo Google ou por e-mail e senha).
+    if let Some(id) = sqlx::query_scalar::<_, Uuid>("SELECT user_id FROM user_identities WHERE subject = $1")
+        .bind(&user.subject)
+        .fetch_optional(pool)
+        .await?
+    {
+        return Ok(id);
+    }
+    let inserted = sqlx::query(
         "INSERT INTO users (cognito_sub, email) VALUES ($1, $2)
          ON CONFLICT (cognito_sub) DO UPDATE SET email = EXCLUDED.email
          RETURNING id",
@@ -12,8 +21,39 @@ pub async fn ensure_user(pool: &PgPool, user: &AuthUser) -> Result<Uuid, sqlx::E
     .bind(&user.subject)
     .bind(&user.email)
     .fetch_one(pool)
-    .await?;
-    Ok(row.get("id"))
+    .await;
+    match inserted {
+        Ok(row) => Ok(row.get("id")),
+        Err(error) if email_taken(&error) && may_link_by_email(user) => link_identity_by_email(pool, user).await,
+        Err(error) => Err(error),
+    }
+}
+
+fn email_taken(error: &sqlx::Error) -> bool {
+    matches!(error, sqlx::Error::Database(db) if db.constraint() == Some("users_email_lower_idx"))
+}
+
+/// Só a entrada pelo Atrium se liga por e-mail: o servidor confere usuário,
+/// senha e assinatura no Atrium antes de emitir essa identidade. Uma conta
+/// nova do Cognito com e-mail repetido continua recusada.
+fn may_link_by_email(user: &AuthUser) -> bool {
+    user.subject.starts_with("atrium:") && !user.email.trim().is_empty()
+}
+
+async fn link_identity_by_email(pool: &PgPool, user: &AuthUser) -> Result<Uuid, sqlx::Error> {
+    let owner: Uuid = sqlx::query_scalar("SELECT id FROM users WHERE lower(email) = lower($1)")
+        .bind(&user.email)
+        .fetch_one(pool)
+        .await?;
+    sqlx::query_scalar(
+        "INSERT INTO user_identities (subject, user_id) VALUES ($1, $2)
+         ON CONFLICT (subject) DO UPDATE SET subject = EXCLUDED.subject
+         RETURNING user_id",
+    )
+    .bind(&user.subject)
+    .bind(owner)
+    .fetch_one(pool)
+    .await
 }
 
 fn strip_workspace_secrets(doc: &mut Value) {
