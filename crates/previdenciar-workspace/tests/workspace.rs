@@ -28,7 +28,7 @@ fn case() -> Calculation {
 fn complete_workspace() -> Workspace {
     Workspace {
         next_id: 8,
-        clients: vec![Client { id: 1, name: "CLIENTE FICTICIO".into(), cpf: "00000000000".into(), email: "synthetic@example.invalid".into(), phone: "0000000".into(), birth_date: "1980-02-29".into(), sex: Some("Feminino".into()), notes: "SYNTHETIC PRIVATE MARKER".into(), archived: false }],
+        clients: vec![Client { id: 1, name: "CLIENTE FICTICIO".into(), cpf: "00000000000".into(), email: "synthetic@example.invalid".into(), phone: "0000000".into(), birth_date: "1980-02-29".into(), sex: Some("Feminino".into()), notes: "SYNTHETIC PRIVATE MARKER".into(), archived: false, atrium_id: None }],
         calculations: vec![Calculation { client_id: Some(1), options: CalcOptions { correction_index: "INDEX PENDING".into(), reference_base: "unit_unverified".into(), ..Default::default() }, ..case() }],
         reference_tables: vec![ReferenceTable { id: 3, name: "Tabela sintética sem validade normativa".into(), entries: vec![ReferenceEntry { period: "2020-01".into(), value: "TEST ONLY".into(), note: "Not a real index".into() }], provenance: "synthetic".into(), ..Default::default() }],
         documents: vec![DocumentTemplate { id: 4, name: "Modelo fictício".into(), category: "teste".into(), body: "{{name}}".into() }],

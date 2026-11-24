@@ -25,6 +25,7 @@ import { Badge, Button, Empty, Field, Icon, Modal, Notice, Panel, Select } from 
 import { CaseWorkbench } from './components/CaseWorkbench';
 import { RobotAssistant, RobotFace, assistantResume } from './components/RobotAssistant';
 import { ReportCenter } from './components/ReportCenter';
+import { AtriumImportModal, AtriumSendModal } from './components/AtriumSync';
 import type { CaseDocument } from './components/MinutaPage';
 import { MotionProvider, PageTransition, NavIndicator, useMotionPolicy } from './components/amicro/motion';
 import { DashboardOverview } from './components/amicro/DashboardOverview';
@@ -203,6 +204,8 @@ function WorkspaceApp() {
   const [selected, setSelected] = useState<number | null>(null);
   const [draft, setDraft] = useState<Calculation>(blankCase);
   const [client, setClient] = useState<Client | null>(null);
+  const [atriumImportOpen, setAtriumImportOpen] = useState(false);
+  const [atriumSendClient, setAtriumSendClient] = useState<Client | null>(null);
   const [appointment, setAppointment] = useState<Appointment | null>(null);
   const [template, setTemplate] = useState<Template | null>(null);
   const [table, setTable] = useState<ReferenceTable | null>(null);
@@ -968,11 +971,21 @@ function WorkspaceApp() {
                   <Icon name="plus" size={17} />
                   Novo cálculo
                 </Button>
-              ) : page === 'clients' && clientRows.length > 0 ? (
-                <Button primary onClick={() => setClient(blankClient())}>
-                  <Icon name="plus" size={17} />
-                  Novo cliente
-                </Button>
+              ) : page === 'clients' && (clientRows.length > 0 || api.atrium) ? (
+                <>
+                  {api.atrium && (
+                    <Button disabled={!storageReady} onClick={() => setAtriumImportOpen(true)}>
+                      <Icon name="upload" size={16} />
+                      Importar do Atrium
+                    </Button>
+                  )}
+                  {clientRows.length > 0 && (
+                    <Button primary onClick={() => setClient(blankClient())}>
+                      <Icon name="plus" size={17} />
+                      Novo cliente
+                    </Button>
+                  )}
+                </>
               ) : null}
             </div>
           </header>
@@ -1178,6 +1191,11 @@ function WorkspaceApp() {
                               >
                                 Novo cálculo
                               </Button>
+                              {api.atrium && !c.archived && (
+                                <Button disabled={!storageReady} onClick={() => setAtriumSendClient(structuredClone(c))}>
+                                  {c.atrium_id ? 'Atualizar no Atrium' : 'Enviar ao Atrium'}
+                                </Button>
+                              )}
                               <Button onClick={() => void archiveClient(c)}>
                                 {c.archived ? 'Reativar' : 'Arquivar'}
                               </Button>
@@ -1192,7 +1210,11 @@ function WorkspaceApp() {
                 <Panel title="Cadastro de clientes">
                   <Empty
                     title={search ? 'Nenhum cliente encontrado' : 'Nenhum cliente cadastrado'}
-                    description="Inclua um cliente para vincular suas simulações, documentos e compromissos."
+                    description={
+                      api.atrium
+                        ? 'Inclua um cliente ou importe os clientes do Atrium para vincular simulações, documentos e compromissos.'
+                        : 'Inclua um cliente para vincular suas simulações, documentos e compromissos.'
+                    }
                     action={
                       <Button primary onClick={() => setClient(blankClient())}>
                         Novo cliente
@@ -1919,6 +1941,34 @@ function WorkspaceApp() {
             Cada cálculo é separado. O assistente não confirma sexo, deficiência, CTC ou datas que o documento não informa.
           </p>
         </Modal>
+      )}
+
+      {atriumImportOpen && api.atrium && (
+        <AtriumImportModal
+          atrium={api.atrium}
+          workspace={w}
+          saving={saving}
+          onClose={() => setAtriumImportOpen(false)}
+          onImport={async (next, message) => {
+            await commit(next, true);
+            setAtriumImportOpen(false);
+            notify(message);
+          }}
+        />
+      )}
+
+      {atriumSendClient && api.atrium && (
+        <AtriumSendModal
+          atrium={api.atrium}
+          workspace={w}
+          client={atriumSendClient}
+          saving={saving}
+          onClose={() => setAtriumSendClient(null)}
+          onSent={async (next, message) => {
+            await commit(next, true);
+            notify(message);
+          }}
+        />
       )}
 
       {client && (

@@ -14,6 +14,18 @@ export interface SavedReportsApi {
   link:(id:string)=>Promise<SavedReportUrl>;
   remove:(id:string)=>Promise<void>;
 }
+/** Contato do Atrium, já filtrado pelo que o usuário vê lá. */
+export interface AtriumContact {id:string;name:string;cpf:string;email:string;phone:string;birth_date:string;sex:string;notes:string}
+/** Processo do Atrium visível ao usuário. */
+export interface AtriumProcess {id:string;number:string;title:string;client:string;contact_id:string;nb:string;phase:string;court:string;notes:string}
+export interface AtriumWrite {id:string;created:boolean}
+/** Troca de clientes e casos com o Atrium. Só existe no site; o desktop não tem conta. */
+export interface AtriumApi {
+  contacts:(query?:string)=>Promise<AtriumContact[]>;
+  processes:(contactIds:string[])=>Promise<AtriumProcess[]>;
+  sendContact:(contact:{name:string;cpf:string;email:string;phone:string;birth_date:string;sex:string;notes:string})=>Promise<AtriumWrite>;
+  sendProcess:(process:{calculation_id:number;contact_id:string;atrium_id:string;title:string;nb:string;notes:string})=>Promise<AtriumWrite>;
+}
 export type AiProviderKind='openai'|'anthropic';
 export interface AiProviderPreset{id:string;name:string;kind:AiProviderKind;baseUrl:string;defaultModel:string;models:string[];keyRequired:boolean;note:string}
 export interface AiKeyStatus{providerId:string;hasKey:boolean}
@@ -74,6 +86,7 @@ const tauriApi={
  aiChat:(request:AiChatRequest,onEvent:(event:AiEvent)=>void)=>{const channel=new Channel<AiEvent>();channel.onmessage=onEvent;return invoke<void>('ai_chat',{request,onEvent:channel})},
  aiCancel:(requestId:string)=>invoke<void>('ai_cancel',{requestId}),
  savedReports:null,
+ atrium:null as AtriumApi|null,
 };
 export function errorMessage(e:unknown):string{if(typeof e==='string')return e;if(e instanceof Error)return e.message;return 'Não foi possível concluir a operação. Nenhuma alteração foi confirmada.'}
 import { webApi } from './web-api';

@@ -3,7 +3,7 @@ import { describeFailure, parseJsonSafe } from './http-errors';
 import { clearSession, refreshSession, storedToken } from './web-auth-store';
 import type {
   AiChatRequest, AiDataStatus, AiEvent, AiImportSummary, AiKeyStatus, AiProviderPreset, AiTestResult,
-  CasePdfText, FabricaAtrasadosOptions, FabricaRmiOptions, FabricaStatus, FabricaTempoOptions,
+  AtriumApi, AtriumContact, AtriumProcess, AtriumWrite, CasePdfText, FabricaAtrasadosOptions, FabricaRmiOptions, FabricaStatus, FabricaTempoOptions,
   KnowledgeBlock, KnowledgeOutcome, Presentation, SavedReport, SavedReportStored, SavedReportUrl,
 } from './api';
 import type { FabricaInput, FabricaSummary } from './fabrica';
@@ -353,6 +353,21 @@ export const webApi = {
     link: (id: string) => request<SavedReportUrl>('GET', `/reports/saved/${encodeURIComponent(id)}`),
     remove: async (id: string) => { await request<{ deleted?: boolean }>('DELETE', `/reports/saved/${encodeURIComponent(id)}`); },
   },
+
+  atrium: {
+    contacts: async (query = '') => {
+      const q = query.trim();
+      const data = await request<{ contacts?: AtriumContact[] }>('GET', `/atrium/contacts${q ? `?q=${encodeURIComponent(q)}` : ''}`);
+      return data.contacts ?? [];
+    },
+    processes: async (contactIds: string[]) => {
+      if (!contactIds.length) return [];
+      const data = await request<{ processes?: AtriumProcess[] }>('GET', `/atrium/processes?contact_ids=${encodeURIComponent(contactIds.join(','))}`);
+      return data.processes ?? [];
+    },
+    sendContact: contact => request<AtriumWrite>('POST', '/atrium/contacts', contact),
+    sendProcess: process => request<AtriumWrite>('POST', '/atrium/processes', process),
+  } as AtriumApi,
 
   exportReport: async (calculation: Calculation, workspace: Workspace, format: string, includePersonal: boolean, presentation?: Presentation) => {
     if (!format.startsWith('pdf_')) {

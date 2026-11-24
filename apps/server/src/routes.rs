@@ -87,6 +87,14 @@ pub fn router(state: AppState) -> Router {
         .route("/api/auth/token", post(auth_token))
         .route("/api/auth/refresh", post(auth_refresh))
         .route("/api/auth/atrium-login", post(auth_atrium_login))
+        .route(
+            "/api/atrium/contacts",
+            get(atrium_list_contacts).post(atrium_send_contact),
+        )
+        .route(
+            "/api/atrium/processes",
+            get(atrium_list_processes).post(atrium_send_process),
+        )
         .route("/api/bootstrap", get(bootstrap))
         .route("/api/me", get(me))
         .route("/api/terms/accept", post(accept_terms))
@@ -693,6 +701,7 @@ fn private_case(calculation: &previdenciar_workspace::Calculation) -> previdenci
     let mut case = calculation.clone();
     case.name.clear();
     case.notes.clear();
+    case.atrium_id = None;
     case.scenario.clear();
     case.result = None;
     case.fabrica = None;
@@ -2181,6 +2190,322 @@ async fn run_finance(
 
 fn enforce(state: &AppState, entries: Vec<(String, RateWindow)>) -> Result<(), ApiError> {
     state.limits.check(&entries).map_err(ApiError::rate_limited)
+}
+
+// ---------------------------------------------------------------------------
+// Troca de clientes e casos com o Atrium.
+//
+// O navegador nunca fala com o Atrium: estas rotas assinam um token HS256 de curta
+// duração com o segredo da integração, com o `sub` da identidade Atrium ligada à conta,
+// e chamam `/api/integrations/previdenciar/*` no servidor do Atrium. O Atrium decide o
+// escritório pelo `sub` assinado e só devolve ou altera o que esse usuário já vê lá.
+// ---------------------------------------------------------------------------
+
+const ATRIUM_SYNC_WINDOW: RateWindow = RateWindow::new(
+    600,
+    Duration::from_secs(60 * 60),
+    "Limite de trocas com o Atrium atingido. Aguarde uma hora e tente de novo.",
+);
+
+struct AtriumLink {
+    owner: Uuid,
+    subject: String,
+    workspace_id: String,
+    username: String,
+    email: String,
+}
+
+fn parse_atrium_subject(subject: &str) -> Option<(String, String)> {
+    let rest = subject.strip_prefix("atrium:")?;
+    let (workspace, username) = rest.split_once(':')?;
+    if workspace.is_empty() || username.is_empty() {
+        return None;
+    }
+    Some((workspace.to_owned(), username.to_owned()))
+}
+
+async fn atrium_link(
+    state: &AppState,
+    ip: &ClientIp,
+    headers: &HeaderMap,
+) -> Result<AtriumLink, ApiError> {
+    let user = auth::authenticate(headers, state)
+        .await
+        .map_err(ApiError::unauthorized)?;
+    let owner = ensure_user_guarded(state, ip, &user).await?;
+    if !state.config.atrium_sso_enabled() {
+        return Err(ApiError::unavailable(
+            "A troca de dados com o Atrium ainda não foi habilitada neste servidor.".into(),
+        ));
+    }
+    enforce(
+        state,
+        vec![(format!("atrium-sync:{owner}"), ATRIUM_SYNC_WINDOW)],
+    )?;
+    let subject = if user.subject.starts_with("atrium:") {
+        user.subject.clone()
+    } else {
+        sqlx::query_scalar::<_, String>(
+            "SELECT cognito_sub FROM users WHERE id = $1 AND cognito_sub LIKE 'atrium:%' \
+             UNION ALL \
+             SELECT subject FROM user_identities WHERE user_id = $1 AND subject LIKE 'atrium:%' \
+             LIMIT 1",
+        )
+        .bind(owner)
+        .fetch_optional(&state.db)
+        .await
+        .map_err(ApiError::internal)?
+        .ok_or_else(|| {
+            ApiError::forbidden(
+                "Para trocar dados com o Atrium, entre uma vez com a sua conta do Atrium.".into(),
+            )
+        })?
+    };
+    let (workspace_id, username) = parse_atrium_subject(&subject).ok_or_else(|| {
+        ApiError::forbidden("A sessão do Atrium não identifica o escritório.".into())
+    })?;
+    Ok(AtriumLink {
+        owner,
+        subject,
+        workspace_id,
+        username,
+        email: user.email,
+    })
+}
+
+async fn atrium_call(
+    state: &AppState,
+    link: &AtriumLink,
+    method: reqwest::Method,
+    path: &str,
+    query: &[(&str, String)],
+    body: Option<Value>,
+) -> Result<(StatusCode, Value), ApiError> {
+    let token = auth::mint_atrium_hs256(
+        &state.config.atrium_sso_secret,
+        link.subject.clone(),
+        (!link.email.is_empty()).then(|| link.email.clone()),
+        Some(link.username.clone()),
+        true,
+        None,
+    )
+    .map_err(ApiError::internal)?;
+    let base = format!(
+        "{}/api/integrations/previdenciar/{path}",
+        state.config.atrium_auth_base_url.trim_end_matches('/')
+    );
+    let url = reqwest::Url::parse_with_params(&base, query).map_err(ApiError::internal)?;
+    let mut request = state
+        .http
+        .request(method, url)
+        .timeout(Duration::from_secs(20))
+        .header(header::AUTHORIZATION, format!("Bearer {token}"))
+        .header("X-Atrium-Workspace", &link.workspace_id)
+        .header("X-Atrium-User", &link.username);
+    if let Some(body) = body {
+        request = request.json(&body);
+    }
+    let response = request.send().await.map_err(|_| {
+        ApiError::unavailable(
+            "Não foi possível conectar ao Atrium agora. Tente de novo em instantes.".into(),
+        )
+    })?;
+    let status = response.status();
+    let text = response.text().await.map_err(ApiError::internal)?;
+    let payload: Option<Value> = serde_json::from_str(&text).ok();
+    if status.is_success() {
+        return Ok((
+            StatusCode::from_u16(status.as_u16()).unwrap_or(StatusCode::OK),
+            payload.unwrap_or_else(|| json!({})),
+        ));
+    }
+    let upstream_message = payload
+        .as_ref()
+        .and_then(|value| value.get("message"))
+        .and_then(Value::as_str)
+        .map(str::to_owned);
+    let (code, message) = match status.as_u16() {
+        401 => (
+            StatusCode::BAD_GATEWAY,
+            "O Atrium recusou a credencial da integração. Os segredos dos dois servidores não conferem; avise o suporte.".to_owned(),
+        ),
+        404 if upstream_message.is_none() => (
+            StatusCode::SERVICE_UNAVAILABLE,
+            "O Atrium ainda não publicou essa função da integração.".to_owned(),
+        ),
+        code @ (400 | 402 | 403 | 404 | 409) => (
+            StatusCode::from_u16(code).unwrap_or(StatusCode::BAD_GATEWAY),
+            upstream_message.unwrap_or_else(|| "O Atrium recusou o pedido.".to_owned()),
+        ),
+        _ => (
+            StatusCode::SERVICE_UNAVAILABLE,
+            upstream_message.unwrap_or_else(|| {
+                "O Atrium não respondeu como esperado. Tente de novo em instantes.".to_owned()
+            }),
+        ),
+    };
+    Err(ApiError {
+        status: code,
+        message,
+        retry_after: None,
+    })
+}
+
+fn clip_text(value: Option<&Value>, max: usize) -> String {
+    value
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .unwrap_or("")
+        .chars()
+        .take(max)
+        .collect()
+}
+
+#[derive(Deserialize, Default)]
+struct AtriumListQuery {
+    q: Option<String>,
+    contact_ids: Option<String>,
+}
+
+fn atrium_list_params(query: &AtriumListQuery) -> Vec<(&'static str, String)> {
+    let mut params = Vec::new();
+    if let Some(q) = query.q.as_deref().map(str::trim).filter(|q| !q.is_empty()) {
+        params.push(("q", q.chars().take(120).collect()));
+    }
+    if let Some(ids) = query
+        .contact_ids
+        .as_deref()
+        .map(str::trim)
+        .filter(|ids| !ids.is_empty())
+    {
+        params.push(("contact_ids", ids.chars().take(8000).collect()));
+    }
+    params
+}
+
+async fn atrium_list_contacts(
+    State(state): State<AppState>,
+    ip: ClientIp,
+    headers: HeaderMap,
+    Query(query): Query<AtriumListQuery>,
+) -> Result<Json<Value>, ApiError> {
+    let link = atrium_link(&state, &ip, &headers).await?;
+    let (_, payload) = atrium_call(
+        &state,
+        &link,
+        reqwest::Method::GET,
+        "contacts",
+        &atrium_list_params(&query),
+        None,
+    )
+    .await?;
+    Ok(Json(json!({
+        "contacts": payload.get("contacts").cloned().unwrap_or_else(|| json!([]))
+    })))
+}
+
+async fn atrium_list_processes(
+    State(state): State<AppState>,
+    ip: ClientIp,
+    headers: HeaderMap,
+    Query(query): Query<AtriumListQuery>,
+) -> Result<Json<Value>, ApiError> {
+    let link = atrium_link(&state, &ip, &headers).await?;
+    let (_, payload) = atrium_call(
+        &state,
+        &link,
+        reqwest::Method::GET,
+        "processes",
+        &atrium_list_params(&query),
+        None,
+    )
+    .await?;
+    Ok(Json(json!({
+        "processes": payload.get("processes").cloned().unwrap_or_else(|| json!([]))
+    })))
+}
+
+fn atrium_write_result(payload: &Value) -> Result<Json<Value>, ApiError> {
+    let id = payload
+        .get("id")
+        .and_then(Value::as_str)
+        .filter(|id| !id.is_empty())
+        .ok_or_else(|| {
+            ApiError::unavailable("O Atrium não confirmou a gravação. Tente de novo em instantes.".into())
+        })?;
+    Ok(Json(json!({
+        "id": id,
+        "created": payload.get("created").and_then(Value::as_bool).unwrap_or(false)
+    })))
+}
+
+async fn atrium_send_contact(
+    State(state): State<AppState>,
+    ip: ClientIp,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, ApiError> {
+    let link = atrium_link(&state, &ip, &headers).await?;
+    let name = clip_text(body.get("name"), 200);
+    if name.is_empty() {
+        return Err(ApiError::bad_request("Informe o nome do cliente.".into()));
+    }
+    // Só os campos do cadastro seguem para o Atrium; nada do cálculo ou do CNIS.
+    let outgoing = json!({
+        "name": name,
+        "cpf": clip_text(body.get("cpf"), 20),
+        "email": clip_text(body.get("email"), 200),
+        "phone": clip_text(body.get("phone"), 40),
+        "birth_date": clip_text(body.get("birth_date"), 20),
+        "sex": clip_text(body.get("sex"), 20),
+        "notes": clip_text(body.get("notes"), 4000),
+    });
+    let (_, payload) = atrium_call(
+        &state,
+        &link,
+        reqwest::Method::POST,
+        "contacts",
+        &[],
+        Some(outgoing),
+    )
+    .await?;
+    atrium_write_result(&payload)
+}
+
+async fn atrium_send_process(
+    State(state): State<AppState>,
+    ip: ClientIp,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, ApiError> {
+    let link = atrium_link(&state, &ip, &headers).await?;
+    let contact_id = clip_text(body.get("contact_id"), 120);
+    let title = clip_text(body.get("title"), 200);
+    let calculation_id = body.get("calculation_id").and_then(Value::as_u64);
+    let Some(calculation_id) = calculation_id.filter(|_| !contact_id.is_empty() && !title.is_empty()) else {
+        return Err(ApiError::bad_request(
+            "Informe o caso, o nome do caso e o contato do Atrium.".into(),
+        ));
+    };
+    let outgoing = json!({
+        "contact_id": contact_id,
+        "prev_ref": format!("{}:{calculation_id}", link.owner),
+        "atrium_id": clip_text(body.get("atrium_id"), 120),
+        "title": title,
+        "number": clip_text(body.get("number"), 60),
+        "nb": clip_text(body.get("nb"), 40),
+        "notes": clip_text(body.get("notes"), 4000),
+    });
+    let (_, payload) = atrium_call(
+        &state,
+        &link,
+        reqwest::Method::POST,
+        "processes",
+        &[],
+        Some(outgoing),
+    )
+    .await?;
+    atrium_write_result(&payload)
 }
 
 async fn ensure_user_guarded(

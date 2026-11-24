@@ -19,6 +19,9 @@ pub struct Client {
     pub sex: Option<String>,
     pub notes: String,
     pub archived: bool,
+    /// Contato correspondente no Atrium, quando o cliente veio de lá ou foi enviado para lá.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub atrium_id: Option<String>,
 }
 
 #[derive(Clone, Default, Serialize, Deserialize)]
@@ -52,6 +55,9 @@ pub struct Calculation {
     pub fact_ids: Vec<String>,
     pub notes: String,
     pub archived: bool,
+    /// Processo correspondente no Atrium, quando o caso veio de lá ou foi enviado para lá.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub atrium_id: Option<String>,
 }
 
 /// Answers recorded by the assistant, not proof of entitlement or legal review.

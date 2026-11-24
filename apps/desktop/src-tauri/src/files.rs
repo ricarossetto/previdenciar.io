@@ -169,7 +169,7 @@ fn constrained(value: &str, numeric: bool) -> String {
 }
 fn private_case(calculation: &Calculation) -> Calculation {
     let mut case = calculation.clone();
-    case.name.clear(); case.notes.clear(); case.scenario.clear(); case.result = None;
+    case.name.clear(); case.notes.clear(); case.scenario.clear(); case.result = None; case.atrium_id = None;
     case.dib = constrained(&case.dib, false);
     case.identity = Default::default(); case.sex = None; case.disability = None;
     case.options = Default::default();

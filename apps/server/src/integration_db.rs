@@ -1220,3 +1220,203 @@ async fn relatorio_de_outro_owner_nao_expoe_metadado_nem_url() {
     assert!(!texto_get.contains("/api/reports/saved/"));
     assert!(!texto_get.contains("https://"));
 }
+
+// ---------------------------------------------------------------------------
+// Troca de clientes e casos com o Atrium (servidor falso do Atrium)
+// ---------------------------------------------------------------------------
+
+const SEGREDO_ATRIUM_TESTE: &str = "segredo-sintetico-da-integracao-prev-0123456789";
+
+type PedidoAtrium = (String, String, String, Value);
+
+#[derive(Clone, Default)]
+struct PedidosAtrium(Arc<std::sync::Mutex<Vec<PedidoAtrium>>>);
+
+async fn atrium_falso_tratar(
+    axum::extract::State(pedidos): axum::extract::State<PedidosAtrium>,
+    req: axum::extract::Request,
+) -> axum::response::Response {
+    use axum::{http::StatusCode, response::IntoResponse, Json};
+    let metodo = req.method().to_string();
+    let caminho = req.uri().path().to_owned();
+    let consulta = req.uri().query().unwrap_or("").to_owned();
+    let bearer = req
+        .headers()
+        .get(header::AUTHORIZATION)
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.strip_prefix("Bearer "))
+        .unwrap_or("")
+        .to_owned();
+    let mut validacao = jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::HS256);
+    validacao.set_audience(&["previdenciar"]);
+    validacao.set_issuer(&["https://api.atrium.adv.br"]);
+    let Ok(token) = jsonwebtoken::decode::<Value>(
+        &bearer,
+        &jsonwebtoken::DecodingKey::from_secret(SEGREDO_ATRIUM_TESTE.as_bytes()),
+        &validacao,
+    ) else {
+        return (StatusCode::UNAUTHORIZED, Json(json!({ "message": "token inválido" }))).into_response();
+    };
+    let bytes = axum::body::to_bytes(req.into_body(), 64_000)
+        .await
+        .unwrap_or_default();
+    let corpo: Value = serde_json::from_slice(&bytes).unwrap_or(Value::Null);
+    let sub = token.claims["sub"].as_str().unwrap_or("").to_owned();
+    pedidos
+        .0
+        .lock()
+        .unwrap()
+        .push((format!("{metodo} {caminho}"), consulta, sub, corpo.clone()));
+    match (metodo.as_str(), caminho.as_str()) {
+        ("GET", "/api/integrations/previdenciar/contacts") => Json(json!({
+            "ok": true,
+            "contacts": [{ "id": "c1", "name": "Cliente Sintético", "cpf": "000.000.001-91" }]
+        }))
+        .into_response(),
+        ("GET", "/api/integrations/previdenciar/processes") => Json(json!({
+            "ok": true,
+            "processes": [{ "id": "p1", "title": "Aposentadoria sintética", "contact_id": "c1" }]
+        }))
+        .into_response(),
+        ("POST", "/api/integrations/previdenciar/contacts") => (
+            StatusCode::CREATED,
+            Json(json!({ "ok": true, "id": "c9", "created": true })),
+        )
+            .into_response(),
+        ("POST", "/api/integrations/previdenciar/processes") if corpo["contact_id"] == json!("sumido") => (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "ok": false, "message": "O contato informado não existe ou não está visível para você no ATRIUM." })),
+        )
+            .into_response(),
+        ("POST", "/api/integrations/previdenciar/processes") => (
+            StatusCode::CREATED,
+            Json(json!({ "ok": true, "id": "p9", "created": true })),
+        )
+            .into_response(),
+        _ => StatusCode::NOT_FOUND.into_response(),
+    }
+}
+
+async fn subir_atrium_falso(pedidos: PedidosAtrium) -> String {
+    let app = axum::Router::new()
+        .fallback(atrium_falso_tratar)
+        .with_state(pedidos);
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("porta do Atrium falso");
+    let addr = listener.local_addr().expect("endereço do Atrium falso");
+    tokio::spawn(async move {
+        let _ = axum::serve(listener, app).await;
+    });
+    format!("http://{addr}")
+}
+
+#[tokio::test]
+async fn troca_com_atrium_usa_a_identidade_ligada_e_so_campos_do_cadastro() {
+    let banco = banco_do_teste!();
+    let pedidos = PedidosAtrium::default();
+    let atrium = subir_atrium_falso(pedidos.clone()).await;
+    let mut config = Config::for_tests();
+    config.atrium_sso_secret = SEGREDO_ATRIUM_TESTE.to_owned();
+    config.atrium_auth_base_url = atrium;
+    let servidor = subir_servidor(estado(config, banco.pool.clone())).await;
+    let cliente = reqwest::Client::new();
+
+    // Conta sem identidade do Atrium: a troca é recusada com orientação.
+    let sem_vinculo = "sem-atrium@teste.local";
+    bootstrap(&servidor, sem_vinculo).await;
+    let resposta = cliente
+        .get(format!("{servidor}/api/atrium/contacts"))
+        .header("x-dev-user", sem_vinculo)
+        .send()
+        .await
+        .expect("resposta");
+    assert_eq!(resposta.status(), 403);
+    let corpo: Value = resposta.json().await.expect("json");
+    assert_eq!(
+        mensagem_erro(&corpo),
+        "Para trocar dados com o Atrium, entre uma vez com a sua conta do Atrium."
+    );
+    assert!(pedidos.0.lock().unwrap().is_empty(), "nada chega ao Atrium sem vínculo");
+
+    // Conta ligada a uma identidade do Atrium.
+    let email = "ana-atrium@teste.local";
+    bootstrap(&servidor, email).await;
+    let dono = db::ensure_user(&banco.pool, &usuario(email))
+        .await
+        .expect("usuário");
+    sqlx::query("INSERT INTO user_identities (subject, user_id) VALUES ($1, $2)")
+        .bind("atrium:ws-teste:ana")
+        .bind(dono)
+        .execute(&banco.pool)
+        .await
+        .expect("identidade do Atrium");
+
+    let resposta = cliente
+        .get(format!("{servidor}/api/atrium/contacts?q=Jo%C3%A3o%20Silva"))
+        .header("x-dev-user", email)
+        .send()
+        .await
+        .expect("resposta");
+    assert_eq!(resposta.status(), 200);
+    let corpo: Value = resposta.json().await.expect("json");
+    assert_eq!(corpo["contacts"][0]["id"], json!("c1"));
+
+    let resposta = cliente
+        .get(format!("{servidor}/api/atrium/processes?contact_ids=c1,c2"))
+        .header("x-dev-user", email)
+        .send()
+        .await
+        .expect("resposta");
+    let corpo: Value = resposta.json().await.expect("json");
+    assert_eq!(corpo["processes"][0]["id"], json!("p1"));
+
+    let resposta = cliente
+        .post(format!("{servidor}/api/atrium/contacts"))
+        .header("x-dev-user", email)
+        .json(&json!({ "name": "Cliente Sintético", "cpf": "000.000.001-91", "cnis": "NAO PODE SAIR", "notes": "nota" }))
+        .send()
+        .await
+        .expect("resposta");
+    assert_eq!(resposta.status(), 200);
+    let corpo: Value = resposta.json().await.expect("json");
+    assert_eq!(corpo, json!({ "id": "c9", "created": true }));
+
+    let resposta = cliente
+        .post(format!("{servidor}/api/atrium/processes"))
+        .header("x-dev-user", email)
+        .json(&json!({ "calculation_id": 7, "contact_id": "c9", "title": "Aposentadoria sintética", "nb": "1234567890" }))
+        .send()
+        .await
+        .expect("resposta");
+    let corpo: Value = resposta.json().await.expect("json");
+    assert_eq!(corpo, json!({ "id": "p9", "created": true }));
+
+    // Erro do Atrium chega ao usuário com o status e a mensagem de lá.
+    let resposta = cliente
+        .post(format!("{servidor}/api/atrium/processes"))
+        .header("x-dev-user", email)
+        .json(&json!({ "calculation_id": 8, "contact_id": "sumido", "title": "Caso" }))
+        .send()
+        .await
+        .expect("resposta");
+    assert_eq!(resposta.status(), 404);
+    let corpo: Value = resposta.json().await.expect("json");
+    assert_eq!(
+        mensagem_erro(&corpo),
+        "O contato informado não existe ou não está visível para você no ATRIUM."
+    );
+
+    let registrados = pedidos.0.lock().unwrap().clone();
+    assert_eq!(registrados.len(), 5);
+    assert!(registrados.iter().all(|(_, _, sub, _)| sub == "atrium:ws-teste:ana"));
+    assert_eq!(registrados[0].0, "GET /api/integrations/previdenciar/contacts");
+    assert_eq!(registrados[0].1, "q=Jo%C3%A3o+Silva");
+    assert_eq!(registrados[1].1, "contact_ids=c1%2Cc2");
+    let contato_enviado = &registrados[2].3;
+    assert!(contato_enviado.get("cnis").is_none(), "só campos do cadastro seguem para o Atrium");
+    assert_eq!(contato_enviado["name"], json!("Cliente Sintético"));
+    assert_eq!(registrados[3].3["prev_ref"], json!(format!("{dono}:7")));
+
+    banco.descartar().await;
+}
