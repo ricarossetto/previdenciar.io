@@ -23,10 +23,13 @@ for (const width of [1440, 1152, 768, 390, 320]) {
   test('Amicro routes remain readable at ' + width + 'px', async ({ page }) => {
     await page.setViewportSize({ width, height: 1000 });
     await start(page);
-    const routes = ['Início', 'Clientes', 'Cálculos', 'Cálculos do RGPS', 'Assistente de cálculos', 'Editor de dados', 'Tabelas e índices', 'Módulos de apoio', 'Documentos', 'Relatórios', 'Agenda', 'Configurações', 'REA e validação'];
+    const routes = ['Início', 'Clientes', 'Cálculos', 'Meus cálculos', 'Assistente de cálculo', 'Cálculo previdenciário', 'Tabelas e índices', 'Ferramentas', 'Documentos', 'Relatórios', 'Agenda', 'Configurações', 'Cobertura e validação'];
     for (const route of routes) {
       if (width < 1024) {
         await page.getByRole('button', { name: 'Todas as páginas', exact: true }).click();
+        await page.getByRole('dialog').getByRole('button', { name: route, exact: true }).click();
+      } else if (['Meus cálculos', 'Documentos', 'Agenda', 'Cobertura e validação'].includes(route)) {
+        await page.getByRole('button', { name: 'Mais páginas', exact: true }).click();
         await page.getByRole('dialog').getByRole('button', { name: route, exact: true }).click();
       } else await page.getByRole('navigation', { name: 'Navegação principal' }).getByRole('button', { name: route, exact: true }).click();
       await expect(page.getByRole('heading', { name: route, exact: true })).toBeVisible();
@@ -36,26 +39,22 @@ for (const width of [1440, 1152, 768, 390, 320]) {
 }
 test('Amicro desktop and mobile visual evidence with synthetic data', async ({ page }) => {
   await start(page);
-  await page.getByRole('button', { name: 'Reduzir animações', exact: true }).click();
   await page.screenshot({ path: output + '/desktop-dark.png', fullPage: true });
   await page.getByRole('button', { name: 'Alternar tema', exact: true }).click();
   await page.screenshot({ path: output + '/desktop-light.png', fullPage: true });
   await page.getByRole('button', { name: 'Alternar tema', exact: true }).click();
   await page.setViewportSize({ width: 390, height: 844 });
   await page.screenshot({ path: output + '/mobile-dark.png', fullPage: true });
-  await page.getByRole('button', { name: 'Novo cálculo', exact: true }).click();
+  await page.getByRole('button', { name: /Novo cálculo/ }).first().click();
   await expect(page.getByRole('dialog')).toBeVisible();
   await page.screenshot({ path: output + '/mobile-dialog.png', fullPage: true });
 });
 test('Amicro pointer actions have feedback without replaying on text entry', async ({ page }) => {
   await start(page);
-  const primary = page.getByRole('button', { name: 'Novo cálculo', exact: true });
+  const primary = page.getByRole('button', { name: 'Novo cálculo no escritório', exact: true });
   await primary.hover();
   await expect.poll(() => primary.evaluate(el => getComputedStyle(el, '::before').animationName)).toBe('amicro-sheen');
-  const card = page.locator('[data-amicro="tilt-card"]').first();
-  await card.hover({ position: { x: 35, y: 35 } });
-  await expect.poll(() => card.evaluate(el => getComputedStyle(el).transform !== 'none')).toBe(true);
-  await page.getByRole('button', { name: 'Cadastrar cliente', exact: true }).click();
+  await page.getByRole('button', { name: /Cadastrar cliente/ }).click();
   await page.getByRole('dialog').getByLabel('Nome', { exact: true }).fill('Cadastro fictício de teste');
   await expect(page.getByRole('dialog').getByLabel('Nome', { exact: true })).toHaveValue('Cadastro fictício de teste');
   await page.keyboard.press('Escape');
@@ -64,14 +63,37 @@ test('Amicro pointer actions have feedback without replaying on text entry', asy
 test('Amicro honors persisted and system reduced motion', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await start(page);
-  await expect(page.getByRole('button', { name: 'Reduzir animações', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', { name: 'Configurações', exact: true }).click();
+  const motion = page.getByRole('checkbox', { name: 'Reduzir animações', exact: true });
+  await expect(motion).toBeChecked();
   await expect(page.locator('html')).toHaveAttribute('data-amicro-motion', 'off');
-  const card = page.locator('[data-amicro="tilt-card"]').first();
-  await card.hover({ position: { x: 35, y: 35 } });
-  await expect.poll(() => card.evaluate(el => getComputedStyle(el).transform)).toBe('none');
+  await page.getByRole('button', { name: 'Início', exact: true }).click();
+  const primary = page.getByRole('button', { name: 'Novo cálculo no escritório', exact: true });
+  await primary.hover();
+  await expect.poll(() => primary.evaluate(el => getComputedStyle(el, '::before').animationName)).toBe('none');
   await page.emulateMedia({ reducedMotion: 'no-preference' });
-  await expect(page.getByRole('button', { name: 'Reduzir animações', exact: true })).toHaveAttribute('aria-pressed', 'false');
-  await page.getByRole('button', { name: 'Reduzir animações', exact: true }).click();
+  await page.getByRole('button', { name: 'Configurações', exact: true }).click();
+  await expect(page.getByRole('checkbox', { name: 'Reduzir animações', exact: true })).not.toBeChecked();
+  await page.getByRole('checkbox', { name: 'Reduzir animações', exact: true }).click();
   await page.reload();
-  await expect(page.getByRole('button', { name: 'Reduzir animações', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', { name: 'Configurações', exact: true }).click();
+  await expect(page.getByRole('checkbox', { name: 'Reduzir animações', exact: true })).toBeChecked();
+});
+test('Demo case button opens Previus summary bar and 5-tab TRF3 hub cleanly', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await start(page);
+  await page.getByRole('button', { name: 'Carregar caso demonstrativo', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Cálculo previdenciário', level: 1 })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Resumo rápido do cálculo' })).toBeVisible();
+  await page.getByRole('button', { name: 'Fábrica TRF3', exact: true }).click();
+  for (const label of ['RMI (17 Espécies)', 'Tempo de Contribuição', 'Atrasados / Liquidação', 'Leitor Documental', 'Índices e Tabelas']) {
+    await expect(page.getByRole('tab', { name: label, exact: true })).toBeVisible();
+  }
+  await expect.poll(() => page.locator('body').evaluate(el => el.scrollWidth <= innerWidth)).toBe(true);
+  await expect(page.locator('#fabrica-hub')).toBeVisible();
+  await page.locator('#main-content').evaluate(el => { el.scrollTop = 0; });
+  await page.screenshot({ path: 'verification/ui-fabrica-hub.png', fullPage: true });
+  await page.getByRole('button', { name: 'Alternar tema', exact: true }).click();
+  await page.locator('#main-content').evaluate(el => { el.scrollTop = 0; });
+  await page.screenshot({ path: 'verification/ui-fabrica-hub-light.png', fullPage: true });
 });

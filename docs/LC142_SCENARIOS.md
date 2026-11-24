@@ -1,6 +1,6 @@
 # Cenários PcD de grau constante
 
-O adaptador `previus-rgps::pcd` é um cálculo local independente e experimental, não uma certificação de direito. Sem a política versionada `lc142-constant-grade-v1` e a confirmação documental das premissas, o cenário continua bloqueado (`data: null`). O caminho RGPS anterior não é usado como substituto automático para PcD.
+O adaptador `previdenciar-rgps::pcd` é um cálculo local independente e experimental, não uma certificação de direito. Sem a política versionada `lc142-constant-grade-v1` e a confirmação documental das premissas, o cenário continua bloqueado (`data: null`). O caminho RGPS anterior não é usado como substituto automático para PcD.
 
 ## Entradas e separação de origem
 

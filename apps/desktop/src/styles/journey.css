@@ -1,0 +1,78 @@
+/* Jornada do cálculo: etapa atual com ação principal, camadas importado/confirmado/calculado,
+   pendências agrupadas por próxima ação e régua temporal da origem CNIS. */
+
+.journey-guide{display:flex;flex-direction:column;gap:18px;padding:20px 22px;border:1px solid var(--border);border-radius:12px;background:var(--surface);box-shadow:var(--shadow-xs)}
+.journey-guide__head{display:flex;justify-content:space-between;align-items:flex-start;gap:22px;flex-wrap:wrap;padding-bottom:16px;border-bottom:1px solid var(--border)}
+.journey-guide__stage{min-width:0;flex:1}
+.journey-guide__stage .eyebrow{margin-bottom:6px}
+.journey-guide__stage h2{font:500 24px/1.3 Lora,serif;letter-spacing:-.02em;margin:0 0 6px}
+.journey-guide__stage p{margin:0;font-size:12px;line-height:1.6;color:var(--muted);max-width:70ch}
+.journey-guide__action{display:flex;flex-direction:column;align-items:flex-end;gap:7px;flex-shrink:0}
+.journey-guide__action small{font-size:11px;color:var(--muted);max-width:230px;text-align:right;line-height:1.5}
+
+.journey-layers{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.journey-layer{display:flex;flex-direction:column;gap:10px;padding:15px 16px;border:1px solid var(--border);border-radius:9px;background:var(--inset);min-width:0}
+.journey-layer.is-vazio{border-style:dashed}
+.journey-layer.is-pronto{border-color:var(--accent-line,var(--border));background:var(--accent-soft)}
+.journey-layer.is-parcial{border-style:dashed;border-color:var(--warn-line,var(--accent-line,var(--border)))}
+.journey-layer header{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.journey-layer__icon{display:grid;place-items:center;width:26px;height:26px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--accent);flex-shrink:0}
+.journey-layer h3{font-size:13px;font-weight:600;margin:0;flex:1;letter-spacing:-.01em}
+.journey-layer p{font-size:12px;line-height:1.55;color:var(--fg-2);margin:0}
+.journey-layer__metrics{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;margin:0}
+.journey-layer__metrics div{min-width:0}
+.journey-layer__metrics dt{font-size:11px;color:var(--muted);line-height:1.4}
+.journey-layer__metrics dd{font-size:13px;font-weight:500;color:var(--fg);margin:2px 0 0;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+
+.journey-pendencies{display:flex;flex-direction:column;gap:10px}
+.journey-pendencies header{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.journey-pendencies h3{font-size:13px;font-weight:600;margin:0}
+.journey-pendencies header p{margin:0;font-size:11px;color:var(--muted)}
+.journey-pendencies.is-empty p{font-size:12px;color:var(--muted);margin:6px 0 0;line-height:1.6}
+.journey-pendencies ul{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.journey-pendency{display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:12px 14px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--fg)}
+.journey-pendency:hover,.journey-pendency:focus-visible{border-color:var(--gold);background:var(--gold-soft)}
+.journey-pendency__copy{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1}
+.journey-pendency__copy strong{font-size:12px;font-weight:600}
+.journey-pendency__copy small{font-size:11px;color:var(--muted);line-height:1.45}
+.journey-pendency__copy em{font-style:normal;font-size:11px;color:var(--fg-2);overflow-wrap:anywhere}
+.journey-pendency__count{display:grid;place-items:center;min-width:22px;height:22px;padding:0 6px;border-radius:99px;background:var(--gold-soft);border:1px solid var(--gold-line,var(--border));color:var(--gold);font-size:11px;font-variant-numeric:tabular-nums}
+.journey-pendency>.ic{color:var(--muted);flex-shrink:0}
+
+.journey-guide__tech{margin:0}
+.journey-guide__tech dl{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px 18px;margin:0}
+.journey-guide__tech dt{font-size:11px;color:var(--muted)}
+.journey-guide__tech dd{margin:3px 0 0;font-size:12px;color:var(--fg-2);overflow-wrap:anywhere}
+
+.cnis-timeline{display:flex;flex-direction:column;gap:14px;margin-top:18px;padding:16px 18px;border:1px solid var(--border);border-radius:10px;background:var(--inset)}
+.cnis-timeline__head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap}
+.cnis-timeline__head h3{font-size:13px;font-weight:600;margin:0 0 4px}
+.cnis-timeline__head p{margin:0;font-size:11px;color:var(--muted);line-height:1.55;max-width:72ch}
+.cnis-timeline__years{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:3px;overflow-x:auto}
+.cnis-timeline__year{display:flex;align-items:center;gap:8px}
+.cnis-timeline__year-label{width:40px;flex-shrink:0;font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums}
+.cnis-timeline__months{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:2px;flex:1;min-width:0}
+.cnis-timeline__month{display:block;height:12px;border-radius:2px;background:var(--border)}
+.cnis-timeline__month.is-lancamento{background:var(--accent)}
+.cnis-timeline__month.is-lacuna{background:transparent;border:1px dashed var(--gold);height:10px}
+.cnis-timeline__month.is-posDib{background:var(--gold-soft);border:1px solid var(--gold-line,var(--gold))}
+.cnis-timeline__month.is-prePbc{background:var(--border-subtle,var(--border))}
+.cnis-timeline__month.is-foraDoIntervalo{background:transparent;border:1px solid transparent}
+.cnis-timeline__counts{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px 14px;margin:0}
+.cnis-timeline__counts dt{font-size:10px;color:var(--muted);line-height:1.4}
+.cnis-timeline__counts dd{margin:2px 0 0;font-size:13px;font-weight:500;color:var(--fg);font-variant-numeric:tabular-nums}
+.cnis-timeline .form-note{margin:0}
+
+@media(max-width:1100px){
+  .journey-layers,.journey-guide__tech dl{grid-template-columns:1fr}
+  .journey-pendencies ul{grid-template-columns:1fr}
+  .cnis-timeline__counts{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media(max-width:800px){
+  .journey-guide{padding:16px}
+  .journey-guide__action{align-items:flex-start;width:100%}
+  .journey-guide__action small{text-align:left;max-width:none}
+  .cnis-timeline__counts{grid-template-columns:1fr 1fr}
+}
+
+.cnis-timeline__month.is-dib{outline:2px solid var(--accent);outline-offset:1px}

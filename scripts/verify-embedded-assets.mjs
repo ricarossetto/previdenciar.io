@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const exePath = process.argv[2] || 'target/release/previus-next-desktop.exe';
+const exePath = process.argv[2] || 'target/release/previdenciar-next-desktop.exe';
 const outputPath = process.argv[3];
 if (!fs.existsSync(exePath)) throw Error('Executable not found: ' + exePath);
 const binary = fs.readFileSync(exePath);

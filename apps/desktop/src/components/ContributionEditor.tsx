@@ -51,7 +51,7 @@ export function ContributionEditor({ draft, setDraft, onNotify, sourceRequest }:
     return amountLabel((total / 100n).toString() + '.' + (total % 100n).toString().padStart(2, '0'));
   };
   const allVisibleSelected = visible.length > 0 && visible.every(record => selected.includes(record.key));
-  return <Panel title="Livro de contribuições" subtitle="Origem imutável, ajustes documentados e aplicação explícita ao cálculo." className="contribution-panel" actions={<Badge tone={review.applied ? 'good' : 'review'}>{review.applied ? 'Aplicado aos salários' : 'Revisão não aplicada'}</Badge>}>
+  return <Panel title="Livro de contribuições" className="contribution-panel" actions={<Badge tone={review.applied ? 'good' : 'review'}>{review.applied ? 'Aplicado aos salários' : 'Revisão não aplicada'}</Badge>}>
     {sourceChanged && <Notice tone="error">O documento de origem mudou. Não aplique este livro: preserve esta hipótese e crie outro cálculo para o novo documento.</Notice>}
     <Notice>Valores nominais não são automaticamente corrigidos, convertidos ou validados. Consolidar concomitância exige decisão documental. Aplicar o livro não remove os bloqueios de períodos, regime e exclusão explícita da fonte no adaptador.</Notice>
     <div className="contribution-filters">

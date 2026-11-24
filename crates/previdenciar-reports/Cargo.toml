@@ -1,0 +1,24 @@
+[package]
+name = "previdenciar-reports"
+version = "0.1.0"
+edition = "2021"
+description = "Native, explicit-outcome, multipage PDF review reports for Previdenciar Rust"
+license = "MIT"
+
+[dependencies]
+genpdf = "=0.2.0"
+serde_json = "1"
+base64 = "0.22"
+rusttype = "0.8"
+rust_decimal = "=1.43.0"
+lopdf = "0.38"
+typst-as-lib = "0.17"
+typst = "0.15"
+typst-pdf = "0.15"
+previdenciar-workspace = { path = "../previdenciar-workspace" }
+previdenciar-cnis = { path = "../previdenciar-cnis" }
+previdenciar-core = { path = "../previdenciar-core" }
+rgps-core = { path = "../rgps-core" }
+
+[dev-dependencies]
+previdenciar-rgps = { path = "../previdenciar-rgps" }

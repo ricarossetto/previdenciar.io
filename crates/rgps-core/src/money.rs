@@ -21,12 +21,12 @@ pub fn parse_money(valor: &str, label: &str) -> Result<Decimal> {
     Decimal::from_str(limpo).map_err(|_| RgpsError(format!("{label} inválido: {valor}.")))
 }
 
-/// Arredonda para 2 casas com half-up monetário (mesma semântica do toCents do ATRIUM).
+/// Arredonda para 2 casas com half-up monetário (mesma semântica do toCents da implementação de referência).
 pub fn to_cents(valor: Decimal) -> Decimal {
     valor.round_dp_with_strategy(2, RoundingStrategy::MidpointAwayFromZero)
 }
 
-/// String monetária com exatamente 2 casas e ponto decimal (contrato do ATRIUM).
+/// String monetária com exatamente 2 casas e ponto decimal (contrato da implementação de referência).
 pub fn money(valor: Decimal) -> String {
     let centavos = (valor * Decimal::from(100))
         .round_dp_with_strategy(0, RoundingStrategy::MidpointAwayFromZero)
@@ -75,7 +75,7 @@ pub fn div(a: Decimal, b: Decimal) -> Result<Decimal> {
     if b.is_zero() {
         return erro("Divisão por zero no cálculo.");
     }
-    // Alta precisão intermediária (o ATRIUM usa 18 casas).
+    // Alta precisão intermediária (o implementação de referência usa 18 casas).
     Ok(a / b)
 }
 

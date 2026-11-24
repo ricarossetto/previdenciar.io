@@ -52,6 +52,8 @@ export function PrepareFromCnis({ draft, onResult, onNotify }: {
     }
   }
 
+  if (!draft.cnis) return null;
+
   return (
     <section className="conference-prepare" aria-labelledby={titleId} data-ui-container>
       <header className="conference-prepare__head">
@@ -62,13 +64,13 @@ export function PrepareFromCnis({ draft, onResult, onNotify }: {
         <Badge tone={hasSource ? 'review' : 'neutral'}>{hasSource ? 'CNIS aplicado, ainda não usado' : 'Sem CNIS aplicado'}</Badge>
       </header>
       <p className="conference-prepare__intro">
-        O CNIS é um documento conferido, não a entrada do motor. Um clique revisa a cópia, registra a
-        referência e calcula. Você não precisa excluir a fonte nem digitar vínculo e remuneração à mão.
+        Informe a referência do CNIS e clique em calcular. A referência vale como sua conferência do
+        documento: vínculos RGPS e remunerações lidos entram como conferidos, sem digitação à mão.
       </p>
       <ol className="conference-prepare__steps">
-        <li><strong>Exclui a fonte como entrada</strong> e registra a sua referência como justificativa, sem alterar o PDF.</li>
+        <li><strong>Registra a referência</strong> como conferência do documento, sem alterar o PDF.</li>
         <li><strong>Monta vínculos e remunerações</strong> a partir do que foi lido: vínculo PRPPS fica fora, data final ausente é fechada pelo último salário e remunerações concomitantes do RGPS são somadas.</li>
-        <li><strong>Aplica a política</strong> de correção pelo INPC até a DIB, sem descarte, e envia a hipótese ao motor.</li>
+        <li><strong>Calcula</strong> com correção pelo INPC até a DIB e descarte das menores contribuições quando ele aumenta o benefício.</li>
       </ol>
       <Field
         required

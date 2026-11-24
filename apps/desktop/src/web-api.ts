@@ -1,0 +1,497 @@
+import { normalizeCaseForEngine } from './model';
+import { describeFailure, parseJsonSafe } from './http-errors';
+import { clearSession, refreshSession, storedToken } from './web-auth-store';
+import type {
+  AiChatRequest, AiDataStatus, AiEvent, AiImportSummary, AiKeyStatus, AiProviderPreset, AiTestResult,
+  AtriumApi, AtriumContact, AtriumProcess, AtriumWrite, CasePdfText, FabricaAtrasadosOptions, FabricaRmiOptions, FabricaStatus, FabricaTempoOptions,
+  KnowledgeBlock, KnowledgeOutcome, Presentation, SavedReport, SavedReportStored, SavedReportUrl,
+} from './api';
+import type { FabricaInput, FabricaSummary } from './fabrica';
+import type { BatchExport, Boot, Calculation, Cnis, Json, Workspace } from './model';
+import type { EconomicSnapshot } from './pcd';
+
+const API = '/api';
+const WEB_FABRICA_KEY_STORAGE = 'previdenciar.web.fabricaKey';
+
+const MSG_OPERACAO = 'A operação falhou. Tente de novo em instantes.';
+
+export function getWebFabricaKey(): string {
+  try {
+    return (sessionStorage.getItem(WEB_FABRICA_KEY_STORAGE) ?? '').trim();
+  } catch {
+    return '';
+  }
+}
+
+function validWebFabricaKey(value: string): boolean {
+  return /^[\x21-\x7e]{8,512}$/.test(value);
+}
+
+function fabricaHeaders(apiKey?: string): Record<string, string> | undefined {
+  const effective = (apiKey ?? '').trim() || getWebFabricaKey();
+  if (!effective) return undefined;
+  if (/[^\x21-\x7e]/.test(effective)) {
+    throw new Error('Informe uma chave válida da API da Fábrica TRF3 (sem espaços).');
+  }
+  return { 'x-fabrica-key': effective };
+}
+
+// A extração de PDF do CNIS pode produzir bytes UTF-8 lidos como Latin-1/CP1252.
+// A normalização reconstitui o texto quando a sequência de bytes forma UTF-8
+// válido, sem inventar conteúdo. Também remove caracteres de controle residuais.
+const CP1252_BYTES: Record<string, number> = {
+  '€': 0x80, '‚': 0x82, 'ƒ': 0x83, '„': 0x84, '…': 0x85, '†': 0x86, '‡': 0x87,
+  'ˆ': 0x88, '‰': 0x89, 'Š': 0x8A, '‹': 0x8B, 'Œ': 0x8C, 'Ž': 0x8E, '‘': 0x91,
+  '’': 0x92, '“': 0x93, '”': 0x94, '•': 0x95, '–': 0x96, '—': 0x97, '˜': 0x98,
+  '™': 0x99, 'š': 0x9A, '›': 0x9B, 'œ': 0x9C, 'ž': 0x9E, 'Ÿ': 0x9F,
+};
+export function repararTexto(value: string): string {
+  let current = value;
+  for (let tentativa = 0; tentativa < 4; tentativa += 1) {
+    const bytes: number[] = [];
+    let suportado = true;
+    for (const char of current) {
+      const code = char.codePointAt(0) ?? 0;
+      if (code <= 0xFF) bytes.push(code);
+      else if (CP1252_BYTES[char] !== undefined) bytes.push(CP1252_BYTES[char]);
+      else { suportado = false; break; }
+    }
+    if (!suportado) break;
+    try {
+      const next = new TextDecoder('utf-8', { fatal: true }).decode(Uint8Array.from(bytes));
+      if (next === current) break;
+      current = next;
+    } catch { break; }
+  }
+  return Array.from(current).filter(char => {
+    const code = char.codePointAt(0) ?? 0;
+    return !(code < 32 && char !== '\n' && char !== '\r' && char !== '\t');
+  }).join('');
+}
+export function repararJson<T>(value: T): T {
+  if (typeof value === 'string') return repararTexto(value) as T;
+  if (Array.isArray(value)) return value.map(item => repararJson(item)) as T;
+  if (value && typeof value === 'object') {
+    const out: Record<string, unknown> = {};
+    for (const [key, val] of Object.entries(value as Record<string, unknown>)) out[key] = repararJson(val);
+    return out as T;
+  }
+  return value;
+}
+// Corpo de sucesso tem de ser um registro JSON. Texto vazio, página HTML,
+// o literal null e lista não são dados: o servidor publica o SPA em rota
+// desconhecida, então um 200 com HTML passaria por resposta boa.
+// Nenhum endpoint usado aqui devolve lista no topo; quando isso existir, a
+// validação precisa ser declarada no contrato do endpoint, não afrouxada aqui.
+function readSuccessObject(texto: string, padrao: string): Record<string, unknown> {
+  const limpo = texto.trim();
+  if (!limpo || limpo.startsWith('<')) throw new Error(padrao);
+  let valor: unknown;
+  try {
+    valor = JSON.parse(limpo);
+  } catch {
+    throw new Error(padrao);
+  }
+  if (!valor || typeof valor !== 'object' || Array.isArray(valor)) throw new Error(padrao);
+  return repararJson(valor) as Record<string, unknown>;
+}
+
+// Endpoint cujo contrato admite lista no topo. Ainda exige JSON de objeto ou
+// lista: vazio, HTML e null continuam recusados.
+function readSuccessValue(texto: string, padrao: string): Record<string, unknown> | unknown[] {
+  const limpo = texto.trim();
+  if (!limpo || limpo.startsWith('<')) throw new Error(padrao);
+  let valor: unknown;
+  try {
+    valor = JSON.parse(limpo);
+  } catch {
+    throw new Error(padrao);
+  }
+  if (!valor || typeof valor !== 'object') throw new Error(padrao);
+  return repararJson(valor) as Record<string, unknown> | unknown[];
+}
+
+function authHeaders(extra?: HeadersInit): HeadersInit {
+  const headers = new Headers(extra);
+  const token = storedToken();
+  if (token) headers.set('Authorization', `Bearer ${token}`);
+  return headers;
+}
+
+async function authorizedFetch(path: string, init: RequestInit = {}): Promise<Response> {
+  const send = () => fetch(path, { ...init, credentials: 'include', headers: authHeaders(init.headers) });
+  let response = await send();
+  if (response.status === 401 && await refreshSession()) {
+    response = await send();
+  }
+  if (response.status === 401) clearSession();
+  return response;
+}
+
+type RequestOptions = {
+  // Endpoint cujo contrato é uma lista no topo. Fora disso, lista é inválida.
+  permitirLista?: boolean;
+  headers?: HeadersInit;
+};
+
+async function request<T>(
+  method: string,
+  path: string,
+  body?: unknown,
+  opcoes: RequestOptions = {},
+): Promise<T> {
+  const headers = opcoes.headers ? new Headers(opcoes.headers) : undefined;
+  let finalHeaders: HeadersInit | undefined = headers;
+  if (body !== undefined) {
+    const withContentType = headers ?? new Headers();
+    if (!withContentType.has('Content-Type')) {
+      withContentType.set('Content-Type', 'application/json');
+    }
+    finalHeaders = withContentType;
+  }
+  const response = await authorizedFetch(API + path, {
+    method,
+    headers: finalHeaders,
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const text = await response.text();
+  if (!response.ok) {
+    throw new Error(describeFailure(response.status, parseJsonSafe(text), MSG_OPERACAO));
+  }
+  if (opcoes.permitirLista) return readSuccessValue(text, MSG_OPERACAO) as T;
+  return readSuccessObject(text, MSG_OPERACAO) as T;
+}
+
+function chooseFile(accept: string): Promise<File | null> {
+  return new Promise((resolve) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = accept;
+    input.onchange = () => resolve(input.files?.[0] ?? null);
+    input.click();
+  });
+}
+
+function download(bytes: BlobPart, type: string, name: string): string {
+  const url = URL.createObjectURL(new Blob([bytes], { type }));
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = name;
+  anchor.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  return name;
+}
+
+async function unsupported(feature: string): Promise<never> {
+  throw new Error(`${feature} ainda não está disponível na versão web.`);
+}
+
+export const webApi = {
+  fetchEconomicSnapshot: (through: string) => request<EconomicSnapshot>('GET', `/pcd/snapshot?through=${encodeURIComponent(through)}`),
+  fetchLocalEconomicSnapshot: (through: string) => request<EconomicSnapshot>('GET', `/pcd/snapshot?through=${encodeURIComponent(through)}`),
+  conferirFabricaRmi: (input: FabricaInput, apiKey = '', options?: FabricaRmiOptions) => {
+    const params = new URLSearchParams();
+    if (options?.demonstrativo !== undefined) params.set('demonstrativo', String(options.demonstrativo));
+    if (options?.permalink !== undefined) params.set('permalink', String(options.permalink));
+    if (options?.fundamento !== undefined) params.set('fundamento', String(options.fundamento));
+    const qs = params.toString();
+    return request<FabricaSummary>('POST', `/fabrica/rmi${qs ? `?${qs}` : ''}`, input, {
+      headers: fabricaHeaders(apiKey),
+    });
+  },
+  fabricaStatus: async (): Promise<FabricaStatus> => {
+    const sessionKeyConfigured = Boolean(getWebFabricaKey());
+    const status = await request<FabricaStatus>('GET', '/fabrica/status', undefined, {
+      headers: fabricaHeaders(),
+    });
+    const mergedSession = Boolean(status.sessionKeyConfigured || sessionKeyConfigured);
+    return {
+      ...status,
+      sessionKeyConfigured: mergedSession,
+      configured: Boolean(status.configured || mergedSession),
+    };
+  },
+  fabricaSaveKey: async (apiKey: string) => {
+    const trimmed = apiKey.trim();
+    if (!validWebFabricaKey(trimmed)) {
+      throw new Error('Informe uma chave válida da API da Fábrica TRF3 (sem espaços).');
+    }
+    try {
+      sessionStorage.setItem(WEB_FABRICA_KEY_STORAGE, trimmed);
+    } catch {
+      throw new Error('Não foi possível armazenar a chave na sessão do navegador.');
+    }
+  },
+  fabricaClearKey: async () => {
+    try {
+      sessionStorage.removeItem(WEB_FABRICA_KEY_STORAGE);
+    } catch {
+      // ignore storage unavailability
+    }
+  },
+  calcularFabricaTempo: (input: FabricaInput | Json, apiKey?: string, options?: FabricaTempoOptions) => {
+    const params = new URLSearchParams();
+    if (options?.demonstrativo !== undefined) params.set('demonstrativo', String(options.demonstrativo));
+    if (options?.permalink !== undefined) params.set('permalink', String(options.permalink));
+    const qs = params.toString();
+    const path = options?.porGrupos ? '/fabrica/tempo/por-grupos' : '/fabrica/tempo';
+    return request<Json>('POST', `${path}${qs ? `?${qs}` : ''}`, input, {
+      headers: fabricaHeaders(apiKey),
+    });
+  },
+  calcularFabricaAtrasados: (body: Json, apiKey?: string, options?: FabricaAtrasadosOptions) => {
+    const params = new URLSearchParams();
+    if (options?.demonstrativo !== undefined) params.set('demonstrativo', String(options.demonstrativo));
+    if (options?.permalink !== undefined) params.set('permalink', String(options.permalink));
+    const qs = params.toString();
+    return request<Json>('POST', `/fabrica/atrasados${qs ? `?${qs}` : ''}`, body, {
+      headers: fabricaHeaders(apiKey),
+    });
+  },
+  lerDocumentoFabrica: async (
+    tipo: 'cnis' | 'carta' | 'rdctc' | 'pap' | 'prevjud',
+    apiKey?: string,
+    file?: File,
+  ): Promise<Json> => {
+    const selected = file ?? await chooseFile('application/pdf,.pdf');
+    if (!selected) return null;
+    const form = new FormData();
+    form.append('file', selected, selected.name);
+    const response = await authorizedFetch(`${API}/fabrica/documentos/${encodeURIComponent(tipo)}`, {
+      method: 'POST',
+      headers: fabricaHeaders(apiKey),
+      body: form,
+    });
+    const text = await response.text();
+    const falha = 'A leitura documental na Fábrica TRF3 falhou. Tente de novo em instantes.';
+    if (!response.ok) throw new Error(describeFailure(response.status, parseJsonSafe(text), falha));
+    return readSuccessObject(text, falha) as Json;
+  },
+  consultarFabricaIndices: (
+    endpoint: 'indice' | 'fundamentos' | 'marcos-temporais',
+    nome?: string,
+    query?: Record<string, string>,
+    apiKey?: string,
+  ) => {
+    let path: string;
+    if (endpoint === 'fundamentos') {
+      path = '/fabrica/fundamentos';
+    } else if (endpoint === 'marcos-temporais') {
+      path = '/fabrica/marcos-temporais';
+    } else {
+      const target = nome?.trim();
+      if (!target) {
+        return Promise.reject(new Error('Informe o nome do índice a consultar.'));
+      }
+      const params = new URLSearchParams();
+      if (query) {
+        for (const [k, v] of Object.entries(query)) {
+          if (v !== undefined && v !== null && String(v).trim() !== '') {
+            params.set(k, String(v).trim());
+          }
+        }
+      }
+      const qs = params.toString();
+      path = `/fabrica/indices/${encodeURIComponent(target)}${qs ? `?${qs}` : ''}`;
+    }
+    return request<Json>('GET', path, undefined, {
+      permitirLista: true,
+      headers: fabricaHeaders(apiKey),
+    });
+  },
+  prepareFromCnis: (calculation: Calculation, reference: string) =>
+    request<{ calculation: Calculation; notes: string[] }>('POST', '/prepare-from-cnis', { calculation: normalizeCaseForEngine(calculation), reference }),
+  boot: () => request<Boot>('GET', '/bootstrap'),
+  save: (workspace: Workspace) => request<Workspace>('PUT', '/workspace', {
+    workspace: {
+      ...workspace,
+      settings: { ...workspace.settings, fabrica_api_key: '' },
+    },
+  }),
+  pickCnis: async () => {
+    const file = await chooseFile('application/pdf,.pdf');
+    if (!file) return null;
+    const form = new FormData();
+    form.append('file', file, file.name);
+    const response = await authorizedFetch(`${API}/cnis/import`, { method: 'POST', body: form });
+    const text = await response.text();
+    const falha = 'A importação do CNIS falhou. Tente de novo em instantes.';
+    if (!response.ok) throw new Error(describeFailure(response.status, parseJsonSafe(text), falha));
+    // O importador devolve sempre um registro do CNIS. Lista, null ou HTML
+    // aqui é resposta inválida, não um CNIS vazio.
+    return readSuccessObject(text, falha) as unknown as Cnis;
+  },
+  importPath: (_path: string) => unsupported('Importação por caminho local'),
+  calculate: (calculation: Calculation) => request<Json>('POST', '/calculate', { calculation: normalizeCaseForEngine(calculation) }),
+  rawRgps: (_input: Json) => unsupported('Motor RGPS direto'),
+  tool: (tool: string, input: Json) => request<Json>('POST', `/tools/${encodeURIComponent(tool)}`, input, { permitirLista: true }),
+  finance: (tool: string, input: Json) => request<Json>('POST', `/finance/${encodeURIComponent(tool)}`, input, { permitirLista: true }),
+  previewReport: async (calculation: Calculation, workspace: Workspace, format: string, includePersonal: boolean, presentation?: Presentation) => {
+    const response = await authorizedFetch(`${API}/reports/preview`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ calculation: normalizeCaseForEngine(calculation), workspace, format, include_personal: includePersonal, presentation: presentation ?? null }),
+    });
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(describeFailure(response.status, parseJsonSafe(text), 'A prévia do relatório falhou.'));
+    }
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    let binary = '';
+    for (let index = 0; index < bytes.length; index += 0x8000) {
+      binary += String.fromCharCode(...bytes.subarray(index, index + 0x8000));
+    }
+    return btoa(binary);
+  },
+  savedReports: {
+    save: async (calculation: Calculation, workspace: Workspace, format: string, includePersonal: boolean, presentation?: Presentation) =>
+      request<SavedReportStored>('POST', '/reports/save', { calculation: normalizeCaseForEngine(calculation), workspace, format, include_personal: includePersonal, presentation: presentation ?? null }),
+    list: async () => {
+      const data = await request<{ reports?: SavedReport[] }>('GET', '/reports/saved');
+      return data.reports ?? [];
+    },
+    link: (id: string) => request<SavedReportUrl>('GET', `/reports/saved/${encodeURIComponent(id)}`),
+    remove: async (id: string) => { await request<{ deleted?: boolean }>('DELETE', `/reports/saved/${encodeURIComponent(id)}`); },
+  },
+
+  atrium: {
+    contacts: async (query = '') => {
+      const q = query.trim();
+      const data = await request<{ contacts?: AtriumContact[] }>('GET', `/atrium/contacts${q ? `?q=${encodeURIComponent(q)}` : ''}`);
+      return data.contacts ?? [];
+    },
+    processes: async (contactIds: string[]) => {
+      if (!contactIds.length) return [];
+      const data = await request<{ processes?: AtriumProcess[] }>('GET', `/atrium/processes?contact_ids=${encodeURIComponent(contactIds.join(','))}`);
+      return data.processes ?? [];
+    },
+    sendContact: contact => request<AtriumWrite>('POST', '/atrium/contacts', contact),
+    sendProcess: process => request<AtriumWrite>('POST', '/atrium/processes', process),
+  } as AtriumApi,
+
+  exportReport: async (calculation: Calculation, workspace: Workspace, format: string, includePersonal: boolean, presentation?: Presentation) => {
+    if (!format.startsWith('pdf_')) {
+      const exported = await request<{ content: string; mime: string; extension: string }>('POST', '/reports/export', {
+        calculation: normalizeCaseForEngine(calculation),
+        workspace,
+        format,
+        include_personal: includePersonal,
+      });
+      const ext = exported.extension || format;
+      return download(exported.content, exported.mime || 'text/plain;charset=utf-8', `previdenciar-relatorio.${ext}`);
+    }
+    const response = await authorizedFetch(`${API}/reports/preview`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ calculation: normalizeCaseForEngine(calculation), workspace, format, include_personal: includePersonal, presentation: presentation ?? null }),
+    });
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(describeFailure(response.status, parseJsonSafe(text), 'A exportação do relatório falhou.'));
+    }
+    return download(await response.blob(), 'application/pdf', `previdenciar-${format.replace(/^pdf_/, '')}.pdf`);
+  },
+  exportReportsBatch: async (calculation: Calculation, workspace: Workspace, formats: string[], includePersonal: boolean, presentation?: Presentation): Promise<BatchExport> => {
+    const files: { format: string; path: string }[] = [];
+    const errors: { format: string; message: string }[] = [];
+    for (const format of formats) {
+      try {
+        const path = await webApi.exportReport(calculation, workspace, format, includePersonal, presentation);
+        files.push({ format, path: path ?? '' });
+      } catch (error) {
+        errors.push({ format, message: error instanceof Error ? error.message : String(error) });
+      }
+    }
+    return { directory: 'Downloads', files, errors };
+  },
+  exportDocument: (text: string) => Promise.resolve(download(text, 'text/plain;charset=utf-8', 'documento.txt')),
+  backup: async () => {
+    const boot = await request<Boot>('GET', '/bootstrap');
+    return download(JSON.stringify(boot.workspace, null, 2), 'application/json', 'previdenciar-workspace.json');
+  },
+  aiCatalog: async () => {
+    const status = await request<{ enabled: boolean; providerId: string; baseUrl: string; model: string; message: string | null }>('GET', '/ai/status');
+    if (!status.enabled) return [];
+    return [{
+      id: status.providerId,
+      name: 'Copiloto da plataforma',
+      kind: 'openai',
+      baseUrl: status.baseUrl,
+      defaultModel: status.model,
+      models: [status.model],
+      keyRequired: true,
+      note: 'O envio usa a chave da plataforma e o consentimento explícito desta conversa.',
+    } as AiProviderPreset];
+  },
+  aiKeyStatus: async () => {
+    const status = await request<{ enabled: boolean; providerId: string }>('GET', '/ai/status');
+    return [{ providerId: status.providerId, hasKey: status.enabled }] as AiKeyStatus[];
+  },
+  aiSaveKey: () => unsupported('Chave de IA'),
+  aiDeleteKey: () => unsupported('Chave de IA'),
+  aiTest: () => unsupported('Teste de IA'),
+  aiModels: async () => {
+    const status = await request<{ model: string }>('GET', '/ai/status');
+    return [status.model];
+  },
+  aiDataStatus: () => request<AiDataStatus>('GET', '/ai/data-status'),
+  aiKnowledgeSearch: (block: KnowledgeBlock, query: string, limit = 8) =>
+    request<KnowledgeOutcome>('POST', '/ai/knowledge/search', { block, query, limit }),
+  aiKnowledgeRead: (block: KnowledgeBlock, id: string) =>
+    request<KnowledgeOutcome>('POST', '/ai/knowledge/read', { block, id }),
+  pickCasePdfText: async () => {
+    const file = await chooseFile('application/pdf,.pdf');
+    if (!file) return null;
+    const form = new FormData();
+    form.append('file', file, file.name);
+    const response = await authorizedFetch(`${API}/case-pdf/text`, { method: 'POST', body: form });
+    const text = await response.text();
+    const falha = 'A leitura do PDF falhou. Tente de novo em instantes.';
+    if (!response.ok) throw new Error(describeFailure(response.status, parseJsonSafe(text), falha));
+    return readSuccessObject(text, falha) as unknown as CasePdfText;
+  },
+  saveExportFile: (data: Uint8Array, extension: string, suggestedName: string) => Promise.resolve(download(data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer, 'application/octet-stream', `${suggestedName}.${extension}`)),
+  aiImportData: (_includeNatjusPdf: boolean) => unsupported('Importação da base'),
+  aiChat: async (requestBody: AiChatRequest, onEvent: (event: AiEvent) => void) => {
+    const response = await authorizedFetch(`${API}/ai/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(requestBody),
+    });
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(describeFailure(response.status, parseJsonSafe(text), 'O Copiloto não respondeu. Tente de novo em instantes.'));
+    }
+    if (!response.body) throw new Error('O Copiloto não retornou uma resposta legível.');
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    for (;;) {
+      const { done, value } = await reader.read();
+      buffer += decoder.decode(value ?? new Uint8Array(), { stream: !done });
+      let boundary = buffer.indexOf('\n\n');
+      while (boundary >= 0) {
+        const frame = buffer.slice(0, boundary);
+        buffer = buffer.slice(boundary + 2);
+        const data = frame.split('\n').filter((line) => line.startsWith('data:'))
+          .map((line) => line.slice(5).trim()).join('\n');
+        if (data) {
+          const event = JSON.parse(data) as AiEvent | { type: 'error'; message: string };
+          if (event.type === 'error') throw new Error(event.message);
+          onEvent(event as AiEvent);
+        }
+        boundary = buffer.indexOf('\n\n');
+      }
+      if (done) break;
+    }
+  },
+  aiCancel: (_requestId: string) => Promise.resolve(),
+};
+
+export type WebApi = typeof webApi;
+export type WebCnis = Cnis;
+export type WebKnowledgeOutcome = KnowledgeOutcome;
+export type WebAiTestResult = AiTestResult;
+export type WebBatchExport = BatchExport;
+export type WebCasePdfText = CasePdfText;
+export type WebAiImportSummary = AiImportSummary;

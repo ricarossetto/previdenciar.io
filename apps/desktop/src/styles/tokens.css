@@ -1,0 +1,215 @@
+/* Mesa de Trabalho Previdenciária · Design Tokens & Tipografia Local */
+
+@font-face {
+  font-family: "Inter";
+  src: url("/fonts/inter-400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Inter";
+  src: url("/fonts/inter-500.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Inter";
+  src: url("/fonts/inter-600.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Inter";
+  src: url("/fonts/inter-700.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Lora";
+  src: url("/fonts/lora-variable.woff2") format("woff2");
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Playfair Display";
+  src: url("/fonts/playfair-500.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Playfair Display";
+  src: url("/fonts/playfair-600.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Playfair Display";
+  src: url("/fonts/playfair-700.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Tema Escuro (padrão · ardósia-pinho) */
+:root,
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg: #121417;
+  --surface: #191C21;
+  --surface-2: #1F232A;
+  --inset: #15181C;
+  --elevated: #232830;
+  --surface-hover: #262B33;
+
+  --fg: #ECEEF2;
+  --fg-2: #B5BBC6;
+  --muted: #868D99;
+
+  --border: #2C313A;
+  --border-subtle: #23272E;
+  --border-strong: #3E4552;
+
+  --accent: #8DB4E8;
+  --accent-hover: #A6C6F0;
+  --accent-soft: rgba(141, 180, 232, 0.14);
+  --accent-line: rgba(141, 180, 232, 0.34);
+
+  --gold: #E0B252;
+  --gold-text: #E0B252;
+  --gold-soft: rgba(224, 178, 82, 0.13);
+  --gold-line: rgba(224, 178, 82, 0.32);
+
+  --danger: #F97066;
+  --danger-soft: rgba(249, 112, 102, 0.14);
+  --danger-line: rgba(249, 112, 102, 0.42);
+
+  --btn-primary-fg: #0F1724;
+  --focus: #8DB4E8;
+  --success: #7EC4A0;
+  --success-soft: rgba(126, 196, 160, 0.14);
+  --warning: #E0B252;
+  --warning-soft: rgba(224, 178, 82, 0.13);
+  --warn-line: rgba(224, 178, 82, 0.32);
+
+  /* Sombras e geometria */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.28);
+  --shadow-elevated: 0 14px 34px -10px rgba(0, 0, 0, 0.58);
+  --lg-shadow: 0 1px 2px rgba(0, 0, 0, 0.28), 0 8px 22px -12px rgba(0, 0, 0, 0.46);
+  --lg-depth: 0 18px 42px -16px rgba(0, 0, 0, 0.62);
+
+  /* Tipografia e escala */
+  --font-ui: Inter, system-ui, -apple-system, sans-serif;
+  --font-editorial: Lora, "Playfair Display", Georgia, serif;
+  --font: var(--font-ui);
+
+  --fs-display: 32px;
+  --fs-title: 24px;
+  --fs-lead: 18px;
+  --fs-body: 14px;
+  --fs-sm: 14px;
+  --fs-xs: 12px;
+  --lh: 1.55;
+
+  /* Layout */
+  --lg-sidebar: 258px;
+  --lg-page-padding: 28px;
+  --r: 10px;
+  --r-sm: 6px;
+  --r-lg: 12px;
+  --r-pill: 999px;
+  --fast: 150ms;
+  --base: 200ms;
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
+
+  /* Aliases legados para ai, knowledge, minuta, reports, journey e amicro */
+  --c-bg: var(--bg);
+  --c-surface: var(--surface);
+  --c-surface2: var(--surface-2);
+  --c-elevated: var(--elevated);
+  --c-fg: var(--fg);
+  --c-fg2: var(--fg-2);
+  --c-muted: var(--muted);
+  --c-border: var(--border);
+  --c-primary: var(--accent);
+  --c-primary-hover: var(--accent-hover);
+  --c-action-text: var(--btn-primary-fg);
+  --c-focus: var(--focus);
+  --c-warning: var(--gold);
+  --c-warning-soft: var(--gold-soft);
+  --c-success: var(--success);
+  --c-success-soft: var(--success-soft);
+
+  --lg-on-primary: var(--btn-primary-fg);
+  --lg-primary-hover: var(--accent-hover);
+  --lg-border-control: var(--border-strong);
+  --lg-border-button: var(--border-strong);
+  --lg-muted: var(--muted);
+}
+
+/* Tema Claro (papel quente e verde jurídico) */
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --bg: #F7F4EC;
+  --surface: #FFFDF8;
+  --surface-2: #F0EDE3;
+  --inset: #EFECE2;
+  --elevated: #FFFFFF;
+  --surface-hover: #EAE6DA;
+
+  --fg: #16201B;
+  --fg-2: #425049;
+  --muted: #64736C;
+
+  --border: #D6D1C4;
+  --border-subtle: #E5E1D6;
+  --border-strong: #B8B2A3;
+
+  --accent: #1E4B39;
+  --accent-hover: #163A2B;
+  --accent-soft: #E3EFE9;
+  --accent-line: #9AC2B0;
+
+  --gold: #8F5E00;
+  --gold-text: #8F5E00;
+  --gold-soft: #FDF3DC;
+  --gold-line: #E2C078;
+
+  --danger: #B42318;
+  --danger-soft: #FEE4E2;
+  --danger-line: #EFA39D;
+
+  --btn-primary-fg: #FFFFFF;
+  --focus: #1E4B39;
+  --success: #1E4B39;
+  --success-soft: #E3EFE9;
+  --warning: #8F5E00;
+  --warning-soft: #FDF3DC;
+  --warn-line: #E2C078;
+
+  --shadow-xs: 0 1px 2px rgba(22, 32, 27, 0.06);
+  --shadow-elevated: 0 14px 34px -10px rgba(22, 32, 27, 0.18);
+  --lg-shadow: 0 1px 2px rgba(22, 32, 27, 0.06), 0 8px 20px -14px rgba(22, 32, 27, 0.14);
+  --lg-depth: 0 18px 42px -16px rgba(22, 32, 27, 0.22);
+}
+
+@media (max-width: 1200px) {
+  :root {
+    --lg-sidebar: 244px;
+    --lg-page-padding: 22px;
+  }
+}
+
+@media (max-width: 600px) {
+  :root {
+    --lg-page-padding: 16px;
+  }
+}

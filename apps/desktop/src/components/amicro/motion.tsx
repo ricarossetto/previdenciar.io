@@ -7,7 +7,7 @@ export const springs = {
   snappy: { type: 'spring', stiffness: 400, damping: 28, mass: 0.8 },
   smooth: { type: 'spring', stiffness: 220, damping: 24, mass: 1 },
 } as const;
-const preferenceKey = 'previus.amicro.reduce-motion';
+const preferenceKey = 'previdenciar.amicro.reduce-motion';
 const MotionPolicy = createContext({ enabled: false, reduced: true, toggle: () => {} });
 
 export function MotionProvider({ children }: { children: ReactNode }) {

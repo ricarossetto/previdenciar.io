@@ -14,6 +14,9 @@
 /local-only/
 /private/
 /output/
+/work/
+/web/.review/
+/.impeccable/
 .env
 .env.*
 !.env.example
@@ -25,6 +28,8 @@
 *.pdf
 *.pvr
 *.pvr.*
+*.pvai
+ai-keys*
 *.db
 *.db-*
 *.sqlite
@@ -50,3 +55,4 @@ Thumbs.db
 # Local packaging scratch
 /release/
 **/tests/runtime/
+**/dist-auth/

@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/previus-core", "crates/previus-cnis", "crates/previus-workspace", "crates/rgps-core", "crates/previus-rgps", "apps/desktop/src-tauri", "crates/previus-reports"]
+members = ["crates/previdenciar-core", "crates/previdenciar-cnis", "crates/previdenciar-workspace", "crates/rgps-core", "crates/previdenciar-rgps", "apps/desktop/src-tauri", "apps/server", "crates/previdenciar-reports", "crates/previdenciar-wasm", "crates/previdenciar-ai"]
 resolver = "2"
 
 [profile.release]
@@ -7,5 +7,8 @@ opt-level = 2
 lto = "thin"
 strip = "debuginfo"
 
+[profile.dev]
+debug = 0
 
-
+[profile.test]
+debug = 0

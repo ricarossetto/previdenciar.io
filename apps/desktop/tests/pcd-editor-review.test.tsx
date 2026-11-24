@@ -12,11 +12,12 @@ it('PcD editor lets the operator confirm the assistant review after changing the
   function Harness(){const[draft,setDraft]=useState(base);return <CaseWorkbench draft={draft} setDraft={setDraft} workspace={blankWorkspace()} onSave={async()=>{}} onNotify={()=>{}} initialStep={7}/>}
   const u=userEvent.setup();
   render(<Harness/>);
-  expect(screen.getByRole('button',{name:'Executar motor RGPS'})).toBeDisabled();
+  expect(screen.getByRole('button',{name:'Executar motor RGPS'})).toBeEnabled();
   expect(screen.getByText(/Confirme a revisão na etapa/)).toBeInTheDocument();
   await u.click(screen.getByRole('button',{name:'Ir para revisão'}));
   await u.click(screen.getByRole('checkbox',{name:/Confirmo a revisão/}));
   await u.click(screen.getByRole('button',{name:'Ir para resultado'}));
+  expect(screen.queryByText(/Confirme a revisão na etapa/)).not.toBeInTheDocument();
   const execute=screen.getByRole('button',{name:'Executar motor RGPS'});
   expect(execute).toBeEnabled();
   await u.click(execute);

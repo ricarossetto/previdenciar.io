@@ -1,52 +1,38 @@
 import type { Workspace } from '../../model';
 import { blockers } from '../../model';
-import { Button, Icon } from '../ui';
-import { FadeUp, TiltCard } from './motion';
+import { Icon } from '../ui';
 
+/**
+ * Entrada da tela inicial: três ações curtas, sem métricas decorativas.
+ * A decisão de produto é do advogado; a interface só mostra o próximo passo.
+ */
 export function DashboardOverview({ workspace, onStart, onClient, onReports }: {
   workspace: Workspace; onStart: () => void; onClient: () => void; onReports: () => void;
 }) {
   const active = workspace.calculations.filter(item => !item.archived);
-  const metrics = [
-    { label: 'Clientes ativos', value: workspace.clients.filter(item => !item.archived).length, icon: 'users' },
-    { label: 'Cálculos registrados', value: active.length, icon: 'calc' },
-    { label: 'Revisões pendentes', value: active.filter(item => blockers(item).length > 0).length, icon: 'shield' },
-    { label: 'Compromissos abertos', value: workspace.appointments.filter(item => !item.completed).length, icon: 'calendar' },
-  ];
-  const actions = [
-    { number: '01', icon: 'calc', title: 'Organize a hipótese', description: 'Uma entrevista, uma etapa por vez. Sem preencher o que ainda precisa ser confirmado.', label: 'Abrir entrevista', onClick: onStart },
-    { number: '02', icon: 'users', title: 'Conheça cada caso', description: 'Identificação, documentos e histórico reunidos em um cadastro local protegido.', label: 'Cadastrar cliente', onClick: onClient },
-    { number: '03', icon: 'file', title: 'Leve a memória junto', description: 'Confira os dados e gere os relatórios PDF com o motor real do aplicativo.', label: 'Consultar relatórios', onClick: onReports },
-  ];
-  return <>
-    <FadeUp className="amicro-overview">
-      <div className="amicro-overview-copy">
-        <div className="amicro-kicker"><span />SEU ESPAÇO DE TRABALHO</div>
-        <h2>Seu próximo passo,<br /><em>com clareza.</em></h2>
-        <p>Da primeira informação à memória de cálculo.<br className="amicro-desktop-break" /> Tudo no seu ritmo. Tudo no seu computador.</p>
-        <div className="amicro-overview-meta"><Icon name="shield" size={16} />Base local · revisão profissional preservada</div>
-      </div>
-      <div className="amicro-orbit" aria-hidden="true">
-        <div className="amicro-orbit-ring amicro-orbit-ring--outer" />
-        <div className="amicro-orbit-ring amicro-orbit-ring--inner" />
-        <div className="amicro-orbit-core"><Icon name="chart" size={46} /></div>
-        <span className="amicro-orbit-node amicro-orbit-node--one"><Icon name="file" size={24} /></span>
-        <span className="amicro-orbit-node amicro-orbit-node--two"><Icon name="shield" size={24} /></span>
-        <span className="amicro-orbit-node amicro-orbit-node--three"><Icon name="calc" size={24} /></span>
-        <span className="amicro-orbit-dot" />
-      </div>
-    </FadeUp>
-    <div className="amicro-metrics" role="group" aria-label="Indicadores da base local">
-      {metrics.map((metric, index) => <FadeUp key={metric.label} delay={index * 0.035} className="amicro-metric">
-        <span className="amicro-metric-label"><Icon name={metric.icon} size={17} />{metric.label}</span>
-        <strong data-ui-number>{metric.value}</strong><span className="amicro-metric-note">Na sua base local</span>
-      </FadeUp>)}
+  const pending = active.filter(item => blockers(item).length > 0).length;
+  return <section className="home-next" aria-labelledby="home-next-title">
+    <header className="home-next-head">
+      <h2 id="home-next-title">O que você quer fazer agora?</h2>
+    </header>
+    <div className="home-next-actions">
+      <button type="button" className="home-next-action home-next-action--primary" onClick={onStart}>
+        <span className="home-next-icon"><Icon name="calc" size={22} /></span>
+        <span className="home-next-copy"><strong>Novo cálculo</strong><small>Importar o CNIS ou abrir a mesa em quatro abas.</small></span>
+        <Icon name="arrow" size={17} />
+      </button>
+      <button type="button" className="home-next-action" onClick={onClient}>
+        <span className="home-next-icon"><Icon name="users" size={22} /></span>
+        <span className="home-next-copy"><strong>Cadastrar cliente</strong><small>Reunir identificação e documentos.</small></span>
+        <Icon name="arrow" size={17} />
+      </button>
+      <button type="button" className="home-next-action" onClick={onReports}>
+        <span className="home-next-icon"><Icon name="file" size={22} /></span>
+        <span className="home-next-copy"><strong>Ver relatórios</strong><small>Consultar os PDFs já gerados.</small></span>
+        <Icon name="arrow" size={17} />
+      </button>
     </div>
-    <div className="amicro-section-caption"><h2>Um fluxo, do início ao relatório</h2><span>ESCOLHA POR ONDE COMEÇAR</span></div>
-    <div className="amicro-action-grid">{actions.map((action, index) => <TiltCard key={action.number} index={index}>
-      <div className="amicro-action-top"><span className="amicro-action-icon"><Icon name={action.icon} size={23} /></span><span className="amicro-action-number">{action.number}</span></div>
-      <h3>{action.title}</h3><p>{action.description}</p>
-      <Button onClick={action.onClick}>{action.label}<Icon name="arrow" size={16} /></Button>
-    </TiltCard>)}</div>
-  </>;
+    {pending > 0 && <p className="home-next-note" role="status">{pending} cálculo(s) com pendência de conferência. <button type="button" className="link-button" onClick={() => onReports()}>Começar pela revisão</button></p>}
+    {pending === 0 && active.length > 0 && <p className="home-next-note">Nenhuma pendência aberta. Você pode continuar o cálculo ou emitir o relatório.</p>}
+  </section>;
 }

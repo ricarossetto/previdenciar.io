@@ -4,7 +4,7 @@
 
 1. Atualize de forma consistente apps/desktop/package.json, package-lock.json, src-tauri/Cargo.toml, tauri.conf.json e Cargo.lock.
 2. Execute revisão da fonte pública, build/testes de interface e cargo test --workspace --locked.
-3. Dentro de apps/desktop, npm ci e npm run build. Na raiz, cargo build --release --locked -p previus-next-desktop --bin previus-next-desktop.
+3. Dentro de apps/desktop, npm ci e npm run build. Na raiz, cargo build --release --locked -p previdenciar-next-desktop --bin previdenciar-next-desktop.
 4. Copie o binário para um diretório local de release, com nome previdenciar.io-VERSAO-windows-x64.exe. Não o adicione ao Git.
 5. Gere SHA256SUMS.txt e notas honestas de escopo, testes e limitações. Marque versões experimentais como prerelease.
 6. Publique executável e checksum no GitHub Releases. Não anexe base, CNIS, PDFs pessoais, logs, dumps ou perfil de teste nativo.

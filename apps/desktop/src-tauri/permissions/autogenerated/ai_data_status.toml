@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-ai-data-status"
+description = "Enables the ai_data_status command without any pre-configured scope."
+commands.allow = ["ai_data_status"]
+
+[[permission]]
+identifier = "deny-ai-data-status"
+description = "Denies the ai_data_status command without any pre-configured scope."
+commands.deny = ["ai_data_status"]

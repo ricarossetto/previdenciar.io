@@ -38,7 +38,7 @@ Os PDFs detalhado, de salários e de memória incluem origem/ajustes e históric
 
 ## Exemplo de PDFs reais com dados fictícios
 
-Execute cargo run -p previus-reports --example contributions_report -- target/contribution-example. O exemplo cria dois PDFs novos, sem sobrescrever arquivos; não calcula benefício e nunca lê documentos pessoais. Para repetir, indique outro diretório vazio.
+Execute cargo run -p previdenciar-reports --example contributions_report -- target/contribution-example. O exemplo cria dois PDFs novos, sem sobrescrever arquivos; não calcula benefício e nunca lê documentos pessoais. Para repetir, indique outro diretório vazio.
 
 ## Edição diretamente nas tabelas de origem (0.8.2)
 

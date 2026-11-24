@@ -1,0 +1,23 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "cream-palette",
+        "value": "*",
+        "files": [
+          "public/404.html"
+        ],
+        "createdAt": "2026-11-24T17:50:25.569Z",
+        "reason": "é o --bg do tema claro do projeto em tokens.css; a página 404 reutiliza a paleta existente"
+      },
+      {
+        "rule": "overused-font",
+        "value": "inter",
+        "createdAt": "2026-11-24T17:50:38.072Z",
+        "reason": "tipografia existente do projeto (tokens.css); nesta sessão só mudou o formato do arquivo para WOFF2"
+      }
+    ]
+  }
+}

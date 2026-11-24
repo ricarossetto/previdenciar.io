@@ -1,0 +1,70 @@
+{
+  "version": 1,
+  "exportedAt": "2026-10-26T12:00:00.000Z",
+  "app": "previdenciar.io",
+  "clients": [
+    {
+      "id": 1,
+      "name": "Helena Fagundes",
+      "cpf": "•••.412.880-••",
+      "birth": "1968-02-14",
+      "sex": "Feminino",
+      "email": "helena@exemplo.com",
+      "phone": "(51) 99999-0142",
+      "city": "Porto Alegre",
+      "notes": "Workspace de exemplo. Todos os dados são fictícios."
+    }
+  ],
+  "cases": [
+    {
+      "id": 1,
+      "client": 1,
+      "name": "Aposentadoria por tempo de contribuição",
+      "kind": "RGPS",
+      "rule": "Tempo de contribuição, EC 103/2019",
+      "dib": "2026-08-01",
+      "status": "Calculado",
+      "rmi": 4812.37,
+      "months": 431,
+      "contribs": 431,
+      "start": "1990-03",
+      "end": "2026-06",
+      "updated": "2026-10-24",
+      "cnisCount": 610,
+      "adjustments": 4,
+      "used": 606,
+      "pending": 1,
+      "cnisPages": 23,
+      "importedAt": "2026-10-12",
+      "disability": "Não declarada",
+      "ctc": "Não se aplica",
+      "special": "Não considerado",
+      "rural": "Não declarada",
+      "pendencies": [
+        { "tone": "warn", "t": "Competência 2010-11 ajustada", "d": "Ajuste manual sobre o CNIS; revise a fonte antes de exportar." },
+        { "tone": "ok", "t": "CNIS conferido", "d": "23 páginas e 610 lançamentos; nenhuma diferença de salário por competência." }
+      ]
+    }
+  ],
+  "periods": {
+    "1": [
+      { "employer": "Metalúrgica Andrade S/A", "kind": "Empregado", "start": "1990-03", "end": "1997-12", "contribs": 94, "status": "conferido", "source": "CNIS p. 4 a 6", "cnpj": "12.345.678/0001-90" },
+      { "employer": "Comércio Silva & Cia.", "kind": "Empregado", "start": "1998-02", "end": "2003-09", "contribs": 68, "status": "conferido", "source": "CNIS p. 7 a 9", "cnpj": "98.765.432/0001-10" },
+      { "employer": "Contribuinte individual", "kind": "Autônomo", "start": "2004-01", "end": "2010-11", "contribs": 83, "status": "ajustado", "source": "CNIS p. 11 a 13 + ajuste", "cnpj": "—" },
+      { "employer": "Tecelagem Bandeirante Ltda.", "kind": "Empregado", "start": "2011-01", "end": "2026-06", "contribs": 186, "status": "conferido", "source": "CNIS p. 14 a 23", "cnpj": "45.678.901/0001-23" }
+    ]
+  },
+  "contributions": {
+    "1": [
+      { "comp": "2026-05", "link": "Tecelagem Bandeirante", "value": "4.120,00", "origin": "CNIS", "status": "conferido" },
+      { "comp": "2010-11", "link": "Contribuinte individual", "value": "1.420,00", "origin": "Ajuste manual", "status": "ajustado" },
+      { "comp": "1997-11", "link": "Metalúrgica Andrade S/A", "value": "• pendente", "origin": "CNIS", "status": "pendente" }
+    ]
+  },
+  "appointments": [
+    { "date": "2026-10-26", "time": "09:00", "title": "Revisão de RMI", "who": "Helena Fagundes" }
+  ],
+  "documents": [
+    { "id": 1, "name": "Procuração previdenciária", "category": "Administrativo", "updated": "2026-10-12", "body": "OUTORGANTE: {{nome}}, CPF {{cpf}}. OUTORGADO: {{escritorio}}. Poderes para representar o outorgante perante o INSS no cálculo {{calculo}}, DIB {{dib}}." }
+  ]
+}

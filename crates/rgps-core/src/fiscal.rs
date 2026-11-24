@@ -14,6 +14,28 @@ pub struct IrrfMensal {
     pub aliquota: Decimal,
     pub deducao: Decimal,
     pub irrf: Decimal,
+    /// Redutor mensal da Lei 9.250/1995, art. 3º-A (Lei 15.270/2025), vigente a partir de 01/2026.
+    pub redutor_lei_15270: Decimal,
+    /// IRRF líquido após o redutor da Lei 15.270/2025 (igual a `irrf` para competências < 2026-01).
+    pub irrf_liquido_lei_15270: Decimal,
+}
+
+/// Redução mensal da Lei nº 9.250/1995, art. 3º-A (Lei nº 15.270/2025),
+/// vigente a partir da competência `2026-01`, limitada ao imposto devido.
+pub fn reducao_lei_15270(imposto: Decimal, rend_tributavel: Decimal, competencia: &str) -> Decimal {
+    if competencia < "2026-01" || imposto <= Decimal::ZERO {
+        return Decimal::ZERO;
+    }
+    let lim_isencao = Decimal::from(5000);
+    let lim_teto = Decimal::from(7350);
+    if rend_tributavel <= lim_isencao {
+        return imposto.min(Decimal::new(31289, 2));
+    }
+    if rend_tributavel >= lim_teto {
+        return Decimal::ZERO;
+    }
+    let bruto = Decimal::new(97862, 2) - Decimal::new(133145, 6) * rend_tributavel;
+    imposto.min(money(bruto.max(Decimal::ZERO)))
 }
 
 fn decimal(value: &str, label: &str) -> Result<Decimal, String> {
@@ -81,6 +103,9 @@ pub fn irrf_mensal(
     let deducao = decimal(faixa.deducao, "Dedução")?;
     let bruto = base_ajustada * aliquota / Decimal::from(100) - deducao;
     let irrf = money(bruto.max(Decimal::ZERO));
+    let rend_tributavel = (base - isencao_65).max(Decimal::ZERO);
+    let redutor_lei_15270 = reducao_lei_15270(irrf, rend_tributavel, competencia);
+    let irrf_liquido_lei_15270 = money((irrf - redutor_lei_15270).max(Decimal::ZERO));
     Ok(IrrfMensal {
         tabela_competencia: tabela.competencia,
         base_bruta: base,
@@ -90,5 +115,21 @@ pub fn irrf_mensal(
         aliquota,
         deducao,
         irrf,
+        redutor_lei_15270,
+        irrf_liquido_lei_15270,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn redutor_lei_15270_aplica_faixas_2026() {
+        assert_eq!(reducao_lei_15270(Decimal::from(400), Decimal::from(5000), "2026-01"), Decimal::new(31289, 2));
+        assert_eq!(reducao_lei_15270(Decimal::from(100), Decimal::from(3000), "2026-01"), Decimal::from(100));
+        assert_eq!(reducao_lei_15270(Decimal::from(800), Decimal::from(6000), "2026-01"), Decimal::new(17975, 2));
+        assert_eq!(reducao_lei_15270(Decimal::from(800), Decimal::from(7350), "2026-01"), Decimal::ZERO);
+        assert_eq!(reducao_lei_15270(Decimal::from(800), Decimal::from(5000), "2025-12"), Decimal::ZERO);
+    }
 }

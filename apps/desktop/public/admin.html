@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="pt-BR">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Administração — previdenciar.io</title>
+<style>body{font-family:system-ui,sans-serif;max-width:1000px;margin:40px auto;padding:0 20px;color:#1d232b}table{border-collapse:collapse;width:100%;margin:16px 0}td,th{border-bottom:1px solid #ddd;text-align:left;padding:8px}button{cursor:pointer}.error{color:#a22}.muted{color:#666}h1{font-size:30px;line-height:1.25}h2{font-size:20px;margin-top:32px}</style>
+</head>
+<body>
+<h1>Administração</h1>
+<p class="muted">Acesso restrito por e-mail. Esta página não é indexada.</p>
+<p id="status">Carregando...</p>
+<h2>Usuários</h2>
+<table><thead><tr><th>E-mail</th><th>Avançado</th><th></th></tr></thead><tbody id="users"></tbody></table>
+<h2>Telas abertas nos últimos 30 dias</h2>
+<p class="muted">Contagem anônima, só de quem aceitou no aviso de privacidade. Não guarda usuário nem IP.</p>
+<table><thead><tr><th>Dia</th><th>Tela</th><th>Aberturas</th></tr></thead><tbody id="metrics"></tbody></table>
+<h2>Auditoria recente</h2>
+<table><thead><tr><th>Data</th><th>Ação</th><th>Entidade</th><th>Ator</th></tr></thead><tbody id="audit"></tbody></table>
+<script src="/admin.js"></script>
+</body>
+</html>

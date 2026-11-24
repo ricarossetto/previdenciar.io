@@ -3,7 +3,7 @@
 // Não editar à mão: a fonte oficial e a data de extração ficam declaradas aqui.
 //
 // (competência, valor). Ordenado por competência.
-pub static IGPDI_MENSAL: [(&str, &str); 387] = [
+pub static IGPDI_MENSAL: [(&str, &str); 388] = [
     ("1994-07", "5.47"),
     ("1994-08", "3.34"),
     ("1994-09", "1.55"),
@@ -391,6 +391,7 @@ pub static IGPDI_MENSAL: [(&str, &str); 387] = [
     ("2026-07", "-0.86"),
     ("2026-08", "0.06"),
     ("2026-09", "1.50"),
+    ("2026-10", "1.15"),
 ];
 
-pub const IGPDI_FONTE: &str = "IGP-DI/FGV: variação mensal (SGS/BCB, série 190), extraída em 2026-10-22.";
+pub const IGPDI_FONTE: &str = "IGP-DI/FGV — variação mensal (SGS/BCB, série 190), extraída em 2026-11-19.";

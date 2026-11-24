@@ -1,5 +1,49 @@
 # Changelog
-## 0.15.2 - 2026-10-27
+
+## 0.16.3 - 2026-10-28
+
+Identidade visual e README.
+
+### Added
+- Marca quadrada no ícone do aplicativo e na aba/favicon; logo horizontal no menu lateral, no cabeçalho móvel e na abertura.
+- README visual: identidade, badges, tabelas de recursos e espécies, captura da tela inicial e links de documentação.
+
+### Fixed
+- Rótulo **Assistente guiado** no menu, no lugar de "Assistente (passo a passo)", que quebrava em duas linhas.
+
+### Tests
+- 643 testes Rust (2 ignorados), 248 de interface e 37 de navegador (33 passaram; 4 falhas conhecidas, em correção em outra frente).
+
+
+## 0.16.2 - 2026-10-27
+
+Rodada 46/57 no binário 0.16.1.
+
+### Fixed
+- **46/57**: os campos de tempo especial/magistério agora abrem por padrão, com título próprio ("Tempo especial (46) e política do cálculo"), em vez de ficarem escondidos em "Ajustar manualmente".
+- **Identidade divergente**: quando o operador corrige a data de nascimento em relação ao CNIS, há uma confirmação explícita ("Confirmo a identidade revisada; não sobrescrever o CNIS importado"). Antes a execução bloqueava sem saída.
+- **PDF no editor**: o resultado do editor agora tem o centro de relatórios e a prévia/exportação do PDF, antes só disponível em Relatórios.
+- Corrigida a mensagem corrompida do bloqueio de módulo na ponte Rust.
+
+### Validado
+- Caso 46 com CNIS sintético: R$ 6.835,73; regra de direito adquirido; tabela de requisitos com carência, grau e tempo especial.
+- 64 testes da ponte + 5 de contribuições; build da interface.
+
+
+## 0.16.1 - 2026-10-27
+
+Correções do teste de menu com advogado idoso.
+
+### Fixed
+- **Assistente**: o resultado agora tem **Novo cálculo** e não fica preso ao último caso.
+- **Navegação**: **Meus cálculos**, **Assistente (passo a passo)**, **Editor avançado**, **Ferramentas** e **Cobertura e validação**, em vez de quatro nomes parecidos. O rótulo do assistente foi encurtado para **Assistente guiado** na 0.16.3.
+- **Cobertura**: a página foi atualizada para as seis espécies (42/41/32/31/46/57); 46/57 com tempo especial/magistério declarados; não diz mais "apenas 42 tem motor".
+- **UI**: tema do assistente, botões 44/32/48, inputs 44, espaçamento de texto e rolagem do menu lateral.
+
+### Tests
+- 509 testes Rust, 120 de interface e 36 de navegador.
+
+
 ## 0.16.0 - 2026-10-27
 
 As seis aposentadorias do RGPS: 46 (especial) e 57 (professor) com regra própria.
@@ -21,6 +65,8 @@ As seis aposentadorias do RGPS: 46 (especial) e 57 (professor) com regra própri
 - 509 testes Rust, 120 de interface e 36 de navegador.
 
 
+
+## 0.15.2 - 2026-10-27
 
 PcD com o CNIS importado, sem exigir a conferência manual dos 331 lançamentos.
 
@@ -196,7 +242,7 @@ Teste de usabilidade completo com o CNIS real do caso PcD, no binário nativo, e
 
 ### Added
 - **Conversao de tempo comum para PcD** (fator 0,93/0,89/0,83 por grau): `disability_start_date` + `fator_conversao_comum` em `Lc142Policy`, aplicado automaticamente a periodos anteriores ao inicio da deficiencia. Testes cobrem conversao, config incompleta e fator fora de faixa.
-- **Merge de PDFs**: comando `merge_pdfs` com seletor de arquivos, funcao `previus_reports::merge_pdfs` que combina N PDFs preservando ordem das paginas. 4 testes unitarios.
+- **Merge de PDFs**: comando `merge_pdfs` com seletor de arquivos, funcao `previdenciar_reports::merge_pdfs` que combina N PDFs preservando ordem das paginas. 4 testes unitarios.
 - **Paginacao n/N no rodape do PDF**: renderizacao em duas passadas (primeira conta paginas, segunda renderiza com total). Rodape agora mostra "Pagina X/Y".
 - **Planejamento (projecao de DER)**: comando Tauri `project_rgps` expoe `rgps_core::projecao::projetar` — simula DER futura com contribuicoes continuas ate a primeira regra elegivel.
 - **Analise da Situacao Atual**: novo tipo de relatorio PDF (`pdf_analysis`) com requisitos apurados, cenario financeiro (A PAGAR vs A RECEBER) e ROI (projecao 371 meses, 13o, IRRF simplificado, payback).
@@ -377,7 +423,7 @@ Primeira árvore de código pública de previdenciar.io, com identidade textual 
 - Cópia pública por lista permitida, sem documentos pessoais, evidências privadas, ferramentas de investigação ou binários proprietários.
 - Licença MIT, notices das fontes/componentes, documentação, CI, release Windows e site estático.
 - Editor completo de contribuições importadas registrado como prioridade futura, não anunciado como pronto.
-- Logo/identidade final aguardam pacote aprovado do OpenDesign.
+- Logo e identidade visual final permanecem em definição.
 
 Consulte docs/LIMITATIONS.md. Esta versão não é certificada juridicamente nem equivalente a outro produto.
 
