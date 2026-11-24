@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { PcdSetup } from './PcdSetup';
 import { PrepareFromCnis } from './PrepareFromCnis';
 import { SourceLinksEditor } from './SourceLinksEditor';
@@ -25,6 +25,8 @@ import {
 import { localRmi, type FabricaSummary } from '../fabrica';
 import { api, errorMessage } from '../api';
 import { Badge, Button, Field, Icon, Notice, Panel, Select } from './ui';
+import { BusyButton } from './lucian/BusyButton';
+import { Odometer } from './lucian/Odometer';
 import { FabricaCheck } from './FabricaCheck';
 import { ReportCenter } from './ReportCenter';
 import { LinkKindSelect } from './LinkKindSelect';
@@ -90,6 +92,36 @@ export function CaseWorkbench({
   useEffect(() => () => { generation.current += 1; }, []);
 
   const [step, setStep] = useState(initialStep);
+  // Lucian UX/UI Prompt #416 (MIT, https://lucianlabs.dev/uxui-prompt/#416): borda da frente anda mais rápido que a de trás.
+  const tabBar = useRef<HTMLDivElement>(null);
+  const tabThumb = useRef<HTMLSpanElement>(null);
+  const lastTab = useRef(-1);
+  const activeTabIndex = Math.max(0, TABS.findIndex(t => t.steps.includes(step)));
+  useLayoutEffect(() => {
+    const bar = tabBar.current, th = tabThumb.current;
+    if (!bar || !th) return;
+    const place = () => {
+      const el = bar.querySelectorAll<HTMLElement>('[data-tab]')[activeTabIndex];
+      if (!el) return;
+      const d = lastTab.current < 0 ? 0 : activeTabIndex > lastTab.current ? 1 : activeTabIndex < lastTab.current ? -1 : 0;
+      th.style.setProperty('--tl', d > 0 ? '.62s' : '.38s');
+      th.style.setProperty('--tr', d > 0 ? '.38s' : '.62s');
+      th.style.setProperty('--l', el.offsetLeft + 'px');
+      th.style.setProperty('--r', bar.clientWidth - el.offsetLeft - el.offsetWidth + 'px');
+      th.style.setProperty('--t', el.offsetTop + 'px');
+      th.style.setProperty('--h', el.offsetHeight + 'px');
+    };
+    if (lastTab.current < 0) {
+      th.style.transition = 'none';
+      place();
+      void th.offsetWidth;
+      th.style.transition = '';
+    } else place();
+    lastTab.current = activeTabIndex;
+    const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => { th.style.transition = 'none'; place(); void th.offsetWidth; th.style.transition = ''; });
+    ro?.observe(bar);
+    return () => ro?.disconnect();
+  }, [activeTabIndex]);
   useEffect(() => {
     setStep(initialStep);
   }, [initialStep]);
@@ -365,11 +397,11 @@ export function CaseWorkbench({
           </div>
           <div className="previus-kpi">
             <span>Tempo apurado</span>
-            <strong>{kpis.tempoLabel}</strong>
+            <strong><Odometer value={kpis.tempoLabel} /></strong>
           </div>
           <div className="previus-kpi">
             <span>Carência</span>
-            <strong>{kpis.carenciaLabel}</strong>
+            <strong><Odometer value={kpis.carenciaLabel} /></strong>
           </div>
           <div className="previus-kpi">
             <span>Melhor regra</span>
@@ -377,11 +409,11 @@ export function CaseWorkbench({
           </div>
           <div className="previus-kpi previus-kpi--accent">
             <span>RMI motor local</span>
-            <strong>{kpis.localRmiLabel}</strong>
+            <strong><Odometer value={kpis.localRmiLabel} /></strong>
           </div>
           <div className="previus-kpi previus-kpi--gold">
             <span>RMI Fábrica TRF3</span>
-            <strong>{kpis.fabricaRmiLabel}</strong>
+            <strong><Odometer value={kpis.fabricaRmiLabel} /></strong>
           </div>
           <div className="previus-kpi" style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
             {imported ? (
@@ -395,17 +427,17 @@ export function CaseWorkbench({
                 {fastTrackBusy ? 'Calculando...' : 'Calcular do CNIS'}
               </Button>
             ) : (
-              <Button
-                primary={step !== 7}
-                disabled={calculationBusy}
+              <BusyButton
+                busy={calculationBusy}
+                success={hasFinancialResult(draft)}
                 onClick={() => {
                   setStep(7);
                   void calculate();
                 }}
               >
                 <Icon name="calc" size={15} />
-                {calculationBusy ? 'Calculando...' : 'Recalcular'}
-              </Button>
+                Recalcular
+              </BusyButton>
             )}
             <Button onClick={jumpToFabrica}>
               <Icon name="spark" size={15} />
@@ -482,11 +514,12 @@ export function CaseWorkbench({
       )}
 
       {!embedded && (
-        <div className="wizard-bar wizard-tabs" role="navigation" aria-label="Abas da mesa do cálculo">
+        <div ref={tabBar} className="wizard-bar wizard-tabs" role="navigation" aria-label="Abas da mesa do cálculo">
+          <span ref={tabThumb} className="u416-th" aria-hidden="true" />
           {TABS.map(tab => {
             const activeTab = tab.steps.includes(step);
             return (
-              <div key={tab.label} className={'wizard-tab ' + (activeTab ? 'active' : '')}>
+              <div key={tab.label} data-tab className={'wizard-tab ' + (activeTab ? 'active' : '')}>
                 <button
                   type="button"
                   className="wizard-tab-head"

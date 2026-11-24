@@ -131,8 +131,8 @@ describe('WebAuthGate no retorno do provedor', () => {
     render(<WebAuthGate />);
     await act(async () => { await Promise.resolve(); });
 
-    const userInput = await screen.findByPlaceholderText(/usuario ou email/i);
-    const passInput = await screen.findByPlaceholderText(/Sua senha do Atrium/i);
+    const userInput = await screen.findByLabelText('Usuário ou e-mail do Atrium');
+    const passInput = await screen.findByLabelText('Senha do Atrium');
     fireEvent.change(userInput, { target: { value: 'advogado@atrium.adv.br' } });
     fireEvent.change(passInput, { target: { value: 'SenhaForte123!' } });
 

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { api, errorMessage, type FabricaStatus } from './api';
 import { repararJson } from './web-api';
 import { checkForUpdates } from './updater';
@@ -30,8 +30,13 @@ import { CoverageMap } from './components/CoverageMap';
 import { AiCopilot } from './components/AiCopilot';
 import { KnowledgePage } from './components/KnowledgePage';
 import { MinutaPage, type CaseDocument } from './components/MinutaPage';
-import { MotionProvider, PageTransition, NavIndicator, MotionLoader, useMotionPolicy } from './components/amicro/motion';
+import { MotionProvider, PageTransition, NavIndicator, useMotionPolicy } from './components/amicro/motion';
 import { DashboardOverview } from './components/amicro/DashboardOverview';
+import { AppSkeleton } from './components/lucian/AppSkeleton';
+import { LucianToast } from './components/lucian/LucianToast';
+import { LucianEmpty } from './components/lucian/LucianEmpty';
+import { revealTheme, SunMoon } from './components/lucian/ThemeReveal';
+import { flushSync } from 'react-dom';
 
 type Page =
   | 'home'
@@ -205,6 +210,22 @@ function WorkspaceApp() {
   const [manualSettings, setManualSettings] = useState<Workspace['settings'] | null>(null);
   const [mobileMenu, setMobileMenu] = useState(false);
   const [routeMotion, setRouteMotion] = useState('none');
+  // Lucian UX/UI Prompt #417 (MIT, https://lucianlabs.dev/uxui-prompt/#417): destaque do menu salta com mola até o item ativo.
+  const sideNav = useRef<HTMLElement>(null);
+  const sidePill = useRef<HTMLSpanElement>(null);
+  const sideFirst = useRef(true);
+  useLayoutEffect(() => {
+    const nav = sideNav.current, pill = sidePill.current;
+    if (!nav || !pill) return;
+    const btn = nav.querySelector<HTMLElement>('.side-link.active');
+    pill.style.opacity = btn ? '1' : '0';
+    if (!btn) return;
+    const top = btn.getBoundingClientRect().top - nav.getBoundingClientRect().top + nav.scrollTop;
+    if (sideFirst.current) pill.style.transition = 'none';
+    pill.style.setProperty('--py', top + 'px');
+    pill.style.height = btn.offsetHeight + 'px';
+    if (sideFirst.current) { void pill.offsetWidth; pill.style.transition = ''; sideFirst.current = false; }
+  });
   const [mobileLayout, setMobileLayout] = useState(
     () => typeof window.matchMedia === 'function' && window.matchMedia('(max-width:1023px)').matches,
   );
@@ -782,13 +803,7 @@ function WorkspaceApp() {
 
   if (!ready) {
     return (
-      <div className="loading-screen" role="status" aria-live="polite" data-od-id="initial-loading">
-        <div className="brand-name">previdenciar.io</div>
-        <div className="busy-inline">
-          <MotionLoader />
-          Abrindo a base local protegida...
-        </div>
-      </div>
+      <AppSkeleton message="Abrindo a base local protegida..." />
     );
   }
 
@@ -815,7 +830,8 @@ function WorkspaceApp() {
         <div className="brand-link">
           <span className="brand-name">previdenciar.io</span>
         </div>
-        <nav className="side-nav" aria-label="Navegação principal">
+        <nav ref={sideNav} className="side-nav u417-nav-host" aria-label="Navegação principal">
+          <span ref={sidePill} className="u417-pl" aria-hidden="true" />
           {NAV_GROUPS.map(group => (
             <div className="side-group" key={group}>
               {group !== 'Início' && <div className="side-group-label">{group}</div>}
@@ -830,7 +846,6 @@ function WorkspaceApp() {
                     data-od-id={'nav-' + n.id}
                     onClick={() => go(n.id)}
                   >
-                    {page === n.id && <NavIndicator id="desktop-active-page" />}
                     <Icon name={n.icon} />
                     <span className="side-label">{n.label}</span>
                   </button>
@@ -898,15 +913,15 @@ function WorkspaceApp() {
             aria-label="Alternar tema"
             aria-pressed={w.settings.light_theme}
             title={w.settings.light_theme ? 'Ativar tema escuro' : 'Ativar tema claro'}
-            onClick={() => {
-              document.documentElement.dataset.themeSwitching = 'true';
-              setW({ ...w, settings: { ...w.settings, light_theme: !w.settings.light_theme } });
-              setTimeout(() => {
-                delete document.documentElement.dataset.themeSwitching;
-              }, 260);
+            onClick={e => {
+              const light = !w.settings.light_theme;
+              revealTheme(e.currentTarget, () => {
+                document.documentElement.dataset.theme = light ? 'light' : 'dark';
+                flushSync(() => setW({ ...w, settings: { ...w.settings, light_theme: light } }));
+              });
             }}
           >
-            <Icon name="sun" size={18} />
+            <SunMoon dark={!w.settings.light_theme} />
           </Button>
         </div>
       </header>
@@ -1040,15 +1055,12 @@ function WorkspaceApp() {
                         </div>
                       ))
                   ) : (
-                    <Empty
+                    <LucianEmpty
                       title="Seu escritório começa aqui"
+                      doneTitle="Abrindo o novo cálculo"
                       description="Cadastre um cliente ou abra o assistente para organizar um cálculo. A base real não vem preenchida com casos fictícios."
-                      action={
-                        <Button primary onClick={() => start()}>
-                          Novo cálculo
-                          <Icon name="arrow" size={16} />
-                        </Button>
-                      }
+                      actionLabel="Novo cálculo"
+                      onAction={() => start()}
                     />
                   )}
                 </Panel>
@@ -2247,15 +2259,7 @@ function WorkspaceApp() {
 }
 
 function ToastMessage({ toast, onClose }: { toast: { message: string; error: boolean }; onClose: () => void }) {
-  return (
-    <div className={'toast ' + (toast.error ? 'error' : 'toast-inline')} role={toast.error ? 'alert' : 'status'}>
-      <Icon name={toast.error ? 'shield' : 'check'} size={18} />
-      <span>{toast.message}</span>
-      <button aria-label="Fechar mensagem" className="iconbtn" onClick={onClose}>
-        <Icon name="close" size={15} />
-      </button>
-    </div>
-  );
+  return <LucianToast key={toast.message} message={toast.message} error={toast.error} onClose={onClose} />;
 }
 
 function Search({

@@ -5,6 +5,7 @@ import './styles/tokens.css';
 import './styles/app.css';
 import './styles/mesa.css';
 import './styles/amicro.css';
+import './styles/lucian.css';
 import './styles/ai.css';
 import './styles/knowledge.css';
 import './styles/minuta.css';

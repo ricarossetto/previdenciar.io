@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import App from './App';
 import { Button } from './components/ui';
+import { AppSkeleton } from './components/lucian/AppSkeleton';
+import { LucianSignIn } from './components/lucian/LucianSignIn';
 import { setSession, validToken } from './web-auth-store';
 import { describeFailure, parseJsonSafe } from './http-errors';
 import { consumeAttempt, readCallback, resolveCallback } from './oauth-callback';
@@ -102,67 +104,23 @@ function LoginPage({
 }: {
   onLogin: (provider?: 'Google') => void;
   onSignup: () => void;
-  onAtriumLogin: (username: string, password: string, code: string) => Promise<void>;
+  onAtriumLogin: (username: string, password: string, code: string) => Promise<boolean>;
   error: string | null;
 }) {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [code, setCode] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-
-  return <main className="loading-screen" style={{ padding: 24, paddingTop: 32, textAlign: 'left', maxWidth: 520, margin: '0 auto', height: 'auto', minHeight: '100dvh', placeContent: 'start center', overflowY: 'auto' }}>
-    <div className="brand-name">Atrium · Previdenciário</div>
-    <h1 style={{ marginTop: 20 }}>Entrar no escritório</h1>
-    <p className="form-note">Use o mesmo usuário/e-mail e senha da sua assinatura do Atrium.</p>
-    <form
-      onSubmit={(event) => {
-        event.preventDefault();
-        if (!username.trim() || !password) return;
-        setSubmitting(true);
-        void onAtriumLogin(username.trim(), password, code.trim()).finally(() => setSubmitting(false));
-      }}
-      style={{ display: 'grid', gap: 12, width: '100%', marginTop: 12, marginBottom: 16 }}
-    >
-      <label style={{ display: 'grid', gap: 4 }}>
-        <span className="form-note">Usuário ou e-mail do Atrium</span>
-        <input
-          type="text"
-          autoComplete="username"
-          value={username}
-          onChange={(event) => setUsername(event.target.value)}
-          placeholder="usuario ou email@escritorio.adv.br"
-        />
-      </label>
-      <label style={{ display: 'grid', gap: 4 }}>
-        <span className="form-note">Senha do Atrium</span>
-        <input
-          type="password"
-          autoComplete="current-password"
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-          placeholder="Sua senha do Atrium"
-        />
-      </label>
-      <label style={{ display: 'grid', gap: 4 }}>
-        <span className="form-note">Código 2FA do Atrium (se o 2FA estiver ativo na sua conta)</span>
-        <input
-          type="text"
-          inputMode="numeric"
-          autoComplete="one-time-code"
-          value={code}
-          onChange={(event) => setCode(event.target.value)}
-          placeholder="Opcional (6 dígitos)"
-        />
-      </label>
-      <Button primary type="submit" disabled={submitting || !username.trim() || !password}>
-        {submitting ? 'Entrando com Atrium...' : 'Entrar com conta Atrium'}
-      </Button>
-    </form>
-    {GOOGLE_ENABLED && <Button onClick={() => onLogin('Google')}>Continuar com Google</Button>}
-    <Button onClick={() => onLogin()}>Entrar com e-mail e senha</Button>
-    <Button onClick={onSignup}>Criar conta</Button>
-    {error && <p role="alert" className="notice error">{error}</p>}
-    <p className="form-note">Quem assina o Atrium (planos Pro e Pro IA) já tem acesso integrado com as mesmas credenciais.</p>
+  return <main className="login-shell">
+    <section className="login-card" aria-labelledby="login-title">
+      <div className="brand-name">previdenciar.io</div>
+      <h1 id="login-title">Entrar no escritório</h1>
+      <p className="form-note">Use o mesmo usuário e senha da sua assinatura do Atrium (planos Pro e Pro IA).</p>
+      <LucianSignIn onSubmit={onAtriumLogin} error={error} />
+      {error && <p role="alert" className="notice error">{error}</p>}
+      <div className="login-alt">
+        <span>ou</span>
+        {GOOGLE_ENABLED && <Button onClick={() => onLogin('Google')}>Continuar com Google</Button>}
+        <Button onClick={() => onLogin()}>Entrar com e-mail e senha</Button>
+        <Button onClick={onSignup}>Criar conta</Button>
+      </div>
+    </section>
   </main>;
 }
 
@@ -235,7 +193,7 @@ export function WebAuthGate() {
     });
   }, []);
 
-  if (state === 'checking') return <div className="loading-screen" role="status">Verificando sessão...</div>;
+  if (state === 'checking') return <AppSkeleton message="Verificando sessão..." />;
   if (state === 'login') return (
     <LoginPage
       error={error}
@@ -247,8 +205,10 @@ export function WebAuthGate() {
           await loginWithAtriumCredentials(username, password, code);
           const next = await sessionState();
           setState(next);
+          return true;
         } catch (reason) {
           setError(reason instanceof Error ? reason.message : 'Falha ao entrar com o Atrium.');
+          return false;
         }
       }}
     />
