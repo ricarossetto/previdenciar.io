@@ -26,6 +26,7 @@ import { CaseWorkbench } from './components/CaseWorkbench';
 import { RobotAssistant, RobotFace, assistantResume } from './components/RobotAssistant';
 import { ReportCenter } from './components/ReportCenter';
 import { AtriumImportModal, AtriumSendModal } from './components/AtriumSync';
+import { trackPage } from './web-telemetry';
 import type { CaseDocument } from './components/MinutaPage';
 import { MotionProvider, PageTransition, NavIndicator, useMotionPolicy } from './components/amicro/motion';
 import { DashboardOverview } from './components/amicro/DashboardOverview';
@@ -195,6 +196,9 @@ function WorkspaceApp() {
   const [ready, setReady] = useState(false);
   const [storageReady, setStorageReady] = useState(false);
   const [page, setPage] = useState<Page>('home');
+  useEffect(() => {
+    if (WEB_MODE) trackPage(page);
+  }, [page]);
   const [toast, setToast] = useState<{ message: string; error: boolean } | null>(null);
   const [formError, setFormError] = useState<{ message: string; field: string | null } | null>(null);
   const [saving, setSaving] = useState(false);

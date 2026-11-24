@@ -44,6 +44,26 @@ async function load() {
       tr.append(td1, td2, td3);
       body.appendChild(tr);
     }
+    const metrics = await call('/api/admin/metrics');
+    const mb = document.getElementById('metrics');
+    mb.textContent = '';
+    for (const m of metrics.views) {
+      const tr = document.createElement('tr');
+      for (const v of [m.day.split('-').reverse().join('/'), m.page, String(m.views)]) {
+        const td = document.createElement('td');
+        td.textContent = v;
+        tr.appendChild(td);
+      }
+      mb.appendChild(tr);
+    }
+    if (!metrics.views.length) {
+      const tr = document.createElement('tr');
+      const td = document.createElement('td');
+      td.colSpan = 3;
+      td.textContent = 'Nenhuma abertura registrada nos últimos 30 dias.';
+      tr.appendChild(td);
+      mb.appendChild(tr);
+    }
     const audit = await call('/api/admin/audit');
     const ab = document.getElementById('audit');
     ab.textContent = '';

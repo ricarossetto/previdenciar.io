@@ -6,6 +6,7 @@ import { LucianSignIn } from './components/lucian/LucianSignIn';
 import { setSession, validToken } from './web-auth-store';
 import { describeFailure, parseJsonSafe } from './http-errors';
 import { consumeAttempt, readCallback, resolveCallback } from './oauth-callback';
+import { trackPage } from './web-telemetry';
 
 const ATTEMPT_KEY = 'previdenciar.web.oauthAttempt';
 const CLIENT_ID = import.meta.env.VITE_COGNITO_CLIENT_ID ?? '4vla5ttd8j59jqj5oviviaugsj';
@@ -120,6 +121,13 @@ function LoginPage({
         <Button onClick={() => onLogin()}>Entrar com e-mail e senha</Button>
         <Button onClick={onSignup}>Criar conta</Button>
       </div>
+      <p className="login-links">
+        <a href="https://atrium.adv.br/app" target="_blank" rel="noreferrer">Esqueci a senha do Atrium</a>
+        <span aria-hidden="true"> · </span>
+        <a href="/termos.html" target="_blank" rel="noreferrer">Termos de Uso</a>
+        <span aria-hidden="true"> · </span>
+        <a href="/privacidade.html" target="_blank" rel="noreferrer">Política de Privacidade</a>
+      </p>
     </section>
   </main>;
 }
@@ -194,6 +202,7 @@ export function WebAuthGate() {
   }, []);
 
   if (state === 'checking') return <AppSkeleton message="Verificando sessão..." />;
+  if (state === 'login') trackPage('entrar');
   if (state === 'login') return (
     <LoginPage
       error={error}

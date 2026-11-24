@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /$
+Allow: /termos.html
+Allow: /privacidade.html
+Allow: /og-image.png
+Disallow: /api/
+Disallow: /admin.html
+Disallow: /pdfs.html
+Disallow: /auth/
+
+Sitemap: https://previdenciario.atrium.adv.br/sitemap.xml

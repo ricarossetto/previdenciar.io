@@ -101,6 +101,9 @@ pub fn router(state: AppState) -> Router {
         .route("/api/admin/users", get(admin_users))
         .route("/api/admin/entitlement", post(admin_entitlement))
         .route("/api/admin/audit", get(admin_audit))
+        .route("/api/admin/metrics", get(admin_metrics))
+        .route("/api/metrics/pageview", post(record_pageview))
+        .route("/api/client-errors", post(record_client_error))
         .route("/api/reports/save", post(save_report))
         .route("/api/reports/saved", get(saved_reports))
         .route("/api/reports/saved/{id}/file", get(saved_report_file))
@@ -139,14 +142,48 @@ pub fn router(state: AppState) -> Router {
         .layer(DefaultBodyLimit::max(MAX_BODY_BYTES));
 
     if let Some(dist) = &state.config.web_dist {
-        let index = std::path::Path::new(dist).join("index.html");
+        let root = std::path::PathBuf::from(dist);
+        let missing = {
+            let root = root.clone();
+            move |uri: axum::http::Uri| spa_or_not_found(root.clone(), uri)
+        };
         router = router.fallback_service(
             tower_http::services::ServeDir::new(dist)
                 .append_index_html_on_directories(true)
-                .fallback(tower_http::services::ServeFile::new(index)),
+                .fallback(axum::handler::HandlerWithoutStateExt::into_service(missing)),
         );
     }
     router
+}
+
+/// Caminhos que o app de página única atende. O resto que não existe no disco é 404 de verdade.
+fn is_app_route(path: &str) -> bool {
+    matches!(path, "/" | "/index.html" | "/auth/callback" | "/auth/callback/")
+}
+
+async fn spa_or_not_found(root: std::path::PathBuf, uri: axum::http::Uri) -> Response {
+    let path = uri.path();
+    if path.starts_with("/api/") {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "error": "Rota não encontrada." })),
+        )
+            .into_response();
+    }
+    let (status, file) = if is_app_route(path) {
+        (StatusCode::OK, "index.html")
+    } else {
+        (StatusCode::NOT_FOUND, "404.html")
+    };
+    match tokio::fs::read(root.join(file)).await {
+        Ok(bytes) => (
+            status,
+            [(header::CONTENT_TYPE, "text/html; charset=utf-8")],
+            bytes,
+        )
+            .into_response(),
+        Err(_) => (status, "Página não encontrada.").into_response(),
+    }
 }
 
 #[derive(Deserialize)]
@@ -684,6 +721,147 @@ async fn admin_audit(
         })
         .collect::<Vec<_>>();
     Ok(Json(json!({ "events": events })))
+}
+
+// ---------------------------------------------------------------------------
+// Contagem anônima de páginas e registro de erros do navegador.
+// Nenhuma das duas rotas guarda IP, usuário ou identificador do visitante.
+// ---------------------------------------------------------------------------
+
+const PAGEVIEW_WINDOW: RateWindow = RateWindow::new(
+    600,
+    Duration::from_secs(60 * 60),
+    "Limite de registros de navegação atingido.",
+);
+const CLIENT_ERROR_WINDOW: RateWindow = RateWindow::new(
+    30,
+    Duration::from_secs(60 * 60),
+    "Limite de relatos de erro atingido.",
+);
+
+/// Nome de página aceito: letras minúsculas, números e hífen. Nada de caminho, consulta ou dado do usuário.
+fn valid_page_name(page: &str) -> bool {
+    !page.is_empty()
+        && page.len() <= 40
+        && page
+            .chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
+}
+
+#[derive(Deserialize)]
+struct PageviewRequest {
+    page: String,
+}
+
+async fn record_pageview(
+    State(state): State<AppState>,
+    ip: ClientIp,
+    Json(body): Json<PageviewRequest>,
+) -> Result<StatusCode, ApiError> {
+    enforce(&state, vec![(format!("pageview:ip:{}", ip.0), PAGEVIEW_WINDOW)])?;
+    let page = body.page.trim();
+    if !valid_page_name(page) {
+        return Err(ApiError::bad_request("Página inválida.".into()));
+    }
+    sqlx::query(
+        "INSERT INTO page_views (day, page, views) VALUES (CURRENT_DATE, $1, 1)
+         ON CONFLICT (day, page) DO UPDATE SET views = page_views.views + 1",
+    )
+    .bind(page)
+    .execute(&state.db)
+    .await
+    .map_err(ApiError::internal)?;
+    // Retenção declarada na política de privacidade: 1 ano.
+    let _ = sqlx::query("DELETE FROM page_views WHERE day < CURRENT_DATE - 365")
+        .execute(&state.db)
+        .await;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// Remove do texto o que pode identificar alguém: e-mails e sequências longas de dígitos (CPF, NIT, telefone).
+fn scrub_client_text(value: &str, max: usize) -> String {
+    let mut out = String::new();
+    let mut digits = String::new();
+    let flush = |digits: &mut String, out: &mut String| {
+        if digits.len() >= 5 {
+            out.push_str("[número]");
+        } else {
+            out.push_str(digits);
+        }
+        digits.clear();
+    };
+    for word in value.split_inclusive(char::is_whitespace) {
+        if word.contains('@') {
+            flush(&mut digits, &mut out);
+            out.push_str("[e-mail]");
+            if word.ends_with(char::is_whitespace) {
+                out.push(' ');
+            }
+            continue;
+        }
+        for c in word.chars() {
+            if c.is_ascii_digit() {
+                digits.push(c);
+            } else if !digits.is_empty() && matches!(c, '.' | '-' | '/') {
+                digits.push(c);
+            } else {
+                flush(&mut digits, &mut out);
+                if !c.is_control() {
+                    out.push(c);
+                }
+            }
+        }
+    }
+    flush(&mut digits, &mut out);
+    out.chars().take(max).collect()
+}
+
+#[derive(Deserialize)]
+struct ClientErrorRequest {
+    message: String,
+    #[serde(default)]
+    page: String,
+    #[serde(default)]
+    kind: String,
+}
+
+async fn record_client_error(
+    State(state): State<AppState>,
+    ip: ClientIp,
+    Json(body): Json<ClientErrorRequest>,
+) -> Result<StatusCode, ApiError> {
+    enforce(&state, vec![(format!("client-error:ip:{}", ip.0), CLIENT_ERROR_WINDOW)])?;
+    let page = if valid_page_name(body.page.trim()) { body.page.trim() } else { "desconhecida" };
+    let kind = if valid_page_name(body.kind.trim()) { body.kind.trim() } else { "erro" };
+    let message = scrub_client_text(&body.message, 300);
+    tracing::warn!(target: "client_error", page, kind, message = %message, "erro no navegador");
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn admin_metrics(
+    State(state): State<AppState>,
+    ip: ClientIp,
+    headers: HeaderMap,
+) -> Result<Json<Value>, ApiError> {
+    let _admin = require_admin(&headers, &ip, &state).await?;
+    let rows = sqlx::query(
+        "SELECT day, page, views FROM page_views
+         WHERE day >= CURRENT_DATE - 30 ORDER BY day DESC, views DESC LIMIT 500",
+    )
+    .fetch_all(&state.db)
+    .await
+    .map_err(ApiError::internal)?;
+    let views = rows
+        .into_iter()
+        .map(|row| {
+            json!({
+                "day": row.get::<chrono::NaiveDate, _>("day"),
+                "page": row.get::<String, _>("page"),
+                "views": row.get::<i64, _>("views"),
+            })
+        })
+        .collect::<Vec<_>>();
+    Ok(Json(json!({ "views": views })))
 }
 
 fn constrained(value: &str, numeric: bool) -> String {
@@ -2727,6 +2905,68 @@ mod tests {
             .await;
         });
         format!("http://{addr}")
+    }
+
+    #[tokio::test]
+    async fn endereco_inexistente_da_404_e_http_vai_para_https() {
+        let dist = tempfile::tempdir().expect("diretorio temporario");
+        std::fs::write(dist.path().join("index.html"), "<p>app</p>").expect("index");
+        std::fs::write(dist.path().join("404.html"), "<p>nao encontrada</p>").expect("404");
+        std::fs::write(dist.path().join("robots.txt"), "User-agent: *").expect("robots");
+        let mut config = config::Config::for_tests();
+        config.web_dist = Some(dist.path().to_string_lossy().into_owned());
+        let base = spawn_server(test_state(config)).await;
+        let client = reqwest::Client::builder()
+            .redirect(reqwest::redirect::Policy::none())
+            .build()
+            .expect("cliente http");
+
+        for (path, status, trecho) in [
+            ("/", 200, "app"),
+            ("/auth/callback", 200, "app"),
+            ("/robots.txt", 200, "User-agent"),
+            ("/nao-existe", 404, "nao encontrada"),
+            ("/sitemap-velho.xml", 404, "nao encontrada"),
+        ] {
+            let response = client.get(format!("{base}{path}")).send().await.expect("resposta");
+            assert_eq!(response.status(), status, "{path}");
+            assert!(response.text().await.expect("corpo").contains(trecho), "{path}");
+        }
+        let response = client.get(format!("{base}/api/nao-existe")).send().await.expect("resposta");
+        assert_eq!(response.status(), 404);
+        let body: Value = response.json().await.expect("json");
+        assert_eq!(error_message(&body), "Rota não encontrada.");
+
+        let response = client
+            .get(format!("{base}/termos.html?x=1"))
+            .header("cf-visitor", "{\"scheme\":\"http\"}")
+            .header("host", "previdenciario.example.test")
+            .send()
+            .await
+            .expect("resposta");
+        assert_eq!(response.status(), 301);
+        assert_header(response.headers(), "location", "https://previdenciario.example.test/termos.html?x=1");
+        let response = client
+            .get(format!("{base}/"))
+            .header("cf-visitor", "{\"scheme\":\"https\"}")
+            .send()
+            .await
+            .expect("resposta");
+        assert_eq!(response.status(), 200);
+        assert_header(
+            response.headers(),
+            "permissions-policy",
+            "camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()",
+        );
+        assert_header(response.headers(), "cross-origin-opener-policy", "same-origin");
+    }
+
+    #[test]
+    fn erro_do_navegador_sai_sem_email_nem_cpf() {
+        let limpo = super::scrub_client_text("Falha ao salvar 123.456.789-09 de joao@exemplo.com na linha 42", 300);
+        assert_eq!(limpo, "Falha ao salvar [número] de [e-mail] na linha 42");
+        assert!(super::valid_page_name("clients"));
+        assert!(!super::valid_page_name("/clientes?cpf=1"));
     }
 
     fn error_message(body: &Value) -> String {

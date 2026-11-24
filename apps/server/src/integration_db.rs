@@ -1420,3 +1420,68 @@ async fn troca_com_atrium_usa_a_identidade_ligada_e_so_campos_do_cadastro() {
 
     banco.descartar().await;
 }
+
+#[tokio::test]
+async fn contagem_de_paginas_guarda_so_dia_pagina_e_total() {
+    let banco = banco_do_teste!();
+    let servidor = subir_servidor(estado(Config::for_tests(), banco.pool.clone())).await;
+    let cliente = reqwest::Client::new();
+    for pagina in ["clients", "clients", "home"] {
+        let resposta = cliente
+            .post(format!("{servidor}/api/metrics/pageview"))
+            .json(&json!({ "page": pagina }))
+            .send()
+            .await
+            .expect("resposta");
+        assert_eq!(resposta.status(), 204);
+    }
+    let resposta = cliente
+        .post(format!("{servidor}/api/metrics/pageview"))
+        .json(&json!({ "page": "/clientes?cpf=00000000191" }))
+        .send()
+        .await
+        .expect("resposta");
+    assert_eq!(resposta.status(), 400, "caminho com dado pessoal é recusado");
+
+    let colunas: Vec<String> = sqlx::query_scalar(
+        "SELECT column_name::text FROM information_schema.columns WHERE table_name = 'page_views' AND table_schema = current_schema() ORDER BY column_name",
+    )
+    .fetch_all(&banco.pool)
+    .await
+    .expect("colunas");
+    assert_eq!(colunas, vec!["day", "page", "views"]);
+
+    let resposta = cliente
+        .get(format!("{servidor}/api/admin/metrics"))
+        .header("x-dev-user", "admin@teste.local")
+        .send()
+        .await
+        .expect("resposta");
+    assert_eq!(resposta.status(), 200);
+    let corpo: Value = resposta.json().await.expect("json");
+    let clients = corpo["views"]
+        .as_array()
+        .expect("lista")
+        .iter()
+        .find(|v| v["page"] == json!("clients"))
+        .expect("página clients");
+    assert_eq!(clients["views"], json!(2));
+
+    let resposta = cliente
+        .get(format!("{servidor}/api/admin/metrics"))
+        .header("x-dev-user", "comum@teste.local")
+        .send()
+        .await
+        .expect("resposta");
+    assert_eq!(resposta.status(), 403, "só administrador vê a contagem");
+
+    let resposta = cliente
+        .post(format!("{servidor}/api/client-errors"))
+        .json(&json!({ "message": "TypeError em 123.456.789-09", "page": "clients", "kind": "erro" }))
+        .send()
+        .await
+        .expect("resposta");
+    assert_eq!(resposta.status(), 204);
+
+    banco.descartar().await;
+}

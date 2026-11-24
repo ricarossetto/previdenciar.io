@@ -146,6 +146,54 @@ fn security_headers(router: Router) -> Router {
             header::X_FRAME_OPTIONS,
             HeaderValue::from_static("DENY"),
         ))
+        .layer(SetResponseHeaderLayer::overriding(
+            HeaderName::from_static("permissions-policy"),
+            HeaderValue::from_static(
+                "camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()",
+            ),
+        ))
+        .layer(SetResponseHeaderLayer::overriding(
+            HeaderName::from_static("cross-origin-opener-policy"),
+            HeaderValue::from_static("same-origin"),
+        ))
+        .layer(middleware::from_fn(redirect_plain_http))
+}
+
+/// O HTTPS termina no Cloudflare, que avisa o esquema original em `CF-Visitor`.
+/// Visita feita em `http://` recebe 301 para o mesmo endereço em `https://`.
+/// Verificações internas (sem `CF-Visitor`) e chamadas à API não são redirecionadas.
+async fn redirect_plain_http(request: Request, next: Next) -> Response {
+    let plain_http = request
+        .headers()
+        .get("cf-visitor")
+        .and_then(|value| value.to_str().ok())
+        .is_some_and(|value| value.replace(' ', "").contains("\"scheme\":\"http\""));
+    if plain_http && !request.uri().path().starts_with("/api/") {
+        if let Some(host) = request
+            .headers()
+            .get(header::HOST)
+            .and_then(|value| value.to_str().ok())
+            .filter(|host| {
+                !host.is_empty()
+                    && host
+                        .chars()
+                        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | ':'))
+            })
+        {
+            let path = request
+                .uri()
+                .path_and_query()
+                .map(|value| value.as_str())
+                .unwrap_or("/");
+            if let Ok(location) = HeaderValue::from_str(&format!("https://{host}{path}")) {
+                let mut response = Response::new(axum::body::Body::empty());
+                *response.status_mut() = axum::http::StatusCode::MOVED_PERMANENTLY;
+                response.headers_mut().insert(header::LOCATION, location);
+                return response;
+            }
+        }
+    }
+    next.run(request).await
 }
 
 async fn cache_control_no_store_in_api(request: Request, next: Next) -> Response {
